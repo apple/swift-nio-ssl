@@ -53,7 +53,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
 
     public func handlerAdded(ctx: ChannelHandlerContext) {
         // If this channel is already active, immediately begin handshaking.
-        if ctx.channel!.isActive {
+        if ctx.channel.isActive {
             doHandshakeStep(ctx: ctx)
         }
     }
@@ -123,7 +123,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             // We didn't deliver data. If this channel has got autoread turned off then we should
             // call read again, because otherwise the user will never see any result from their
             // read call.
-            let autoRead = try! ctx.channel!.getOption(option: ChannelOptions.autoRead)
+            let autoRead = try! ctx.channel.getOption(option: ChannelOptions.autoRead)
             if !autoRead {
                 ctx.read(promise: nil)
             }
@@ -248,7 +248,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
     /// no more available.
     private func doDecodeData(ctx: ChannelHandlerContext) {
         readLoop: while true {
-            let result = connection.readDataFromNetwork(allocator: ctx.channel!.allocator)
+            let result = connection.readDataFromNetwork(allocator: ctx.channel.allocator)
             
             switch result {
             case .complete(let buf):
@@ -276,11 +276,11 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
     /// is intended.
     private func writeDataToNetwork(ctx: ChannelHandlerContext, promise: EventLoopPromise<Void>?) {
         // There may be no data to write, in which case we can just exit early.
-        guard let dataToWrite = connection.getDataForNetwork(allocator: ctx.channel!.allocator) else {
+        guard let dataToWrite = connection.getDataForNetwork(allocator: ctx.channel.allocator) else {
             if let promise = promise {
                 // If we have a promise, we need to enforce ordering so we issue a zero-length write that
                 // the event loop will have to handle.
-                let buffer = ctx.channel!.allocator.buffer(capacity: 0)
+                let buffer = ctx.channel.allocator.buffer(capacity: 0)
                 ctx.writeAndFlush(data: wrapInboundOut(buffer), promise: promise)
             }
             return
@@ -310,7 +310,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
 
         // If there is no remote address, something weird is happening here. We can't
         // validate a certificate without it, so bail.
-        guard let ipAddress = ctx.channel?.remoteAddress else {
+        guard let ipAddress = ctx.channel.remoteAddress else {
             throw NIOOpenSSLError.cannotFindPeerIP
         }
 

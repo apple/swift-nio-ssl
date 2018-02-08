@@ -523,7 +523,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         }
 
         try clientChannel.flush().wait()
-        let writeCount = try readPromise.futureResult.then { _ in
+        let writeCount = try readPromise.futureResult.map { _ in
             // Here we're in the I/O loop, so we know that no further channel action will happen
             // while we dispatch this callback. This is the perfect time to check how many writes
             // happened.
@@ -678,11 +678,11 @@ class OpenSSLIntegrationTest: XCTestCase {
         var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
         originalBuffer.write(string: "Hello")
         let writeFuture = clientChannel.writeAndFlush(data: NIOAny(originalBuffer))
-        let errorsFuture: EventLoopFuture<[NIOOpenSSLError]> = writeFuture.thenIfError { _ in
+        let errorsFuture: EventLoopFuture<[NIOOpenSSLError]> = writeFuture.mapIfError { _ in
             // We're swallowing errors here, on purpose, because we'll definitely
             // hit them.
             return ()
-        }.then { _ in
+        }.map { _ in
             return errorHandler.errors
         }
         let actualErrors = try errorsFuture.wait()
@@ -730,6 +730,11 @@ class OpenSSLIntegrationTest: XCTestCase {
     func testDontLoseClosePromises() throws {
         let serverChannel = EmbeddedChannel()
         let clientChannel = EmbeddedChannel()
+        defer {
+            // We know this will throw.
+            _ = try? serverChannel.finish()
+            _ = try? clientChannel.finish()
+        }
 
         let ctx = try configuredSSLContext()
 
@@ -763,6 +768,11 @@ class OpenSSLIntegrationTest: XCTestCase {
                 XCTFail("Unexpected result: \($0)")
             }
         }
+
+        // Now clean up the client channel. We need to also fire the channel inactive here as there is
+        // no-one left for the client channel to hang up on.
+        _ = clientChannel.close()
+        clientChannel.pipeline.fireChannelInactive()
     }
 
     func testTrustStoreOnDisk() throws {
@@ -837,11 +847,11 @@ class OpenSSLIntegrationTest: XCTestCase {
         var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
         originalBuffer.write(string: "Hello")
         let writeFuture = clientChannel.writeAndFlush(data: NIOAny(originalBuffer))
-        let errorsFuture: EventLoopFuture<[NIOOpenSSLError]> = writeFuture.thenIfError { _ in
+        let errorsFuture: EventLoopFuture<[NIOOpenSSLError]> = writeFuture.mapIfError { _ in
             // We're swallowing errors here, on purpose, because we'll definitely
             // hit them.
             return ()
-            }.then { _ in
+            }.map { _ in
                 return errorHandler.errors
         }
         let actualErrors = try errorsFuture.wait()
@@ -938,6 +948,10 @@ class OpenSSLIntegrationTest: XCTestCase {
     func testZeroLengthWritePromisesFireInOrder() throws {
         let serverChannel = EmbeddedChannel()
         let clientChannel = EmbeddedChannel()
+        defer {
+            _ = try? serverChannel.finish()
+            _ = try? clientChannel.finish()
+        }
 
         let ctx = try configuredSSLContext()
 
@@ -979,5 +993,8 @@ class OpenSSLIntegrationTest: XCTestCase {
         XCTAssertEqual(writeCount, 0)
         writeDelayer.forceFlush()
         XCTAssertEqual(writeCount, 3)
+
+        serverChannel.pipeline.fireChannelInactive()
+        clientChannel.pipeline.fireChannelInactive()
     }
 }
