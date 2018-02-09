@@ -21,7 +21,11 @@ private let ASCII_CAPITAL_A: UInt8 = 65
 private let ASCII_CAPITAL_Z: UInt8 = 90
 private let ASCII_CASE_DISTANCE: UInt8 = 32
 
+#if swift(>=4.1)
+typealias SliceType = Slice
+#else
 typealias SliceType = RandomAccessSlice
+#endif
 
 /// We need these extra methods defining equality.
 private extension SliceType where Base == UnsafeBufferPointer<UInt8> {
