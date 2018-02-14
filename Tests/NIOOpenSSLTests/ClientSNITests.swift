@@ -48,7 +48,7 @@ class ClientSNITests: XCTestCase {
         let sniPromise: EventLoopPromise<SniResult> = group.next().newPromise()
         let sniHandler = SniHandler {
             sniPromise.succeed(result: $0)
-            return group.next().newSucceedFuture(result: ())
+            return group.next().newSucceededFuture(result: ())
         }
         let serverChannel = try serverTLSChannel(context: ctx, preHandlers: [sniHandler], postHandlers: [], group: group)
         defer {

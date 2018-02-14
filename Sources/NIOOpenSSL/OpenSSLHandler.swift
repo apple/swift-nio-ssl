@@ -86,7 +86,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
                 self.closePromise = nil
                 closePromise.fail(error: OpenSSLError.uncleanShutdown)
             }
-            ctx.fireErrorCaught(error: OpenSSLError.uncleanShutdown)
+            ctx.fireErrorCaught(OpenSSLError.uncleanShutdown)
             discardBufferedWrites(reason: OpenSSLError.uncleanShutdown)
         }
 
@@ -108,7 +108,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
         case .closing:
             doShutdownStep(ctx: ctx)
         default:
-            ctx.fireErrorCaught(error: NIOOpenSSLError.readInInvalidTLSState)
+            ctx.fireErrorCaught(NIOOpenSSLError.readInInvalidTLSState)
             channelClose(ctx: ctx)
         }
     }
@@ -188,7 +188,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
                 try validateHostname(ctx: ctx)
             } catch {
                 // This counts as a failure.
-                ctx.fireErrorCaught(error: error)
+                ctx.fireErrorCaught(error)
                 channelClose(ctx: ctx)
                 return
             }
@@ -198,7 +198,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             
             // TODO(cory): This event should probably fire out of the OpenSSL info callback.
             let negotiatedProtocol = connection.getAlpnProtocol()
-            ctx.fireUserInboundEventTriggered(event: TLSUserEvent.handshakeCompleted(negotiatedProtocol: negotiatedProtocol))
+            ctx.fireUserInboundEventTriggered(TLSUserEvent.handshakeCompleted(negotiatedProtocol: negotiatedProtocol))
             
             // We need to unbuffer any pending writes. We will have pending writes if the user attempted to write
             // before we completed the handshake.
@@ -207,7 +207,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             writeDataToNetwork(ctx: ctx, promise: nil)
             
             // TODO(cory): This event should probably fire out of the OpenSSL info callback.
-            ctx.fireErrorCaught(error: NIOOpenSSLError.handshakeFailed(err))
+            ctx.fireErrorCaught(NIOOpenSSLError.handshakeFailed(err))
             channelClose(ctx: ctx)
         }
     }
@@ -235,11 +235,11 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             writeDataToNetwork(ctx: ctx, promise: nil)
 
             // TODO(cory): This should probably fire out of the OpenSSL info callback.
-            ctx.fireUserInboundEventTriggered(event: TLSUserEvent.shutdownCompleted)
+            ctx.fireUserInboundEventTriggered(TLSUserEvent.shutdownCompleted)
             channelClose(ctx: ctx)
         case .failed(let err):
             // TODO(cory): This should probably fire out of the OpenSSL info callback.
-            ctx.fireErrorCaught(error:NIOOpenSSLError.shutdownFailed(err))
+            ctx.fireErrorCaught(NIOOpenSSLError.shutdownFailed(err))
             channelClose(ctx: ctx)
         }
     }
@@ -255,7 +255,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
                 // TODO(cory): Should we coalesce these instead of dispatching multiple times? I think so!
                 // It'll also let us avoid this weird boolean flag, which is always good.
                 didDeliverData = true
-                ctx.fireChannelRead(data: self.wrapInboundOut(buf))
+                ctx.fireChannelRead(self.wrapInboundOut(buf))
             case .incomplete:
                 break readLoop
             case .failed(OpenSSLError.zeroReturn):
@@ -264,7 +264,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
                 writeDataToNetwork(ctx: ctx, promise: nil)
                 break readLoop
             case .failed(let err):
-                ctx.fireErrorCaught(error: err)
+                ctx.fireErrorCaught(err)
                 channelClose(ctx: ctx)
             }
         }
@@ -281,12 +281,12 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
                 // If we have a promise, we need to enforce ordering so we issue a zero-length write that
                 // the event loop will have to handle.
                 let buffer = ctx.channel.allocator.buffer(capacity: 0)
-                ctx.writeAndFlush(data: wrapInboundOut(buffer), promise: promise)
+                ctx.writeAndFlush(wrapInboundOut(buffer), promise: promise)
             }
             return
         }
 
-        ctx.writeAndFlush(data: self.wrapInboundOut(dataToWrite), promise: promise)
+        ctx.writeAndFlush(self.wrapInboundOut(dataToWrite), promise: promise)
     }
 
     /// Close the underlying channel.

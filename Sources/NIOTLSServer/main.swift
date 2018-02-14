@@ -20,7 +20,7 @@ private final class EchoHandler: ChannelInboundHandler {
     public typealias InboundIn = ByteBuffer
 
     func channelRead(ctx: ChannelHandlerContext, data: NIOAny) {
-        let _ = ctx.writeAndFlush(data: data)
+        let _ = ctx.writeAndFlush(data)
     }
 }
 
@@ -35,9 +35,9 @@ let bootstrap = ServerBootstrap(group: group)
 
     // Set the handlers that are applied to the accepted channels.
     .childChannelInitializer { channel in
-        return channel.pipeline.add(handler: try! OpenSSLServerHandler(context: sslContext)).then(callback: { v2 in
-            return channel.pipeline.add(handler: EchoHandler())
-        })
+        return channel.pipeline.add(handler: try! OpenSSLServerHandler(context: sslContext)).then { _ in
+            channel.pipeline.add(handler: EchoHandler())
+        }
     }
 
     // Enable TCP_NODELAY and SO_REUSEADDR for the accepted Channels
@@ -55,8 +55,8 @@ let arg1 = arguments.dropFirst().first
 let arg2 = arguments.dropFirst().dropFirst().first
 
 var host: String = "::1"
-var port: Int32 = 4433
-switch (arg1, arg1.flatMap { Int32($0) }, arg2.flatMap { Int32($0) }) {
+var port: Int = 4433
+switch (arg1, arg1.flatMap { Int($0) }, arg2.flatMap { Int($0) }) {
 case (.some(let h), _ , .some(let p)):
     /* we got two arguments, let's interpret that as host and port */
     host = h
@@ -68,7 +68,7 @@ default:
     ()
 }
 
-let channel = try bootstrap.bind(to: host, on: port).wait()
+let channel = try bootstrap.bind(host: host, port: port).wait()
 
 print("Server started and listening on \(channel.localAddress!)")
 

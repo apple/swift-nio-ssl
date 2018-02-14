@@ -66,7 +66,7 @@ class OpenSSLALPNTest: XCTestCase {
 
         var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
         originalBuffer.write(string: "Hello")
-        try clientChannel.writeAndFlush(data: NIOAny(originalBuffer)).wait()
+        try clientChannel.writeAndFlush(originalBuffer).wait()
         _ = try completionPromise.futureResult.wait()
 
         let expectedEvents: [EventRecorderHandler<TLSUserEvent>.RecordedEvents] = [

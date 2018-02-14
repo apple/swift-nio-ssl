@@ -153,7 +153,7 @@ class TLSConfigurationTest: XCTestCase {
         buf.write(string: "hello")
 
         // Check that we got a handshakeComplete message indicating mutual validation.
-        let flushFuture = clientChannel.writeAndFlush(data: NIOAny(buf))
+        let flushFuture = clientChannel.writeAndFlush(buf)
         flushFuture.whenComplete { _ in
             let handshakeEvents = eventHandler.events.filter {
                 switch $0 {
