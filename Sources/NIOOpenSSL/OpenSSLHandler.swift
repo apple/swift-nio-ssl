@@ -123,9 +123,10 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             // We didn't deliver data. If this channel has got autoread turned off then we should
             // call read again, because otherwise the user will never see any result from their
             // read call.
-            let autoRead = try! ctx.channel.getOption(option: ChannelOptions.autoRead)
-            if !autoRead {
-                ctx.read(promise: nil)
+            ctx.channel.getOption(option: ChannelOptions.autoRead).whenSuccess { autoRead in
+                if !autoRead {
+                    ctx.read()
+                }
             }
         }
     }
@@ -134,8 +135,8 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
         bufferWrite(data: unwrapOutboundIn(data), promise: promise)
     }
 
-    public func flush(ctx: ChannelHandlerContext, promise: EventLoopPromise<Void>?) {
-        bufferFlush(promise: promise)
+    public func flush(ctx: ChannelHandlerContext) {
+        bufferFlush()
         doUnbufferWrites(ctx: ctx)
     }
     
@@ -340,8 +341,8 @@ extension OpenSSLHandler {
         bufferedWrites.append(.write((data: data, promise: promise)))
     }
 
-    private func bufferFlush(promise: EventLoopPromise<Void>?) {
-        bufferedWrites.append(.flush(promise))
+    private func bufferFlush() {
+        bufferedWrites.append(.flush(nil))
         bufferedWrites.mark()
     }
 

@@ -73,7 +73,7 @@ class TLSConfigurationTest: XCTestCase {
         let clientChannel = try clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler], group: group, connectingTo: serverChannel.localAddress!)
 
         // We expect the channel to be closed fairly swiftly as the handshake should fail.
-        clientChannel.closeFuture.whenComplete { _ in
+        clientChannel.closeFuture.whenComplete {
             XCTAssertEqual(eventHandler.errors.count, 1)
 
             switch eventHandler.errors[0] {
@@ -154,7 +154,7 @@ class TLSConfigurationTest: XCTestCase {
 
         // Check that we got a handshakeComplete message indicating mutual validation.
         let flushFuture = clientChannel.writeAndFlush(buf)
-        flushFuture.whenComplete { _ in
+        flushFuture.whenComplete {
             let handshakeEvents = eventHandler.events.filter {
                 switch $0 {
                 case .UserEvent(.handshakeCompleted):

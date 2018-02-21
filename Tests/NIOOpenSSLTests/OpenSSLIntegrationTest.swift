@@ -61,7 +61,7 @@ private final class SimpleEchoServer: ChannelInboundHandler {
     }
     
     public func channelReadComplete(ctx: ChannelHandlerContext) {
-        ctx.flush(promise: nil)
+        ctx.flush()
         ctx.fireChannelReadComplete()
     }
 }
@@ -237,11 +237,11 @@ internal func serverTLSChannel(context: NIOOpenSSL.SSLContext,
         .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
         .childChannelInitializer { channel in
             let results = preHandlers.map { channel.pipeline.add(handler: $0) }
-            return EventLoopFuture<Void>.andAll(results, eventLoop: results.first?.eventLoop ?? group.next()).thenThrowing { _ in
+            return EventLoopFuture<Void>.andAll(results, eventLoop: results.first?.eventLoop ?? group.next()).thenThrowing {
                 try OpenSSLServerHandler(context: context)
             }.then {
                 channel.pipeline.add(handler: $0)
-            }.then { _ in
+            }.then {
                 let results = postHandlers.map { channel.pipeline.add(handler: $0) }
                 return EventLoopFuture<Void>.andAll(results, eventLoop: results.first?.eventLoop ?? group.next())
             }
@@ -259,11 +259,11 @@ internal func clientTLSChannel(context: NIOOpenSSL.SSLContext,
     return try assertNoThrowWithValue(ClientBootstrap(group: group)
         .channelInitializer { channel in
             let results = preHandlers.map { channel.pipeline.add(handler: $0) }
-            return EventLoopFuture<Void>.andAll(results, eventLoop: results.first?.eventLoop ?? group.next()).thenThrowing { _ in
+            return EventLoopFuture<Void>.andAll(results, eventLoop: results.first?.eventLoop ?? group.next()).thenThrowing {
                 try OpenSSLClientHandler(context: context, serverHostname: serverHostname)
             }.then {
                 channel.pipeline.add(handler: $0)
-            }.then { _ in
+            }.then {
                 let results = postHandlers.map { channel.pipeline.add(handler: $0) }
                 return EventLoopFuture<Void>.andAll(results, eventLoop: results.first?.eventLoop ?? group.next())
             }
@@ -415,7 +415,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         try clientChannel.writeAndFlush(originalBuffer).wait()
 
         // Ok, we want to wait for the read to finish, then close the server and client connections.
-        _ = try readComplete.futureResult.then { _ in
+        _ = try readComplete.futureResult.then { (_: ByteBuffer) in
             return serverChannel.close()
         }.then {
             return clientChannel.close()
@@ -522,12 +522,14 @@ class OpenSSLIntegrationTest: XCTestCase {
         // for the coalesced writes.
         var originalBuffer = clientChannel.allocator.buffer(capacity: 1)
         originalBuffer.write(string: "A")
+        var writeFutures: [EventLoopFuture<()>] = []
         for _ in 0..<5 {
-            clientChannel.write(NIOAny(originalBuffer), promise: nil)
+            writeFutures.append(clientChannel.write(NIOAny(originalBuffer)))
         }
 
-        try clientChannel.flush().wait()
-        let writeCount = try readPromise.futureResult.map { _ in
+        clientChannel.flush()
+        try EventLoopFuture<()>.andAll(writeFutures, eventLoop: clientChannel.eventLoop).wait()
+        let writeCount = try readPromise.futureResult.map { (_: ByteBuffer) in
             // Here we're in the I/O loop, so we know that no further channel action will happen
             // while we dispatch this callback. This is the perfect time to check how many writes
             // happened.
@@ -563,34 +565,27 @@ class OpenSSLIntegrationTest: XCTestCase {
         // and all their futures (along with the one for the flush) should fire, in order, with nothing
         // missed.
         var firedFutures: Array<Int> = []
+        var writeFutures: [EventLoopFuture<()>] = []
         var originalBuffer = clientChannel.allocator.buffer(capacity: 1)
         originalBuffer.write(string: "A")
         for index in 0..<5 {
             let promise: EventLoopPromise<Void> = group.next().newPromise()
-            promise.futureResult.whenComplete { result in
-                switch result {
-                case .success:
-                    XCTAssertEqual(firedFutures.count, index)
-                    firedFutures.append(index)
-                case .failure:
-                    XCTFail("Write promise failed: \(result)")
-                }
+            writeFutures.append(promise.futureResult)
+            promise.futureResult.map {
+                XCTAssertEqual(firedFutures.count, index)
+                firedFutures.append(index)
+            }.whenFailure { error in
+                XCTFail("Write promise failed: \(error)")
             }
             clientChannel.write(NIOAny(originalBuffer), promise: promise)
         }
 
-        let flushPromise: EventLoopPromise<Void> = group.next().newPromise()
-        flushPromise.futureResult.whenComplete { result in
-            switch result {
-            case .success:
-                XCTAssertEqual(firedFutures, [0, 1, 2, 3, 4])
-            case .failure:
-                XCTFail("Write promised failed: \(result)")
-            }
-        }
-        clientChannel.flush(promise: flushPromise)
-
-        try flushPromise.futureResult.wait()
+        clientChannel.flush()
+        try EventLoopFuture<()>.andAll(writeFutures, eventLoop: clientChannel.eventLoop).map {
+            XCTAssertEqual(firedFutures, [0, 1, 2, 3, 4])
+        }.mapIfError { error in
+            XCTFail("Write promised failed: \(error)")
+        }.wait()
     }
 
     func testImmediateCloseSatisfiesPromises() throws {
@@ -682,11 +677,11 @@ class OpenSSLIntegrationTest: XCTestCase {
         var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
         originalBuffer.write(string: "Hello")
         let writeFuture = clientChannel.writeAndFlush(originalBuffer)
-        let errorsFuture: EventLoopFuture<[NIOOpenSSLError]> = writeFuture.mapIfError { _ in
+        let errorsFuture: EventLoopFuture<[NIOOpenSSLError]> = writeFuture.mapIfError { (_: Error) in
             // We're swallowing errors here, on purpose, because we'll definitely
             // hit them.
             return ()
-        }.map { _ in
+        }.map {
             return errorHandler.errors
         }
         let actualErrors = try errorsFuture.wait()
@@ -725,7 +720,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
         originalBuffer.write(string: "Hello")
         let writeFuture = clientChannel.writeAndFlush(originalBuffer)
-        writeFuture.whenComplete { _ in
+        writeFuture.whenComplete {
             XCTAssertEqual(eventHandler.events[..<3], [.Registered, .Active, .UserEvent(.handshakeCompleted(negotiatedProtocol: nil))])
         }
         try writeFuture.wait()
@@ -764,12 +759,14 @@ class OpenSSLIntegrationTest: XCTestCase {
         serverChannel.pipeline.fireChannelInactive()
         XCTAssertTrue(closePromise.fulfilled)
 
-        closePromise.whenComplete {
-            switch $0 {
-            case .failure(OpenSSLError.uncleanShutdown):
+        closePromise.map {
+            XCTFail("Unexpected success")
+        }.whenFailure { error in
+            switch error {
+            case let e as OpenSSLError where e == .uncleanShutdown:
                 break
             default:
-                XCTFail("Unexpected result: \($0)")
+                XCTFail("Unexpected error: \(error)")
             }
         }
 
@@ -851,12 +848,12 @@ class OpenSSLIntegrationTest: XCTestCase {
         var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
         originalBuffer.write(string: "Hello")
         let writeFuture = clientChannel.writeAndFlush(originalBuffer)
-        let errorsFuture: EventLoopFuture<[NIOOpenSSLError]> = writeFuture.mapIfError { _ in
+        let errorsFuture: EventLoopFuture<[NIOOpenSSLError]> = writeFuture.mapIfError { (_: Error) in
             // We're swallowing errors here, on purpose, because we'll definitely
             // hit them.
             return ()
-            }.map { _ in
-                return errorHandler.errors
+        }.map {
+            return errorHandler.errors
         }
         let actualErrors = try errorsFuture.wait()
 
@@ -886,7 +883,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         // data. We can get away with doing this because the Embedded channel fires any promise for close()
         // before it fires channelInactive, which will allow us to fire channelRead from within the callback.
         let closePromise = serverChannel.close()
-        closePromise.whenComplete { _ in
+        closePromise.whenComplete {
             var buffer = serverChannel.allocator.buffer(capacity: 5)
             buffer.write(staticString: "hello")
             serverChannel.pipeline.fireChannelRead(NIOAny(buffer))
@@ -938,7 +935,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         // Write several zero-length buffers *and* one with some actual data. Only one should
         // be written.
         var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
-        let promises = (0...5).map { _ in clientChannel.write(originalBuffer) }
+        let promises = (0...5).map { (_: Int) in clientChannel.write(originalBuffer) }
         originalBuffer.write(staticString: "hello")
         _ = try clientChannel.writeAndFlush(originalBuffer).wait()
 
@@ -978,21 +975,21 @@ class OpenSSLIntegrationTest: XCTestCase {
         var buffer = clientChannel.allocator.buffer(capacity: 16)
         buffer.write(staticString: "hello world")
 
-        clientChannel.write(buffer).whenComplete { _ in
+        clientChannel.write(buffer).whenComplete {
             XCTAssertEqual(writeCount, 0)
             writeCount = 1
         }
-        clientChannel.flush(promise: nil)
-        clientChannel.write(emptyBuffer).whenComplete { _ in
+        clientChannel.flush()
+        clientChannel.write(emptyBuffer).whenComplete {
             XCTAssertEqual(writeCount, 1)
             writeCount = 2
         }
-        clientChannel.flush(promise: nil)
-        clientChannel.write(buffer).whenComplete { _ in
+        clientChannel.flush()
+        clientChannel.write(buffer).whenComplete {
             XCTAssertEqual(writeCount, 2)
             writeCount = 3
         }
-        clientChannel.flush(promise: nil)
+        clientChannel.flush()
 
         XCTAssertEqual(writeCount, 0)
         writeDelayer.forceFlush()
