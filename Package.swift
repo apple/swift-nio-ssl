@@ -16,7 +16,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "swift-nio-ssl-ssl",
+    name: "swift-nio-ssl",
     products: [
         .library(name: "NIOOpenSSL", targets: ["NIOOpenSSL"]),
         .executable(name: "NIOTLSServer", targets: ["NIOTLSServer"]),
