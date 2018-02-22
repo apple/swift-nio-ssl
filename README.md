@@ -1,13 +1,36 @@
-## Prerequisites on macOS
+# SwiftNIO SSL
 
-### Installation of the Dependencies
+SwiftNIO SSL is a Swift package that contains an implementation of TLS based on OpenSSL-compatible libraries (that is, any library that ships a libssl that is compatible with OpenSSL's). This package allows users of [SwiftNIO](https://github.com/apple/swift-nio) to write protocol clients and servers that use TLS to secure data in flight.
 
-    brew install libressl
+The name is inspired primarily by the names of the libraries this package supports (e.g. OpenSSL, LibreSSL, and friends), and not because we don't know the name of the protocol. We know the protocol is TLS!
 
+## Using SwiftNIO SSL
 
-## TLS
+SwiftNIO SSL provides two `ChannelHandler`s to use to secure a data stream: the `OpenSSLClientHandler` and the `OpenSSLServerHandler`. Each of these can be added to a `Channel` to secure the communications on that channel.
 
-Currently the source tree for SwiftNIO contains bindings for a TLS handler that links against OpenSSL/LibreSSL (more specifically, anything that provides a library called `libssl`).
+Additionally, we provide a number of low-level primitives for configuring your TLS connections. These will be shown below.
+
+To secure a server connection, you will need a X.509 certificate chain in a file (either PEM or DER, but PEM is far easier), and the associated private key for the leaf certificate. These objects can then be wrapped up in a `TLSConfiguration` object that is used to initialize the `ChannelHandler`.
+
+For example:
+
+```swift
+let configuration = TLSConfiguration.forServer(certificateChain: [.file("cert.pem")], privateKey: .file("key.pem")) 
+let sslContext = try SSLContext(configuration: configuration)
+let handler = try OpenSSLServerHandler(context: sslContext)
+// Add the created handler to the pipeline.
+```
+
+For clients, it is a bit simpler as there is no need to have a certificate chain or private key (though clients *may* have these things). Setup for clients may be done like this:
+
+```swift
+let configuration = TLSConfiguration.forClient()
+let sslContext = try SSLContext(configuration: configuration)
+let handler = try OpenSSLClientHandler(context: sslContext)
+// Add the created handler to the pipeline.
+```
+
+## Installation
 
 This binding can cause numerous issues during the build process on different systems, depending on the environment you're in. These will usually manifest as build errors, either during the compilation stage (due to missing development headers) or during the linker stage (due to an inability to find a library to link).
 
