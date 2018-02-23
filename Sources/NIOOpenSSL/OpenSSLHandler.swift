@@ -40,7 +40,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
 
     private var state: ConnectionState = .idle
     private var connection: SSLConnection
-    private var bufferedWrites: MarkedCircularBuffer<BufferedEvent>
+    private var bufferedWrites: MarkedCircularBuffer<BufferedWrite>
     private var closePromise: EventLoopPromise<Void>?
     private var didDeliverData: Bool = false
     private let expectedHostname: String?
@@ -331,32 +331,19 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
 
 // MARK: Code that handles buffering/unbuffering writes.
 extension OpenSSLHandler {
-    private enum BufferedEvent {
-        case write(BufferedWrite)
-        case flush(EventLoopPromise<Void>?)
-    }
     private typealias BufferedWrite = (data: ByteBuffer, promise: EventLoopPromise<Void>?)
 
     private func bufferWrite(data: ByteBuffer, promise: EventLoopPromise<Void>?) {
-        bufferedWrites.append(.write((data: data, promise: promise)))
+        bufferedWrites.append((data: data, promise: promise))
     }
 
     private func bufferFlush() {
-        bufferedWrites.append(.flush(nil))
         bufferedWrites.mark()
     }
 
     private func discardBufferedWrites(reason: Error) {
-        while bufferedWrites.count > 0 {
-            let promise: EventLoopPromise<Void>?
-            switch bufferedWrites.removeFirst() {
-            case .write(_, let p):
-                promise = p
-            case .flush(let p):
-                promise = p
-            }
-
-            promise?.fail(error: reason)
+        self.bufferedWrites.forEachRemoving {
+            $0.promise?.fail(error: reason)
         }
     }
 
@@ -369,6 +356,7 @@ extension OpenSSLHandler {
         // These are some annoying variables we use to persist state across invocations of
         // our closures. A better version of this code might be able to simplify this somewhat.
         var promises: [EventLoopPromise<Void>] = []
+        var didWrite = false
 
         /// Given a byte buffer to encode, passes it to OpenSSL and handles the result.
         func encodeWrite(buf: inout ByteBuffer, promise: EventLoopPromise<Void>?) throws -> Bool {
@@ -376,6 +364,7 @@ extension OpenSSLHandler {
 
             switch result {
             case .complete:
+                didWrite = true
                 if let promise = promise { promises.append(promise) }
                 return true
             case .incomplete:
@@ -388,15 +377,7 @@ extension OpenSSLHandler {
             }
         }
 
-        /// Given a flush request, grabs the data from OpenSSL and flushes it to the network.
-        func flushData(userFlushPromise: EventLoopPromise<Void>?) throws -> Bool {
-            // This is a flush. We can go ahead and flush now.
-            if let promise = userFlushPromise { promises.append(promise) }
-            flushWithPromises()
-            return true
-        }
-
-        func flushWithPromises() {
+        func flushWrites() {
             let ourPromise: EventLoopPromise<Void> = ctx.eventLoop.newPromise()
             promises.forEach { ourPromise.futureResult.cascade(promise: $0) }
             writeDataToNetwork(ctx: ctx, promise: ourPromise)
@@ -405,19 +386,14 @@ extension OpenSSLHandler {
 
         do {
             try bufferedWrites.forEachElementUntilMark { element in
-                switch element {
-                case .write(var d, let p):
-                    return try encodeWrite(buf: &d, promise: p)
-                case .flush(let p):
-                    return try flushData(userFlushPromise: p)
-                }
+                var data = element.data
+                return try encodeWrite(buf: &data, promise: element.promise)
             }
 
-            // If we got this far, but we have promises, it means that we weren't able to
-            // write everything up to our mark: the SSL object started returning WANT_{READ,WRITE}
-            // before we got there. That's ok: we'll shove the app data out to the network anyway.
-            if promises.count > 0 {
-                flushWithPromises()
+            // If we got this far and did a write, we should shove the data out to the
+            // network.
+            if didWrite {
+                flushWrites()
             }
         } catch {
             // We encountered an error, it's cleanup time. Close ourselves down.
@@ -425,12 +401,7 @@ extension OpenSSLHandler {
             // Fail any writes we've previously encoded but not flushed.
             promises.forEach { $0.fail(error: error) }
             // Fail everything else.
-            bufferedWrites.forEachRemoving {
-                switch $0 {
-                case .write(_, let p), .flush(let p):
-                    p?.fail(error: error)
-                }
-            }
+            self.discardBufferedWrites(reason: error)
         }
     }
 }
