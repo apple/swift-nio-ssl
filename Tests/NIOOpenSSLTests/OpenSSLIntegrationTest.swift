@@ -487,7 +487,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         serverClosed = true
 
         for promise in promises {
-            XCTAssert(promise.futureResult.fulfilled)
+            XCTAssert(promise.futureResult.isFulfilled)
         }
     }
 
@@ -600,7 +600,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         let closePromise: EventLoopPromise<Void> = channel.eventLoop.newPromise()
         channel.close(promise: closePromise)
 
-        XCTAssertTrue(closePromise.futureResult.fulfilled)
+        XCTAssertTrue(closePromise.futureResult.isFulfilled)
     }
 
     func testAddingTlsToActiveChannelStillHandshakes() throws {
@@ -754,10 +754,10 @@ class OpenSSLIntegrationTest: XCTestCase {
         // synchronization: all of this should succeed synchronously. If it doesn't, that's
         // a bug too!
         let closePromise = serverChannel.close()
-        XCTAssertFalse(closePromise.fulfilled)
+        XCTAssertFalse(closePromise.isFulfilled)
 
         serverChannel.pipeline.fireChannelInactive()
-        XCTAssertTrue(closePromise.fulfilled)
+        XCTAssertTrue(closePromise.isFulfilled)
 
         closePromise.map {
             XCTFail("Unexpected success")
@@ -940,7 +940,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         _ = try clientChannel.writeAndFlush(originalBuffer).wait()
 
         // At this time all the writes should have succeeded.
-        XCTAssertTrue(promises.map { $0.fulfilled }.reduce(true, { $0 && $1 }))
+        XCTAssertTrue(promises.map { $0.isFulfilled }.reduce(true, { $0 && $1 }))
 
         let newBuffer = try completionPromise.futureResult.wait()
         XCTAssertEqual(newBuffer, originalBuffer)
