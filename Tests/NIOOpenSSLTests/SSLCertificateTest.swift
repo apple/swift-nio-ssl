@@ -14,7 +14,7 @@
 
 import Foundation
 import XCTest
-@testable import NIO
+import NIO
 @testable import NIOOpenSSL
 
 let multiSanCert = """
