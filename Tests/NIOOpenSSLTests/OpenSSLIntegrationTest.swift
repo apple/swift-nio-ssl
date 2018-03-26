@@ -14,7 +14,7 @@
 
 import XCTest
 import CNIOOpenSSL
-@testable import NIO
+import NIO
 @testable import NIOOpenSSL
 import NIOTLS
 import class Foundation.Process
@@ -298,8 +298,8 @@ class OpenSSLIntegrationTest: XCTestCase {
         guard let fileName = fileName else {
             fatalError("couldn't make temp file")
         }
-        let tempFile = try fileName.withCString { ptr in
-            return try Posix.open(file: ptr, oFlag: O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, mode: 0o644)
+        let tempFile = fileName.withCString { ptr in
+            return open(ptr, O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0o644)
         }
         precondition(tempFile > 1, String(cString: strerror(errno)))
         let fileBio = BIO_new_fp(fdopen(tempFile, "w+"), BIO_CLOSE)
@@ -487,7 +487,12 @@ class OpenSSLIntegrationTest: XCTestCase {
         serverClosed = true
 
         for promise in promises {
-            XCTAssert(promise.futureResult.fulfilled)
+            // This should never block, but it may throw because the I/O is complete.
+            do {
+                _ = try promise.futureResult.wait()
+            } catch {
+                // Suppress all errors, they're fine.
+            }
         }
     }
 
@@ -600,7 +605,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         let closePromise: EventLoopPromise<Void> = channel.eventLoop.newPromise()
         channel.close(promise: closePromise)
 
-        XCTAssertTrue(closePromise.futureResult.fulfilled)
+        XCTAssertNoThrow(try closePromise.futureResult.wait())
     }
 
     func testAddingTlsToActiveChannelStillHandshakes() throws {
@@ -729,6 +734,7 @@ class OpenSSLIntegrationTest: XCTestCase {
     func testDontLoseClosePromises() throws {
         let serverChannel = EmbeddedChannel()
         let clientChannel = EmbeddedChannel()
+        var channelClosed = false
         defer {
             // We know this will throw.
             _ = try? serverChannel.finish()
@@ -754,10 +760,15 @@ class OpenSSLIntegrationTest: XCTestCase {
         // synchronization: all of this should succeed synchronously. If it doesn't, that's
         // a bug too!
         let closePromise = serverChannel.close()
-        XCTAssertFalse(closePromise.fulfilled)
+        closePromise.whenComplete {
+            // This looks like unsynchronized access to channelClosed, but it isn't: as we're
+            // using EmbeddedChannel here there is no cross-thread hopping.
+            channelClosed = true
+        }
+        XCTAssertFalse(channelClosed)
 
         serverChannel.pipeline.fireChannelInactive()
-        XCTAssertTrue(closePromise.fulfilled)
+        XCTAssertTrue(channelClosed)
 
         closePromise.map {
             XCTFail("Unexpected success")
@@ -940,7 +951,9 @@ class OpenSSLIntegrationTest: XCTestCase {
         _ = try clientChannel.writeAndFlush(originalBuffer).wait()
 
         // At this time all the writes should have succeeded.
-        XCTAssertTrue(promises.map { $0.fulfilled }.reduce(true, { $0 && $1 }))
+        for promise in promises {
+            XCTAssertNoThrow(try promise.wait())
+        }
 
         let newBuffer = try completionPromise.futureResult.wait()
         XCTAssertEqual(newBuffer, originalBuffer)

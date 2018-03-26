@@ -14,7 +14,7 @@
 
 import XCTest
 import CNIOOpenSSL
-@testable import NIO
+import NIO
 @testable import NIOOpenSSL
 import NIOTLS
 
