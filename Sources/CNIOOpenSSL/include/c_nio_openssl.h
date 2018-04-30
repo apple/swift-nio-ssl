@@ -20,6 +20,7 @@
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
 #include <openssl/sha.h>
+#include <openssl/md5.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
 #include <openssl/pkcs12.h>
