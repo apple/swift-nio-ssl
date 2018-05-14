@@ -119,6 +119,12 @@ public final class SSLContext {
         // TODO(cory): It doesn't seem like this initialization should happen here: where?
         CNIOOpenSSL_SSL_CTX_setAutoECDH(ctx)
 
+        // First, let's set some basic modes. We set the following:
+        // - SSL_MODE_RELEASE_BUFFERS: Because this can save a bunch of memory on idle connections.
+        // - SSL_MODE_AUTO_RETRY: Because OpenSSL's default behaviour on SSL_read without this flag is bad.
+        //     See https://github.com/openssl/openssl/issues/6234 for more discussion on this.
+        SSL_CTX_ctrl(ctx, SSL_CTRL_MODE, SSL_MODE_RELEASE_BUFFERS | SSL_MODE_AUTO_RETRY, nil)
+
         var opensslOptions = Int(SSL_OP_NO_COMPRESSION)
 
         // Handle TLS versions
