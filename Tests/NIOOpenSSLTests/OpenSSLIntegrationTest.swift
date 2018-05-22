@@ -215,7 +215,7 @@ private class WriteDelayHandler: ChannelOutboundHandler {
     func forceFlush() {
         let writes = self.writes
         self.writes = []
-        writes.forEach { $0.0.write($0.1, promise: $0.2) }
+        writes.forEach { $0.0.writeAndFlush($0.1, promise: $0.2) }
     }
 }
 
