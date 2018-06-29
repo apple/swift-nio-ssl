@@ -18,6 +18,7 @@ import NIO
 import NIOTLS
 import NIOOpenSSL
 
+
 class OpenSSLALPNTest: XCTestCase {
     static var cert: OpenSSLCertificate!
     static var key: OpenSSLPrivateKey!
@@ -79,12 +80,53 @@ class OpenSSLALPNTest: XCTestCase {
         XCTAssertEqual(expectedEvents, serverHandler.events)
     }
 
+    private func assertDoesNotNegotiate(serverContext: NIOOpenSSL.SSLContext, clientContext: NIOOpenSSL.SSLContext) throws {
+        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let clientHandler = EventRecorderHandler<TLSUserEvent>()
+        let errorHandler = ErrorCatcher<NIOOpenSSLError>()
+        let serverChannel = try serverTLSChannel(context: serverContext,
+                                                 handlers: [errorHandler],
+                                                 group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let clientChannel = try clientTLSChannel(context: clientContext,
+                                                 preHandlers: [],
+                                                 postHandlers: [clientHandler],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!)
+
+        try clientChannel.closeFuture.wait()
+
+        let expectedEvents: [EventRecorderHandler<TLSUserEvent>.RecordedEvents] = [
+            .Registered,
+            .Active,
+            .Inactive,
+            .Unregistered
+        ]
+        XCTAssertEqual(expectedEvents, clientHandler.events)
+
+        XCTAssertEqual(errorHandler.errors.count, 1)
+        switch errorHandler.errors.first {
+        case .some(.handshakeFailed(.sslError)):
+            // Expected
+            break
+        default:
+            XCTFail("Unexpected error: \(String(describing: errorHandler.errors.first))")
+        }
+    }
+
     func testBasicALPNNegotiation() throws {
         let ctx: NIOOpenSSL.SSLContext
         do {
             ctx = try configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"])
         } catch OpenSSLError.failedToSetALPN {
-            XCTAssertTrue(SSLeay() < 0x010002000)
+            XCTAssertTrue(CNIOOpenSSL_OpenSSL_version_num() < 0x010002000)
             return
         }
 
@@ -98,7 +140,7 @@ class OpenSSLALPNTest: XCTestCase {
             serverCtx = try configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"])
             clientCtx = try configuredSSLContextWithAlpnProtocols(protocols: ["http/1.1", "h2"])
         } catch OpenSSLError.failedToSetALPN {
-            XCTAssertTrue(SSLeay() < 0x010002000)
+            XCTAssertTrue(CNIOOpenSSL_OpenSSL_version_num() < 0x010002000)
             return
         }
 
@@ -112,11 +154,15 @@ class OpenSSLALPNTest: XCTestCase {
             serverCtx = try configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"])
             clientCtx = try configuredSSLContextWithAlpnProtocols(protocols: ["spdy/3", "webrtc"])
         } catch OpenSSLError.failedToSetALPN {
-            XCTAssertTrue(SSLeay() < 0x010002000)
+            XCTAssertTrue(CNIOOpenSSL_OpenSSL_version_num() < 0x010002000)
             return
         }
 
-        try assertNegotiatedProtocol(protocol: nil, serverContext: serverCtx, clientContext: clientCtx)
+        if (CNIOOpenSSL_OpenSSL_version_num() < 0x010100000) || (CNIOOpenSSL_is_libressl() == 1) {
+            try assertNegotiatedProtocol(protocol: nil, serverContext: serverCtx, clientContext: clientCtx)
+        } else {
+            try assertDoesNotNegotiate(serverContext: serverCtx, clientContext: clientCtx)
+        }
     }
 
     func testBasicALPNNegotiationNotOfferedByClient() throws {
@@ -126,7 +172,7 @@ class OpenSSLALPNTest: XCTestCase {
             serverCtx = try configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"])
             clientCtx = try configuredSSLContextWithAlpnProtocols(protocols: [])
         } catch OpenSSLError.failedToSetALPN {
-            XCTAssertTrue(SSLeay() < 0x010002000)
+            XCTAssertTrue(CNIOOpenSSL_OpenSSL_version_num() < 0x010002000)
             return
         }
 
@@ -140,7 +186,7 @@ class OpenSSLALPNTest: XCTestCase {
             serverCtx = try configuredSSLContextWithAlpnProtocols(protocols: [])
             clientCtx = try configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"])
         } catch OpenSSLError.failedToSetALPN {
-            XCTAssertTrue(SSLeay() < 0x010002000)
+            XCTAssertTrue(CNIOOpenSSL_OpenSSL_version_num() < 0x010002000)
             return
         }
 

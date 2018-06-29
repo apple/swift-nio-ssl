@@ -71,12 +71,7 @@ private extension UnsafeBufferPointer where Element == UInt8 {
     }
 }
 
-private func verifyCallback(preverifyOk: Int32, ctx: UnsafeMutablePointer<X509_STORE_CTX>?) -> Int32 {
-    // This is a no-op verify callback for use with OpenSSL.
-    return preverifyOk
-}
-
-private func alpnCallback(ssl: UnsafeMutablePointer<SSL>?,
+private func alpnCallback(ssl: OpaquePointer?,
                           out: UnsafeMutablePointer<UnsafePointer<UInt8>?>?,
                           outlen: UnsafeMutablePointer<UInt8>?,
                           in: UnsafePointer<UInt8>?,
@@ -88,7 +83,7 @@ private func alpnCallback(ssl: UnsafeMutablePointer<SSL>?,
     }
 
     // We want to take the SSL pointer and extract the parent Swift object.
-    let parentCtx = SSL_get_SSL_CTX(ssl)!
+    let parentCtx = SSL_get_SSL_CTX(.make(optional: ssl))!
     let parentPtr = CNIOOpenSSL_SSL_CTX_get_app_data(parentCtx)!
     let parentSwiftContext: SSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
 
@@ -109,7 +104,7 @@ private func alpnCallback(ssl: UnsafeMutablePointer<SSL>?,
 /// This class represents configuration for a collection of TLS connections, all of
 /// which are expected to be broadly the same.
 public final class SSLContext {
-    private let sslContext: UnsafeMutablePointer<SSL_CTX>
+    private let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
     internal let configuration: TLSConfiguration
 
@@ -117,7 +112,7 @@ public final class SSLContext {
     /// configuration.
     internal init(configuration: TLSConfiguration, callbackManager: CallbackManagerProtocol?) throws {
         guard openSSLIsInitialized else { fatalError("Failed to initialize OpenSSL") }
-        guard let ctx = SSL_CTX_new(SSLv23_method()) else { throw NIOOpenSSLError.unableToAllocateOpenSSLObject }
+        guard let ctx = SSL_CTX_new(CNIOOpenSSL_TLS_Method()) else { throw NIOOpenSSLError.unableToAllocateOpenSSLObject }
 
         // TODO(cory): It doesn't seem like this initialization should happen here: where?
         CNIOOpenSSL_SSL_CTX_setAutoECDH(ctx)
@@ -126,7 +121,7 @@ public final class SSLContext {
         // - SSL_MODE_RELEASE_BUFFERS: Because this can save a bunch of memory on idle connections.
         // - SSL_MODE_AUTO_RETRY: Because OpenSSL's default behaviour on SSL_read without this flag is bad.
         //     See https://github.com/openssl/openssl/issues/6234 for more discussion on this.
-        SSL_CTX_ctrl(ctx, SSL_CTRL_MODE, SSL_MODE_RELEASE_BUFFERS | SSL_MODE_AUTO_RETRY, nil)
+        CNIOOpenSSL_SSL_CTX_set_mode(ctx, Int(SSL_MODE_RELEASE_BUFFERS | SSL_MODE_AUTO_RETRY))
 
         var opensslOptions = Int(SSL_OP_NO_COMPRESSION)
 
@@ -170,7 +165,7 @@ public final class SSLContext {
         // It's not really very clear here, but this is the actual way to spell SSL_CTX_set_options in Swift code.
         // Sadly, SSL_CTX_set_options is a macro, which means we cannot use it directly, and our modulemap doesn't
         // reveal it in a helpful way, so we write it like this instead.
-        SSL_CTX_ctrl(ctx, SSL_CTRL_OPTIONS, opensslOptions, nil)
+        CNIOOpenSSL_SSL_CTX_set_options(ctx, opensslOptions)
 
         // Cipher suites. We just pass this straight to OpenSSL.
         configuration.cipherSuites.withCString {
@@ -180,15 +175,15 @@ public final class SSLContext {
         // If validation is turned on, set the trust roots and turn on cert validation.
         switch configuration.certificateVerification {
         case .fullVerification, .noHostnameVerification:
-            SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, verifyCallback)
+            SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, CNIOOpenSSL_noop_verify_callback)
 
             switch configuration.trustRoots {
             case .some(.default), .none:
                 precondition(1 == SSL_CTX_set_default_verify_paths(ctx))
             case .some(.file(let f)):
-                try SSLContext.loadVerifyLocations(f, context: ctx)
+                try SSLContext.loadVerifyLocations(f, context: .init(ctx))
             case .some(.certificates(let certs)):
-                try certs.forEach { try SSLContext.addRootCertificate($0, context: ctx) }
+                try certs.forEach { try SSLContext.addRootCertificate($0, context: .init(ctx)) }
             }
         default:
             break
@@ -205,14 +200,14 @@ public final class SSLContext {
         try configuration.certificateChain.forEach {
             switch $0 {
             case .file(let p):
-                SSLContext.useCertificateChainFile(p, context:ctx)
+                SSLContext.useCertificateChainFile(p, context: .init(ctx))
                 leaf = false
             case .certificate(let cert):
                 if leaf {
-                    try SSLContext.setLeafCertificate(cert, context: ctx)
+                    try SSLContext.setLeafCertificate(cert, context: .init(ctx))
                     leaf = false
                 } else {
-                    try SSLContext.addAdditionalChainCertificate(cert, context: ctx)
+                    try SSLContext.addAdditionalChainCertificate(cert, context: .init(ctx))
                 }
             }
         }
@@ -220,18 +215,18 @@ public final class SSLContext {
         if let pkey = configuration.privateKey {
             switch pkey {
             case .file(let p):
-                SSLContext.usePrivateKeyFile(p, context: ctx)
+                SSLContext.usePrivateKeyFile(p, context: .init(ctx))
             case .privateKey(let key):
-                try SSLContext.setPrivateKey(key, context: ctx)
+                try SSLContext.setPrivateKey(key, context: .init(ctx))
             }
         }
 
         if configuration.applicationProtocols.count > 0 {
-            try SSLContext.setAlpnProtocols(configuration.applicationProtocols, context: ctx)
-            SSLContext.setAlpnCallback(context: ctx)
+            try SSLContext.setAlpnProtocols(configuration.applicationProtocols, context: .init(ctx))
+            SSLContext.setAlpnCallback(context: .init(ctx))
         }
 
-        self.sslContext = ctx
+        self.sslContext = .init(ctx)
         self.configuration = configuration
         self.callbackManager = callbackManager
 
@@ -265,10 +260,10 @@ public final class SSLContext {
     /// Create a new connection object with the configuration from this
     /// context.
     internal func createConnection() -> SSLConnection? {
-        guard let ssl = SSL_new(sslContext) else {
+        guard let ssl = SSL_new(.make(optional: sslContext)) else {
             return nil
         }
-        return SSLConnection(ownedSSL: ssl, parentContext: self)
+        return SSLConnection(ownedSSL: .init(ssl), parentContext: self)
     }
 
     fileprivate func alpnSelectCallback(offeredProtocols: UnsafeBufferPointer<UInt8>) ->  (index: Int, length: Int)? {
@@ -283,51 +278,51 @@ public final class SSLContext {
     }
 
     deinit {
-        SSL_CTX_free(sslContext)
+        SSL_CTX_free(.make(optional: sslContext))
     }
 }
 
 
 extension SSLContext {
-    private static func useCertificateChainFile(_ path: String, context: UnsafeMutablePointer<SSL_CTX>) {
+    private static func useCertificateChainFile(_ path: String, context: OpaquePointer) {
         // TODO(cory): This shouldn't be an assert but should instead be actual error handling.
         // assert(path.isFileURL)
         let result = path.withCString { (pointer) -> Int32 in
-            return SSL_CTX_use_certificate_chain_file(context, pointer)
+            return SSL_CTX_use_certificate_chain_file(.make(optional: context), pointer)
         }
         
         // TODO(cory): again, some error handling would be good.
         precondition(result == 1)
     }
 
-    private static func setLeafCertificate(_ cert: OpenSSLCertificate, context: UnsafeMutablePointer<SSL_CTX>) throws {
-        let rc = SSL_CTX_use_certificate(context, cert.ref)
+    private static func setLeafCertificate(_ cert: OpenSSLCertificate, context: OpaquePointer) throws {
+        let rc = SSL_CTX_use_certificate(.make(optional: context), .make(optional: cert.ref))
         guard rc == 1 else {
             throw NIOOpenSSLError.failedToLoadCertificate
         }
     }
     
-    private static func addAdditionalChainCertificate(_ cert: OpenSSLCertificate, context: UnsafeMutablePointer<SSL_CTX>) throws {
+    private static func addAdditionalChainCertificate(_ cert: OpenSSLCertificate, context: OpaquePointer) throws {
         // This dup is necessary because the SSL_CTX_ctrl doesn't copy the X509 object itself.
-        guard 1 == SSL_CTX_ctrl(context, SSL_CTRL_EXTRA_CHAIN_CERT, 0, X509_dup(cert.ref)) else {
+        guard 1 == SSL_CTX_ctrl(.make(optional: context), SSL_CTRL_EXTRA_CHAIN_CERT, 0, .init(X509_dup(.make(optional: cert.ref)))) else {
             throw NIOOpenSSLError.failedToLoadCertificate
         }
     }
     
-    private static func setPrivateKey(_ key: OpenSSLPrivateKey, context: UnsafeMutablePointer<SSL_CTX>) throws {
-        guard 1 == SSL_CTX_use_PrivateKey(context, key.ref) else {
+    private static func setPrivateKey(_ key: OpenSSLPrivateKey, context: OpaquePointer) throws {
+        guard 1 == SSL_CTX_use_PrivateKey(.make(optional: context), .make(optional: key.ref)) else {
             throw NIOOpenSSLError.failedToLoadPrivateKey
         }
     }
     
-    private static func addRootCertificate(_ cert: OpenSSLCertificate, context: UnsafeMutablePointer<SSL_CTX>) throws {
-        let store = SSL_CTX_get_cert_store(context)!
-        if 0 == X509_STORE_add_cert(store, cert.ref) {
+    private static func addRootCertificate(_ cert: OpenSSLCertificate, context: OpaquePointer) throws {
+        let store = SSL_CTX_get_cert_store(.make(optional: context))!
+        if 0 == X509_STORE_add_cert(store, .make(optional: cert.ref)) {
             throw NIOOpenSSLError.failedToLoadCertificate
         }
     }
     
-    private static func usePrivateKeyFile(_ path: String, context: UnsafeMutablePointer<SSL_CTX>) {
+    private static func usePrivateKeyFile(_ path: String, context: OpaquePointer) {
         let pathExtension = path.split(separator: ".").last
         let fileType: Int32
         
@@ -342,14 +337,14 @@ extension SSLContext {
         }
         
         let result = path.withCString { (pointer) -> Int32 in
-            return SSL_CTX_use_PrivateKey_file(context, pointer, fileType)
+            return SSL_CTX_use_PrivateKey_file(.make(optional: context), pointer, fileType)
         }
         
         // TODO(cory): again, some error handling would be good.
         precondition(result == 1)
     }
     
-    private static func loadVerifyLocations(_ path: String, context: UnsafeMutablePointer<SSL_CTX>) throws {
+    private static func loadVerifyLocations(_ path: String, context: OpaquePointer) throws {
         let isDirectory: Bool
         switch FileSystemObject.pathType(path: path) {
         case .some(.directory):
@@ -363,7 +358,7 @@ extension SSLContext {
         let result = path.withCString { (pointer) -> Int32 in
             let file = !isDirectory ? pointer : nil
             let directory = isDirectory ? pointer: nil
-            return SSL_CTX_load_verify_locations(context, file, directory)
+            return SSL_CTX_load_verify_locations(.make(optional: context), file, directory)
         }
         
         if result == 0 {
@@ -372,11 +367,11 @@ extension SSLContext {
         }
     }
 
-    private static func setAlpnProtocols(_ protocols: [[UInt8]], context: UnsafeMutablePointer<SSL_CTX>) throws {
+    private static func setAlpnProtocols(_ protocols: [[UInt8]], context: OpaquePointer) throws {
         // This copy should be done infrequently, so we don't worry too much about it.
         let protoBuf = protocols.reduce([UInt8](), +)
         let rc = protoBuf.withUnsafeBufferPointer {
-            CNIOOpenSSL_SSL_CTX_set_alpn_protos(context, $0.baseAddress!, UInt32($0.count))
+            CNIOOpenSSL_SSL_CTX_set_alpn_protos(.make(optional: context), $0.baseAddress!, UInt32($0.count))
         }
 
         // Annoyingly this function reverses the error convention: 0 is success, non-zero is failure.
@@ -386,7 +381,11 @@ extension SSLContext {
         }
     }
 
-    private static func setAlpnCallback(context: UnsafeMutablePointer<SSL_CTX>) {
-        CNIOOpenSSL_SSL_CTX_set_alpn_select_cb(context, alpnCallback, nil)
+    private static func setAlpnCallback(context: OpaquePointer) {
+        // This extra closure here is very silly, but it exists to allow us to avoid writing down the type of the first
+        // argument. Combined with the helper above, the compiler will be able to solve its way to success here.
+        CNIOOpenSSL_SSL_CTX_set_alpn_select_cb(.make(optional: context),
+                                               { alpnCallback(ssl: .make(optional: $0), out: $1, outlen: $2, in: $3, inlen: $4, appData: $5) },
+                                               nil)
     }
 }

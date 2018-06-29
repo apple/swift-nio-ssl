@@ -14,7 +14,7 @@
 
 import Foundation
 import CNIOOpenSSL
-import NIOOpenSSL
+@testable import NIOOpenSSL
 
 let samplePemCert = """
 -----BEGIN CERTIFICATE-----
@@ -243,40 +243,43 @@ func randomSerialNumber() -> ASN1_INTEGER {
 
     // Our 20-byte number needs to be converted into an integer. This is
     // too big for Swift's numbers, but OpenSSL can handle it fine.
-    var bn = BIGNUM()
+    let bn = BN_new()
+    defer {
+        BN_free(bn)
+    }
+    
     _ = readBytes.withUnsafeBufferPointer {
-        BN_bin2bn($0.baseAddress, Int32($0.count), &bn)
+        BN_bin2bn($0.baseAddress, Int32($0.count), bn)
     }
 
     // We want to bitshift this right by 1 bit to ensure it's smaller than
     // 2^159.
-    var shiftedBN = bn
-    BN_rshift1(&bn, &shiftedBN)
+    BN_rshift1(bn, bn)
 
     // Now we can turn this into our ASN1_INTEGER.
     var asn1int = ASN1_INTEGER()
-    BN_to_ASN1_INTEGER(&shiftedBN, &asn1int)
+    BN_to_ASN1_INTEGER(bn, &asn1int)
 
     return asn1int
 }
 
-func generateRSAPrivateKey() -> UnsafeMutablePointer<EVP_PKEY> {
-    let pkey = EVP_PKEY_new()!
+func generateRSAPrivateKey() -> OpaquePointer {
+    let pkey = OpaquePointer(EVP_PKEY_new()!)
     let rsa = RSA_generate_key(Int32(2048), UInt(65537), nil, nil)!
-    let assignRC = EVP_PKEY_assign(pkey, EVP_PKEY_RSA, rsa)
+    let assignRC = EVP_PKEY_assign(.make(optional: pkey), EVP_PKEY_RSA, .init(rsa))
     
     precondition(assignRC == 1)
     return pkey
 }
 
-func addExtension(x509: UnsafeMutablePointer<X509>, nid: Int32, value: String) {
+func addExtension(x509: OpaquePointer, nid: Int32, value: String) {
     var extensionContext = X509V3_CTX()
     
-    X509V3_set_ctx(&extensionContext, x509, x509, nil, nil, 0)
+    X509V3_set_ctx(&extensionContext, .make(optional: x509), .make(optional: x509), nil, nil, 0)
     let ext = value.withCString { (pointer) in
         return X509V3_EXT_conf_nid(nil, &extensionContext, nid, UnsafeMutablePointer(mutating: pointer))
     }!
-    X509_add_ext(x509, ext, -1)
+    X509_add_ext(.make(optional: x509), ext, -1)
     X509_EXTENSION_free(ext)
 }
 
@@ -293,16 +296,16 @@ func generateSelfSignedCert() -> (OpenSSLCertificate, OpenSSLPrivateKey) {
     let notBefore = ASN1_TIME_new()!
     var now = time(nil)
     ASN1_TIME_set(notBefore, now)
-    X509_set_notBefore(x, notBefore)
+    CNIOOpenSSL_X509_set_notBefore(x, notBefore)
     ASN1_TIME_free(notBefore)
     
     now += 60 * 60  // Give ourselves an hour
     let notAfter = ASN1_TIME_new()!
     ASN1_TIME_set(notAfter, now)
-    X509_set_notAfter(x, notAfter)
+    CNIOOpenSSL_X509_set_notAfter(x, notAfter)
     ASN1_TIME_free(notAfter)
     
-    X509_set_pubkey(x, pkey)
+    X509_set_pubkey(x, .make(optional: pkey))
     
     let commonName = "localhost"
     let name = X509_get_subject_name(x)
@@ -319,11 +322,11 @@ func generateSelfSignedCert() -> (OpenSSLCertificate, OpenSSLPrivateKey) {
     }
     X509_set_issuer_name(x, name)
     
-    addExtension(x509: x, nid: NID_basic_constraints, value: "critical,CA:FALSE")
-    addExtension(x509: x, nid: NID_subject_key_identifier, value: "hash")
-    addExtension(x509: x, nid: NID_subject_alt_name, value: "DNS:localhost")
+    addExtension(x509: .init(x), nid: NID_basic_constraints, value: "critical,CA:FALSE")
+    addExtension(x509: .init(x), nid: NID_subject_key_identifier, value: "hash")
+    addExtension(x509: .init(x), nid: NID_subject_alt_name, value: "DNS:localhost")
     
-    X509_sign(x, pkey, EVP_sha256())
+    X509_sign(x, .make(optional: pkey), EVP_sha256())
     
     return (OpenSSLCertificate.fromUnsafePointer(takingOwnership: x), OpenSSLPrivateKey.fromUnsafePointer(takingOwnership: pkey))
 }

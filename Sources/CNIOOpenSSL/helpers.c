@@ -11,8 +11,19 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-#include <assert.h>
+// Note that we don't include our umbrella header because it declares a bunch of
+// static inline functions that will cause havoc if they end up in multiple
+// compilation units.
+//
+// At some point we should probably just make them all live in this .o file, as the
+// cost of the function call is in practice very small.
 #include <openssl/bio.h>
+#include <openssl/crypto.h>
+#include <openssl/err.h>
+#include <openssl/ssl.h>
+#include <stdio.h>
+#include <pthread.h>
+#include <assert.h>
 
 /// This is a pointer to the BIO_METHOD structure for NIO's ByteBufferBIO.
 ///
@@ -20,7 +31,7 @@
 /// thread-safe manner. That means it should be guarded by some kind of pthread_once
 /// setup behaviour, or a lock. For NIO, we use the initializeOpenSSL dance to do
 /// this construction.
-const BIO_METHOD *CNIOOpenSSL_ByteBufferBIOMethod = NULL;
+BIO_METHOD *CNIOOpenSSL_ByteBufferBIOMethod = NULL;
 
 /// This is the type of the ByteBufferBIO created by Swift.
 ///
@@ -39,13 +50,13 @@ static BIO_METHOD byte_buffer_bio_method_actual = { 0 };
 
 /// Initialize the `CNIOOpenSSL_ByteBufferBIOMethod` pointer with the values of
 /// our specific ByteBuffer BIO type.
-void CNIOOpenSSL_initByteBufferBIO(int (*bioWriteFunc)(BIO *, const char *, int),
-                                   int (*bioReadFunc)(BIO *, char  *, int),
-                                   int (*bioPutsFunc)(BIO *, const char *),
-                                   int (*bioGetsFunc)(BIO *, char *, int),
-                                   long (*bioCtrlFunc)(BIO *, int, long, void *),
-                                   int (*bioCreateFunc)(BIO *),
-                                   int (*bioDestroyFunc)(BIO *)) {
+void CNIOOpenSSL_initByteBufferBIO(int (*bioWriteFunc)(void *, const char *, int),
+                                   int (*bioReadFunc)(void *, char  *, int),
+                                   int (*bioPutsFunc)(void *, const char *),
+                                   int (*bioGetsFunc)(void *, char *, int),
+                                   long (*bioCtrlFunc)(void *, int, long, void *),
+                                   int (*bioCreateFunc)(void *),
+                                   int (*bioDestroyFunc)(void *)) {
     assert(CNIOOpenSSL_ByteBufferBIOType == 0);
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
@@ -56,27 +67,94 @@ void CNIOOpenSSL_initByteBufferBIO(int (*bioWriteFunc)(BIO *, const char *, int)
     CNIOOpenSSL_ByteBufferBIOType = 202 | BIO_TYPE_SOURCE_SINK;
     byte_buffer_bio_method_actual.type = CNIOOpenSSL_ByteBufferBIOType;
     byte_buffer_bio_method_actual.name = bio_name;
-    byte_buffer_bio_method_actual.bwrite = bioWriteFunc;
-    byte_buffer_bio_method_actual.bread = bioReadFunc;
-    byte_buffer_bio_method_actual.bputs = bioPutsFunc;
-    byte_buffer_bio_method_actual.bgets = bioGetsFunc;
-    byte_buffer_bio_method_actual.ctrl = bioCtrlFunc;
-    byte_buffer_bio_method_actual.create = bioCreateFunc;
-    byte_buffer_bio_method_actual.destroy = bioDestroyFunc;
+    byte_buffer_bio_method_actual.bwrite = (int (*)(BIO *, const char *, int))bioWriteFunc;
+    byte_buffer_bio_method_actual.bread = (int (*)(BIO *, char *, int))bioReadFunc;
+    byte_buffer_bio_method_actual.bputs = (int (*)(BIO *, const char *))bioPutsFunc;
+    byte_buffer_bio_method_actual.bgets = (int (*)(BIO *, char *, int))bioGetsFunc;
+    byte_buffer_bio_method_actual.ctrl = (long (*)(BIO *, int, long, void *))bioCtrlFunc;
+    byte_buffer_bio_method_actual.create = (int (*)(BIO *))bioCreateFunc;
+    byte_buffer_bio_method_actual.destroy = (int (*)(BIO *))bioDestroyFunc;
 
     // Having initialized the BIO_METHOD, we can now publish the address to it.
     CNIOOpenSSL_ByteBufferBIOMethod = &byte_buffer_bio_method_actual;
 #else
     CNIOOpenSSL_ByteBufferBIOType = BIO_get_new_index() | BIO_TYPE_SOURCE_SINK;
     CNIOOpenSSL_ByteBufferBIOMethod = BIO_meth_new(CNIOOpenSSL_ByteBufferBIOType, bio_name);
-    BIO_meth_set_write(CNIOOpenSSL_ByteBufferBIOMethod, bioWriteFunc);
-    BIO_meth_set_read(CNIOOpenSSL_ByteBufferBIOMethod, bioReadFunc);
-    BIO_meth_set_puts(CNIOOpenSSL_ByteBufferBIOMethod, bioPutsFunc);
-    BIO_meth_set_gets(CNIOOpenSSL_ByteBufferBIOMethod, bioGetsFunc);
-    BIO_meth_set_ctrl(CNIOOpenSSL_ByteBufferBIOMethod, bioCtrlFunc);
-    BIO_meth_set_create(CNIOOpenSSL_ByteBufferBIOMethod, bioCreateFunc);
-    BIO_meth_set_destroy(CNIOOpenSSL_ByteBufferBIOMethod, bioDestroyFunc);
+    BIO_meth_set_write(CNIOOpenSSL_ByteBufferBIOMethod, (int (*)(BIO *, const char *, int))bioWriteFunc);
+    BIO_meth_set_read(CNIOOpenSSL_ByteBufferBIOMethod, (int (*)(BIO *, char *, int))bioReadFunc);
+    BIO_meth_set_puts(CNIOOpenSSL_ByteBufferBIOMethod, (int (*)(BIO *, const char *))bioPutsFunc);
+    BIO_meth_set_gets(CNIOOpenSSL_ByteBufferBIOMethod, (int (*)(BIO *, char *, int))bioGetsFunc);
+    BIO_meth_set_ctrl(CNIOOpenSSL_ByteBufferBIOMethod, (long (*)(BIO *, int, long, void *))bioCtrlFunc);
+    BIO_meth_set_create(CNIOOpenSSL_ByteBufferBIOMethod, (int (*)(BIO *))bioCreateFunc);
+    BIO_meth_set_destroy(CNIOOpenSSL_ByteBufferBIOMethod, (int (*)(BIO *))bioDestroyFunc);
 #endif
 
     assert(CNIOOpenSSL_ByteBufferBIOType != 0);
 }
+
+
+/// This will store the locks we're using for the locking callbacks.
+static pthread_mutex_t *locks = NULL;
+static int lockCount = 0;
+
+
+/// Our locking callback. It lives only in this compilation unit.
+static void CNIOOpenSSL_locking_callback(int mode, int lockIndex, const char *file, int line) {
+    if (lockIndex >= lockCount) {
+        fprintf(stderr, "Invalid lock index %d, only have %d locks\n", lockIndex, lockCount);
+        abort();
+    }
+
+    int rc;
+    if (mode & CRYPTO_LOCK) {
+        rc = pthread_mutex_lock(&locks[lockIndex]);
+    } else {
+        rc = pthread_mutex_unlock(&locks[lockIndex]);
+    }
+
+    if (rc != 0) {
+        fprintf(stderr, "Failed to operate mutex: error %d, mode %d", rc, mode);
+        abort();
+    }
+}
+
+
+/// Our thread-id callback. Again, only in this compilation unit.
+static unsigned long CNIOOpenSSL_thread_id_function(void) {
+    return (unsigned long)pthread_self();
+}
+
+
+/// Initialize the locking callbacks.
+static void CNIOOpenSSL_InitializeLockingCallbacks(void) {
+    // The locking callbacks are only necessary on OpenSSL earlier than 1.1, or
+    // libre.
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
+    // Don't double-set the locking callbacks.
+    if (CRYPTO_get_locking_callback() != NULL) {
+        return;
+    }
+
+    lockCount = CRYPTO_num_locks();
+    locks = malloc(lockCount * sizeof(typeof(locks[0])));
+
+    for (int i = 0; i < lockCount; i++) {
+        pthread_mutex_init(&locks[i], NULL);
+    }
+
+    CRYPTO_set_id_callback(CNIOOpenSSL_thread_id_function);
+    CRYPTO_set_locking_callback(CNIOOpenSSL_locking_callback);
+#endif
+    return;
+}
+
+
+/// Initialize OpenSSL.
+void CNIOOpenSSL_InitializeOpenSSL(void) {
+    SSL_library_init();
+    OPENSSL_add_all_algorithms_conf();
+    SSL_load_error_strings();
+    ERR_load_crypto_strings();
+    CNIOOpenSSL_InitializeLockingCallbacks();
+}
+

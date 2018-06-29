@@ -319,7 +319,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         let manager = OpenSSLPassphraseCallbackManager { closure in closure(passphrase.utf8) }
         let rc = withExtendedLifetime(manager) { manager -> CInt in
             let userData = Unmanaged.passUnretained(manager).toOpaque()
-            return PEM_write_bio_PrivateKey(fileBio, key.ref, EVP_aes_256_cbc(), nil, 0, globalOpenSSLPassphraseCallback, userData)
+            return PEM_write_bio_PrivateKey(fileBio, .make(optional: key.ref), EVP_aes_256_cbc(), nil, 0, globalOpenSSLPassphraseCallback, userData)
         }
         BIO_free(fileBio)
         precondition(rc == 1)
@@ -338,7 +338,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         let fileBio = BIO_new_fp(fdopen(tempFile, "w+"), BIO_CLOSE)
         precondition(fileBio != nil)
 
-        let rc = PEM_write_bio_X509(fileBio, OpenSSLIntegrationTest.cert.ref)
+        let rc = PEM_write_bio_X509(fileBio, .make(optional: OpenSSLIntegrationTest.cert.ref))
         BIO_free(fileBio)
         precondition(rc == 1)
         return try fn(fileName)

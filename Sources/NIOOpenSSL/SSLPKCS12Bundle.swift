@@ -41,35 +41,39 @@ public struct OpenSSLPKCS12Bundle {
     public let certificateChain: [OpenSSLCertificate]
     public let privateKey: OpenSSLPrivateKey
 
-    private init<Bytes: Collection>(ref: UnsafeMutablePointer<PKCS12>, passphrase: Bytes?) throws where Bytes.Element == UInt8 {
-        var pkey: UnsafeMutablePointer<EVP_PKEY>? = nil
-        var cert: UnsafeMutablePointer<X509>? = nil
-        var caCerts: UnsafeMutablePointer<stack_st_X509>? = nil
+    private init<Bytes: Collection>(ref: OpaquePointer, passphrase: Bytes?) throws where Bytes.Element == UInt8 {
+        var rawPkey: UnsafeMutableRawPointer? = nil
+        var rawCert: UnsafeMutableRawPointer? = nil
+        var rawCaCerts: UnsafeMutableRawPointer? = nil
 
         let rc = try passphrase.withSecureCString { passphrase in
-            PKCS12_parse(ref, passphrase, &pkey, &cert, &caCerts)
+            CNIOOpenSSL_PKCS12_parse(.make(optional: ref), passphrase, &rawPkey, &rawCert, &rawCaCerts)
         }
         guard rc == 1 else {
             throw OpenSSLError.unknownError(OpenSSLError.buildErrorStack())
         }
 
+        let pkey = rawPkey.map(OpaquePointer.init)
+        let cert = rawCert.map(OpaquePointer.init)
+        let caCerts = rawCaCerts.map(OpaquePointer.init)
+
         // Successfully parsed, let's unpack. The key and cert are mandatory,
         // the ca stack is not.
         guard let actualCert = cert, let actualKey = pkey else {
             // Free the pointers that we have.
-            X509_free(cert)
-            EVP_PKEY_free(pkey)
-            CNIOOpenSSL_sk_X509_free(caCerts)
+            cert.map { X509_free(.make(optional: $0)) }
+            pkey.map { X509_free(.make(optional: $0)) }
+            caCerts.map { X509_free(.make(optional: $0)) }
             throw NIOOpenSSLError.unableToAllocateOpenSSLObject
         }
 
-        let certStackSize = caCerts.map(CNIOOpenSSL_sk_X509_num) ?? 0
+        let certStackSize = caCerts.map { CNIOOpenSSL_sk_X509_num(.make(optional: $0)) } ?? 0
         var certs = [OpenSSLCertificate]()
         certs.reserveCapacity(Int(certStackSize) + 1)
         certs.append(OpenSSLCertificate.fromUnsafePointer(takingOwnership: actualCert))
 
         for idx in 0..<certStackSize {
-            guard let stackCertPtr = CNIOOpenSSL_sk_X509_value(caCerts, idx) else {
+            guard let stackCertPtr = CNIOOpenSSL_sk_X509_value(.make(optional: caCerts), idx) else {
                 preconditionFailure("Unable to get cert \(idx) from stack \(String(describing: caCerts))")
             }
             certs.append(OpenSSLCertificate.fromUnsafePointer(takingOwnership: stackCertPtr))
@@ -89,19 +93,19 @@ public struct OpenSSLPKCS12Bundle {
     public init<Bytes: Collection>(buffer: [UInt8], passphrase: Bytes?) throws where Bytes.Element == UInt8 {
         guard openSSLIsInitialized else { fatalError("Failed to initialize OpenSSL") }
         
-        let p12 = buffer.withUnsafeBytes { pointer -> UnsafeMutablePointer<PKCS12>? in
+        let p12 = buffer.withUnsafeBytes { pointer -> OpaquePointer? in
             let bio = BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: pointer.baseAddress), CInt(pointer.count))!
             defer {
                 BIO_free(bio)
             }
-            return d2i_PKCS12_bio(bio, nil)
+            return .make(optional: d2i_PKCS12_bio(bio, nil))
         }
         defer {
-            p12.map(PKCS12_free)
+            p12.map { PKCS12_free(.make(optional: $0)) }
         }
 
         if let p12 = p12 {
-            try self.init(ref: p12, passphrase: passphrase)
+            try self.init(ref: .init(p12), passphrase: passphrase)
         } else {
             throw OpenSSLError.unknownError(OpenSSLError.buildErrorStack())
         }
@@ -127,7 +131,7 @@ public struct OpenSSLPKCS12Bundle {
         }
 
         if let p12 = p12 {
-            try self.init(ref: p12, passphrase: passphrase)
+            try self.init(ref: .init(p12), passphrase: passphrase)
         } else {
             throw OpenSSLError.unknownError(OpenSSLError.buildErrorStack())
         }
