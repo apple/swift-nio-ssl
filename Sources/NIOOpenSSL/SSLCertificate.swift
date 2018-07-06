@@ -71,26 +71,26 @@ public class OpenSSLCertificate {
     /// Create an OpenSSLCertificate from a buffer of bytes in either PEM or
     /// DER format.
     public convenience init (buffer: [Int8], format: OpenSSLSerializationFormats) throws  {
-        let bio = buffer.withUnsafeBytes {
-            return BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: $0.baseAddress!), Int32($0.count))!
-        }
-        defer {
-            BIO_free(bio)
+        let ref = buffer.withUnsafeBytes { (ptr) -> UnsafeMutablePointer<X509>? in
+            let bio = BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), Int32(ptr.count))!
+
+            defer {
+                BIO_free(bio)
+            }
+
+            switch format {
+            case .pem:
+                return PEM_read_bio_X509(bio, nil, nil, nil)
+            case .der:
+                return d2i_X509_bio(bio, nil)
+            }
         }
 
-        let x509: UnsafeMutablePointer<X509>?
-        switch format {
-        case .pem:
-            x509 = PEM_read_bio_X509(bio, nil, nil, nil)
-        case .der:
-            x509 = d2i_X509_bio(bio, nil)
-        }
-
-        if x509 == nil {
+        if ref == nil {
             throw NIOOpenSSLError.failedToLoadCertificate
         }
 
-        self.init(withReference: x509!)
+        self.init(withReference: ref!)
     }
 
     /// Create an OpenSSLCertificate wrapping a pointer into OpenSSL.
