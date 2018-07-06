@@ -18,7 +18,7 @@ import CNIOOpenSSL
 // This is a neat trick. Swift lazily initializes module-globals based on when they're first
 // used. This lets us defer OpenSSL intialization as late as possible and only do it if people
 // actually create any object that uses OpenSSL.
-fileprivate var initialized: Bool = initializeOpenSSL()
+internal var openSSLIsInitialized: Bool = initializeOpenSSL()
 
 private enum FileSystemObject {
     case directory
@@ -108,12 +108,13 @@ private func alpnCallback(ssl: UnsafeMutablePointer<SSL>?,
 /// which are expected to be broadly the same.
 public final class SSLContext {
     private let sslContext: UnsafeMutablePointer<SSL_CTX>
+    private let callbackManager: CallbackManagerProtocol?
     internal let configuration: TLSConfiguration
 
     /// Initialize a context that will create multiple connections, all with the same
     /// configuration.
-    public init(configuration: TLSConfiguration) throws {
-        precondition(initialized)
+    internal init(configuration: TLSConfiguration, callbackManager: CallbackManagerProtocol?) throws {
+        guard openSSLIsInitialized else { fatalError("Failed to initialize OpenSSL") }
         guard let ctx = SSL_CTX_new(SSLv23_method()) else { throw NIOOpenSSLError.unableToAllocateOpenSSLObject }
 
         // TODO(cory): It doesn't seem like this initialization should happen here: where?
@@ -185,13 +186,19 @@ public final class SSLContext {
             case .some(.file(let f)):
                 try SSLContext.loadVerifyLocations(f, context: ctx)
             case .some(.certificates(let certs)):
-                    try certs.forEach { try SSLContext.addRootCertificate($0, context: ctx) }
+                try certs.forEach { try SSLContext.addRootCertificate($0, context: ctx) }
             }
         default:
             break
         }
 
-        // If we were given a certificate chain to use, load it and its associated private key.
+        // If we were given a certificate chain to use, load it and its associated private key. Before
+        // we do, set up a passphrase callback if we need to.
+        if let callbackManager = callbackManager {
+            SSL_CTX_set_default_passwd_cb(ctx, globalOpenSSLPassphraseCallback(buf:size:rwflag:u:))
+            SSL_CTX_set_default_passwd_cb_userdata(ctx, Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
+        }
+
         var leaf = true
         try configuration.certificateChain.forEach {
             switch $0 {
@@ -224,10 +231,33 @@ public final class SSLContext {
 
         self.sslContext = ctx
         self.configuration = configuration
+        self.callbackManager = callbackManager
 
         // Always make it possible to get from an SSL_CTX structure back to this.
         let ptrToSelf = Unmanaged.passUnretained(self).toOpaque()
         CNIOOpenSSL_SSL_CTX_set_app_data(ctx, ptrToSelf)
+    }
+
+    /// Initialize a context that will create multiple connections, all with the same
+    /// configuration.
+    public convenience init(configuration: TLSConfiguration) throws {
+        try self.init(configuration: configuration, callbackManager: nil)
+    }
+
+    /// Initialize a context that will create multiple connections, all with the same
+    /// configuration, along with a callback that will be called when needed to decrypt any
+    /// encrypted private keys.
+    ///
+    /// - parameters:
+    ///     - configuration: The `TLSConfiguration` to use for all the connections with this
+    ///         `SSLContext`.
+    ///     - passphraseCallback: The callback to use to decrypt any private keys used by this
+    ///         `SSLContext`. For more details on this parameter see the documentation for
+    ///         `OpenSSLPassphraseCallback`.
+    public convenience init<T: Collection>(configuration: TLSConfiguration,
+                                           passphraseCallback: @escaping OpenSSLPassphraseCallback<T>) throws where T.Element == UInt8 {
+        let manager = OpenSSLPassphraseCallbackManager(userCallback: passphraseCallback)
+        try self.init(configuration: configuration, callbackManager: manager)
     }
 
     /// Create a new connection object with the configuration from this

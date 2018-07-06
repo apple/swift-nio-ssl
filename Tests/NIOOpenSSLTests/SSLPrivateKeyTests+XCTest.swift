@@ -35,6 +35,15 @@ extension SSLPrivateKeyTest {
                 ("testLoadingGibberishFromMemoryAsDerFails", testLoadingGibberishFromMemoryAsDerFails),
                 ("testLoadingGibberishFromFileAsPemFails", testLoadingGibberishFromFileAsPemFails),
                 ("testLoadingGibberishFromFileAsDerFails", testLoadingGibberishFromFileAsDerFails),
+                ("testLoadingEncryptedRSAKeyFromMemory", testLoadingEncryptedRSAKeyFromMemory),
+                ("testLoadingEncryptedRSAPKCS8KeyFromMemory", testLoadingEncryptedRSAPKCS8KeyFromMemory),
+                ("testLoadingEncryptedRSAKeyFromFile", testLoadingEncryptedRSAKeyFromFile),
+                ("testLoadingEncryptedRSAPKCS8KeyFromFile", testLoadingEncryptedRSAPKCS8KeyFromFile),
+                ("testWildlyOverlongPassphraseRSAFromMemory", testWildlyOverlongPassphraseRSAFromMemory),
+                ("testWildlyOverlongPassphrasePKCS8FromMemory", testWildlyOverlongPassphrasePKCS8FromMemory),
+                ("testWildlyOverlongPassphraseRSAFromFile", testWildlyOverlongPassphraseRSAFromFile),
+                ("testWildlyOverlongPassphrasePKCS8FromFile", testWildlyOverlongPassphrasePKCS8FromFile),
+                ("testThrowingPassphraseCallback", testThrowingPassphraseCallback),
            ]
    }
 }

@@ -42,6 +42,7 @@ extension OpenSSLIntegrationTest {
                 ("testReadAfterCloseNotifyDoesntKillProcess", testReadAfterCloseNotifyDoesntKillProcess),
                 ("testZeroLengthWrite", testZeroLengthWrite),
                 ("testZeroLengthWritePromisesFireInOrder", testZeroLengthWritePromisesFireInOrder),
+                ("testEncryptedFileInContext", testEncryptedFileInContext),
            ]
    }
 }

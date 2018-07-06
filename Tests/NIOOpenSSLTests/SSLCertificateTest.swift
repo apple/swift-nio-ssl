@@ -103,13 +103,12 @@ i5PCcPYi39q101UIxV/WokS0mqHx/XuTYTwhWYd/C49OnM8MLZOUJd8w0VvS0ItY
 -----END CERTIFICATE-----
 """
 
-func makeTemporaryFile() -> String {
-    let template = "/tmp/niotestXXXXXXX"
+func makeTemporaryFile(fileExtension: String = "") -> String {
+    let template = "/tmp/niotestXXXXXXX\(fileExtension)"
     var templateBytes = template.utf8 + [0]
-    let templateBytesCount = templateBytes.count
     let fd = templateBytes.withUnsafeMutableBufferPointer { ptr in
-        ptr.baseAddress!.withMemoryRebound(to: Int8.self, capacity: templateBytesCount) { (ptr: UnsafeMutablePointer<Int8>) in
-            return mkstemp(ptr)
+        ptr.baseAddress!.withMemoryRebound(to: Int8.self, capacity: ptr.count) { (ptr: UnsafeMutablePointer<Int8>) in
+            return mkstemps(ptr, CInt(fileExtension.utf8.count))
         }
     }
     close(fd)
@@ -117,14 +116,14 @@ func makeTemporaryFile() -> String {
     return String(decoding: templateBytes, as: UTF8.self)
 }
 
-internal func dumpToFile(data: Data) throws  -> String {
-    let filename = makeTemporaryFile()
+internal func dumpToFile(data: Data, fileExtension: String = "") throws  -> String {
+    let filename = makeTemporaryFile(fileExtension: fileExtension)
     try data.write(to: URL(fileURLWithPath: filename))
     return filename
 }
 
-internal func dumpToFile(text: String) throws -> String {
-    return try dumpToFile(data: text.data(using: .utf8)!)
+internal func dumpToFile(text: String, fileExtension: String = "") throws -> String {
+    return try dumpToFile(data: text.data(using: .utf8)!, fileExtension: fileExtension)
 }
 
 internal extension Data {
