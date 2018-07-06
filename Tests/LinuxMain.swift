@@ -31,6 +31,7 @@ import XCTest
          testCase(OpenSSLALPNTest.allTests),
          testCase(OpenSSLIntegrationTest.allTests),
          testCase(SSLCertificateTest.allTests),
+         testCase(SSLPKCS12BundleTest.allTests),
          testCase(SSLPrivateKeyTest.allTests),
          testCase(TLSConfigurationTest.allTests),
     ])

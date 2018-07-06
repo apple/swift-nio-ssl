@@ -35,6 +35,8 @@ extension SSLCertificateTest {
                 ("testLoadingGibberishFromMemoryAsDerFails", testLoadingGibberishFromMemoryAsDerFails),
                 ("testLoadingGibberishFromFileAsPemFails", testLoadingGibberishFromFileAsPemFails),
                 ("testLoadingGibberishFromFileAsDerFails", testLoadingGibberishFromFileAsDerFails),
+                ("testLoadingNonexistentFileAsPem", testLoadingNonexistentFileAsPem),
+                ("testLoadingNonexistentFileAsDer", testLoadingNonexistentFileAsDer),
                 ("testEnumeratingSanFields", testEnumeratingSanFields),
                 ("testNonexistentSan", testNonexistentSan),
                 ("testCommonName", testCommonName),

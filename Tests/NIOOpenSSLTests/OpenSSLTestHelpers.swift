@@ -325,5 +325,5 @@ func generateSelfSignedCert() -> (OpenSSLCertificate, OpenSSLPrivateKey) {
     
     X509_sign(x, pkey, EVP_sha256())
     
-    return (OpenSSLCertificate.fromUnsafePointer(pointer: x), OpenSSLPrivateKey.fromUnsafePointer(pointer: pkey))
+    return (OpenSSLCertificate.fromUnsafePointer(takingOwnership: x), OpenSSLPrivateKey.fromUnsafePointer(takingOwnership: pkey))
 }
