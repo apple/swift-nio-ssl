@@ -20,11 +20,15 @@ import NIO
 class SSLPrivateKeyTest: XCTestCase {
     static var pemKeyFilePath: String! = nil
     static var derKeyFilePath: String! = nil
+    static var passwordPemKeyFilePath: String! = nil
+    static var passwordPKCS8PemKeyFilePath: String! = nil
     static var dynamicallyGeneratedKey: OpenSSLPrivateKey! = nil
 
     override class func setUp() {
         SSLPrivateKeyTest.pemKeyFilePath = try! dumpToFile(text: samplePemKey)
         SSLPrivateKeyTest.derKeyFilePath = try! dumpToFile(data: sampleDerKey)
+        SSLPrivateKeyTest.passwordPemKeyFilePath = try! dumpToFile(text: samplePemRSAEncryptedKey)
+        SSLPrivateKeyTest.passwordPKCS8PemKeyFilePath = try! dumpToFile(text: samplePKCS8PemPrivateKey)
 
         let (_, key) = generateSelfSignedCert()
         SSLPrivateKeyTest.dynamicallyGeneratedKey = key
@@ -35,6 +39,12 @@ class SSLPrivateKeyTest: XCTestCase {
             unlink($0)
         }
         _ = SSLPrivateKeyTest.derKeyFilePath.withCString {
+            unlink($0)
+        }
+        _ = SSLPrivateKeyTest.passwordPemKeyFilePath.withCString {
+            unlink($0)
+        }
+        _ = SSLPrivateKeyTest.passwordPKCS8PemKeyFilePath.withCString {
             unlink($0)
         }
     }
@@ -124,6 +134,95 @@ class SSLPrivateKeyTest: XCTestCase {
             XCTFail("Gibberish successfully loaded")
         } catch NIOOpenSSLError.failedToLoadPrivateKey {
             // Do nothing.
+        }
+    }
+
+    func testLoadingEncryptedRSAKeyFromMemory() throws {
+        let key1 = try OpenSSLPrivateKey(buffer: [Int8](samplePemRSAEncryptedKey.utf8CString), format: .pem) { closure in closure("thisisagreatpassword".utf8) }
+        let key2 = try OpenSSLPrivateKey(buffer: [Int8](samplePemRSAEncryptedKey.utf8CString), format: .pem) { closure in closure("thisisagreatpassword".utf8) }
+
+        XCTAssertEqual(key1, key2)
+    }
+
+    func testLoadingEncryptedRSAPKCS8KeyFromMemory() throws {
+        let key1 = try OpenSSLPrivateKey(buffer: [Int8](samplePKCS8PemPrivateKey.utf8CString), format: .pem) { closure in closure("thisisagreatpassword".utf8) }
+        let key2 = try OpenSSLPrivateKey(buffer: [Int8](samplePKCS8PemPrivateKey.utf8CString), format: .pem) { closure in closure("thisisagreatpassword".utf8) }
+
+        XCTAssertEqual(key1, key2)
+    }
+
+    func testLoadingEncryptedRSAKeyFromFile() throws {
+        let key1 = try OpenSSLPrivateKey(file: SSLPrivateKeyTest.passwordPemKeyFilePath, format: .pem) { closure in closure("thisisagreatpassword".utf8) }
+        let key2 = try OpenSSLPrivateKey(file: SSLPrivateKeyTest.passwordPemKeyFilePath, format: .pem) { closure in closure("thisisagreatpassword".utf8) }
+
+        XCTAssertEqual(key1, key2)
+    }
+
+    func testLoadingEncryptedRSAPKCS8KeyFromFile() throws {
+        let key1 = try OpenSSLPrivateKey(file: SSLPrivateKeyTest.passwordPKCS8PemKeyFilePath, format: .pem) { closure in closure("thisisagreatpassword".utf8) }
+        let key2 = try OpenSSLPrivateKey(file: SSLPrivateKeyTest.passwordPKCS8PemKeyFilePath, format: .pem) { closure in closure("thisisagreatpassword".utf8) }
+
+        XCTAssertEqual(key1, key2)
+    }
+
+    func testWildlyOverlongPassphraseRSAFromMemory() throws {
+        do {
+            _ = try OpenSSLPrivateKey(buffer: [Int8](samplePemRSAEncryptedKey.utf8CString), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }
+            XCTFail("Should not have created the key")
+        } catch NIOOpenSSLError.failedToLoadPrivateKey {
+            // ok
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testWildlyOverlongPassphrasePKCS8FromMemory() throws {
+        do {
+            _ = try OpenSSLPrivateKey(buffer: [Int8](samplePKCS8PemPrivateKey.utf8CString), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }
+            XCTFail("Should not have created the key")
+        } catch NIOOpenSSLError.failedToLoadPrivateKey {
+            // ok
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testWildlyOverlongPassphraseRSAFromFile() throws {
+        do {
+            _ = try OpenSSLPrivateKey(buffer: [Int8](samplePemRSAEncryptedKey.utf8CString), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }
+            XCTFail("Should not have created the key")
+        } catch NIOOpenSSLError.failedToLoadPrivateKey {
+            // ok
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testWildlyOverlongPassphrasePKCS8FromFile() throws {
+        do {
+            _ = try OpenSSLPrivateKey(buffer: [Int8](samplePKCS8PemPrivateKey.utf8CString), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }
+            XCTFail("Should not have created the key")
+        } catch NIOOpenSSLError.failedToLoadPrivateKey {
+            // ok
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testThrowingPassphraseCallback() throws {
+        enum MyError: Error {
+            case error
+        }
+
+        do {
+            _ = try OpenSSLPrivateKey(buffer: [Int8](samplePemRSAEncryptedKey.utf8CString), format: .pem) { (_: OpenSSLPassphraseSetter<Array<UInt8>>) in
+                throw MyError.error
+            }
+            XCTFail("Should not have created the key")
+        } catch NIOOpenSSLError.failedToLoadPrivateKey {
+            // ok
+        } catch {
+            XCTFail("Unexpected error: \(error)")
         }
     }
 }

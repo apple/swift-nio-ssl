@@ -273,12 +273,19 @@ internal func clientTLSChannel(context: NIOOpenSSL.SSLContext,
 class OpenSSLIntegrationTest: XCTestCase {
     static var cert: OpenSSLCertificate!
     static var key: OpenSSLPrivateKey!
+    static var encryptedKeyPath: String!
     
     override class func setUp() {
         super.setUp()
+        guard openSSLIsInitialized else { fatalError() }
         let (cert, key) = generateSelfSignedCert()
         OpenSSLIntegrationTest.cert = cert
         OpenSSLIntegrationTest.key = key
+        OpenSSLIntegrationTest.encryptedKeyPath = keyInFile(key: OpenSSLIntegrationTest.key, passphrase: "thisisagreatpassword")
+    }
+
+    override class func tearDown() {
+        _ = unlink(OpenSSLIntegrationTest.encryptedKeyPath)
     }
     
     private func configuredSSLContext(file: StaticString = #file, line: UInt = #line) throws -> NIOOpenSSL.SSLContext {
@@ -288,9 +295,35 @@ class OpenSSLIntegrationTest: XCTestCase {
         return try assertNoThrowWithValue(SSLContext(configuration: config), file: file, line: line)
     }
 
+    private func configuredSSLContext<T: Collection>(passphraseCallback: @escaping OpenSSLPassphraseCallback<T>,
+                                                     file: StaticString = #file, line: UInt = #line) throws -> NIOOpenSSL.SSLContext
+                                                     where T.Element == UInt8 {
+        let config = TLSConfiguration.forServer(certificateChain: [.certificate(OpenSSLIntegrationTest.cert)],
+                                                privateKey: .file(OpenSSLIntegrationTest.encryptedKeyPath),
+                                                trustRoots: .certificates([OpenSSLIntegrationTest.cert]))
+        return try assertNoThrowWithValue(SSLContext(configuration: config, passphraseCallback: passphraseCallback), file: file, line: line)
+    }
+
     private func configuredClientContext(file: StaticString = #file, line: UInt = #line) throws -> NIOOpenSSL.SSLContext {
         let config = TLSConfiguration.forClient(trustRoots: .certificates([OpenSSLIntegrationTest.cert]))
         return try assertNoThrowWithValue(SSLContext(configuration: config), file: file, line: line)
+    }
+
+    static func keyInFile(key: OpenSSLPrivateKey, passphrase: String) -> String {
+        let fileName = makeTemporaryFile(fileExtension: ".pem")
+        let tempFile = open(fileName, O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0o644)
+        precondition(tempFile > 1, String(cString: strerror(errno)))
+        let fileBio = BIO_new_fp(fdopen(tempFile, "w+"), BIO_CLOSE)
+        precondition(fileBio != nil)
+
+        let manager = OpenSSLPassphraseCallbackManager { closure in closure(passphrase.utf8) }
+        let rc = withExtendedLifetime(manager) { manager -> CInt in
+            let userData = Unmanaged.passUnretained(manager).toOpaque()
+            return PEM_write_bio_PrivateKey(fileBio, key.ref, EVP_aes_256_cbc(), nil, 0, globalOpenSSLPassphraseCallback, userData)
+        }
+        BIO_free(fileBio)
+        precondition(rc == 1)
+        return fileName
     }
 
     func withTrustBundleInFile<T>(tempFile fileName: inout String?, fn: (String) throws -> T) throws -> T {
@@ -1010,5 +1043,37 @@ class OpenSSLIntegrationTest: XCTestCase {
 
         serverChannel.pipeline.fireChannelInactive()
         clientChannel.pipeline.fireChannelInactive()
+    }
+
+    func testEncryptedFileInContext() throws {
+        let ctx = try configuredSSLContext(passphraseCallback:{ $0("thisisagreatpassword".utf8) } )
+
+        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().newPromise()
+
+        let serverChannel: Channel = try serverTLSChannel(context: ctx, handlers: [SimpleEchoServer()], group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let clientChannel = try clientTLSChannel(context: ctx,
+                                                 preHandlers: [],
+                                                 postHandlers: [PromiseOnReadHandler(promise: completionPromise)],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!)
+        defer {
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.write(string: "Hello")
+        try clientChannel.writeAndFlush(originalBuffer).wait()
+
+        let newBuffer = try completionPromise.futureResult.wait()
+        XCTAssertEqual(newBuffer, originalBuffer)
     }
 }
