@@ -152,33 +152,33 @@ public class OpenSSLPrivateKey {
 
     /// A delegating initializer for `init(buffer:format:passphraseCallback)` and `init(buffer:format:)`.
     private convenience init(buffer: [Int8], format: OpenSSLSerializationFormats, callbackManager: CallbackManagerProtocol?) throws {
-        let bio = buffer.withUnsafeBytes {
-            return BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: $0.baseAddress!), Int32($0.count))!
-        }
-        defer {
-            BIO_free(bio)
-        }
+        let ref = buffer.withUnsafeBytes { (ptr) -> UnsafeMutablePointer<EVP_PKEY>? in
+            let bio = BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), Int32(ptr.count))!
+            defer {
+                BIO_free(bio)
+            }
 
-        let key = withExtendedLifetime(callbackManager) { callbackManager -> UnsafeMutablePointer<EVP_PKEY>? in
-            switch format {
-            case .pem:
-                if let callbackManager = callbackManager {
-                    // This annoying conditional binding is used to work around the fact that I cannot pass
-                    // a variable to a function pointer argument.
-                    return PEM_read_bio_PrivateKey(bio, nil, globalOpenSSLPassphraseCallback(buf:size:rwflag:u:), Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
-                } else {
-                    return PEM_read_bio_PrivateKey(bio, nil, nil, nil)
+            return withExtendedLifetime(callbackManager) { callbackManager -> UnsafeMutablePointer<EVP_PKEY>? in
+                switch format {
+                case .pem:
+                    if let callbackManager = callbackManager {
+                        // This annoying conditional binding is used to work around the fact that I cannot pass
+                        // a variable to a function pointer argument.
+                        return PEM_read_bio_PrivateKey(bio, nil, globalOpenSSLPassphraseCallback(buf:size:rwflag:u:), Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
+                    } else {
+                        return PEM_read_bio_PrivateKey(bio, nil, nil, nil)
+                    }
+                case .der:
+                    return d2i_PrivateKey_bio(bio, nil)
                 }
-            case .der:
-                return d2i_PrivateKey_bio(bio, nil)
             }
         }
 
-        if key == nil {
+        if ref == nil {
             throw NIOOpenSSLError.failedToLoadPrivateKey
         }
 
-        self.init(withReference: key!)
+        self.init(withReference: ref!)
     }
 
     /// Create an OpenSSLPrivateKey from a file at a given path in either PEM or
