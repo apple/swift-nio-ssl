@@ -251,8 +251,8 @@ class SSLCertificateTest: XCTestCase {
         do {
             _ = try OpenSSLCertificate(file: "/nonexistent/path", format: .pem)
             XCTFail("Did not throw")
-        } catch NIOOpenSSLError.noSuchFilesystemObject {
-            // ok
+        } catch let error as IOError {
+            XCTAssertEqual(error.errnoCode, ENOENT)
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
@@ -262,8 +262,8 @@ class SSLCertificateTest: XCTestCase {
         do {
             _ = try OpenSSLCertificate(file: "/nonexistent/path", format: .der)
             XCTFail("Did not throw")
-        } catch NIOOpenSSLError.noSuchFilesystemObject {
-            // ok
+        } catch let error as IOError {
+            XCTAssertEqual(error.errnoCode, ENOENT)
         } catch {
             XCTFail("Unexpected error: \(error)")
         }

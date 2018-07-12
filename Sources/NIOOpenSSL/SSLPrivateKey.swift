@@ -121,9 +121,7 @@ public class OpenSSLPrivateKey {
 
     /// A delegating initializer for `init(file:format:passphraseCallback)` and `init(file:format:)`.
     private convenience init(file: String, format: OpenSSLSerializationFormats, callbackManager: CallbackManagerProtocol?) throws {
-        guard let fileObject = fopen(file, "rb") else {
-            throw NIOOpenSSLError.noSuchFilesystemObject
-        }
+        let fileObject = try Posix.fopen(file: file, mode: "rb")
         defer {
             fclose(fileObject)
         }

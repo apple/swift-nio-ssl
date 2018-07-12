@@ -141,8 +141,8 @@ class SSLPrivateKeyTest: XCTestCase {
         do {
             _ = try OpenSSLPrivateKey(file: "/nonexistent/path", format: .pem)
             XCTFail("Did not throw")
-        } catch NIOOpenSSLError.noSuchFilesystemObject {
-            // ok
+        } catch let error as IOError {
+            XCTAssertEqual(error.errnoCode, ENOENT)
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
@@ -152,8 +152,8 @@ class SSLPrivateKeyTest: XCTestCase {
         do {
             _ = try OpenSSLPrivateKey(file: "/nonexistent/path", format: .der)
             XCTFail("Did not throw")
-        } catch NIOOpenSSLError.noSuchFilesystemObject {
-            // ok
+        } catch let error as IOError {
+            XCTAssertEqual(error.errnoCode, ENOENT)
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
@@ -165,8 +165,8 @@ class SSLPrivateKeyTest: XCTestCase {
                 XCTFail("Should not be called")
             }
             XCTFail("Did not throw")
-        } catch NIOOpenSSLError.noSuchFilesystemObject {
-            // ok
+        } catch let error as IOError {
+            XCTAssertEqual(error.errnoCode, ENOENT)
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
@@ -178,8 +178,8 @@ class SSLPrivateKeyTest: XCTestCase {
                 XCTFail("Should not be called")
             }
             XCTFail("Did not throw")
-        } catch NIOOpenSSLError.noSuchFilesystemObject {
-            // ok
+        } catch let error as IOError {
+            XCTAssertEqual(error.errnoCode, ENOENT)
         } catch {
             XCTFail("Unexpected error: \(error)")
         }

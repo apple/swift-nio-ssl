@@ -498,8 +498,8 @@ class SSLPKCS12BundleTest: XCTestCase {
         do {
             _ = try OpenSSLPKCS12Bundle(file: "/nonexistent/path")
             XCTFail("Did not throw")
-        } catch NIOOpenSSLError.noSuchFilesystemObject {
-            // Ok
+        } catch let error as IOError {
+            XCTAssertEqual(error.errnoCode, ENOENT)
         } catch {
             XCTFail("Unexpected error: \(error)")
         }

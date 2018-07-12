@@ -26,7 +26,9 @@ private enum FileSystemObject {
 
     static func pathType(path: String) -> FileSystemObject? {
         var statObj = stat()
-        guard stat(path, &statObj) == 0 else {
+        do {
+            try Posix.stat(path: path, buf: &statObj)
+        } catch {
             return nil
         }
 
