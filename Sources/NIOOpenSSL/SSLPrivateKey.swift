@@ -121,8 +121,8 @@ public class OpenSSLPrivateKey {
 
     /// A delegating initializer for `init(file:format:passphraseCallback)` and `init(file:format:)`.
     private convenience init(file: String, format: OpenSSLSerializationFormats, callbackManager: CallbackManagerProtocol?) throws {
-        let fileObject = file.withCString { filePtr in
-            return fopen(filePtr, "rb")
+        guard let fileObject = fopen(file, "rb") else {
+            throw NIOOpenSSLError.noSuchFilesystemObject
         }
         defer {
             fclose(fileObject)
@@ -235,11 +235,29 @@ public class OpenSSLPrivateKey {
     /// OpenSSL's reference-counted memory. This function does not increment the reference count for the EVP_PKEY
     /// object here, nor does it duplicate it: it just takes ownership of the copy here. This object
     /// **will** deallocate the underlying EVP_PKEY object when deinited, and so if you need to keep that
-    /// EVP_PKEY object alive you should call X509_dup before passing the pointer here.
+    /// EVP_PKEY object alive you create a new EVP_PKEY before passing that object here.
     ///
     /// In general, however, this function should be avoided in favour of one of the convenience
-    /// initializers, which ensure that the lifetime of the X509 object is better-managed.
+    /// initializers, which ensure that the lifetime of the EVP_PKEY object is better-managed.
+    ///
+    /// This function is deprecated in favor of `fromUnsafePointer(takingOwnership:)`, an identical function
+    /// that more accurately communicates its behaviour.
+    @available(*, deprecated, renamed: "fromUnsafePointer(takingOwnership:)")
     static public func fromUnsafePointer(pointer: UnsafePointer<EVP_PKEY>) -> OpenSSLPrivateKey {
+        return OpenSSLPrivateKey.fromUnsafePointer(takingOwnership: pointer)
+    }
+
+    /// Create an OpenSSLPrivateKey wrapping a pointer into OpenSSL.
+    ///
+    /// This is a function that should be avoided as much as possible because it plays poorly with
+    /// OpenSSL's reference-counted memory. This function does not increment the reference count for the EVP_PKEY
+    /// object here, nor does it duplicate it: it just takes ownership of the copy here. This object
+    /// **will** deallocate the underlying EVP_PKEY object when deinited, and so if you need to keep that
+    /// EVP_PKEY object alive you create a new EVP_PKEY before passing that object here.
+    ///
+    /// In general, however, this function should be avoided in favour of one of the convenience
+    /// initializers, which ensure that the lifetime of the EVP_PKEY object is better-managed.
+    static public func fromUnsafePointer(takingOwnership pointer: UnsafePointer<EVP_PKEY>) -> OpenSSLPrivateKey {
         return OpenSSLPrivateKey(withReference: UnsafeMutablePointer(mutating: pointer))
     }
 

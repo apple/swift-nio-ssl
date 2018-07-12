@@ -137,6 +137,54 @@ class SSLPrivateKeyTest: XCTestCase {
         }
     }
 
+    func testLoadingNonexistentFileAsPem() throws {
+        do {
+            _ = try OpenSSLPrivateKey(file: "/nonexistent/path", format: .pem)
+            XCTFail("Did not throw")
+        } catch NIOOpenSSLError.noSuchFilesystemObject {
+            // ok
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testLoadingNonexistentFileAsDer() throws {
+        do {
+            _ = try OpenSSLPrivateKey(file: "/nonexistent/path", format: .der)
+            XCTFail("Did not throw")
+        } catch NIOOpenSSLError.noSuchFilesystemObject {
+            // ok
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testLoadingNonexistentFileAsPemWithPassphrase() throws {
+        do {
+            _ = try OpenSSLPrivateKey(file: "/nonexistent/path", format: .pem) { (_: OpenSSLPassphraseSetter<Array<UInt8>>) in
+                XCTFail("Should not be called")
+            }
+            XCTFail("Did not throw")
+        } catch NIOOpenSSLError.noSuchFilesystemObject {
+            // ok
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testLoadingNonexistentFileAsDerWithPassphrase() throws {
+        do {
+            _ = try OpenSSLPrivateKey(file: "/nonexistent/path", format: .der) { (_: OpenSSLPassphraseSetter<Array<UInt8>>) in
+                XCTFail("Should not be called")
+            }
+            XCTFail("Did not throw")
+        } catch NIOOpenSSLError.noSuchFilesystemObject {
+            // ok
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     func testLoadingEncryptedRSAKeyFromMemory() throws {
         let key1 = try OpenSSLPrivateKey(buffer: [Int8](samplePemRSAEncryptedKey.utf8CString), format: .pem) { closure in closure("thisisagreatpassword".utf8) }
         let key2 = try OpenSSLPrivateKey(buffer: [Int8](samplePemRSAEncryptedKey.utf8CString), format: .pem) { closure in closure("thisisagreatpassword".utf8) }

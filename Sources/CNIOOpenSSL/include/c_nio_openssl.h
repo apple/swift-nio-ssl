@@ -60,6 +60,18 @@ static inline const GENERAL_NAME *CNIOOpenSSL_sk_GENERAL_NAME_value(STACK_OF(GEN
     return sk_GENERAL_NAME_value(x, idx);
 }
 
+static inline int CNIOOpenSSL_sk_X509_num(STACK_OF(X509) *x) {
+    return sk_X509_num(x);
+}
+
+static inline const X509 *CNIOOpenSSL_sk_X509_value(STACK_OF(X509) *x, int idx) {
+    return sk_X509_value(x, idx);
+}
+
+static inline void CNIOOpenSSL_sk_X509_free(STACK_OF(X509) *x) {
+    return sk_X509_free(x);
+}
+
 static inline int CNIOOpenSSL_SSL_CTX_set_app_data(SSL_CTX *ctx, void *arg) {
     return SSL_CTX_set_app_data(ctx, arg);
 }

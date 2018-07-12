@@ -247,6 +247,28 @@ class SSLCertificateTest: XCTestCase {
         }
     }
 
+    func testLoadingNonexistentFileAsPem() throws {
+        do {
+            _ = try OpenSSLCertificate(file: "/nonexistent/path", format: .pem)
+            XCTFail("Did not throw")
+        } catch NIOOpenSSLError.noSuchFilesystemObject {
+            // ok
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testLoadingNonexistentFileAsDer() throws {
+        do {
+            _ = try OpenSSLCertificate(file: "/nonexistent/path", format: .der)
+            XCTFail("Did not throw")
+        } catch NIOOpenSSLError.noSuchFilesystemObject {
+            // ok
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
     func testEnumeratingSanFields() throws {
         var v4addr = in_addr()
         var v6addr = in6_addr()

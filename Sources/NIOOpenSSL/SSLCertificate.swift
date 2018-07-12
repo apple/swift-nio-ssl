@@ -46,8 +46,8 @@ public class OpenSSLCertificate {
     ///
     /// Note that this method will only ever load the first certificate from a given file.
     public convenience init (file: String, format: OpenSSLSerializationFormats) throws {
-        let fileObject = file.withCString { filePtr in
-            return fopen(filePtr, "rb")
+        guard let fileObject = fopen(file, "rb") else {
+            throw NIOOpenSSLError.noSuchFilesystemObject
         }
         defer {
             fclose(fileObject)
@@ -103,7 +103,25 @@ public class OpenSSLCertificate {
     ///
     /// In general, however, this function should be avoided in favour of one of the convenience
     /// initializers, which ensure that the lifetime of the `X509` object is better-managed.
+    ///
+    /// This function is deprecated in favor of `fromUnsafePointer(takingOwnership:)`, an identical function
+    /// that more accurately communicates its behaviour.
+    @available(*, deprecated, renamed: "fromUnsafePointer(takingOwnership:)")
     static public func fromUnsafePointer(pointer: UnsafePointer<X509>) -> OpenSSLCertificate {
+        return OpenSSLCertificate.fromUnsafePointer(takingOwnership: pointer)
+    }
+
+    /// Create an OpenSSLCertificate wrapping a pointer into OpenSSL.
+    ///
+    /// This is a function that should be avoided as much as possible because it plays poorly with
+    /// OpenSSL's reference-counted memory. This function does not increment the reference count for the `X509`
+    /// object here, nor does it duplicate it: it just takes ownership of the copy here. This object
+    /// **will** deallocate the underlying `X509` object when deinited, and so if you need to keep that
+    /// `X509` object alive you should call `X509_dup` before passing the pointer here.
+    ///
+    /// In general, however, this function should be avoided in favour of one of the convenience
+    /// initializers, which ensure that the lifetime of the `X509` object is better-managed.
+    static public func fromUnsafePointer(takingOwnership pointer: UnsafePointer<X509>) -> OpenSSLCertificate {
         return OpenSSLCertificate(withReference: UnsafeMutablePointer(mutating: pointer))
     }
 

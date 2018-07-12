@@ -291,6 +291,6 @@ internal final class SSLConnection {
             return nil
         }
 
-        return OpenSSLCertificate.fromUnsafePointer(pointer: certPtr)
+        return OpenSSLCertificate.fromUnsafePointer(takingOwnership: certPtr)
     }
 }
