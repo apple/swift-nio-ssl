@@ -46,9 +46,7 @@ public class OpenSSLCertificate {
     ///
     /// Note that this method will only ever load the first certificate from a given file.
     public convenience init (file: String, format: OpenSSLSerializationFormats) throws {
-        guard let fileObject = fopen(file, "rb") else {
-            throw NIOOpenSSLError.noSuchFilesystemObject
-        }
+        let fileObject = try Posix.fopen(file: file, mode: "rb")
         defer {
             fclose(fileObject)
         }

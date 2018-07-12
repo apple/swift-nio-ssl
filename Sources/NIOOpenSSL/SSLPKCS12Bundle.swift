@@ -116,9 +116,7 @@ public struct OpenSSLPKCS12Bundle {
     public init<Bytes: Collection>(file: String, passphrase: Bytes?) throws where Bytes.Element == UInt8 {
         guard openSSLIsInitialized else { fatalError("Failed to initialize OpenSSL") }
 
-        guard let fileObject = fopen(file, "rb") else {
-            throw NIOOpenSSLError.noSuchFilesystemObject
-        }
+        let fileObject = try Posix.fopen(file: file, mode: "rb")
         defer {
             fclose(fileObject)
         }
@@ -179,13 +177,10 @@ internal extension Collection where Element == UInt8 {
             ptr.deallocate()
         }
 
-        if mlock(bufferPtr.baseAddress!, bufferPtr.count) != 0 {
-            throw IOError(errnoCode: errno, function: "mlock")
-        }
+        try Posix.mlock(addr: bufferPtr.baseAddress!, len: bufferPtr.count)
         defer {
             // If munlock fails take out the process.
-            let rc = munlock(bufferPtr.baseAddress!, bufferPtr.count)
-            precondition(rc == 0, "munlock failed with \(rc), errno \(errno)")
+            try! Posix.munlock(addr: bufferPtr.baseAddress!, len: bufferPtr.count)
         }
 
         let (_, nextIndex) = bufferPtr.initialize(from: self)
