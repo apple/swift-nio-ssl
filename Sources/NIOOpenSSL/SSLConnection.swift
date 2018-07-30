@@ -15,7 +15,7 @@
 import NIO
 import CNIOOpenSSL
 
-private let SSL_MAX_RECORD_SIZE = 16 * 1024;
+internal let SSL_MAX_RECORD_SIZE = 16 * 1024;
 
 /// Encodes the return value of a non-blocking OpenSSL method call.
 ///
@@ -38,8 +38,7 @@ enum AsyncOperationResult<T> {
 internal final class SSLConnection {
     private let ssl: UnsafeMutablePointer<SSL>
     private let parentContext: SSLContext
-    private let fromNetwork: UnsafeMutablePointer<BIO>
-    private let toNetwork: UnsafeMutablePointer<BIO>
+    private var bio: ByteBufferBIO?
 
     /// Whether certificate hostnames should be validated.
     var validateHostnames: Bool {
@@ -49,22 +48,9 @@ internal final class SSLConnection {
         return false
     }
     
-    init? (_ ssl: UnsafeMutablePointer<SSL>, parentContext: SSLContext) {
-        self.ssl = ssl
+    init(ownedSSL: UnsafeMutablePointer<SSL>, parentContext: SSLContext) {
+        self.ssl = ownedSSL
         self.parentContext = parentContext
-        
-        let fromNetwork = BIO_new(BIO_s_mem())
-        let toNetwork = BIO_new(BIO_s_mem())
-        
-        if fromNetwork == nil || toNetwork == nil {
-            // TODO(cory): I don't love having this cleanup here, it means I have to remember it.
-            SSL_free(ssl)
-            return nil
-        }
-        
-        self.fromNetwork = fromNetwork!
-        self.toNetwork = toNetwork!
-        SSL_set_bio(self.ssl, self.fromNetwork, self.toNetwork)
     }
     
     deinit {
@@ -79,6 +65,16 @@ internal final class SSLConnection {
     /// Configures this as a client connection.
     func setConnectState() {
         SSL_set_connect_state(ssl)
+    }
+
+    func setAllocator(_ allocator: ByteBufferAllocator) {
+        self.bio = ByteBufferBIO(allocator: allocator)
+
+        // This weird dance where we pass the *exact same* pointer in to both objects is because, weirdly,
+        // the OpenSSL docs claim that only one reference count will be consumed here. We therefore need to
+        // avoid calling BIO_up_ref too many times.
+        let bioPtr = self.bio!.retainedBIO()
+        SSL_set_bio(self.ssl, bioPtr, bioPtr)
     }
 
     /// Sets the value of the SNI extension to send to the server.
@@ -155,20 +151,10 @@ internal final class SSLConnection {
     /// OpenSSL's receive buffer ready for handling by OpenSSL.
     ///
     /// This method should be called whenever data is received from the remote
-    /// peer.
-    ///
-    /// Right now this method has no return value because we are using OpenSSL's
-    /// default `BIO`s, which are unbounded. A future enhancement to this package
-    /// may allow this to consume only part of the data, in which case this method
-    /// will gain a return value.
-    func consumeDataFromNetwork(_ data: inout ByteBuffer) {
-        let consumedBytes = data.withUnsafeReadableBytes { (pointer) -> Int32 in
-            let bytesWritten = BIO_write(self.fromNetwork, pointer.baseAddress, Int32(pointer.count))
-            assert(bytesWritten == pointer.count)
-            return bytesWritten
-        }
-        
-        data.moveReaderIndex(forwardBy: Int(consumedBytes))
+    /// peer. It must be immediately followed by an I/O operation, e.g. `readDataFromNetwork`
+    /// or `doHandshake` or `doShutdown`.
+    func consumeDataFromNetwork(_ data: ByteBuffer) {
+        self.bio!.receiveFromNetwork(buffer: data)
     }
 
     /// Obtains some encrypted data ready for the network from OpenSSL.
@@ -181,41 +167,27 @@ internal final class SSLConnection {
     /// Returns `nil` if there is no data to write. Otherwise, returns all of the pending
     /// data.
     func getDataForNetwork(allocator: ByteBufferAllocator) -> ByteBuffer? {
-        let bufferedBytes = BIO_ctrl_pending(toNetwork)
-        if bufferedBytes == 0 {
-            return nil
-        }
-        
-        var outputBuffer = allocator.buffer(capacity: bufferedBytes)
-        let writtenBytes = outputBuffer.writeWithUnsafeMutableBytes { (pointer) -> Int in
-            let rc = BIO_read(toNetwork, pointer.baseAddress, Int32(pointer.count))
-            assert(rc > 0)
-            return Int(rc)
-        }
-        assert(writtenBytes == bufferedBytes) // I can't see how this would fail, but...it might!
-        return outputBuffer
+        return self.bio!.outboundCiphertext()
     }
 
-    /// Attempts to decrypt any application data sent by the remote peer, and returns a buffer
+    /// Attempts to decrypt any application data sent by the remote peer, and fills a buffer
     /// containing the cleartext bytes.
     ///
     /// This method can only consume data previously fed into OpenSSL in `consumeDataFromNetwork`.
-    func readDataFromNetwork(allocator: ByteBufferAllocator, size: Int) -> AsyncOperationResult<ByteBuffer> {
-        var outputBuffer = allocator.buffer(capacity: size)
-        
+    func readDataFromNetwork(outputBuffer: inout ByteBuffer) -> AsyncOperationResult<Int> {
         // TODO(cory): It would be nice to have an withUnsafeMutableWriteableBytes here, but we don't, so we
         // need to make do with writeWithUnsafeMutableBytes instead. The core issue is that we can't
         // safely return any of the error values that SSL_read might provide here because writeWithUnsafeMutableBytes
         // will try to use that as the number of bytes written and blow up. If we could prevent it doing that (which
         // we can with reading) that would be grand, but we can't, so instead we need to use a temp variable. Not ideal.
         var bytesRead: Int32 = 0
-        let _ = outputBuffer.writeWithUnsafeMutableBytes { (pointer) -> Int in
+        let rc = outputBuffer.writeWithUnsafeMutableBytes { (pointer) -> Int in
             bytesRead = SSL_read(self.ssl, pointer.baseAddress, Int32(pointer.count))
             return bytesRead >= 0 ? Int(bytesRead) : 0
         }
         
         if bytesRead > 0 {
-            return .complete(outputBuffer)
+            return .complete(rc)
         } else {
             let result = SSL_get_error(ssl, Int32(bytesRead))
             let error = OpenSSLError.fromSSLGetErrorResult(result)!
@@ -228,10 +200,6 @@ internal final class SSLConnection {
                 return .failed(error)
             }
         }
-    }
-    
-    func readDataFromNetwork(allocator: ByteBufferAllocator) -> AsyncOperationResult<ByteBuffer> {
-        return readDataFromNetwork(allocator: allocator, size: SSL_MAX_RECORD_SIZE)
     }
 
     /// Encrypts cleartext application data ready for sending on the network.
@@ -252,7 +220,7 @@ internal final class SSLConnection {
         if writtenBytes > 0 {
             // The default behaviour of SSL_write is to only return once *all* of the data has been written,
             // unless the underlying BIO cannot satisfy the need (in which case WANT_WRITE will be returned).
-            // We're using memory BIOs, which are always writable, so WANT_WRITE cannot fire so we'd always
+            // We're using our BIO, which is always writable, so WANT_WRITE cannot fire so we'd always
             // expect this to write the complete quantity of readable bytes in our buffer.
             precondition(writtenBytes == data.readableBytes)
             data.moveReaderIndex(forwardBy: Int(writtenBytes))

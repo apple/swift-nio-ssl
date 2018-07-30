@@ -268,7 +268,7 @@ public final class SSLContext {
         guard let ssl = SSL_new(sslContext) else {
             return nil
         }
-        return SSLConnection(ssl, parentContext:self)
+        return SSLConnection(ownedSSL: ssl, parentContext: self)
     }
 
     fileprivate func alpnSelectCallback(offeredProtocols: UnsafeBufferPointer<UInt8>) ->  (index: Int, length: Int)? {

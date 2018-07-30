@@ -39,6 +39,9 @@ func initializeOpenSSL() -> Bool {
     if CRYPTO_get_locking_callback() == nil { setupLockingCallbacks() }
     err = pthread_mutex_unlock(callbackLock)
     precondition(err == 0)
+
+    // Now we need to set up our custom BIO.
+    setupBIO()
     return true
 }
 
@@ -91,4 +94,16 @@ private func getThreadID() -> UInt {
     #else  // Darwin
     return UInt(bitPattern:pthread_self())
     #endif
+}
+
+/// Called to initialize our custom OpenSSL BIO.
+private func setupBIO() {
+    /// If the BIO is already initialized, don't do it again.
+    guard CNIOOpenSSL_ByteBufferBIOType == 0 else {
+        return
+    }
+    CNIOOpenSSL_initByteBufferBIO(openSSLBIOWriteFunc, openSSLBIOReadFunc,
+                                  openSSLBIOPutsFunc, openSSLBIOGetsFunc,
+                                  openSSLBIOCtrlFunc, openSSLBIOCreateFunc,
+                                  openSSLBIODestroyFunc)
 }

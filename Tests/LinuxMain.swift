@@ -26,6 +26,7 @@ import XCTest
    @testable import NIOOpenSSLTests
 
    XCTMain([
+         testCase(ByteBufferBIOTest.allTests),
          testCase(ClientSNITests.allTests),
          testCase(IdentityVerificationTest.allTests),
          testCase(OpenSSLALPNTest.allTests),
