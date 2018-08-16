@@ -20,7 +20,11 @@ private final class EchoHandler: ChannelInboundHandler {
     public typealias InboundIn = ByteBuffer
 
     func channelRead(ctx: ChannelHandlerContext, data: NIOAny) {
-        let _ = ctx.writeAndFlush(data)
+        ctx.write(data, promise: nil)
+    }
+
+    func channelReadComplete(ctx: ChannelHandlerContext) {
+        ctx.flush()
     }
 }
 
@@ -43,7 +47,6 @@ let bootstrap = ServerBootstrap(group: group)
     // Enable TCP_NODELAY and SO_REUSEADDR for the accepted Channels
     .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
     .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-    .childChannelOption(ChannelOptions.maxMessagesPerRead, value: 1)
 
 defer {
     try! group.syncShutdownGracefully()
