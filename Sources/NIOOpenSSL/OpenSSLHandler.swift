@@ -40,6 +40,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
 
     private var state: ConnectionState = .idle
     private var connection: SSLConnection
+    private var plaintextReadBuffer: ByteBuffer?
     private var bufferedWrites: MarkedCircularBuffer<BufferedWrite>
     private var closePromise: EventLoopPromise<Void>?
     private var didDeliverData: Bool = false
@@ -52,6 +53,8 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
     }
 
     public func handlerAdded(ctx: ChannelHandlerContext) {
+        self.connection.setAllocator(ctx.channel.allocator)
+        self.plaintextReadBuffer = ctx.channel.allocator.buffer(capacity: SSL_MAX_RECORD_SIZE)
         // If this channel is already active, immediately begin handshaking.
         if ctx.channel.isActive {
             doHandshakeStep(ctx: ctx)
@@ -94,10 +97,10 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
     }
     
     public func channelRead(ctx: ChannelHandlerContext, data: NIOAny) {
-        var binaryData = unwrapInboundIn(data)
+        let binaryData = unwrapInboundIn(data)
         
         // The logic: feed the buffers, then take an action based on state.
-        connection.consumeDataFromNetwork(&binaryData)
+        connection.consumeDataFromNetwork(binaryData)
         
         switch state {
         case .handshaking:
@@ -114,10 +117,23 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
     }
     
     public func channelReadComplete(ctx: ChannelHandlerContext) {
+        guard let receiveBuffer = self.plaintextReadBuffer else {
+            preconditionFailure("channelReadComplete called before handlerAdded")
+        }
+
         // We only want to fire channelReadComplete in a situation where we have actually sent the user some data, otherwise
         // we'll be confusing the hell out of them.
-        if didDeliverData {
-            didDeliverData = false
+        if receiveBuffer.writerIndex > receiveBuffer.readerIndex {
+            // We need to be very careful here: we must not call out before we fix up our local view of this buffer. In this
+            // case, we're going to set the indices back to where they were. In this case we are deliberately *not* calling
+            // clear(), as we don't want to trigger a CoW for our own local refs.
+            var ourNewBuffer = receiveBuffer
+            ourNewBuffer.moveReaderIndex(to: 0)
+            ourNewBuffer.moveWriterIndex(to: 0)
+            self.plaintextReadBuffer = ourNewBuffer
+
+            // Ok, we can now pass the receive buffer on and fire channelReadComplete.
+            ctx.fireChannelRead(self.wrapInboundOut(receiveBuffer))
             ctx.fireChannelReadComplete()
         } else {
             // We didn't deliver data. If this channel has got autoread turned off then we should
@@ -248,27 +264,47 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
     /// Loops over the `SSL` object, decoding encrypted application data until there is
     /// no more available.
     private func doDecodeData(ctx: ChannelHandlerContext) {
+        guard var receiveBuffer = self.plaintextReadBuffer else {
+            preconditionFailure("didDecodeData called without handlerAdded firing.")
+        }
+
+        // We nil the read buffer here. This is done on purpose: we do it to ensure
+        // that we don't have two references to the buffer, otherwise readDataFromNetwork
+        // will trigger a CoW every time. We need to put this back on every exit from this
+        // function, or before any call-out, to avoid re-entrancy issues.
+        self.plaintextReadBuffer = nil
+
         readLoop: while true {
-            let result = connection.readDataFromNetwork(allocator: ctx.channel.allocator)
+            let result = connection.readDataFromNetwork(outputBuffer: &receiveBuffer)
             
             switch result {
-            case .complete(let buf):
-                // TODO(cory): Should we coalesce these instead of dispatching multiple times? I think so!
-                // It'll also let us avoid this weird boolean flag, which is always good.
-                didDeliverData = true
-                ctx.fireChannelRead(self.wrapInboundOut(buf))
+            case .complete:
+                // Good read. We need to check how many bytes are still writable and, if it's
+                // too few, move them along. As a general heuristic we want room to write 1kB
+                // of data, though this number is utterly arbitrary. In practice this will
+                // always double the storage if it has to.
+                if receiveBuffer.writableBytes < 1024 {
+                    receiveBuffer.changeCapacity(to: receiveBuffer.capacity + 1024)
+                }
             case .incomplete:
+                self.plaintextReadBuffer = receiveBuffer
                 break readLoop
             case .failed(OpenSSLError.zeroReturn):
                 // This is a clean EOF: we can just start doing our own clean shutdown.
+                self.plaintextReadBuffer = receiveBuffer
                 doShutdownStep(ctx: ctx)
                 writeDataToNetwork(ctx: ctx, promise: nil)
                 break readLoop
             case .failed(let err):
+                self.plaintextReadBuffer = receiveBuffer
                 ctx.fireErrorCaught(err)
                 channelClose(ctx: ctx)
+                break readLoop
             }
         }
+
+        // Save off the read data for sending later.
+
     }
 
     /// Encrypts application data and writes it to the channel.

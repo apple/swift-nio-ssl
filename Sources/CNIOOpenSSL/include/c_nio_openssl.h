@@ -114,4 +114,111 @@ static inline void CNIOOpenSSL_SSL_get0_alpn_selected(const SSL *ssl,
         SSL_get0_alpn_selected(ssl, data, len);
     #endif
 }
+
+static inline int CNIOOpenSSL_BIO_get_init(BIO *bio) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+    return bio->init;
+#else
+    return BIO_get_init(bio);
+#endif
+}
+
+static inline void CNIOOpenSSL_BIO_set_init(BIO *bio, int init) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+    bio->init = init;
+#else
+    BIO_set_init(bio, init);
+#endif
+}
+
+static inline void *CNIOOpenSSL_BIO_get_data(BIO *bio) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+    return bio->ptr;
+#else
+    return BIO_get_data(bio);
+#endif
+}
+
+static inline void CNIOOpenSSL_BIO_set_data(BIO *bio, void *ptr) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+    bio->ptr = ptr;
+#else
+    BIO_set_data(bio, ptr);
+#endif
+}
+
+static inline int CNIOOpenSSL_BIO_get_shutdown(BIO *bio) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+    return bio->shutdown;
+#else
+    return BIO_get_shutdown(bio);
+#endif
+}
+
+static inline void CNIOOpenSSL_BIO_set_shutdown(BIO *bio, int shut) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+    bio->shutdown = shut;
+#else
+    BIO_set_shutdown(bio, shut);
+#endif
+}
+
+static inline void CNIOOpenSSL_BIO_clear_retry_flags(BIO *bio) {
+    BIO_clear_retry_flags(bio);
+}
+
+static inline void CNIOOpenSSL_BIO_set_retry_read(BIO *bio) {
+    BIO_set_retry_read(bio);
+}
+
+static inline int CNIOOpenSSL_BIO_up_ref(BIO *bio) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
+    CRYPTO_add(&bio->references, 1, CRYPTO_LOCK_BIO);
+    return 1;
+#else
+    return BIO_up_ref(bio);
+#endif
+}
+
+static inline int CNIOOpenSSL_BIO_should_retry(BIO *bio) {
+    return BIO_should_retry(bio);
+}
+
+static inline int CNIOOpenSSL_BIO_should_read(BIO *bio) {
+    return BIO_should_read(bio);
+}
+
+static inline int CNIOOpenSSL_BIO_get_close(BIO *bio) {
+    return BIO_get_close(bio);
+}
+
+static inline int CNIOOpenSSL_BIO_set_close(BIO *bio, long flag) {
+    return BIO_set_close(bio, flag);
+}
+
+// MARK: BIO helpers
+/// This is a pointer to the BIO_METHOD structure for NIO's ByteBufferBIO.
+///
+/// This structure is always initialized at startup, and must be initialized in a
+/// thread-safe manner. That means it should be guarded by some kind of pthread_once
+/// setup behaviour, or a lock. For NIO, we use the initializeOpenSSL dance to do
+/// this construction.
+extern BIO_METHOD *CNIOOpenSSL_ByteBufferBIOMethod;
+
+/// This is the type of the ByteBufferBIO created by Swift.
+///
+/// This type is used to create the BIO in Swift code. It can also be used to gate
+/// initialization: if this is non-zero, we have already initialized ByteBufferBIOMethod
+/// and can safely use it.
+extern int CNIOOpenSSL_ByteBufferBIOType;
+
+/// Initialize the `CNIOOpenSSL_ByteBufferBIOMethod` pointer with the values of
+/// our specific ByteBuffer BIO type.
+void CNIOOpenSSL_initByteBufferBIO(int (*bioWriteFunc)(BIO *, const char *, int),
+                                   int (*bioReadFunc)(BIO *, char  *, int),
+                                   int (*bioPutsFunc)(BIO *, const char *),
+                                   int (*bioGetsFunc)(BIO *, char *, int),
+                                   long (*bioCtrlFunc)(BIO *, int, long, void *),
+                                   int (*bioCreateFunc)(BIO *),
+                                   int (*bioDestroyFunc)(BIO *));
 #endif
