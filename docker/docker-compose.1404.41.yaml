@@ -1,0 +1,13 @@
+version: "3"
+
+services:
+
+  runtime-setup:
+    image: swift-nio-ssl:14.04-4.1
+    build:
+      args:
+        ubuntu_version : "14.04"
+        swift_version : "4.1"
+
+  test:
+    image: swift-nio-ssl:14.04-4.1
