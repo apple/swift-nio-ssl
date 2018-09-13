@@ -158,7 +158,10 @@ public final class SSLContext {
             fallthrough
         case .some(.tlsv11):
             opensslOptions |= Int(SSL_OP_NO_TLSv1_2)
-        case .some(.tlsv12), .some(.tlsv13), .none:
+            fallthrough
+        case .some(.tlsv12):
+            opensslOptions |= Int(CNIOOpenSSL_SSL_OP_NO_TLSv1_3)
+        case .some(.tlsv13), .none:
             break
         }
 
