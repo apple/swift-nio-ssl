@@ -36,7 +36,7 @@ enum AsyncOperationResult<T> {
 /// framing required by TLS. It also records the configuration and parent `SSLContext` object
 /// used to create the connection.
 internal final class SSLConnection {
-    private let ssl: UnsafeMutablePointer<SSL>
+    private let ssl: OpaquePointer
     private let parentContext: SSLContext
     private var bio: ByteBufferBIO?
 
@@ -47,24 +47,24 @@ internal final class SSLConnection {
         }
         return false
     }
-    
-    init(ownedSSL: UnsafeMutablePointer<SSL>, parentContext: SSLContext) {
+
+    init(ownedSSL: OpaquePointer, parentContext: SSLContext) {
         self.ssl = ownedSSL
         self.parentContext = parentContext
     }
     
     deinit {
-        SSL_free(ssl)
+        SSL_free(.make(optional: ssl))
     }
 
     /// Configures this as a server connection.
     func setAcceptState() {
-        SSL_set_accept_state(ssl)
+        SSL_set_accept_state(.make(optional: ssl))
     }
 
     /// Configures this as a client connection.
     func setConnectState() {
-        SSL_set_connect_state(ssl)
+        SSL_set_connect_state(.make(optional: ssl))
     }
 
     func setAllocator(_ allocator: ByteBufferAllocator) {
@@ -74,7 +74,7 @@ internal final class SSLConnection {
         // the OpenSSL docs claim that only one reference count will be consumed here. We therefore need to
         // avoid calling BIO_up_ref too many times.
         let bioPtr = self.bio!.retainedBIO()
-        SSL_set_bio(self.ssl, bioPtr, bioPtr)
+        SSL_set_bio(.make(optional: self.ssl), .make(optional: bioPtr), .make(optional: bioPtr))
     }
 
     /// Sets the value of the SNI extension to send to the server.
@@ -85,7 +85,7 @@ internal final class SSLConnection {
     func setSNIServerName(name: String) throws {
         ERR_clear_error()
         let rc = name.withCString {
-            return CNIOOpenSSL_SSL_set_tlsext_host_name(ssl, $0)
+            return CNIOOpenSSL_SSL_set_tlsext_host_name(.make(optional: ssl), $0)
         }
         guard rc == 1 else {
             throw OpenSSLError.invalidSNIName(OpenSSLError.buildErrorStack())
@@ -101,11 +101,11 @@ internal final class SSLConnection {
     /// method.
     func doHandshake() -> AsyncOperationResult<Int32> {
         ERR_clear_error()
-        let rc = SSL_do_handshake(ssl)
+        let rc = SSL_do_handshake(.make(optional: ssl))
         
         if (rc == 1) { return .complete(rc) }
         
-        let result = SSL_get_error(ssl, rc)
+        let result = SSL_get_error(.make(optional: ssl), rc)
         let error = OpenSSLError.fromSSLGetErrorResult(result)!
         
         switch error {
@@ -126,7 +126,7 @@ internal final class SSLConnection {
     /// method.
     func doShutdown() -> AsyncOperationResult<Int32> {
         ERR_clear_error()
-        let rc = SSL_shutdown(ssl)
+        let rc = SSL_shutdown(.make(optional: ssl))
         
         switch rc {
         case 1:
@@ -134,7 +134,7 @@ internal final class SSLConnection {
         case 0:
             return .incomplete
         default:
-            let result = SSL_get_error(ssl, rc)
+            let result = SSL_get_error(.make(optional: ssl), rc)
             let error = OpenSSLError.fromSSLGetErrorResult(result)!
             
             switch error {
@@ -182,14 +182,14 @@ internal final class SSLConnection {
         // we can with reading) that would be grand, but we can't, so instead we need to use a temp variable. Not ideal.
         var bytesRead: Int32 = 0
         let rc = outputBuffer.writeWithUnsafeMutableBytes { (pointer) -> Int in
-            bytesRead = SSL_read(self.ssl, pointer.baseAddress, Int32(pointer.count))
+            bytesRead = SSL_read(.make(optional: self.ssl), pointer.baseAddress, Int32(pointer.count))
             return bytesRead >= 0 ? Int(bytesRead) : 0
         }
         
         if bytesRead > 0 {
             return .complete(rc)
         } else {
-            let result = SSL_get_error(ssl, Int32(bytesRead))
+            let result = SSL_get_error(.make(optional: ssl), Int32(bytesRead))
             let error = OpenSSLError.fromSSLGetErrorResult(result)!
             
             switch error {
@@ -214,7 +214,7 @@ internal final class SSLConnection {
         }
 
         let writtenBytes = data.withUnsafeReadableBytes { (pointer) -> Int32 in
-            return SSL_write(ssl, pointer.baseAddress, Int32(pointer.count))
+            return SSL_write(.make(optional: ssl), pointer.baseAddress, Int32(pointer.count))
         }
         
         if writtenBytes > 0 {
@@ -226,7 +226,7 @@ internal final class SSLConnection {
             data.moveReaderIndex(forwardBy: Int(writtenBytes))
             return .complete(writtenBytes)
         } else {
-            let result = SSL_get_error(ssl, writtenBytes)
+            let result = SSL_get_error(.make(optional: ssl), writtenBytes)
             let error = OpenSSLError.fromSSLGetErrorResult(result)!
             
             switch error {
@@ -244,7 +244,7 @@ internal final class SSLConnection {
         var protoName = UnsafePointer<UInt8>(bitPattern: 0)
         var protoLen: UInt32 = 0
 
-        CNIOOpenSSL_SSL_get0_alpn_selected(ssl, &protoName, &protoLen)
+        CNIOOpenSSL_SSL_get0_alpn_selected(.make(optional: ssl), &protoName, &protoLen)
         guard protoLen > 0 else {
             return nil
         }
@@ -255,7 +255,7 @@ internal final class SSLConnection {
     /// Get the leaf certificate from the peer certificate chain as a managed object,
     /// if available.
     func getPeerCertificate() -> OpenSSLCertificate? {
-        guard let certPtr = SSL_get_peer_certificate(ssl) else {
+        guard let certPtr = SSL_get_peer_certificate(.make(optional: ssl)) else {
             return nil
         }
 

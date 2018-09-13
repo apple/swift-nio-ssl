@@ -113,9 +113,9 @@ func globalOpenSSLPassphraseCallback(buf: UnsafeMutablePointer<CChar>?,
 /// to obtain an in-memory representation of a key from a buffer of
 /// bytes or from a file path.
 public class OpenSSLPrivateKey {
-    internal let ref: UnsafeMutablePointer<EVP_PKEY>
+    internal let ref: OpaquePointer
 
-    private init(withReference ref: UnsafeMutablePointer<EVP_PKEY>) {
+    private init(withReference ref: OpaquePointer) {
         self.ref = ref
     }
 
@@ -126,18 +126,18 @@ public class OpenSSLPrivateKey {
             fclose(fileObject)
         }
 
-        let key = withExtendedLifetime(callbackManager) { callbackManager -> UnsafeMutablePointer<EVP_PKEY>? in
+        let key = withExtendedLifetime(callbackManager) { callbackManager -> OpaquePointer? in
             switch format {
             case .pem:
                 // This annoying conditional binding is used to work around the fact that I cannot pass
                 // a variable to a function pointer argument.
                 if let callbackManager = callbackManager {
-                    return PEM_read_PrivateKey(fileObject, nil, globalOpenSSLPassphraseCallback(buf:size:rwflag:u:), Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
+                    return .make(optional: PEM_read_PrivateKey(fileObject, nil, globalOpenSSLPassphraseCallback(buf:size:rwflag:u:), Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque()))
                 } else {
-                    return PEM_read_PrivateKey(fileObject, nil, nil, nil)
+                    return .make(optional: PEM_read_PrivateKey(fileObject, nil, nil, nil))
                 }
             case .der:
-                return d2i_PrivateKey_fp(fileObject, nil)
+                return .make(optional: d2i_PrivateKey_fp(fileObject, nil))
             }
         }
 
@@ -150,24 +150,24 @@ public class OpenSSLPrivateKey {
 
     /// A delegating initializer for `init(buffer:format:passphraseCallback)` and `init(buffer:format:)`.
     private convenience init(buffer: [Int8], format: OpenSSLSerializationFormats, callbackManager: CallbackManagerProtocol?) throws {
-        let ref = buffer.withUnsafeBytes { (ptr) -> UnsafeMutablePointer<EVP_PKEY>? in
+        let ref = buffer.withUnsafeBytes { (ptr) -> OpaquePointer? in
             let bio = BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), Int32(ptr.count))!
             defer {
                 BIO_free(bio)
             }
 
-            return withExtendedLifetime(callbackManager) { callbackManager -> UnsafeMutablePointer<EVP_PKEY>? in
+            return withExtendedLifetime(callbackManager) { callbackManager -> OpaquePointer? in
                 switch format {
                 case .pem:
                     if let callbackManager = callbackManager {
                         // This annoying conditional binding is used to work around the fact that I cannot pass
                         // a variable to a function pointer argument.
-                        return PEM_read_bio_PrivateKey(bio, nil, globalOpenSSLPassphraseCallback(buf:size:rwflag:u:), Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
+                        return .make(optional: PEM_read_bio_PrivateKey(bio, nil, globalOpenSSLPassphraseCallback(buf:size:rwflag:u:), Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque()))
                     } else {
-                        return PEM_read_bio_PrivateKey(bio, nil, nil, nil)
+                        return .make(optional: PEM_read_bio_PrivateKey(bio, nil, nil, nil))
                     }
                 case .der:
-                    return d2i_PrivateKey_bio(bio, nil)
+                    return .make(optional: d2i_PrivateKey_bio(bio, nil))
                 }
             }
         }
@@ -241,7 +241,26 @@ public class OpenSSLPrivateKey {
     /// This function is deprecated in favor of `fromUnsafePointer(takingOwnership:)`, an identical function
     /// that more accurately communicates its behaviour.
     @available(*, deprecated, renamed: "fromUnsafePointer(takingOwnership:)")
-    static public func fromUnsafePointer(pointer: UnsafePointer<EVP_PKEY>) -> OpenSSLPrivateKey {
+    static public func fromUnsafePointer<T>(pointer: UnsafePointer<T>) -> OpenSSLPrivateKey {
+        return OpenSSLPrivateKey.fromUnsafePointer(takingOwnership: pointer)
+    }
+
+
+    /// Create an OpenSSLPrivateKey wrapping a pointer into OpenSSL.
+    ///
+    /// This is a function that should be avoided as much as possible because it plays poorly with
+    /// OpenSSL's reference-counted memory. This function does not increment the reference count for the EVP_PKEY
+    /// object here, nor does it duplicate it: it just takes ownership of the copy here. This object
+    /// **will** deallocate the underlying EVP_PKEY object when deinited, and so if you need to keep that
+    /// EVP_PKEY object alive you create a new EVP_PKEY before passing that object here.
+    ///
+    /// In general, however, this function should be avoided in favour of one of the convenience
+    /// initializers, which ensure that the lifetime of the EVP_PKEY object is better-managed.
+    ///
+    /// This function is deprecated in favor of `fromUnsafePointer(takingOwnership:)`, an identical function
+    /// that more accurately communicates its behaviour.
+    @available(*, deprecated, renamed: "fromUnsafePointer(takingOwnership:)")
+    static public func fromUnsafePointer(pointer: OpaquePointer) -> OpenSSLPrivateKey {
         return OpenSSLPrivateKey.fromUnsafePointer(takingOwnership: pointer)
     }
 
@@ -255,17 +274,31 @@ public class OpenSSLPrivateKey {
     ///
     /// In general, however, this function should be avoided in favour of one of the convenience
     /// initializers, which ensure that the lifetime of the EVP_PKEY object is better-managed.
-    static public func fromUnsafePointer(takingOwnership pointer: UnsafePointer<EVP_PKEY>) -> OpenSSLPrivateKey {
-        return OpenSSLPrivateKey(withReference: UnsafeMutablePointer(mutating: pointer))
+    static public func fromUnsafePointer<T>(takingOwnership pointer: UnsafePointer<T>) -> OpenSSLPrivateKey {
+        return OpenSSLPrivateKey(withReference: .init(pointer))
+    }
+
+    /// Create an OpenSSLPrivateKey wrapping a pointer into OpenSSL.
+    ///
+    /// This is a function that should be avoided as much as possible because it plays poorly with
+    /// OpenSSL's reference-counted memory. This function does not increment the reference count for the EVP_PKEY
+    /// object here, nor does it duplicate it: it just takes ownership of the copy here. This object
+    /// **will** deallocate the underlying EVP_PKEY object when deinited, and so if you need to keep that
+    /// EVP_PKEY object alive you create a new EVP_PKEY before passing that object here.
+    ///
+    /// In general, however, this function should be avoided in favour of one of the convenience
+    /// initializers, which ensure that the lifetime of the EVP_PKEY object is better-managed.
+    static public func fromUnsafePointer(takingOwnership pointer: OpaquePointer) -> OpenSSLPrivateKey {
+        return OpenSSLPrivateKey(withReference: pointer)
     }
 
     deinit {
-        EVP_PKEY_free(ref)
+        EVP_PKEY_free(.make(optional: ref))
     }
 }
 
 extension OpenSSLPrivateKey: Equatable {
     public static func ==(lhs: OpenSSLPrivateKey, rhs: OpenSSLPrivateKey) -> Bool {
-        return EVP_PKEY_cmp(lhs.ref, rhs.ref) != 0
+        return EVP_PKEY_cmp(.make(optional: lhs.ref), .make(optional: rhs.ref)) != 0
     }
 }
