@@ -64,14 +64,16 @@ defer {
 
 let tlsConfiguration = TLSConfiguration.forClient()
 let sslContext = try! SSLContext(configuration: tlsConfiguration)
-let openSslHandler = try! OpenSSLClientHandler(context: sslContext, serverHostname: "httpbin.org")
 
 let bootstrap = ClientBootstrap(group: eventLoopGroup)
         .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
         .channelInitializer { channel in
-            _ = channel.pipeline.add(handler: openSslHandler)
-            _ = channel.pipeline.addHTTPClientHandlers()
-            return channel.pipeline.add(handler: HTTPResponseHandler(promise))
+            let openSslHandler = try! OpenSSLClientHandler(context: sslContext, serverHostname: "httpbin.org")
+            return channel.pipeline.add(handler: openSslHandler).then {
+                channel.pipeline.addHTTPClientHandlers()
+            }.then {
+                channel.pipeline.add(handler: HTTPResponseHandler(promise))
+            }
         }
 
 func sendRequest(_ channel: Channel) {
