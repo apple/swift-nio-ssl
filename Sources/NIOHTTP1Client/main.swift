@@ -15,6 +15,7 @@
 import NIO
 import NIOHTTP1
 import NIOOpenSSL
+import Foundation
 
 private final class HTTPResponseHandler: ChannelInboundHandler {
 
@@ -55,6 +56,17 @@ private final class HTTPResponseHandler: ChannelInboundHandler {
     }
 }
 
+let arguments = CommandLine.arguments
+let arg1 = arguments.dropFirst().first
+
+var url: URL
+
+if let u = arg1 {
+    url = URL(string: u)!
+} else {
+    url = URL(string: "https://::1:4433/get")!
+}
+
 let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
 let promise: EventLoopPromise<Void> = eventLoopGroup.next().newPromise()
 defer {
@@ -68,7 +80,7 @@ let sslContext = try! SSLContext(configuration: tlsConfiguration)
 let bootstrap = ClientBootstrap(group: eventLoopGroup)
         .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
         .channelInitializer { channel in
-            let openSslHandler = try! OpenSSLClientHandler(context: sslContext, serverHostname: "httpbin.org")
+            let openSslHandler = try! OpenSSLClientHandler(context: sslContext, serverHostname: url.host)
             return channel.pipeline.add(handler: openSslHandler).then {
                 channel.pipeline.addHTTPClientHandlers()
             }.then {
@@ -77,9 +89,9 @@ let bootstrap = ClientBootstrap(group: eventLoopGroup)
         }
 
 func sendRequest(_ channel: Channel) -> EventLoopFuture<Void> {
-    var request = HTTPRequestHead(version: HTTPVersion(major: 1, minor: 1), method: HTTPMethod.GET, uri: "https://httpbin.org/get?query=param")
+    var request = HTTPRequestHead(version: HTTPVersion(major: 1, minor: 1), method: HTTPMethod.GET, uri: url.absoluteString)
     request.headers = HTTPHeaders([
-        ("Host", "httpbin.org"),
+        ("Host", url.host!),
         ("User-Agent", "swift-nio"),
         ("Accept", "application/json")
     ])
@@ -87,6 +99,6 @@ func sendRequest(_ channel: Channel) -> EventLoopFuture<Void> {
     return channel.writeAndFlush(HTTPClientRequestPart.end(nil))
 }
 
-bootstrap.connect(host: "httpbin.org", port: 443)
+bootstrap.connect(host: url.host!, port: url.port ?? 443)
         .then { sendRequest($0) }
         .cascadeFailure(promise: promise)
