@@ -76,16 +76,17 @@ let bootstrap = ClientBootstrap(group: eventLoopGroup)
             }
         }
 
-func sendRequest(_ channel: Channel) {
+func sendRequest(_ channel: Channel) -> EventLoopFuture<Void> {
     var request = HTTPRequestHead(version: HTTPVersion(major: 1, minor: 1), method: HTTPMethod.GET, uri: "https://httpbin.org/get?query=param")
     request.headers = HTTPHeaders([
         ("Host", "httpbin.org"),
         ("User-Agent", "swift-nio"),
         ("Accept", "application/json")
     ])
-    _ = channel.write(HTTPClientRequestPart.head(request))
-    _ = channel.writeAndFlush(HTTPClientRequestPart.end(nil))
+    channel.write(HTTPClientRequestPart.head(request), promise: nil)
+    return channel.writeAndFlush(HTTPClientRequestPart.end(nil))
 }
 
 bootstrap.connect(host: "httpbin.org", port: 443)
-        .whenSuccess { sendRequest($0) }
+        .then { sendRequest($0) }
+        .cascadeFailure(promise: promise)
