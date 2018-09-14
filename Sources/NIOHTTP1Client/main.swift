@@ -40,13 +40,9 @@ private final class HTTPResponseHandler: ChannelInboundHandler {
                 print(responseBody)
             }
         case .end(_):
-            break
+            _ = ctx.channel.close()
+            promise.succeed(result: ())
         }
-    }
-
-    func channelReadComplete(ctx: ChannelHandlerContext) {
-        _ = ctx.channel.close()
-        promise.succeed(result: ())
     }
 
     func errorCaught(ctx: ChannelHandlerContext, error: Error) {
