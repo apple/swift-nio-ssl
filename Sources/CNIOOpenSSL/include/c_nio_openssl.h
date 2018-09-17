@@ -27,6 +27,12 @@
 #include <openssl/x509v3.h>
 
 // MARK: OpenSSL version shims
+#if defined(SSL_OP_NO_TLSv1_3)
+int CNIOOpenSSL_SSL_OP_NO_TLSv1_3 = SSL_OP_NO_TLSv1_3;
+#else
+int CNIOOpenSSL_SSL_OP_NO_TLSv1_3 = 0;
+#endif
+
 // These are functions that shim over differences in different OpenSSL versions,
 // which are best handled by using the C preprocessor.
 static inline void CNIOOpenSSL_SSL_CTX_setAutoECDH(SSL_CTX *ctx) {

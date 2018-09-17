@@ -26,7 +26,7 @@ public struct OpenSSLInternalError: Equatable, CustomStringConvertible {
     }
 
     public var description: String {
-        return"Error: \(errorCode) \(errorMessage ?? "")"
+        return "Error: \(errorCode) \(errorMessage ?? "")"
     }
 
     init(errorCode: u_long) {

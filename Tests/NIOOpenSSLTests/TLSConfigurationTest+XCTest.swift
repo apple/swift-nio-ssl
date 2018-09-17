@@ -27,9 +27,10 @@ extension TLSConfigurationTest {
    static var allTests : [(String, (TLSConfigurationTest) -> () throws -> Void)] {
       return [
                 ("testNonOverlappingTLSVersions", testNonOverlappingTLSVersions),
-                ("testNonOverlappingCipherSuites", testNonOverlappingCipherSuites),
+                ("testNonOverlappingCipherSuitesPreTLS13", testNonOverlappingCipherSuitesPreTLS13),
                 ("testCannotVerifySelfSigned", testCannotVerifySelfSigned),
-                ("testServerCannotValidateClient", testServerCannotValidateClient),
+                ("testServerCannotValidateClientPreTLS13", testServerCannotValidateClientPreTLS13),
+                ("testServerCannotValidateClientPostTLS13", testServerCannotValidateClientPostTLS13),
                 ("testMutualValidation", testMutualValidation),
                 ("testNonexistentFileObject", testNonexistentFileObject),
            ]

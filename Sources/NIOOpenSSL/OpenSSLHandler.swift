@@ -217,9 +217,11 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             let negotiatedProtocol = connection.getAlpnProtocol()
             ctx.fireUserInboundEventTriggered(TLSUserEvent.handshakeCompleted(negotiatedProtocol: negotiatedProtocol))
             
-            // We need to unbuffer any pending writes. We will have pending writes if the user attempted to write
-            // before we completed the handshake.
-            doUnbufferWrites(ctx: ctx)
+            // We need to unbuffer any pending writes and reads. We will have pending writes if the user attempted to
+            // write before we completed the handshake. We may also have pending reads if the user sent data immediately
+            // after their FINISHED record. We decode the reads first, as those reads may trigger writes.
+            self.doDecodeData(ctx: ctx)
+            self.doUnbufferWrites(ctx: ctx)
         case .failed(let err):
             writeDataToNetwork(ctx: ctx, promise: nil)
             
