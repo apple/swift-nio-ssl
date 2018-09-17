@@ -63,19 +63,15 @@ public enum CertificateVerification {
     case fullVerification
 }
 
-/// A secure default configuration of cipher suites.
+/// A secure default configuration of cipher suites for TLS 1.2 and earlier.
 ///
 /// The goal of this cipher suite string is:
-/// - Prefer TLS 1.3 cipher suites.
 /// - Prefer cipher suites that offer Perfect Forward Secrecy (DHE/ECDHE)
 /// - Prefer ECDH(E) to DH(E) for performance.
 /// - Prefer any AEAD cipher suite over non-AEAD suites for better performance and security
 /// - Prefer AES-GCM over ChaCha20 because hardware-accelerated AES is common
 /// - Disable NULL authentication and encryption and any appearance of MD5
 public let defaultCipherSuites = [
-    "TLS13-AES-256-GCM-SHA384",
-    "TLS13-CHACHA20-POLY1305-SHA256",
-    "TLS13-AES-128-GCM-SHA256",
     "ECDH+AESGCM",
     "ECDH+CHACHA20",
     "DH+AESGCM",
@@ -89,6 +85,20 @@ public let defaultCipherSuites = [
     "!aNULL",
     "!eNULL",
     "!MD5",
+    ].joined(separator: ":")
+
+
+/// A secure default configuration of cipher suites for TLS 1.3 and later.
+///
+/// There are currently very few bad choices for TLS 1.3, so this string does the
+/// following:
+/// - Disable CCM mode because there's no reason to enable it, and cipher suites
+///   aren't collectibles.
+/// - Prefer AES-GCM over ChaCha20 because hardware-accelerated AES is common.
+public let defaultTLS13CipherSuites = [
+    "TLS_AES_256_GCM_SHA384",
+    "TLS_CHACHA20_POLY1305_SHA256",
+    "TLS_AES_128_GCM_SHA256",
     ].joined(separator: ":")
 
 /// Encodes a string to the wire format of an ALPN identifier. These MUST be ASCII, and so
@@ -119,8 +129,18 @@ public struct TLSConfiguration {
     /// The maximum TLS version to allow in negotiation. If nil, there is no upper limit. Defaults to nil.
     public let maximumTLSVersion: TLSVersion?
 
-    /// The cipher suites supported by this handler. This uses the OpenSSL cipher string format.
+    /// The pre-TLS1.3 cipher suites supported by this handler. This uses the OpenSSL cipher string format.
+    /// To introspect the TLS 1.3 cipher suites, use tls13CipherSuites.
     public let cipherSuites: String
+
+    /// The TLS 1.3 and later cipher suites supported by this handler, using the OpenSSL cipher string
+    /// format.
+    ///
+    /// These are separate from the pre-TLS1.3 cipher suites because they are configured very differently
+    /// in OpenSSL, and are quite different from their earlier cousins with the same name. In particular,
+    /// TLS 1.3 cipher suites do not specify the certificate type (e.g. RSA/ECDSA) or key exchange
+    /// mechanism (e.g. RSA/ECDHE).
+    public let tls13CipherSuites: String
 
     /// Whether to verify remote certificates.
     public let certificateVerification: CertificateVerification
@@ -142,27 +162,23 @@ public struct TLSConfiguration {
     public let applicationProtocols: [[UInt8]]
 
     private init(cipherSuites: String,
-                minimumTLSVersion: TLSVersion,
-                maximumTLSVersion: TLSVersion?,
-                certificateVerification: CertificateVerification,
-                trustRoots: OpenSSLTrustRoots,
-                certificateChain: [OpenSSLCertificateSource],
-                privateKey: OpenSSLPrivateKeySource?,
-                applicationProtocols: [String]) {
+                 tls13CipherSuites: String,
+                 minimumTLSVersion: TLSVersion,
+                 maximumTLSVersion: TLSVersion?,
+                 certificateVerification: CertificateVerification,
+                 trustRoots: OpenSSLTrustRoots,
+                 certificateChain: [OpenSSLCertificateSource],
+                 privateKey: OpenSSLPrivateKeySource?,
+                 applicationProtocols: [String]) {
         self.cipherSuites = cipherSuites
+        self.tls13CipherSuites = tls13CipherSuites
         self.minimumTLSVersion = minimumTLSVersion
         self.maximumTLSVersion = maximumTLSVersion
         self.certificateVerification = certificateVerification
         self.trustRoots = trustRoots
         self.certificateChain = certificateChain
         self.privateKey = privateKey
-
-        var encodedProtocols = [[UInt8]]()
-        for `protocol` in applicationProtocols {
-            encodedProtocols.append(encodeALPNIdentifier(identifier: `protocol`))
-        }
-
-        self.applicationProtocols = encodedProtocols
+        self.applicationProtocols = applicationProtocols.map(encodeALPNIdentifier)
     }
 
     /// Create a TLS configuration for use with server-side contexts.
@@ -172,12 +188,14 @@ public struct TLSConfiguration {
     public static func forServer(certificateChain: [OpenSSLCertificateSource],
                                  privateKey: OpenSSLPrivateKeySource,
                                  cipherSuites: String = defaultCipherSuites,
+                                 tls13CipherSuites: String = defaultTLS13CipherSuites,
                                  minimumTLSVersion: TLSVersion = .tlsv1,
                                  maximumTLSVersion: TLSVersion? = nil,
                                  certificateVerification: CertificateVerification = .none,
                                  trustRoots: OpenSSLTrustRoots = .default,
                                  applicationProtocols: [String] = []) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
+                                tls13CipherSuites: tls13CipherSuites,
                                 minimumTLSVersion: minimumTLSVersion,
                                 maximumTLSVersion: maximumTLSVersion,
                                 certificateVerification: certificateVerification,
@@ -193,6 +211,7 @@ public struct TLSConfiguration {
     /// This provides sensible defaults, and can be used without customisation. For server-side
     /// contexts, you should use `forServer` instead.
     public static func forClient(cipherSuites: String = defaultCipherSuites,
+                                 tls13CipherSuites: String = defaultTLS13CipherSuites,
                                  minimumTLSVersion: TLSVersion = .tlsv1,
                                  maximumTLSVersion: TLSVersion? = nil,
                                  certificateVerification: CertificateVerification = .fullVerification,
@@ -201,6 +220,7 @@ public struct TLSConfiguration {
                                  privateKey: OpenSSLPrivateKeySource? = nil,
                                  applicationProtocols: [String] = []) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
+                                tls13CipherSuites: tls13CipherSuites,
                                 minimumTLSVersion: minimumTLSVersion,
                                 maximumTLSVersion: maximumTLSVersion,
                                 certificateVerification: certificateVerification,

@@ -171,9 +171,10 @@ public final class SSLContext {
         CNIOOpenSSL_SSL_CTX_set_options(ctx, opensslOptions)
 
         // Cipher suites. We just pass this straight to OpenSSL.
-        configuration.cipherSuites.withCString {
-            precondition(1 == SSL_CTX_set_cipher_list(ctx, $0))
-        }
+        let tls12ReturnCode = SSL_CTX_set_cipher_list(ctx, configuration.cipherSuites)
+        precondition(1 == tls12ReturnCode)
+        let tls13ReturnCode = CNIOOpenSSL_SSL_CTX_set_ciphersuites(ctx, configuration.tls13CipherSuites)
+        precondition(1 == tls13ReturnCode)
 
         // If validation is turned on, set the trust roots and turn on cert validation.
         switch configuration.certificateVerification {

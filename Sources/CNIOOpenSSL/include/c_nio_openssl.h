@@ -124,6 +124,14 @@ static inline long CNIOOpenSSL_SSL_CTX_set_options(SSL_CTX *ctx, long options) {
     return SSL_CTX_set_options(ctx, options);
 }
 
+static inline int CNIOOpenSSL_SSL_CTX_set_ciphersuites(SSL_CTX *ctx, const char *str) {
+#if (OPENSSL_VERSION_NUMBER < 0x10101000L) || defined(LIBRESSL_VERSION_NUMBER)
+    return 1;
+#else
+    return SSL_CTX_set_ciphersuites(ctx, str);
+#endif
+}
+
 static inline void CNIOOpenSSL_OPENSSL_free(void *addr) {
     OPENSSL_free(addr);
 }
