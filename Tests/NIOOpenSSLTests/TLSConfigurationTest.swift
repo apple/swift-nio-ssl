@@ -158,8 +158,23 @@ class TLSConfigurationTest: XCTestCase {
                                                       maximumTLSVersion: .tlsv12)
 
         try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "handshake failure")
+    }
 
-        // TODO: Write a version of this for TLSv1.3 as well.
+    func testNonOverlappingCipherSuitesPostTLS13() throws {
+        if CNIOOpenSSL_OpenSSL_version_num() < 0x010101000 || CNIOOpenSSL_is_libressl() == 1 {
+            // Skip test on old OpenSSLs.
+            return
+        }
+
+        let clientConfig = TLSConfiguration.forClient(tls13CipherSuites: "TLS_AES_256_GCM_SHA384",
+                                                      minimumTLSVersion: .tlsv13,
+                                                      trustRoots: .certificates([TLSConfigurationTest.cert1]))
+        let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+                                                      privateKey: .privateKey(TLSConfigurationTest.key1),
+                                                      tls13CipherSuites: "TLS_CHACHA20_POLY1305_SHA256",
+                                                      minimumTLSVersion: .tlsv13)
+
+        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "handshake failure")
     }
 
     func testCannotVerifySelfSigned() throws {
