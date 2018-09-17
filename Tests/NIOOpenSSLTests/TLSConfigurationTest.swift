@@ -187,7 +187,7 @@ class TLSConfigurationTest: XCTestCase {
         // This test validates a behavioural change in TLSv1.3. Specifically, the client cert is now sent along with
         // the client Finished record. That means the client thinks the handshake succeeds, and then discovers the failure
         // immediately after. We test for this behaviour here.
-        if CNIOOpenSSL_OpenSSL_version_num() < 0x010101000 {
+        if CNIOOpenSSL_OpenSSL_version_num() < 0x010101000 || CNIOOpenSSL_is_libressl() == 1 {
             // Skip test on old OpenSSLs.
             return
         }
