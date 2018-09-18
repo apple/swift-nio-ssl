@@ -3,5 +3,6 @@
 /Packages
 /*.xcodeproj
 Package.pins
+Package.resolved
 *.pem
 /docs
