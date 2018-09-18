@@ -36,9 +36,14 @@ This binding can cause numerous issues during the build process on different sys
 
 If you encounter any of these errors, here are your options.
 
-### Darwin
+### Darwin (iOS, macOS, tvOS, ...)
 
-On Darwin systems, there is no easily-available copy of `libssl.dylib` with accompanying development headers. For this reason, we recommend installing libressl from Homebrew (`brew install libressl`).
+If you target iOS/tv 12+ or macOS 10.14+ we recommend using [`swift-nio-transport-services`](https://github.com/apple/swift-nio-transport-services) which
+is SwiftNIO on top of [`Network.framework`](https://developer.apple.com/documentation/network) which supports TLS out of the box.
+
+If you need to target older versions on macOS we recommend installing libressl from Homebrew (`brew install libressl`) as there is no easily-available copy of
+`libssl.dylib` with accompanying development headers.
+
 
 ### Linux
 
