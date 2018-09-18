@@ -21,6 +21,8 @@ private final class HTTPResponseHandler: ChannelInboundHandler {
 
     let promise: EventLoopPromise<Void>
 
+    var closeFuture: EventLoopFuture<Void>? = nil
+
     init(_ promise: EventLoopPromise<Void>) {
         self.promise = promise
     }
@@ -40,14 +42,21 @@ private final class HTTPResponseHandler: ChannelInboundHandler {
                 print(responseBody)
             }
         case .end(_):
-            _ = ctx.channel.close()
+            closeFuture = ctx.channel.close()
             promise.succeed(result: ())
+        }
+    }
+
+    func channelInactive(ctx: ChannelHandlerContext) {
+        if closeFuture == nil {
+            closeFuture = ctx.channel.close()
+            promise.fail(error: ChannelError.inputClosed)
         }
     }
 
     func errorCaught(ctx: ChannelHandlerContext, error: Error) {
         print("Error: ", error)
-        _ = ctx.channel.close()
+        closeFuture = ctx.channel.close()
         promise.succeed(result: ())
     }
 }
@@ -89,7 +98,8 @@ func sendRequest(_ channel: Channel) -> EventLoopFuture<Void> {
     request.headers = HTTPHeaders([
         ("Host", url.host!),
         ("User-Agent", "swift-nio"),
-        ("Accept", "application/json")
+        ("Accept", "application/json"),
+        ("Connection", "close")
     ])
     channel.write(HTTPClientRequestPart.head(request), promise: nil)
     return channel.writeAndFlush(HTTPClientRequestPart.end(nil))
