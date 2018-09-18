@@ -121,30 +121,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             preconditionFailure("channelReadComplete called before handlerAdded")
         }
 
-        // We only want to fire channelReadComplete in a situation where we have actually sent the user some data, otherwise
-        // we'll be confusing the hell out of them.
-        if receiveBuffer.writerIndex > receiveBuffer.readerIndex {
-            // We need to be very careful here: we must not call out before we fix up our local view of this buffer. In this
-            // case, we're going to set the indices back to where they were. In this case we are deliberately *not* calling
-            // clear(), as we don't want to trigger a CoW for our own local refs.
-            var ourNewBuffer = receiveBuffer
-            ourNewBuffer.moveReaderIndex(to: 0)
-            ourNewBuffer.moveWriterIndex(to: 0)
-            self.plaintextReadBuffer = ourNewBuffer
-
-            // Ok, we can now pass the receive buffer on and fire channelReadComplete.
-            ctx.fireChannelRead(self.wrapInboundOut(receiveBuffer))
-            ctx.fireChannelReadComplete()
-        } else {
-            // We didn't deliver data. If this channel has got autoread turned off then we should
-            // call read again, because otherwise the user will never see any result from their
-            // read call.
-            ctx.channel.getOption(option: ChannelOptions.autoRead).whenSuccess { autoRead in
-                if !autoRead {
-                    ctx.read()
-                }
-            }
-        }
+        self.doFlushReadData(ctx: ctx, receiveBuffer: receiveBuffer, readOnEmptyBuffer: true)
     }
     
     public func write(ctx: ChannelHandlerContext, data: NIOAny, promise: EventLoopPromise<Void>?) {
@@ -273,8 +250,12 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
         // We nil the read buffer here. This is done on purpose: we do it to ensure
         // that we don't have two references to the buffer, otherwise readDataFromNetwork
         // will trigger a CoW every time. We need to put this back on every exit from this
-        // function, or before any call-out, to avoid re-entrancy issues.
+        // function, or before any call-out, to avoid re-entrancy issues. We validate the
+        // requirement for this being non-nil on exit at the very least.
         self.plaintextReadBuffer = nil
+        defer {
+            assert(self.plaintextReadBuffer != nil)
+        }
 
         readLoop: while true {
             let result = connection.readDataFromNetwork(outputBuffer: &receiveBuffer)
@@ -293,7 +274,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
                 break readLoop
             case .failed(OpenSSLError.zeroReturn):
                 // This is a clean EOF: we can just start doing our own clean shutdown.
-                self.plaintextReadBuffer = receiveBuffer
+                self.doFlushReadData(ctx: ctx, receiveBuffer: receiveBuffer, readOnEmptyBuffer: false)
                 doShutdownStep(ctx: ctx)
                 writeDataToNetwork(ctx: ctx, promise: nil)
                 break readLoop
@@ -304,9 +285,47 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
                 break readLoop
             }
         }
+    }
 
-        // Save off the read data for sending later.
+    /// Flushes any pending read plaintext. This is called whenever we hit a flush
+    /// point for reads: either channelReadComplete, or we receive a CLOSE_NOTIFY.
+    ///
+    /// This function will always set the empty buffer back to be the plaintext read buffer.
+    /// Do not do this in your own code.
+    private func doFlushReadData(ctx: ChannelHandlerContext, receiveBuffer: ByteBuffer, readOnEmptyBuffer: Bool) {
+        defer {
+            // All exits from this function must restore the plaintext read buffer.
+            assert(self.plaintextReadBuffer != nil)
+        }
 
+        // We only want to fire channelReadComplete in a situation where we have actually sent the user some data, otherwise
+        // we'll be confusing the hell out of them.
+        if receiveBuffer.writerIndex > receiveBuffer.readerIndex {
+            // We need to be very careful here: we must not call out before we fix up our local view of this buffer. In this
+            // case, we're going to set the indices back to where they were. In this case we are deliberately *not* calling
+            // clear(), as we don't want to trigger a CoW for our own local refs.
+            var ourNewBuffer = receiveBuffer
+            ourNewBuffer.moveReaderIndex(to: 0)
+            ourNewBuffer.moveWriterIndex(to: 0)
+            self.plaintextReadBuffer = ourNewBuffer
+
+            // Ok, we can now pass the receive buffer on and fire channelReadComplete.
+            ctx.fireChannelRead(self.wrapInboundOut(receiveBuffer))
+            ctx.fireChannelReadComplete()
+        } else if readOnEmptyBuffer {
+            // We didn't deliver data, but the channel is still active. If this channel has got
+            // autoread turned off then we should call read again, because otherwise the user
+            // will never see any result from their read call.
+            self.plaintextReadBuffer = receiveBuffer
+            ctx.channel.getOption(option: ChannelOptions.autoRead).whenSuccess { autoRead in
+                if !autoRead {
+                    ctx.read()
+                }
+            }
+        } else {
+            // Regardless of what happens here, we need to put the plaintext read buffer back. Very important.
+            self.plaintextReadBuffer = receiveBuffer
+        }
     }
 
     /// Encrypts application data and writes it to the channel.
