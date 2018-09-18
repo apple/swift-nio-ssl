@@ -88,6 +88,35 @@ internal final class PromiseOnReadHandler: ChannelInboundHandler {
     }
 }
 
+private final class ReadRecordingHandler: ChannelInboundHandler {
+    public typealias InboundIn = ByteBuffer
+
+    private var received: ByteBuffer?
+    private let completePromise: EventLoopPromise<ByteBuffer>
+
+    init(completePromise: EventLoopPromise<ByteBuffer>) {
+        self.completePromise = completePromise
+    }
+
+    func channelRead(ctx: ChannelHandlerContext, data: NIOAny) {
+        var data = self.unwrapInboundIn(data)
+
+        var newBuffer: ByteBuffer
+        if var received = self.received {
+            received.write(buffer: &data)
+            newBuffer = received
+        } else {
+            newBuffer = data
+        }
+
+        self.received = newBuffer
+    }
+
+    func channelInactive(ctx: ChannelHandlerContext) {
+        self.completePromise.succeed(result: self.received ?? ctx.channel.allocator.buffer(capacity: 0))
+    }
+}
+
 private final class WriteCountingHandler: ChannelOutboundHandler {
     public typealias OutboundIn = Any
     public typealias OutboundOut = Any
@@ -1046,7 +1075,7 @@ class OpenSSLIntegrationTest: XCTestCase {
     }
 
     func testEncryptedFileInContext() throws {
-        let ctx = try configuredSSLContext(passphraseCallback:{ $0("thisisagreatpassword".utf8) } )
+        let ctx = try configuredSSLContext()
 
         let group = MultiThreadedEventLoopGroup(numThreads: 1)
         defer {
@@ -1075,5 +1104,50 @@ class OpenSSLIntegrationTest: XCTestCase {
 
         let newBuffer = try completionPromise.futureResult.wait()
         XCTAssertEqual(newBuffer, originalBuffer)
+    }
+
+    func testFlushPendingReadsOnCloseNotify() throws {
+        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+        defer {
+            _ = try? serverChannel.finish()
+            _ = try? clientChannel.finish()
+        }
+
+        let completePromise: EventLoopPromise<ByteBuffer> = serverChannel.eventLoop.newPromise()
+
+        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: try OpenSSLServerHandler(context: ctx)).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: ReadRecordingHandler(completePromise: completePromise)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: try OpenSSLClientHandler(context: ctx)).wait())
+
+        // Connect
+        let addr = try assertNoThrowWithValue(SocketAddress(unixDomainSocketPath: "/tmp/whatever2"))
+        let connectFuture = clientChannel.connect(to: addr)
+        serverChannel.pipeline.fireChannelActive()
+        XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
+        XCTAssertNoThrow(try connectFuture.wait())
+
+        // Here we want to issue a write, a flush, and then a close. This will trigger a CLOSE_NOTIFY message to be emitted by the
+        // client. Unfortunately, interactInMemory doesn't do quite what we want, as we need to coalesce all these writes, so
+        // we'll have to do some of this ourselves.
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.write(string: "Hello")
+        clientChannel.writeAndFlush(originalBuffer, promise: nil)
+        let clientClosePromise = clientChannel.close()
+
+        var buffer = clientChannel.allocator.buffer(capacity: 1024)
+        while case .some(.byteBuffer(var data)) = clientChannel.readOutbound() {
+            buffer.write(buffer: &data)
+        }
+        XCTAssertNoThrow(try serverChannel.writeInbound(buffer))
+
+        // Now we can interact. The server should close.
+        XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
+        XCTAssertNoThrow(try clientClosePromise.wait())
+
+        // Now check what we read.
+        var readData = try assertNoThrowWithValue(completePromise.futureResult.wait())
+        XCTAssertEqual(readData.readString(length: readData.readableBytes)!, "Hello")
     }
 }
