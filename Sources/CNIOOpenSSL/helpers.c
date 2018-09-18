@@ -11,16 +11,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-// Note that we don't include our umbrella header because it declares a bunch of
-// static inline functions that will cause havoc if they end up in multiple
-// compilation units.
-//
-// At some point we should probably just make them all live in this .o file, as the
-// cost of the function call is in practice very small.
-#include <openssl/bio.h>
-#include <openssl/crypto.h>
-#include <openssl/err.h>
-#include <openssl/ssl.h>
+#include <c_nio_openssl.h>
 #include <stdio.h>
 #include <pthread.h>
 #include <assert.h>
@@ -158,3 +149,25 @@ void CNIOOpenSSL_InitializeOpenSSL(void) {
     CNIOOpenSSL_InitializeLockingCallbacks();
 }
 
+/// A no-op verify callback, for use from Swift.
+int CNIOOpenSSL_noop_verify_callback(int preverify_ok, X509_STORE_CTX *context) {
+    return preverify_ok;
+}
+
+/// A small helper to allow querying whether we were build against LibreSSL or not.
+///
+/// Returns 1 if we built against LibreSSL, 0 if we did not.
+int CNIOOpenSSL_is_libressl(void) {
+#if defined(LIBRESSL_VERSION_NUMBER)
+    return 1;
+#else
+    return 0;
+#endif
+}
+
+// This wrapper is used to erase the types required for this function. It's a bad
+// thing to have to do, but until OpaquePointer gets better this is the only way to make
+// this function work.
+int CNIOOpenSSL_PKCS12_parse(void *p12, const char *pass, void **pkey, void **cert, void **ca) {
+    return PKCS12_parse((PKCS12 *)p12, pass, (EVP_PKEY **)pkey, (X509 **)cert, (STACK_OF(X509) **)ca);
+}
