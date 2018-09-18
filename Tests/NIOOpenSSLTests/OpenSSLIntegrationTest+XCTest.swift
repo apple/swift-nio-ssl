@@ -43,6 +43,7 @@ extension OpenSSLIntegrationTest {
                 ("testZeroLengthWrite", testZeroLengthWrite),
                 ("testZeroLengthWritePromisesFireInOrder", testZeroLengthWritePromisesFireInOrder),
                 ("testEncryptedFileInContext", testEncryptedFileInContext),
+                ("testFlushPendingReadsOnCloseNotify", testFlushPendingReadsOnCloseNotify),
            ]
    }
 }
