@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import NIO
+import NIOFoundationCompat
 import NIOHTTP1
 import NIOOpenSSL
 import Foundation
@@ -38,8 +39,8 @@ private final class HTTPResponseHandler: ChannelInboundHandler {
                 print("\(name): \(value)")
             }
         case .body(var byteBuffer):
-            if let responseBody = byteBuffer.readString(length: byteBuffer.readableBytes) {
-                print(responseBody)
+            if let data = byteBuffer.readData(length: byteBuffer.readableBytes) {
+                FileHandle.standardOutput.write(data)
             }
         case .end(_):
             closeFuture = ctx.channel.close()
