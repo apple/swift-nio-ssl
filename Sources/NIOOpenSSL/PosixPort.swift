@@ -27,7 +27,9 @@ private let sysMlock: @convention(c) (UnsafeRawPointer?, size_t) -> CInt = mlock
 private let sysMunlock: @convention(c) (UnsafeRawPointer?, size_t) -> CInt = munlock
 
 // Sadly, stat has different signatures with glibc and macOS libc.
-#if os(Linux) || os(FreeBSD) || os(Android)
+#if os(Android)
+private let sysStat: (UnsafePointer<CChar>, UnsafeMutablePointer<stat>) -> CInt = stat(_:_:)
+#elseif os(Linux) || os(FreeBSD) || os(Android)
 private let sysStat: @convention(c) (UnsafePointer<CChar>, UnsafeMutablePointer<stat>) -> CInt = stat(_:_:)
 #elseif os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
 private let sysStat: @convention(c) (UnsafePointer<CChar>?, UnsafeMutablePointer<stat>?) -> CInt = stat(_:_:)
