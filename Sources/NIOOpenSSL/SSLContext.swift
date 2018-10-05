@@ -32,7 +32,11 @@ private enum FileSystemObject {
             return nil
         }
 
+#if os(Android)
+        return (statObj.st_mode & UInt32(Glibc.S_IFDIR)) != 0 ? .directory : .file
+#else
         return (statObj.st_mode & S_IFDIR) != 0 ? .directory : .file
+#endif
     }
 }
 
