@@ -15,7 +15,12 @@
 import NIO
 import CNIOOpenSSL
 
-internal let SSL_MAX_RECORD_SIZE = 16 * 1024;
+internal let SSL_MAX_RECORD_SIZE = 16 * 1024
+
+/// This is used as the application data index to store pointers to `SSLConnection` objects in
+/// `SSL` objects. It is only safe to use after OpenSSL initialization. As it's declared global,
+/// it will be lazily initialized and protected by a dispatch_once, ensuring that it's thread-safe.
+private let exDataIndex = CNIOOpenSSL_SSL_get_ex_new_index(0, nil, nil, nil, nil)
 
 /// Encodes the return value of a non-blocking OpenSSL method call.
 ///
@@ -39,6 +44,7 @@ internal final class SSLConnection {
     private let ssl: OpaquePointer
     private let parentContext: SSLContext
     private var bio: ByteBufferBIO?
+    private var verificationCallback: OpenSSLVerificationCallback?
 
     /// Whether certificate hostnames should be validated.
     var validateHostnames: Bool {
@@ -51,6 +57,10 @@ internal final class SSLConnection {
     init(ownedSSL: OpaquePointer, parentContext: SSLContext) {
         self.ssl = ownedSSL
         self.parentContext = parentContext
+
+        // We pass the SSL object an unowned reference to this object.
+        let pointerToSelf = Unmanaged.passUnretained(self).toOpaque()
+        SSL_set_ex_data(.make(optional: self.ssl), exDataIndex, pointerToSelf)
     }
     
     deinit {
@@ -89,6 +99,46 @@ internal final class SSLConnection {
         }
         guard rc == 1 else {
             throw OpenSSLError.invalidSNIName(OpenSSLError.buildErrorStack())
+        }
+    }
+
+    /// Sets the OpenSSL verification callback.
+    func setVerificationCallback(_ callback: @escaping OpenSSLVerificationCallback) {
+        // Store the verification callback. We need to do this to keep it alive throughout the connection.
+        // We'll drop this when we're told that it's no longer needed to ensure we break the reference cycles
+        // that this callback inevitably produces.
+        self.verificationCallback = callback
+
+        // We need to know what the current mode is.
+        let currentMode = SSL_get_verify_mode(.make(optional: self.ssl))
+        SSL_set_verify(.make(optional: self.ssl), currentMode) { preverify, storeContext in
+            // To start out, let's grab the certificate we're operating on.
+            guard let certPointer = X509_STORE_CTX_get_current_cert(storeContext) else {
+                preconditionFailure("Can only have verification function invoked with actual certificate: bad store \(String(describing: storeContext))")
+            }
+            CNIOOpenSSL_X509_up_ref(certPointer)
+            let cert = OpenSSLCertificate.fromUnsafePointer(takingOwnership: certPointer)
+
+            // Next, prepare the verification result.
+            let verificationResult = OpenSSLVerificationResult(fromOpenSSLPreverify: preverify)
+
+            // Now, grab the SSLConnection object.
+            guard let ssl = X509_STORE_CTX_get_ex_data(storeContext, SSL_get_ex_data_X509_STORE_CTX_idx()) else {
+                preconditionFailure("Unable to obtain SSL * from X509_STORE_CTX * \(String(describing: storeContext))")
+            }
+            guard let connectionPointer = SSL_get_ex_data(.make(optional: OpaquePointer(ssl)), exDataIndex) else {
+                // Uh-ok, our application state is gone. Don't let this error silently pass, go bang.
+                preconditionFailure("Unable to find application data from SSL * \(ssl), index \(exDataIndex)")
+            }
+
+            // Grab a connection
+            let connection = Unmanaged<SSLConnection>.fromOpaque(connectionPointer).takeUnretainedValue()
+            switch connection.verificationCallback!(verificationResult, cert) {
+            case .certificateVerified:
+                return 1
+            case .failed:
+                return 0
+            }
         }
     }
 
@@ -260,5 +310,15 @@ internal final class SSLConnection {
         }
 
         return OpenSSLCertificate.fromUnsafePointer(takingOwnership: certPtr)
+    }
+
+    /// Drops persistent connection state.
+    ///
+    /// Must only be called when the connection is no longer needed. The rest of this object
+    /// preconditions on that being true, so we'll find out quickly when that's not the case.
+    func close() {
+        /// Drop the verification callback. This breaks any reference cycles that are inevitably
+        /// created by this callback.
+        self.verificationCallback = nil
     }
 }

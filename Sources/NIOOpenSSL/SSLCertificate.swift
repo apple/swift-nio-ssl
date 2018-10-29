@@ -212,6 +212,25 @@ public class OpenSSLCertificate {
     }
 }
 
+// MARK:- Utility Functions
+// We don't really want to get too far down the road of providing helpers for things like certificates
+// and private keys: this is really the domain of alternative cryptography libraries. However, to
+// enable users of swift-nio-ssl to use other cryptography libraries it will be helpful to provide
+// the ability to obtain the bytes that correspond to certificates and keys.
+extension OpenSSLCertificate {
+    /// Obtain the public key for this `OpenSSLCertificate`.
+    ///
+    /// - returns: This certificate's `OpenSSLPublicKey`.
+    /// - throws: If an error is encountered extracting the key.
+    public func extractPublicKey() throws -> OpenSSLPublicKey {
+        guard let key = X509_get_pubkey(.make(optional: self.ref)) else {
+            throw NIOOpenSSLError.unableToAllocateOpenSSLObject
+        }
+
+        return OpenSSLPublicKey.fromInternalPointer(takingOwnership: .init(key))
+    }
+}
+
 extension OpenSSLCertificate: Equatable {
     public static func ==(lhs: OpenSSLCertificate, rhs: OpenSSLCertificate) -> Bool {
         return X509_cmp(.make(optional: lhs.ref), .make(optional: rhs.ref)) == 0

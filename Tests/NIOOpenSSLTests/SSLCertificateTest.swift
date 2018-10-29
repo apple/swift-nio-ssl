@@ -327,4 +327,12 @@ class SSLCertificateTest: XCTestCase {
         let cert = try OpenSSLCertificate(buffer: [Int8](unicodeCNCert.utf8CString), format: .pem)
         XCTAssertEqual([UInt8]("straße.org".utf8), cert.commonName()!)
     }
+
+    func testExtractingPublicKey() throws {
+        let cert = try assertNoThrowWithValue(OpenSSLCertificate(buffer: [Int8](samplePemCert.utf8CString), format: .pem))
+        let publicKey = try assertNoThrowWithValue(cert.extractPublicKey())
+        let spkiBytes = try assertNoThrowWithValue(publicKey.toSPKIBytes())
+
+        XCTAssertEqual(spkiBytes, sampleDerCertSPKI)
+    }
 }

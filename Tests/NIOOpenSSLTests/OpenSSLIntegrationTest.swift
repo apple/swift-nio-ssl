@@ -253,7 +253,13 @@ internal func serverTLSChannel(context: NIOOpenSSL.SSLContext,
                                group: EventLoopGroup,
                                file: StaticString = #file,
                                line: UInt = #line) throws -> Channel {
-    return try assertNoThrowWithValue(serverTLSChannel(context: context, preHandlers: [], postHandlers: handlers, group: group), file: file, line: line)
+    return try assertNoThrowWithValue(serverTLSChannel(context: context,
+                                                       preHandlers: [],
+                                                       postHandlers: handlers,
+                                                       group: group,
+                                                       file: file,
+                                                       line: line),
+                                      file: file, line: line)
 }
 
 internal func serverTLSChannel(context: NIOOpenSSL.SSLContext,
@@ -283,13 +289,14 @@ internal func clientTLSChannel(context: NIOOpenSSL.SSLContext,
                                group: EventLoopGroup,
                                connectingTo: SocketAddress,
                                serverHostname: String? = nil,
+                               verificationCallback: OpenSSLVerificationCallback? = nil,
                                file: StaticString = #file,
                                line: UInt = #line) throws -> Channel {
     return try assertNoThrowWithValue(ClientBootstrap(group: group)
         .channelInitializer { channel in
             let results = preHandlers.map { channel.pipeline.add(handler: $0) }
             return EventLoopFuture<Void>.andAll(results, eventLoop: results.first?.eventLoop ?? group.next()).thenThrowing {
-                try OpenSSLClientHandler(context: context, serverHostname: serverHostname)
+                try OpenSSLClientHandler(context: context, serverHostname: serverHostname, verificationCallback: verificationCallback)
             }.then {
                 channel.pipeline.add(handler: $0)
             }.then {
@@ -1149,5 +1156,93 @@ class OpenSSLIntegrationTest: XCTestCase {
         // Now check what we read.
         var readData = try assertNoThrowWithValue(completePromise.futureResult.wait())
         XCTAssertEqual(readData.readString(length: readData.readableBytes)!, "Hello")
+    }
+
+    func testForcingVerificationFailure() throws {
+        let ctx = try configuredSSLContext()
+
+        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let serverChannel: Channel = try serverTLSChannel(context: ctx, handlers: [], group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let errorHandler = ErrorCatcher<NIOOpenSSLError>()
+        let clientChannel = try clientTLSChannel(context: try configuredClientContext(),
+                                                 preHandlers: [],
+                                                 postHandlers: [errorHandler],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!,
+                                                 verificationCallback: { preverify, certificate in
+                                                    XCTAssertEqual(preverify, .certificateVerified)
+                                                    return .failed
+        })
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.write(string: "Hello")
+        let writeFuture = clientChannel.writeAndFlush(originalBuffer)
+        let errorsFuture: EventLoopFuture<[NIOOpenSSLError]> = writeFuture.mapIfError { (_: Error) in
+            // We're swallowing errors here, on purpose, because we'll definitely
+            // hit them.
+            return ()
+        }.map {
+            return errorHandler.errors
+        }
+        let actualErrors = try errorsFuture.wait()
+
+        // This write will have failed, but that's fine: we just want it as a signal that
+        // the handshake is done so we can make our assertions.
+        XCTAssertEqual(actualErrors.count, 1)
+        switch actualErrors.first! {
+        case .handshakeFailed:
+            // expected
+            break
+        case let error:
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testExtractingCertificates() throws {
+        let ctx = try configuredSSLContext()
+
+        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().newPromise()
+
+        let serverChannel: Channel = try serverTLSChannel(context: ctx, handlers: [SimpleEchoServer()], group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        var certificates = [OpenSSLCertificate]()
+        let clientChannel = try clientTLSChannel(context: configuredClientContext(),
+                                                 preHandlers: [],
+                                                 postHandlers: [PromiseOnReadHandler(promise: completionPromise)],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!,
+                                                 serverHostname: "localhost",
+                                                 verificationCallback: { verify, certificate in
+                                                    certificates.append(certificate)
+                                                    return verify
+        })
+        defer {
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.write(string: "Hello")
+        XCTAssertNoThrow(try clientChannel.writeAndFlush(originalBuffer).wait())
+
+        let newBuffer = try completionPromise.futureResult.wait()
+        XCTAssertEqual(newBuffer, originalBuffer)
+
+        XCTAssertEqual(certificates.count, 1)
     }
 }
