@@ -19,12 +19,17 @@ import NIO
 /// are acting as the server in the TLS dialog. For client connections,
 /// use the `OpenSSLClientHandler`.
 public final class OpenSSLServerHandler: OpenSSLHandler {
-    public init(context: SSLContext) throws {
+    public init(context: SSLContext, verificationCallback: OpenSSLVerificationCallback? = nil) throws {
         guard let connection = context.createConnection() else {
             throw NIOOpenSSLError.unableToAllocateOpenSSLObject
         }
 
         connection.setAcceptState()
+
+        if let verificationCallback = verificationCallback {
+            connection.setVerificationCallback(verificationCallback)
+        }
+
         super.init(connection: connection)
     }
 }

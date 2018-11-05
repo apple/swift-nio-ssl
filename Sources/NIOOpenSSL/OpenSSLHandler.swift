@@ -61,6 +61,13 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
         }
     }
 
+    public func handlerRemoved(ctx: ChannelHandlerContext) {
+        /// Get the connection to drop any state it might have. This state can cause reference cycles,
+        /// so we need to break those when we know it's safe to do so. This is a good safe point, as no
+        /// further I/O can possibly occur.
+        self.connection.close()
+    }
+
     public func channelActive(ctx: ChannelHandlerContext) {
         // We fire this a bit early, entirely on purpose. This is because
         // in doHandshakeStep we may end up closing the channel again, and

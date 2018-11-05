@@ -41,6 +41,24 @@ const SSL_METHOD *CNIOOpenSSL_TLS_Method(void) {
 #endif
 }
 
+int CNIOOpenSSL_X509_up_ref(X509 *x) {
+    // OpenSSL prior to 1.1 requires that we just mess about in the X509 structure. LibreSSL 2.7 brought in the
+    // OpenSSL 1.1 API, so if we can we'll use that: otherwise we just mess about as with OpenSSL 1.0.
+#if ((OPENSSL_VERSION_NUMBER < 0x10100000L) || (defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x2070000fL))
+    return CRYPTO_add(&x->references, 1, CRYPTO_LOCK_X509);
+#else
+    return X509_up_ref(x);
+#endif
+}
+
+int CNIOOpenSSL_SSL_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func, CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func) {
+#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
+    return SSL_get_ex_new_index(argl, argp, new_func, dup_func, free_func);
+#else
+    return CRYPTO_get_ex_new_index(CRYPTO_EX_INDEX_SSL, argl, argp, new_func, dup_func, free_func);
+#endif
+}
+
 // MARK: Macro wrappers
 // These are functions that rely on things declared in macros in OpenSSL, at least in
 // some versions. The Swift compiler cannot expand C macros, so we need a file that
@@ -210,4 +228,8 @@ int CNIOOpenSSL_BIO_get_close(BIO *bio) {
 
 int CNIOOpenSSL_BIO_set_close(BIO *bio, long flag) {
     return BIO_set_close(bio, flag);
+}
+
+long CNIOOpenSSL_BIO_get_mem_data(BIO *bio, char **dataPtr) {
+    return BIO_get_mem_data(bio, dataPtr);
 }

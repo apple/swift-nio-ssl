@@ -44,6 +44,7 @@ extension SSLCertificateTest {
                 ("testMultipleCommonNames", testMultipleCommonNames),
                 ("testNoCommonName", testNoCommonName),
                 ("testUnicodeCommonName", testUnicodeCommonName),
+                ("testExtractingPublicKey", testExtractingPublicKey),
            ]
    }
 }

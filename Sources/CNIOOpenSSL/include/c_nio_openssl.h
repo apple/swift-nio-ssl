@@ -57,6 +57,8 @@ void CNIOOpenSSL_SSL_CTX_setAutoECDH(SSL_CTX *ctx);
 int CNIOOpenSSL_SSL_set_tlsext_host_name(SSL *ssl, const char *name);
 const unsigned char *CNIOOpenSSL_ASN1_STRING_get0_data(ASN1_STRING *x);
 const SSL_METHOD *CNIOOpenSSL_TLS_Method(void);
+int CNIOOpenSSL_X509_up_ref(X509 *x);
+int CNIOOpenSSL_SSL_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func, CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func);
 
 // MARK: Macro wrappers
 // These are functions that rely on things declared in macros in OpenSSL, at least in
@@ -108,6 +110,7 @@ int CNIOOpenSSL_BIO_should_retry(BIO *bio);
 int CNIOOpenSSL_BIO_should_read(BIO *bio);
 int CNIOOpenSSL_BIO_get_close(BIO *bio);
 int CNIOOpenSSL_BIO_set_close(BIO *bio, long flag);
+long CNIOOpenSSL_BIO_get_mem_data(BIO *bio, char **dataPtr);
 
 // MARK: BIO helpers
 /// This is a pointer to the BIO_METHOD structure for NIO's ByteBufferBIO.

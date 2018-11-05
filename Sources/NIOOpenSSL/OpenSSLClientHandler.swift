@@ -32,7 +32,7 @@ private extension String {
 /// are acting as the client in the TLS dialog. For server connections,
 /// use the `OpenSSLServerHandler`.
 public final class OpenSSLClientHandler: OpenSSLHandler {
-    public init(context: SSLContext, serverHostname: String? = nil) throws {
+    public init(context: SSLContext, serverHostname: String? = nil, verificationCallback: OpenSSLVerificationCallback? = nil) throws {
         guard let connection = context.createConnection() else {
             throw NIOOpenSSLError.unableToAllocateOpenSSLObject
         }
@@ -46,6 +46,11 @@ public final class OpenSSLClientHandler: OpenSSLHandler {
             // IP addresses must not be provided in the SNI extension, so filter them.
             try connection.setSNIServerName(name: serverHostname)
         }
+
+        if let verificationCallback = verificationCallback {
+            connection.setVerificationCallback(verificationCallback)
+        }
+
         super.init(connection: connection, expectedHostname: serverHostname)
     }
 }
