@@ -34,7 +34,9 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
         case idle
         case handshaking
         case active
+        case unwrapping
         case closing
+        case unwrapped
         case closed
     }
 
@@ -43,7 +45,9 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
     private var plaintextReadBuffer: ByteBuffer?
     private var bufferedWrites: MarkedCircularBuffer<BufferedWrite>
     private var closePromise: EventLoopPromise<Void>?
+    private var shutdownPromise: EventLoopPromise<Void>?
     private var didDeliverData: Bool = false
+    private var storedContext: ChannelHandlerContext? = nil
     private let expectedHostname: String?
     
     internal init (connection: SSLConnection, expectedHostname: String? = nil) {
@@ -53,6 +57,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
     }
 
     public func handlerAdded(ctx: ChannelHandlerContext) {
+        self.storedContext = ctx
         self.connection.setAllocator(ctx.channel.allocator)
         self.plaintextReadBuffer = ctx.channel.allocator.buffer(capacity: SSL_MAX_RECORD_SIZE)
         // If this channel is already active, immediately begin handshaking.
@@ -66,6 +71,9 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
         /// so we need to break those when we know it's safe to do so. This is a good safe point, as no
         /// further I/O can possibly occur.
         self.connection.close()
+
+        // We now want to drop the stored context.
+        self.storedContext = nil
     }
 
     public func channelActive(ctx: ChannelHandlerContext) {
@@ -92,10 +100,13 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             // This is a ragged EOF: we weren't sent a CLOSE_NOTIFY. We want to send a user
             // event to notify about this before we propagate channelInactive. We also want to fail all
             // these writes.
-            if let closePromise = self.closePromise {
-                self.closePromise = nil
-                closePromise.fail(error: OpenSSLError.uncleanShutdown)
-            }
+            let shutdownPromise = self.shutdownPromise
+            self.shutdownPromise = nil
+            let closePromise = self.closePromise
+            self.closePromise = nil
+
+            shutdownPromise?.fail(error: OpenSSLError.uncleanShutdown)
+            closePromise?.fail(error: OpenSSLError.uncleanShutdown)
             ctx.fireErrorCaught(OpenSSLError.uncleanShutdown)
             discardBufferedWrites(reason: OpenSSLError.uncleanShutdown)
         }
@@ -117,9 +128,11 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             doUnbufferWrites(ctx: ctx)
         case .closing:
             doShutdownStep(ctx: ctx)
+        case .unwrapping:
+            self.doShutdownStep(ctx: ctx)
         default:
             ctx.fireErrorCaught(NIOOpenSSLError.readInInvalidTLSState)
-            channelClose(ctx: ctx)
+            channelClose(ctx: ctx, reason: NIOOpenSSLError.readInInvalidTLSState)
         }
     }
     
@@ -156,16 +169,27 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             } else if let promise = promise {
                 self.closePromise = promise
             }
+        case .unwrapping:
+            // We've been asked to close the connection, but we were currently unwrapping.
+            // We don't have to send any CLOSE_NOTIFY, but we now need to upgrade ourselves:
+            // closing is a more extreme activity than unwrapping.
+            self.state = .closing
+            if let promise = promise, let closePromise = self.closePromise {
+                closePromise.futureResult.cascade(promise: promise)
+            } else if let promise = promise {
+                self.closePromise = promise
+            }
         case .idle:
             state = .closed
             fallthrough
-        case .closed:
-            // For idle and closed connections we immediately pass this on to the next
+        case .closed, .unwrapped:
+            // For idle, closed, and unwrapped connections we immediately pass this on to the next
             // channel handler.
             ctx.close(promise: promise)
-        default:
+        case .active, .handshaking:
             // We need to begin processing shutdown now. We can't fire the promise for a
             // while though.
+            self.state = .closing
             closePromise = promise
             doShutdownStep(ctx: ctx)
         }
@@ -192,7 +216,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             } catch {
                 // This counts as a failure.
                 ctx.fireErrorCaught(error)
-                channelClose(ctx: ctx)
+                channelClose(ctx: ctx, reason: error)
                 return
             }
 
@@ -213,7 +237,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             
             // TODO(cory): This event should probably fire out of the OpenSSL info callback.
             ctx.fireErrorCaught(NIOOpenSSLError.handshakeFailed(err))
-            channelClose(ctx: ctx)
+            channelClose(ctx: ctx, reason: NIOOpenSSLError.handshakeFailed(err))
         }
     }
 
@@ -230,22 +254,39 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
     /// do nothing.
     private func doShutdownStep(ctx: ChannelHandlerContext) {
         let result = connection.doShutdown()
+
+        let targetCompleteState: ConnectionState
+        switch self.state {
+        case .closing:
+            targetCompleteState = .closed
+        case .unwrapping:
+            targetCompleteState = .unwrapped
+        default:
+            preconditionFailure("Shutting down in a non-shutting-down state")
+        }
         
         switch result {
         case .incomplete:
-            state = .closing
             writeDataToNetwork(ctx: ctx, promise: nil)
         case .complete:
-            state = .closed
+            state = targetCompleteState
             writeDataToNetwork(ctx: ctx, promise: nil)
 
             // TODO(cory): This should probably fire out of the OpenSSL info callback.
             ctx.fireUserInboundEventTriggered(TLSUserEvent.shutdownCompleted)
-            channelClose(ctx: ctx)
+
+            switch targetCompleteState {
+            case .closed:
+                self.channelClose(ctx: ctx, reason: NIOTLSUnwrappingError.closeRequestedDuringUnwrap)
+            case .unwrapped:
+                self.channelUnwrap(ctx: ctx)
+            default:
+                preconditionFailure("Cannot be in \(targetCompleteState) at this code point")
+            }
         case .failed(let err):
             // TODO(cory): This should probably fire out of the OpenSSL info callback.
             ctx.fireErrorCaught(NIOOpenSSLError.shutdownFailed(err))
-            channelClose(ctx: ctx)
+            channelClose(ctx: ctx, reason: NIOOpenSSLError.shutdownFailed(err))
         }
     }
 
@@ -278,19 +319,32 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
                 if receiveBuffer.writableBytes < 1024 {
                     receiveBuffer.changeCapacity(to: receiveBuffer.capacity + 1024)
                 }
+
             case .incomplete:
                 self.plaintextReadBuffer = receiveBuffer
                 break readLoop
+
             case .failed(OpenSSLError.zeroReturn):
+                switch self.state {
+                case .idle, .closed, .unwrapped, .handshaking:
+                    preconditionFailure("Should not get zeroReturn in \(self.state)")
+                case .active:
+                    self.state = .closing
+                case .unwrapping, .closing:
+                    break
+                }
+
                 // This is a clean EOF: we can just start doing our own clean shutdown.
                 self.doFlushReadData(ctx: ctx, receiveBuffer: receiveBuffer, readOnEmptyBuffer: false)
                 doShutdownStep(ctx: ctx)
                 writeDataToNetwork(ctx: ctx, promise: nil)
                 break readLoop
+
             case .failed(let err):
+                self.state = .closed
                 self.plaintextReadBuffer = receiveBuffer
                 ctx.fireErrorCaught(err)
-                channelClose(ctx: ctx)
+                channelClose(ctx: ctx, reason: err)
                 break readLoop
             }
         }
@@ -361,11 +415,44 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
     /// This method does not perform any kind of I/O. Instead, it simply calls ChannelHandlerContext.close with
     /// any promise we may have already been given. It also transitions our state into closed. This should only be
     /// used to clean up after an error, or to perform the final call to close after a clean shutdown attempt.
-    private func channelClose(ctx: ChannelHandlerContext) {
+    private func channelClose(ctx: ChannelHandlerContext, reason: Error) {
         state = .closed
+
+        let shutdownPromise = self.shutdownPromise
+        self.shutdownPromise = nil
+
         let closePromise = self.closePromise
         self.closePromise = nil
+
+        shutdownPromise?.fail(error: reason)
         ctx.close(promise: closePromise)
+    }
+
+    private func channelUnwrap(ctx: ChannelHandlerContext) {
+        assert(self.closePromise == nil)
+        self.state = .unwrapped
+
+        let shutdownPromise = self.shutdownPromise
+        self.shutdownPromise = nil
+
+        // We create a promise here to make sure we operate in the special magic state
+        // where we are not in the pipeline any more, but we still have a valid context.
+        let removalPromise: EventLoopPromise<Bool> = ctx.eventLoop.newPromise()
+        let removalFuture = removalPromise.futureResult.map { (_: Bool) in
+            // Now drop the writes.
+            self.discardBufferedWrites(reason: NIOTLSUnwrappingError.unflushedWriteOnUnwrap)
+
+            if let unconsumedData = self.connection.extractUnconsumedData() {
+                ctx.fireChannelRead(self.wrapInboundOut(unconsumedData))
+            }
+        }
+
+        if let promise = shutdownPromise {
+            removalFuture.cascade(promise: promise)
+        }
+
+        // Ok, we've unwrapped. Let's get out of the channel.
+        ctx.channel.pipeline.remove(ctx: ctx, promise: removalPromise)
     }
 
     /// Validates the hostname from the certificate against the hostname provided by
@@ -390,6 +477,65 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
                                          socketAddress: ipAddress,
                                          leafCertificate: peerCert) else {
             throw NIOOpenSSLError.unableToValidateCertificate
+        }
+    }
+}
+
+
+// MARK:- Extension APIs for users.
+extension OpenSSLHandler {
+    /// Called to instruct this handler to perform an orderly TLS shutdown and then remove itself
+    /// from the pipeline. This will leave the connection established, but remove the TLS wrapper
+    /// from it.
+    ///
+    /// This will send a CLOSE_NOTIFY and wait for the corresponding CLOSE_NOTIFY. When that next
+    /// CLOSE_NOTIFY is received, this handler will pass on all pending writes and remove itself
+    /// from the channel pipeline.
+    ///
+    /// This function **is not thread-safe**: you **must** call it from the correct event
+    /// loop thread.
+    ///
+    /// - parameters:
+    ///     - promise: (optional) An `EventLoopPromise` that will be completed when the unwrapping has
+    ///         completed.
+    public func stopTLS(promise: EventLoopPromise<Void>?) {
+        switch self.state {
+        case .unwrapping, .closing:
+            // We're shutting down here. Nothing has to be done, but we should keep track of this promise.
+            if let promise = promise, let shutdownPromise = self.shutdownPromise {
+                shutdownPromise.futureResult.cascade(promise: promise)
+            } else if let promise = promise {
+                self.shutdownPromise = promise
+            }
+
+        case .idle:
+            // We've never activated, it's easy to remove TLS from a connection that never had it.
+            guard let storedContext = self.storedContext else {
+                promise?.fail(error: NIOTLSUnwrappingError.invalidInternalState)
+                return
+            }
+
+            self.state = .unwrapping
+            self.shutdownPromise = promise
+            self.channelUnwrap(ctx: storedContext)
+
+        case .handshaking, .active:
+            // Time to try to strip TLS.
+            guard let storedContext = self.storedContext else {
+                promise?.fail(error: NIOTLSUnwrappingError.invalidInternalState)
+                return
+            }
+
+            self.state = .unwrapping
+            self.shutdownPromise = promise
+            self.doShutdownStep(ctx: storedContext)
+
+        case .unwrapped:
+            // We are already unwrapped. Succeed the promise, do nothing.
+            promise?.succeed(result: ())
+
+        case .closed:
+            promise?.fail(error: NIOTLSUnwrappingError.alreadyClosed)
         }
     }
 }
@@ -463,7 +609,7 @@ extension OpenSSLHandler {
             }
         } catch {
             // We encountered an error, it's cleanup time. Close ourselves down.
-            channelClose(ctx: ctx)
+            channelClose(ctx: ctx, reason: error)
             // Fail any writes we've previously encoded but not flushed.
             promises.forEach { $0.fail(error: error) }
             // Fail everything else.

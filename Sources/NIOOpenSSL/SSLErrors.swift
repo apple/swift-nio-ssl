@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import CNIOOpenSSL
+import NIO
 
 /// Wraps a single error from OpenSSL.
 public struct OpenSSLInternalError: Equatable, CustomStringConvertible {
@@ -156,4 +157,20 @@ internal extension OpenSSLError {
         
         return errorStack
     }
+}
+
+/// Represents errors that may occur while attempting to unwrap TLS from a connection.
+public enum NIOTLSUnwrappingError: Error {
+    /// The TLS channel has already been closed, so it is not possible to unwrap it.
+    case alreadyClosed
+
+    /// The internal state of the handler is not able to process the unwrapping request.
+    case invalidInternalState
+
+    /// We were unwrapping the connection, but during the unwrap process a close call
+    /// was made. This means the connection is now closed, not unwrapped.
+    case closeRequestedDuringUnwrap
+
+    /// This write was failed because the channel was unwrapped before it was flushed.
+    case unflushedWriteOnUnwrap
 }

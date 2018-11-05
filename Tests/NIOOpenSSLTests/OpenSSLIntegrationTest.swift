@@ -32,7 +32,7 @@ public func assertNoThrowWithValue<T>(_ body: @autoclosure () throws -> T, defau
     }
 }
 
-private func interactInMemory(clientChannel: EmbeddedChannel, serverChannel: EmbeddedChannel) throws {
+internal func interactInMemory(clientChannel: EmbeddedChannel, serverChannel: EmbeddedChannel) throws {
     var workToDo = true
     while workToDo {
         workToDo = false
