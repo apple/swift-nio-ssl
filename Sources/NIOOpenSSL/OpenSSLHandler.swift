@@ -151,8 +151,10 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
         case .closing:
             // We're in the process of TLS shutdown, so let's let that happen. However,
             // we want to cascade the result of the first request into this new one.
-            if let promise = promise {
-                closePromise!.futureResult.cascade(promise: promise)
+            if let promise = promise, let closePromise = self.closePromise {
+                closePromise.futureResult.cascade(promise: promise)
+            } else if let promise = promise {
+                self.closePromise = promise
             }
         case .idle:
             state = .closed

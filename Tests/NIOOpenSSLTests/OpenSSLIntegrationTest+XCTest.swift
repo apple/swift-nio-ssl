@@ -46,6 +46,7 @@ extension OpenSSLIntegrationTest {
                 ("testFlushPendingReadsOnCloseNotify", testFlushPendingReadsOnCloseNotify),
                 ("testForcingVerificationFailure", testForcingVerificationFailure),
                 ("testExtractingCertificates", testExtractingCertificates),
+                ("testRepeatedClosure", testRepeatedClosure),
            ]
    }
 }

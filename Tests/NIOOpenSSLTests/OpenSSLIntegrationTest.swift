@@ -1245,4 +1245,42 @@ class OpenSSLIntegrationTest: XCTestCase {
 
         XCTAssertEqual(certificates.count, 1)
     }
+
+    func testRepeatedClosure() throws {
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+
+        defer {
+            // We expect both cases to throw
+            XCTAssertThrowsError(try serverChannel.finish())
+            XCTAssertThrowsError(try clientChannel.finish())
+        }
+
+        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+
+        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: OpenSSLServerHandler(context: ctx)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: OpenSSLClientHandler(context: ctx)).wait())
+        let handshakeHandler = HandshakeCompletedHandler()
+        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: handshakeHandler).wait())
+
+        // Connect. This should lead to a completed handshake.
+        let addr: SocketAddress = try SocketAddress(unixDomainSocketPath: "/tmp/whatever")
+        let connectFuture = clientChannel.connect(to: addr)
+        serverChannel.pipeline.fireChannelActive()
+        try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
+        try connectFuture.wait()
+        XCTAssertTrue(handshakeHandler.handshakeSucceeded)
+
+        // We're going to close twice: the first one without a promise, the second one with one.
+        var closed = false
+        clientChannel.close(promise: nil)
+        clientChannel.close().whenComplete {
+            closed = true
+        }
+        XCTAssertFalse(closed)
+        XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
+
+        // The closure should have happened.
+        XCTAssertTrue(closed)
+    }
 }
