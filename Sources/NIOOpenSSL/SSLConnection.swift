@@ -13,14 +13,14 @@
 //===----------------------------------------------------------------------===//
 
 import NIO
-import CNIOOpenSSL
+import CNIOBoringSSL
 
 internal let SSL_MAX_RECORD_SIZE = 16 * 1024
 
 /// This is used as the application data index to store pointers to `SSLConnection` objects in
 /// `SSL` objects. It is only safe to use after OpenSSL initialization. As it's declared global,
 /// it will be lazily initialized and protected by a dispatch_once, ensuring that it's thread-safe.
-private let exDataIndex = CNIOOpenSSL_SSL_get_ex_new_index(0, nil, nil, nil, nil)
+private let exDataIndex = CNIOBoringSSL_SSL_get_ex_new_index(0, nil, nil, nil, nil)
 
 /// Encodes the return value of a non-blocking OpenSSL method call.
 ///
@@ -60,21 +60,21 @@ internal final class SSLConnection {
 
         // We pass the SSL object an unowned reference to this object.
         let pointerToSelf = Unmanaged.passUnretained(self).toOpaque()
-        SSL_set_ex_data(.make(optional: self.ssl), exDataIndex, pointerToSelf)
+        CNIOBoringSSL_SSL_set_ex_data(self.ssl, exDataIndex, pointerToSelf)
     }
     
     deinit {
-        SSL_free(.make(optional: ssl))
+        CNIOBoringSSL_SSL_free(ssl)
     }
 
     /// Configures this as a server connection.
     func setAcceptState() {
-        SSL_set_accept_state(.make(optional: ssl))
+        CNIOBoringSSL_SSL_set_accept_state(ssl)
     }
 
     /// Configures this as a client connection.
     func setConnectState() {
-        SSL_set_connect_state(.make(optional: ssl))
+        CNIOBoringSSL_SSL_set_connect_state(ssl)
     }
 
     func setAllocator(_ allocator: ByteBufferAllocator) {
@@ -84,7 +84,7 @@ internal final class SSLConnection {
         // the OpenSSL docs claim that only one reference count will be consumed here. We therefore need to
         // avoid calling BIO_up_ref too many times.
         let bioPtr = self.bio!.retainedBIO()
-        SSL_set_bio(.make(optional: self.ssl), .make(optional: bioPtr), .make(optional: bioPtr))
+        CNIOBoringSSL_SSL_set_bio(self.ssl, bioPtr, bioPtr)
     }
 
     /// Sets the value of the SNI extension to send to the server.
@@ -93,9 +93,9 @@ internal final class SSLConnection {
     /// an IP address in the SNI extension is invalid, and may result in handshake
     /// failure.
     func setSNIServerName(name: String) throws {
-        ERR_clear_error()
+        CNIOBoringSSL_ERR_clear_error()
         let rc = name.withCString {
-            return CNIOOpenSSL_SSL_set_tlsext_host_name(.make(optional: ssl), $0)
+            return CNIOBoringSSL_SSL_set_tlsext_host_name(ssl, $0)
         }
         guard rc == 1 else {
             throw OpenSSLError.invalidSNIName(OpenSSLError.buildErrorStack())
@@ -110,23 +110,23 @@ internal final class SSLConnection {
         self.verificationCallback = callback
 
         // We need to know what the current mode is.
-        let currentMode = SSL_get_verify_mode(.make(optional: self.ssl))
-        SSL_set_verify(.make(optional: self.ssl), currentMode) { preverify, storeContext in
+        let currentMode = CNIOBoringSSL_SSL_get_verify_mode(self.ssl)
+        CNIOBoringSSL_SSL_set_verify(self.ssl, currentMode) { preverify, storeContext in
             // To start out, let's grab the certificate we're operating on.
-            guard let certPointer = X509_STORE_CTX_get_current_cert(storeContext) else {
+            guard let certPointer = CNIOBoringSSL_X509_STORE_CTX_get_current_cert(storeContext) else {
                 preconditionFailure("Can only have verification function invoked with actual certificate: bad store \(String(describing: storeContext))")
             }
-            CNIOOpenSSL_X509_up_ref(certPointer)
+            CNIOBoringSSL_X509_up_ref(certPointer)
             let cert = OpenSSLCertificate.fromUnsafePointer(takingOwnership: certPointer)
 
             // Next, prepare the verification result.
             let verificationResult = OpenSSLVerificationResult(fromOpenSSLPreverify: preverify)
 
             // Now, grab the SSLConnection object.
-            guard let ssl = X509_STORE_CTX_get_ex_data(storeContext, SSL_get_ex_data_X509_STORE_CTX_idx()) else {
+            guard let ssl = CNIOBoringSSL_X509_STORE_CTX_get_ex_data(storeContext, CNIOBoringSSL_SSL_get_ex_data_X509_STORE_CTX_idx()) else {
                 preconditionFailure("Unable to obtain SSL * from X509_STORE_CTX * \(String(describing: storeContext))")
             }
-            guard let connectionPointer = SSL_get_ex_data(.make(optional: OpaquePointer(ssl)), exDataIndex) else {
+            guard let connectionPointer = CNIOBoringSSL_SSL_get_ex_data(OpaquePointer(ssl), exDataIndex) else {
                 // Uh-ok, our application state is gone. Don't let this error silently pass, go bang.
                 preconditionFailure("Unable to find application data from SSL * \(ssl), index \(exDataIndex)")
             }
@@ -150,12 +150,12 @@ internal final class SSLConnection {
     /// data from internal buffers: call `consumeDataFromNetwork` before calling this
     /// method.
     func doHandshake() -> AsyncOperationResult<Int32> {
-        ERR_clear_error()
-        let rc = SSL_do_handshake(.make(optional: ssl))
+        CNIOBoringSSL_ERR_clear_error()
+        let rc = CNIOBoringSSL_SSL_do_handshake(ssl)
         
         if (rc == 1) { return .complete(rc) }
         
-        let result = SSL_get_error(.make(optional: ssl), rc)
+        let result = CNIOBoringSSL_SSL_get_error(ssl, rc)
         let error = OpenSSLError.fromSSLGetErrorResult(result)!
         
         switch error {
@@ -175,8 +175,8 @@ internal final class SSLConnection {
     /// data from internal buffers: call `consumeDataFromNetwork` before calling this
     /// method.
     func doShutdown() -> AsyncOperationResult<Int32> {
-        ERR_clear_error()
-        let rc = SSL_shutdown(.make(optional: ssl))
+        CNIOBoringSSL_ERR_clear_error()
+        let rc = CNIOBoringSSL_SSL_shutdown(ssl)
         
         switch rc {
         case 1:
@@ -184,7 +184,7 @@ internal final class SSLConnection {
         case 0:
             return .incomplete
         default:
-            let result = SSL_get_error(.make(optional: ssl), rc)
+            let result = CNIOBoringSSL_SSL_get_error(ssl, rc)
             let error = OpenSSLError.fromSSLGetErrorResult(result)!
             
             switch error {
@@ -232,14 +232,14 @@ internal final class SSLConnection {
         // we can with reading) that would be grand, but we can't, so instead we need to use a temp variable. Not ideal.
         var bytesRead: Int32 = 0
         let rc = outputBuffer.writeWithUnsafeMutableBytes { (pointer) -> Int in
-            bytesRead = SSL_read(.make(optional: self.ssl), pointer.baseAddress, Int32(pointer.count))
+            bytesRead = CNIOBoringSSL_SSL_read(self.ssl, pointer.baseAddress, Int32(pointer.count))
             return bytesRead >= 0 ? Int(bytesRead) : 0
         }
         
         if bytesRead > 0 {
             return .complete(rc)
         } else {
-            let result = SSL_get_error(.make(optional: ssl), Int32(bytesRead))
+            let result = CNIOBoringSSL_SSL_get_error(ssl, Int32(bytesRead))
             let error = OpenSSLError.fromSSLGetErrorResult(result)!
             
             switch error {
@@ -264,7 +264,7 @@ internal final class SSLConnection {
         }
 
         let writtenBytes = data.withUnsafeReadableBytes { (pointer) -> Int32 in
-            return SSL_write(.make(optional: ssl), pointer.baseAddress, Int32(pointer.count))
+            return CNIOBoringSSL_SSL_write(ssl, pointer.baseAddress, Int32(pointer.count))
         }
         
         if writtenBytes > 0 {
@@ -276,7 +276,7 @@ internal final class SSLConnection {
             data.moveReaderIndex(forwardBy: Int(writtenBytes))
             return .complete(writtenBytes)
         } else {
-            let result = SSL_get_error(.make(optional: ssl), writtenBytes)
+            let result = CNIOBoringSSL_SSL_get_error(ssl, writtenBytes)
             let error = OpenSSLError.fromSSLGetErrorResult(result)!
             
             switch error {
@@ -294,7 +294,7 @@ internal final class SSLConnection {
         var protoName = UnsafePointer<UInt8>(bitPattern: 0)
         var protoLen: UInt32 = 0
 
-        CNIOOpenSSL_SSL_get0_alpn_selected(.make(optional: ssl), &protoName, &protoLen)
+        CNIOBoringSSL_SSL_get0_alpn_selected(ssl, &protoName, &protoLen)
         guard protoLen > 0 else {
             return nil
         }
@@ -305,7 +305,7 @@ internal final class SSLConnection {
     /// Get the leaf certificate from the peer certificate chain as a managed object,
     /// if available.
     func getPeerCertificate() -> OpenSSLCertificate? {
-        guard let certPtr = SSL_get_peer_certificate(.make(optional: ssl)) else {
+        guard let certPtr = CNIOBoringSSL_SSL_get_peer_certificate(ssl) else {
             return nil
         }
 

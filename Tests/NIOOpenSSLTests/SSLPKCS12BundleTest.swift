@@ -451,7 +451,7 @@ class SSLPKCS12BundleTest: XCTestCase {
         let caFour = try OpenSSLCertificate(buffer: Array(unicodeCNCert.utf8CString), format: .pem)
 
         XCTAssertEqual(p12Bundle.privateKey, expectedKey)
-        XCTAssertEqual(p12Bundle.certificateChain, [expectedCert, caFour, caThree, caTwo, caOne])
+        XCTAssertEqual(p12Bundle.certificateChain, [expectedCert, caOne, caTwo, caThree, caFour])
     }
 
     func testDecodingSimpleP12FromMemoryWithoutPassphrase() throws {
@@ -482,7 +482,7 @@ class SSLPKCS12BundleTest: XCTestCase {
         let caFour = try OpenSSLCertificate(buffer: Array(unicodeCNCert.utf8CString), format: .pem)
 
         XCTAssertEqual(p12Bundle.privateKey, expectedKey)
-        XCTAssertEqual(p12Bundle.certificateChain, [expectedCert, caFour, caThree, caTwo, caOne])
+        XCTAssertEqual(p12Bundle.certificateChain, [expectedCert, caOne, caTwo, caThree, caFour])
     }
 
     func testDecodingSimpleP12FromFileWithoutPassphrase() throws {

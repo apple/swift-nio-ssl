@@ -28,7 +28,6 @@ extension TLSConfigurationTest {
       return [
                 ("testNonOverlappingTLSVersions", testNonOverlappingTLSVersions),
                 ("testNonOverlappingCipherSuitesPreTLS13", testNonOverlappingCipherSuitesPreTLS13),
-                ("testNonOverlappingCipherSuitesPostTLS13", testNonOverlappingCipherSuitesPostTLS13),
                 ("testCannotVerifySelfSigned", testCannotVerifySelfSigned),
                 ("testServerCannotValidateClientPreTLS13", testServerCannotValidateClientPreTLS13),
                 ("testServerCannotValidateClientPostTLS13", testServerCannotValidateClientPostTLS13),

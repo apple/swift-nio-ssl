@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import CNIOOpenSSL
+import CNIOBoringSSL
 import NIO
 
 
@@ -42,38 +42,34 @@ public struct OpenSSLPKCS12Bundle {
     public let privateKey: OpenSSLPrivateKey
 
     private init<Bytes: Collection>(ref: OpaquePointer, passphrase: Bytes?) throws where Bytes.Element == UInt8 {
-        var rawPkey: UnsafeMutableRawPointer? = nil
-        var rawCert: UnsafeMutableRawPointer? = nil
-        var rawCaCerts: UnsafeMutableRawPointer? = nil
+        var pkey: UnsafeMutablePointer<EVP_PKEY>? = nil
+        var cert: UnsafeMutablePointer<X509>? = nil
+        var caCerts: OpaquePointer? = nil
 
         let rc = try passphrase.withSecureCString { passphrase in
-            CNIOOpenSSL_PKCS12_parse(.make(optional: ref), passphrase, &rawPkey, &rawCert, &rawCaCerts)
+            CNIOBoringSSL_PKCS12_parse(ref, passphrase, &pkey, &cert, &caCerts)
         }
         guard rc == 1 else {
             throw OpenSSLError.unknownError(OpenSSLError.buildErrorStack())
         }
 
-        let pkey = rawPkey.map(OpaquePointer.init)
-        let cert = rawCert.map(OpaquePointer.init)
-        let caCerts = rawCaCerts.map(OpaquePointer.init)
-
         // Successfully parsed, let's unpack. The key and cert are mandatory,
         // the ca stack is not.
         guard let actualCert = cert, let actualKey = pkey else {
             // Free the pointers that we have.
-            cert.map { X509_free(.make(optional: $0)) }
-            pkey.map { X509_free(.make(optional: $0)) }
-            caCerts.map { X509_free(.make(optional: $0)) }
+            cert.map { CNIOBoringSSL_X509_free($0) }
+            pkey.map { CNIOBoringSSL_EVP_PKEY_free($0) }
+            caCerts.map { CNIOBoringSSL_sk_X509_pop_free($0, CNIOBoringSSL_X509_free) }
             throw NIOOpenSSLError.unableToAllocateOpenSSLObject
         }
 
-        let certStackSize = caCerts.map { CNIOOpenSSL_sk_X509_num(.make(optional: $0)) } ?? 0
+        let certStackSize = caCerts.map { CNIOBoringSSL_sk_X509_num($0) } ?? 0
         var certs = [OpenSSLCertificate]()
         certs.reserveCapacity(Int(certStackSize) + 1)
         certs.append(OpenSSLCertificate.fromUnsafePointer(takingOwnership: actualCert))
 
         for idx in 0..<certStackSize {
-            guard let stackCertPtr = CNIOOpenSSL_sk_X509_value(.make(optional: caCerts), idx) else {
+            guard let stackCertPtr = CNIOBoringSSL_sk_X509_value(caCerts, idx) else {
                 preconditionFailure("Unable to get cert \(idx) from stack \(String(describing: caCerts))")
             }
             certs.append(OpenSSLCertificate.fromUnsafePointer(takingOwnership: stackCertPtr))
@@ -94,18 +90,18 @@ public struct OpenSSLPKCS12Bundle {
         guard openSSLIsInitialized else { fatalError("Failed to initialize OpenSSL") }
         
         let p12 = buffer.withUnsafeBytes { pointer -> OpaquePointer? in
-            let bio = BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: pointer.baseAddress), CInt(pointer.count))!
+            let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: pointer.baseAddress), CInt(pointer.count))!
             defer {
-                BIO_free(bio)
+                CNIOBoringSSL_BIO_free(bio)
             }
-            return .make(optional: d2i_PKCS12_bio(bio, nil))
+            return CNIOBoringSSL_d2i_PKCS12_bio(bio, nil)
         }
         defer {
-            p12.map { PKCS12_free(.make(optional: $0)) }
+            p12.map { CNIOBoringSSL_PKCS12_free($0) }
         }
 
         if let p12 = p12 {
-            try self.init(ref: .init(p12), passphrase: passphrase)
+            try self.init(ref: p12, passphrase: passphrase)
         } else {
             throw OpenSSLError.unknownError(OpenSSLError.buildErrorStack())
         }
@@ -125,13 +121,13 @@ public struct OpenSSLPKCS12Bundle {
             fclose(fileObject)
         }
 
-        let p12 = d2i_PKCS12_fp(fileObject, nil)
+        let p12 = CNIOBoringSSL_d2i_PKCS12_fp(fileObject, nil)
         defer {
-            p12.map(PKCS12_free)
+            p12.map(CNIOBoringSSL_PKCS12_free)
         }
 
         if let p12 = p12 {
-            try self.init(ref: .init(p12), passphrase: passphrase)
+            try self.init(ref: p12, passphrase: passphrase)
         } else {
             throw OpenSSLError.unknownError(OpenSSLError.buildErrorStack())
         }
@@ -198,7 +194,7 @@ internal extension Collection where Element == UInt8 {
             // .initialize(repeating: 0) can be, and empirically is, optimized away, bzero
             // is deprecated, memset_s is not well supported cross-platform, and memset-to-zero
             // is famously easily optimised away. This is our best bet.
-            OPENSSL_cleanse(bufferPtr.baseAddress!, bufferPtr.count)
+            CNIOBoringSSL_OPENSSL_cleanse(bufferPtr.baseAddress!, bufferPtr.count)
             ptr.deinitialize(count: bufferPtr.count)
         }
 

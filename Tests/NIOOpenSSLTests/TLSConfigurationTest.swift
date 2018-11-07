@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
-import CNIOOpenSSL
+import CNIOBoringSSL
 import NIO
 @testable import NIOOpenSSL
 import NIOTLS
@@ -63,17 +63,23 @@ class TLSConfigurationTest: XCTestCase {
 
     func assertHandshakeError(withClientConfig clientConfig: TLSConfiguration,
                               andServerConfig serverConfig: TLSConfiguration,
-                              errorTextContains message: String) throws {
+                              errorTextContains message: String,
+                              file: StaticString = #file,
+                              line: UInt = #line) throws {
         return try assertHandshakeError(withClientConfig: clientConfig,
                                         andServerConfig: serverConfig,
-                                        errorTextContainsAnyOf: [message])
+                                        errorTextContainsAnyOf: [message],
+                                        file: file,
+                                        line: line)
     }
 
     func assertHandshakeError(withClientConfig clientConfig: TLSConfiguration,
                               andServerConfig serverConfig: TLSConfiguration,
-                              errorTextContainsAnyOf messages: [String]) throws {
-        let clientContext = try SSLContext(configuration: clientConfig)
-        let serverContext = try SSLContext(configuration: serverConfig)
+                              errorTextContainsAnyOf messages: [String],
+                              file: StaticString = #file,
+                              line: UInt = #line) throws {
+        let clientContext = try assertNoThrowWithValue(SSLContext(configuration: clientConfig), file: file, line: line)
+        let serverContext = try assertNoThrowWithValue(SSLContext(configuration: serverConfig), file: file, line: line)
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
@@ -82,8 +88,8 @@ class TLSConfigurationTest: XCTestCase {
 
         let eventHandler = ErrorCatcher<NIOOpenSSLError>()
         let handshakeHandler = HandshakeCompletedHandler()
-        let serverChannel = try serverTLSChannel(context: serverContext, handlers: [], group: group)
-        let clientChannel = try clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!)
+        let serverChannel = try assertNoThrowWithValue(serverTLSChannel(context: serverContext, handlers: [], group: group), file: file, line: line)
+        let clientChannel = try assertNoThrowWithValue(clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!), file: file, line: line)
 
         // We expect the channel to be closed fairly swiftly as the handshake should fail.
         clientChannel.closeFuture.whenComplete {
@@ -91,23 +97,24 @@ class TLSConfigurationTest: XCTestCase {
 
             switch eventHandler.errors[0] {
             case .handshakeFailed(.sslError(let errs)):
-                XCTAssertEqual(errs.count, 1)
                 let correctError: Bool = messages.map { errs[0].description.contains($0) }.reduce(false) { $0 || $1 }
-                XCTAssert(correctError, errs[0].description)
+                XCTAssert(correctError, errs[0].description, file: file, line: line)
             default:
-                XCTFail("Unexpected error: \(eventHandler.errors[0])")
+                XCTFail("Unexpected error: \(eventHandler.errors[0])", file: file, line: line)
             }
 
-            XCTAssertFalse(handshakeHandler.handshakeSucceeded)
+            XCTAssertFalse(handshakeHandler.handshakeSucceeded, file: file, line: line)
         }
         try clientChannel.closeFuture.wait()
     }
 
     func assertPostHandshakeError(withClientConfig clientConfig: TLSConfiguration,
                                   andServerConfig serverConfig: TLSConfiguration,
-                                  errorTextContainsAnyOf messages: [String]) throws {
-        let clientContext = try SSLContext(configuration: clientConfig)
-        let serverContext = try SSLContext(configuration: serverConfig)
+                                  errorTextContains message: String,
+                                  file: StaticString = #file,
+                                  line: UInt = #line) throws {
+        let clientContext = try assertNoThrowWithValue(SSLContext(configuration: clientConfig), file: file, line: line)
+        let serverContext = try assertNoThrowWithValue(SSLContext(configuration: serverConfig), file: file, line: line)
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
@@ -116,23 +123,23 @@ class TLSConfigurationTest: XCTestCase {
 
         let eventHandler = ErrorCatcher<OpenSSLError>()
         let handshakeHandler = HandshakeCompletedHandler()
-        let serverChannel = try serverTLSChannel(context: serverContext, handlers: [], group: group)
-        let clientChannel = try clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!)
+        let serverChannel = try assertNoThrowWithValue(serverTLSChannel(context: serverContext, handlers: [], group: group), file: file, line: line)
+        let clientChannel = try assertNoThrowWithValue(clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!), file: file, line: line)
 
         // We expect the channel to be closed fairly swiftly as the handshake should fail.
         clientChannel.closeFuture.whenComplete {
-            XCTAssertEqual(eventHandler.errors.count, 1)
+            XCTAssertEqual(eventHandler.errors.count, 1, file: file, line: line)
 
             switch eventHandler.errors[0] {
             case .sslError(let errs):
-                XCTAssertEqual(errs.count, 1)
-                let correctError: Bool = messages.map { errs[0].description.contains($0) }.reduce(false) { $0 || $1 }
-                XCTAssert(correctError, errs[0].description)
+                XCTAssertEqual(errs.count, 1, file: file, line: line)
+                let correctError = errs[0].description.contains(message)
+                XCTAssert(correctError, errs[0].description, file: file, line: line)
             default:
-                XCTFail("Unexpected error: \(eventHandler.errors[0])")
+                XCTFail("Unexpected error: \(eventHandler.errors[0])", file: file, line: line)
             }
 
-            XCTAssertTrue(handshakeHandler.handshakeSucceeded)
+            XCTAssertTrue(handshakeHandler.handshakeSucceeded, file: file, line: line)
         }
         try clientChannel.closeFuture.wait()
     }
@@ -147,7 +154,7 @@ class TLSConfigurationTest: XCTestCase {
 
         try assertHandshakeError(withClientConfig: clientConfig,
                                  andServerConfig: serverConfig,
-                                 errorTextContainsAnyOf: ["unsupported protocol", "wrong ssl version", "alert protocol version"])
+                                 errorTextContains: "ALERT_PROTOCOL_VERSION")
     }
 
     func testNonOverlappingCipherSuitesPreTLS13() throws {
@@ -159,24 +166,7 @@ class TLSConfigurationTest: XCTestCase {
                                                       cipherSuites: "AES256",
                                                       maximumTLSVersion: .tlsv12)
 
-        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "handshake failure")
-    }
-
-    func testNonOverlappingCipherSuitesPostTLS13() throws {
-        if CNIOOpenSSL_OpenSSL_version_num() < 0x010101000 || CNIOOpenSSL_is_libressl() == 1 {
-            // Skip test on old OpenSSLs.
-            return
-        }
-
-        let clientConfig = TLSConfiguration.forClient(tls13CipherSuites: "TLS_AES_256_GCM_SHA384",
-                                                      minimumTLSVersion: .tlsv13,
-                                                      trustRoots: .certificates([TLSConfigurationTest.cert1]))
-        let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(TLSConfigurationTest.cert1)],
-                                                      privateKey: .privateKey(TLSConfigurationTest.key1),
-                                                      tls13CipherSuites: "TLS_CHACHA20_POLY1305_SHA256",
-                                                      minimumTLSVersion: .tlsv13)
-
-        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "handshake failure")
+        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_HANDSHAKE_FAILURE")
     }
 
     func testCannotVerifySelfSigned() throws {
@@ -184,7 +174,7 @@ class TLSConfigurationTest: XCTestCase {
         let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(TLSConfigurationTest.cert1)],
                                                       privateKey: .privateKey(TLSConfigurationTest.key1))
 
-        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "certificate verify failed")
+        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "CERTIFICATE_VERIFY_FAILED")
     }
 
     func testServerCannotValidateClientPreTLS13() throws {
@@ -197,18 +187,10 @@ class TLSConfigurationTest: XCTestCase {
                                                       maximumTLSVersion: .tlsv12,
                                                       certificateVerification: .noHostnameVerification)
 
-        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "alert unknown ca")
+        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_UNKNOWN_CA")
     }
 
     func testServerCannotValidateClientPostTLS13() throws {
-        // This test validates a behavioural change in TLSv1.3. Specifically, the client cert is now sent along with
-        // the client Finished record. That means the client thinks the handshake succeeds, and then discovers the failure
-        // immediately after. We test for this behaviour here.
-        if CNIOOpenSSL_OpenSSL_version_num() < 0x010101000 || CNIOOpenSSL_is_libressl() == 1 {
-            // Skip test on old OpenSSLs.
-            return
-        }
-
         let clientConfig = TLSConfiguration.forClient(minimumTLSVersion: .tlsv13,
                                                       certificateVerification: .noHostnameVerification,
                                                       trustRoots: .certificates([TLSConfigurationTest.cert1]),
@@ -219,7 +201,7 @@ class TLSConfigurationTest: XCTestCase {
                                                       minimumTLSVersion: .tlsv13,
                                                       certificateVerification: .noHostnameVerification)
 
-        try assertPostHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["alert unknown ca"])
+        try assertPostHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_UNKNOWN_CA")
     }
 
     func testMutualValidation() throws {

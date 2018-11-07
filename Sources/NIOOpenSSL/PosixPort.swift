@@ -25,6 +25,7 @@ import NIO
 private let sysFopen: @convention(c) (UnsafePointer<CChar>?, UnsafePointer<CChar>?) -> UnsafeMutablePointer<FILE>? = fopen
 private let sysMlock: @convention(c) (UnsafeRawPointer?, size_t) -> CInt = mlock
 private let sysMunlock: @convention(c) (UnsafeRawPointer?, size_t) -> CInt = munlock
+private let sysFclose: @convention(c) (UnsafeMutablePointer<FILE>?) -> CInt = fclose
 
 // Sadly, stat has different signatures with glibc and macOS libc.
 #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS) || os(Android)
@@ -83,6 +84,13 @@ internal enum Posix {
     public static func fopen(file: UnsafePointer<CChar>, mode: UnsafePointer<CChar>) throws -> UnsafeMutablePointer<FILE> {
         return try wrapErrorIsNullReturnCall {
             sysFopen(file, mode)
+        }
+    }
+
+    @inline(never)
+    public static func fclose(file: UnsafeMutablePointer<FILE>) throws -> CInt {
+        return try wrapSyscall {
+            sysFclose(file)
         }
     }
 

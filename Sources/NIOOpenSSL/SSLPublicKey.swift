@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import CNIOOpenSSL
+import CNIOBoringSSL
 
 /// An `OpenSSLPublicKey` is an abstract handle to a public key owned by OpenSSL.
 ///
@@ -21,14 +21,14 @@ import CNIOOpenSSL
 /// `OpenSSLCertificate` objects to be serialized, so that they can be passed to
 /// general-purpose cryptography libraries.
 public class OpenSSLPublicKey {
-    private let ref: OpaquePointer
+    private let ref: UnsafeMutablePointer<EVP_PKEY>
 
-    fileprivate init(withOwnedReference ref: OpaquePointer) {
+    fileprivate init(withOwnedReference ref: UnsafeMutablePointer<EVP_PKEY>) {
         self.ref = ref
     }
 
     deinit {
-        EVP_PKEY_free(.make(optional: self.ref))
+        CNIOBoringSSL_EVP_PKEY_free(self.ref)
     }
 }
 
@@ -41,7 +41,7 @@ extension OpenSSLPublicKey {
     /// - parameters:
     ///    - pointer: A pointer to an `EVP_PKEY` structure containing the public key.
     /// - returns: An `OpenSSLPublicKey` wrapping the pointer.
-    internal static func fromInternalPointer(takingOwnership pointer: OpaquePointer) -> OpenSSLPublicKey {
+    internal static func fromInternalPointer(takingOwnership pointer: UnsafeMutablePointer<EVP_PKEY>) -> OpenSSLPublicKey {
         return OpenSSLPublicKey(withOwnedReference: pointer)
     }
 }
@@ -55,22 +55,22 @@ extension OpenSSLPublicKey {
     /// - returns: The DER-encoded SubjectPublicKeyInfo bytes for this public key.
     /// - throws: If an error occurred while serializing the key.
     public func toSPKIBytes() throws -> [UInt8] {
-        guard let bio = BIO_new(BIO_s_mem()) else {
+        guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_mem()) else {
             throw NIOOpenSSLError.unableToAllocateOpenSSLObject
         }
 
         defer {
-            BIO_free(bio)
+            CNIOBoringSSL_BIO_free(bio)
         }
 
-        let rc = i2d_PUBKEY_bio(bio, .make(optional: self.ref))
+        let rc = CNIOBoringSSL_i2d_PUBKEY_bio(bio, self.ref)
         guard rc == 1 else {
             let errorStack = OpenSSLError.buildErrorStack()
             throw OpenSSLError.unknownError(errorStack)
         }
 
         var dataPtr: UnsafeMutablePointer<CChar>? = nil
-        let length = CNIOOpenSSL_BIO_get_mem_data(bio, &dataPtr)
+        let length = CNIOBoringSSL_BIO_get_mem_data(bio, &dataPtr)
 
         guard let bytes = dataPtr.map({ UnsafeMutableRawBufferPointer(start: $0, count: length) }) else {
             throw NIOOpenSSLError.unableToAllocateOpenSSLObject

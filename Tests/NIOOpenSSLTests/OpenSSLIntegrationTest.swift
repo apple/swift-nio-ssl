@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
-import CNIOOpenSSL
+import CNIOBoringSSL
 import NIO
 @testable import NIOOpenSSL
 import NIOTLS
@@ -349,15 +349,15 @@ class OpenSSLIntegrationTest: XCTestCase {
         let fileName = makeTemporaryFile(fileExtension: ".pem")
         let tempFile = open(fileName, O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0o644)
         precondition(tempFile > 1, String(cString: strerror(errno)))
-        let fileBio = BIO_new_fp(fdopen(tempFile, "w+"), BIO_CLOSE)
+        let fileBio = CNIOBoringSSL_BIO_new_fp(fdopen(tempFile, "w+"), BIO_CLOSE)
         precondition(fileBio != nil)
 
         let manager = OpenSSLPassphraseCallbackManager { closure in closure(passphrase.utf8) }
         let rc = withExtendedLifetime(manager) { manager -> CInt in
             let userData = Unmanaged.passUnretained(manager).toOpaque()
-            return PEM_write_bio_PrivateKey(fileBio, .make(optional: key.ref), EVP_aes_256_cbc(), nil, 0, globalOpenSSLPassphraseCallback, userData)
+            return CNIOBoringSSL_PEM_write_bio_PrivateKey(fileBio, key.ref, CNIOBoringSSL_EVP_aes_256_cbc(), nil, 0, globalOpenSSLPassphraseCallback, userData)
         }
-        BIO_free(fileBio)
+        CNIOBoringSSL_BIO_free(fileBio)
         precondition(rc == 1)
         return fileName
     }
@@ -371,11 +371,11 @@ class OpenSSLIntegrationTest: XCTestCase {
             return open(ptr, O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0o644)
         }
         precondition(tempFile > 1, String(cString: strerror(errno)))
-        let fileBio = BIO_new_fp(fdopen(tempFile, "w+"), BIO_CLOSE)
+        let fileBio = CNIOBoringSSL_BIO_new_fp(fdopen(tempFile, "w+"), BIO_CLOSE)
         precondition(fileBio != nil)
 
-        let rc = PEM_write_bio_X509(fileBio, .make(optional: OpenSSLIntegrationTest.cert.ref))
-        BIO_free(fileBio)
+        let rc = CNIOBoringSSL_PEM_write_bio_X509(fileBio, OpenSSLIntegrationTest.cert.ref)
+        CNIOBoringSSL_BIO_free(fileBio)
         precondition(rc == 1)
         return try fn(fileName)
     }

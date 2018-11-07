@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import NIO
-import CNIOOpenSSL
+import CNIOBoringSSL
 import NIOTLS
 
 /// The base class for all OpenSSL handlers. This class cannot actually be instantiated by
