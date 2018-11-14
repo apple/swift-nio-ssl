@@ -1,4 +1,4 @@
-// swift-tools-version:4.0
+// swift-tools-version:4.2
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the SwiftNIO open source project
@@ -22,8 +22,8 @@ let package = Package(
         .executable(name: "NIOTLSServer", targets: ["NIOTLSServer"]),
     ],
     dependencies: [
-    .package(url: "https://github.com/apple/swift-nio.git", from: "1.0.0"),
-    .package(url: "https://github.com/apple/swift-nio-ssl-support.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "1.11.0"),
+        .package(url: "https://github.com/apple/swift-nio-ssl-support.git", from: "1.0.0"),
     ],
     targets: [
         .target(name: "CNIOOpenSSL"),

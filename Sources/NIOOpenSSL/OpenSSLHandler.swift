@@ -276,7 +276,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
                 // of data, though this number is utterly arbitrary. In practice this will
                 // always double the storage if it has to.
                 if receiveBuffer.writableBytes < 1024 {
-                    receiveBuffer.changeCapacity(to: receiveBuffer.capacity + 1024)
+                    receiveBuffer.reserveCapacity(receiveBuffer.capacity + 1024)
                 }
             case .incomplete:
                 self.plaintextReadBuffer = receiveBuffer
