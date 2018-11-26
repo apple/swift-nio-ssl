@@ -124,14 +124,14 @@ public struct TLSConfiguration {
     public static let clientDefault = TLSConfiguration.forClient()
 
     /// The minimum TLS version to allow in negotiation. Defaults to tlsv1.
-    public let minimumTLSVersion: TLSVersion
+    public var minimumTLSVersion: TLSVersion
 
     /// The maximum TLS version to allow in negotiation. If nil, there is no upper limit. Defaults to nil.
-    public let maximumTLSVersion: TLSVersion?
+    public var maximumTLSVersion: TLSVersion?
 
     /// The pre-TLS1.3 cipher suites supported by this handler. This uses the OpenSSL cipher string format.
     /// To introspect the TLS 1.3 cipher suites, use tls13CipherSuites.
-    public let cipherSuites: String
+    public var cipherSuites: String
 
     /// The TLS 1.3 and later cipher suites supported by this handler, using the OpenSSL cipher string
     /// format.
@@ -140,26 +140,26 @@ public struct TLSConfiguration {
     /// in OpenSSL, and are quite different from their earlier cousins with the same name. In particular,
     /// TLS 1.3 cipher suites do not specify the certificate type (e.g. RSA/ECDSA) or key exchange
     /// mechanism (e.g. RSA/ECDHE).
-    public let tls13CipherSuites: String
+    public var tls13CipherSuites: String
 
     /// Whether to verify remote certificates.
-    public let certificateVerification: CertificateVerification
+    public var certificateVerification: CertificateVerification
 
     /// The trust roots to use to validate certificates. This only needs to be provided if you intend to validate
     /// certificates.
-    public let trustRoots: OpenSSLTrustRoots?
+    public var trustRoots: OpenSSLTrustRoots?
 
     /// The certificates to offer during negotiation. If not present, no certificates will be offered.
-    public let certificateChain: [OpenSSLCertificateSource]
+    public var certificateChain: [OpenSSLCertificateSource]
 
     /// The private key associated with the leaf certificate.
-    public let privateKey: OpenSSLPrivateKeySource?
+    public var privateKey: OpenSSLPrivateKeySource?
 
     /// The application protocols to use in the connection. Should be an ordered list of ASCII
     /// strings representing the ALPN identifiers of the protocols to negotiate. For clients,
     /// the protocols will be offered in the order given. For servers, the protocols will be matched
     /// against the client's offered protocols in order.
-    public let applicationProtocols: [[UInt8]]
+    public var applicationProtocols: [[UInt8]]
 
     private init(cipherSuites: String,
                  tls13CipherSuites: String,

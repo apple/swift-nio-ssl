@@ -138,7 +138,9 @@ class TLSConfigurationTest: XCTestCase {
     }
 
     func testNonOverlappingTLSVersions() throws {
-        let clientConfig = TLSConfiguration.forClient(minimumTLSVersion: .tlsv11, trustRoots: .certificates([TLSConfigurationTest.cert1]))
+        var clientConfig = TLSConfiguration.clientDefault
+        clientConfig.minimumTLSVersion = .tlsv11
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
         let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(TLSConfigurationTest.cert1)],
                                                       privateKey: .privateKey(TLSConfigurationTest.key1),
                                                       maximumTLSVersion: .tlsv1)
