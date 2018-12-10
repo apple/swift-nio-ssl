@@ -321,4 +321,18 @@ internal final class SSLConnection {
         /// created by this callback.
         self.verificationCallback = nil
     }
+
+    /// Retrieves any inbound data that has not been processed by OpenSSL.
+    ///
+    /// When unwrapping TLS from a connection, there may be application bytes that follow the terminating
+    /// CLOSE_NOTIFY message. Those bytes may have been passed to this `SSLConnection`, and so we need to
+    /// retrieve them.
+    ///
+    /// This function extracts those bytes and returns them to the user. This should only be called when
+    /// the connection has been shutdown.
+    ///
+    /// - returns: The unconsumed `ByteBuffer`, if any.
+    func extractUnconsumedData() -> ByteBuffer? {
+        return self.bio?.evacuateInboundData()
+    }
 }

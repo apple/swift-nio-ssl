@@ -252,6 +252,23 @@ final class ByteBufferBIO {
         self.inboundBuffer = buffer
     }
 
+    /// Retrieves any inbound data that has not been processed by OpenSSL.
+    ///
+    /// When unwrapping TLS from a connection, there may be application bytes that follow the terminating
+    /// CLOSE_NOTIFY message. Those bytes may be in the buffer passed to this BIO, and so we need to
+    /// retrieve them.
+    ///
+    /// This function extracts those bytes and returns them to the user, and drops the reference to them
+    /// in this BIO.
+    ///
+    /// - returns: The unconsumed `ByteBuffer`, if any.
+    func evacuateInboundData() -> ByteBuffer? {
+        defer {
+            self.inboundBuffer = nil
+        }
+        return self.inboundBuffer
+    }
+
     /// OpenSSL has requested to read ciphertext bytes from the network.
     ///
     /// This function is invoked whenever OpenSSL is looking to read data.

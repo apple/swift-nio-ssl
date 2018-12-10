@@ -35,5 +35,6 @@ import XCTest
          testCase(SSLPKCS12BundleTest.allTests),
          testCase(SSLPrivateKeyTest.allTests),
          testCase(TLSConfigurationTest.allTests),
+         testCase(UnwrappingTests.allTests),
     ])
 #endif
