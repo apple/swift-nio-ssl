@@ -317,7 +317,9 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
                 // of data, though this number is utterly arbitrary. In practice this will
                 // always double the storage if it has to.
                 if receiveBuffer.writableBytes < 1024 {
-                    receiveBuffer.changeCapacity(to: receiveBuffer.capacity + 1024)
+                    #warning("TODO: verify correctness of change")
+                    receiveBuffer.reserveCapacity(receiveBuffer.capacity + 1024)
+                    // receiveBuffer.changeCapacity(to: receiveBuffer.capacity + 1024)
                 }
 
             case .incomplete:
@@ -437,7 +439,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
 
         // We create a promise here to make sure we operate in the special magic state
         // where we are not in the pipeline any more, but we still have a valid context.
-        let removalPromise: EventLoopPromise<Bool> = ctx.eventLoop.newPromise()
+        let removalPromise = ctx.eventLoop.makePromise(of: Bool.self)
         let removalFuture = removalPromise.futureResult.map { (_: Bool) in
             // Now drop the writes.
             self.discardBufferedWrites(reason: NIOTLSUnwrappingError.unflushedWriteOnUnwrap)
@@ -561,7 +563,7 @@ extension OpenSSLHandler {
 
     private func doUnbufferWrites(ctx: ChannelHandlerContext) {
         // Return early if the user hasn't called flush.
-        guard bufferedWrites.hasMark() else {
+        guard bufferedWrites.hasMark else {
             return
         }
 
@@ -590,7 +592,7 @@ extension OpenSSLHandler {
         }
 
         func flushWrites() {
-            let ourPromise: EventLoopPromise<Void> = ctx.eventLoop.newPromise()
+            let ourPromise = ctx.eventLoop.makePromise(of: Void.self)
             promises.forEach { ourPromise.futureResult.cascade(promise: $0) }
             writeDataToNetwork(ctx: ctx, promise: ourPromise)
             promises = []
@@ -620,7 +622,7 @@ extension OpenSSLHandler {
 
 fileprivate extension MarkedCircularBuffer {
     fileprivate mutating func forEachElementUntilMark(callback: (E) throws -> Bool) rethrows {
-        while try self.hasMark() && callback(self.first!) {
+        while try self.hasMark && callback(self.first!) {
             _ = self.removeFirst()
         }
     }
