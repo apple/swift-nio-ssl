@@ -75,7 +75,7 @@ class TLSConfigurationTest: XCTestCase {
         let clientContext = try SSLContext(configuration: clientConfig)
         let serverContext = try SSLContext(configuration: serverConfig)
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -109,7 +109,7 @@ class TLSConfigurationTest: XCTestCase {
         let clientContext = try SSLContext(configuration: clientConfig)
         let serverContext = try SSLContext(configuration: serverConfig)
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -234,7 +234,7 @@ class TLSConfigurationTest: XCTestCase {
         let clientContext = try SSLContext(configuration: clientConfig)
         let serverContext = try SSLContext(configuration: serverConfig)
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
