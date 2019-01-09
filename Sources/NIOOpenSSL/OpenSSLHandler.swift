@@ -317,7 +317,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
                 // of data, though this number is utterly arbitrary. In practice this will
                 // always double the storage if it has to.
                 if receiveBuffer.writableBytes < 1024 {
-                    receiveBuffer.changeCapacity(to: receiveBuffer.capacity + 1024)
+                    receiveBuffer.reserveCapacity(receiveBuffer.capacity + 1024)
                 }
 
             case .incomplete:
@@ -619,13 +619,13 @@ extension OpenSSLHandler {
 }
 
 fileprivate extension MarkedCircularBuffer {
-    fileprivate mutating func forEachElementUntilMark(callback: (E) throws -> Bool) rethrows {
+    mutating func forEachElementUntilMark(callback: (E) throws -> Bool) rethrows {
         while try self.hasMark() && callback(self.first!) {
             _ = self.removeFirst()
         }
     }
 
-    fileprivate mutating func forEachRemoving(callback: (E) -> Void) {
+    mutating func forEachRemoving(callback: (E) -> Void) {
         while self.count > 0 {
             callback(self.removeFirst())
         }
