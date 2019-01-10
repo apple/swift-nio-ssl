@@ -31,7 +31,7 @@ private final class EchoHandler: ChannelInboundHandler {
 let sslContext = try! SSLContext(configuration: TLSConfiguration.forServer(certificateChain: [.file("cert.pem")], privateKey: .file("key.pem")))
 
 
-let group = MultiThreadedEventLoopGroup(numThreads: 1)
+let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
 let bootstrap = ServerBootstrap(group: group)
     // Specify backlog and enable SO_REUSEADDR for the server itself
     .serverChannelOption(ChannelOptions.backlog, value: 256)
