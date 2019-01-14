@@ -47,6 +47,8 @@ extension OpenSSLIntegrationTest {
                 ("testForcingVerificationFailure", testForcingVerificationFailure),
                 ("testExtractingCertificates", testExtractingCertificates),
                 ("testRepeatedClosure", testRepeatedClosure),
+                ("testReceivingGibberishAfterAttemptingToClose", testReceivingGibberishAfterAttemptingToClose),
+                ("testPendingWritesFailWhenFlushedOnClose", testPendingWritesFailWhenFlushedOnClose),
            ]
    }
 }
