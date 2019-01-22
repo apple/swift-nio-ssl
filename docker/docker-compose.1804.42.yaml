@@ -6,10 +6,9 @@ services:
     image: swift-nio-ssl:18.04-4.2
     build:
       args:
-        ubuntu_version : "18.04"
-        swift_version : "4.2"
-        swift_flavour : "CONVERGENCE"
-        skip_ruby_from_ppa : "true"
+        ubuntu_version: "18.04"
+        swift_version: "4.2"
+        skip_ruby_from_ppa: "true"
 
   test:
     image: swift-nio-ssl:18.04-4.2
