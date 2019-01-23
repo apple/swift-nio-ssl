@@ -383,7 +383,7 @@ class OpenSSLIntegrationTest: XCTestCase {
     func testSimpleEcho() throws {
         let ctx = try configuredSSLContext()
         
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -415,7 +415,7 @@ class OpenSSLIntegrationTest: XCTestCase {
     func testHandshakeEventSequencing() throws {
         let ctx = try configuredSSLContext()
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -462,7 +462,7 @@ class OpenSSLIntegrationTest: XCTestCase {
     func testShutdownEventSequencing() throws {
         let ctx = try configuredSSLContext()
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -508,7 +508,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         var serverClosed = false
         let ctx = try configuredSSLContext()
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -568,7 +568,7 @@ class OpenSSLIntegrationTest: XCTestCase {
     func testCoalescedWrites() throws {
         let ctx = try configuredSSLContext()
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -615,7 +615,7 @@ class OpenSSLIntegrationTest: XCTestCase {
     func testCoalescedWritesWithFutures() throws {
         let ctx = try configuredSSLContext()
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -679,7 +679,7 @@ class OpenSSLIntegrationTest: XCTestCase {
 
     func testAddingTlsToActiveChannelStillHandshakes() throws {
         let ctx = try configuredSSLContext()
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -729,7 +729,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         let serverCtx = try configuredSSLContext()
         let clientCtx = try configuredClientContext()
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             try? group.syncShutdownGracefully()
         }
@@ -771,7 +771,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         let serverCtx = try configuredSSLContext()
         let clientCtx = try configuredClientContext()
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -870,7 +870,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         }
         let clientCtx = try assertNoThrowWithValue(SSLContext(configuration: config))
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -906,7 +906,7 @@ class OpenSSLIntegrationTest: XCTestCase {
                                                       privateKey: .privateKey(OpenSSLIntegrationTest.key))
         let clientCtx = try assertNoThrowWithValue(SSLContext(configuration: clientConfig))
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -989,7 +989,7 @@ class OpenSSLIntegrationTest: XCTestCase {
     func testZeroLengthWrite() throws {
         let ctx = try configuredSSLContext()
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             try? group.syncShutdownGracefully()
         }
@@ -1084,7 +1084,7 @@ class OpenSSLIntegrationTest: XCTestCase {
     func testEncryptedFileInContext() throws {
         let ctx = try configuredSSLContext()
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -1161,7 +1161,7 @@ class OpenSSLIntegrationTest: XCTestCase {
     func testForcingVerificationFailure() throws {
         let ctx = try configuredSSLContext()
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -1209,7 +1209,7 @@ class OpenSSLIntegrationTest: XCTestCase {
     func testExtractingCertificates() throws {
         let ctx = try configuredSSLContext()
 
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -1282,5 +1282,120 @@ class OpenSSLIntegrationTest: XCTestCase {
 
         // The closure should have happened.
         XCTAssertTrue(closed)
+    }
+
+    func testReceivingGibberishAfterAttemptingToClose() throws {
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+
+        var clientClosed = false
+
+        defer {
+            XCTAssertThrowsError(try serverChannel.finish())
+            XCTAssertThrowsError(try clientChannel.finish())
+        }
+
+        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+
+        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: ctx))
+        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: OpenSSLServerHandler(context: ctx)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: clientHandler).wait())
+        let handshakeHandler = HandshakeCompletedHandler()
+        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: handshakeHandler).wait())
+
+        // Mark the closure of the client.
+        clientChannel.closeFuture.whenComplete {
+            clientClosed = true
+        }
+
+        // Connect. This should lead to a completed handshake.
+        let addr: SocketAddress = try SocketAddress(unixDomainSocketPath: "/tmp/whatever")
+        let connectFuture = clientChannel.connect(to: addr)
+        serverChannel.pipeline.fireChannelActive()
+        try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
+        try connectFuture.wait()
+        XCTAssertTrue(handshakeHandler.handshakeSucceeded)
+
+        // Let's close the client connection.
+        clientChannel.close(promise: nil)
+        (clientChannel.eventLoop as! EmbeddedEventLoop).run()
+        XCTAssertFalse(clientClosed)
+
+        // Now we're going to simulate the client receiving gibberish data in response, instead
+        // of a CLOSE_NOTIFY.
+        var buffer = clientChannel.allocator.buffer(capacity: 1024)
+        buffer.write(staticString: "GET / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n")
+
+        do {
+            try clientChannel.writeInbound(buffer)
+            XCTFail("Did not error")
+        } catch NIOOpenSSLError.shutdownFailed {
+            // expected
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+        (clientChannel.eventLoop as! EmbeddedEventLoop).run()
+        XCTAssertTrue(clientClosed)
+
+        // Clean up by bringing the server up to speed
+        serverChannel.pipeline.fireChannelInactive()
+    }
+
+    func testPendingWritesFailWhenFlushedOnClose() throws {
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+
+        defer {
+            XCTAssertThrowsError(try serverChannel.finish())
+            XCTAssertThrowsError(try clientChannel.finish())
+        }
+
+        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+
+        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: ctx))
+        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: OpenSSLServerHandler(context: ctx)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: clientHandler).wait())
+        let handshakeHandler = HandshakeCompletedHandler()
+        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: handshakeHandler).wait())
+
+        // Connect. This should lead to a completed handshake.
+        let addr: SocketAddress = try SocketAddress(unixDomainSocketPath: "/tmp/whatever")
+        let connectFuture = clientChannel.connect(to: addr)
+        serverChannel.pipeline.fireChannelActive()
+        try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
+        try connectFuture.wait()
+        XCTAssertTrue(handshakeHandler.handshakeSucceeded)
+
+        // Queue up a write.
+        var writeCompleted = false
+        var buffer = clientChannel.allocator.buffer(capacity: 1024)
+        buffer.write(staticString: "Hello, world!")
+        clientChannel.write(buffer).map {
+            XCTFail("Must not succeed")
+            }.whenFailure { error in
+                XCTAssertEqual(error as? ChannelError, .ioOnClosedChannel)
+                writeCompleted = true
+        }
+
+        // We haven't spun the event loop, so the handlers are still in the pipeline. Now attempt to close.
+        var closed = false
+        clientChannel.closeFuture.whenComplete {
+            closed = true
+        }
+
+        XCTAssertFalse(writeCompleted)
+        clientChannel.close(promise: nil)
+        (clientChannel.eventLoop as! EmbeddedEventLoop).run()
+        XCTAssertFalse(writeCompleted)
+        XCTAssertFalse(closed)
+
+        // Now try to flush the write. This should fail the write early, and take out the connection.
+        clientChannel.flush()
+        (clientChannel.eventLoop as! EmbeddedEventLoop).run()
+        XCTAssertTrue(writeCompleted)
+        XCTAssertTrue(closed)
+
+        // Bring the server up to speed.
+        serverChannel.pipeline.fireChannelInactive()
     }
 }

@@ -168,7 +168,7 @@ internal extension Collection where Element == UInt8 {
     ///
     /// This method should be used when it is necessary to take a secure copy of a collection of
     /// bytes. Its implementation relies on OpenSSL directly.
-    internal func withSecureCString<T>(_ block: (UnsafePointer<Int8>) throws -> T) throws -> T {
+    func withSecureCString<T>(_ block: (UnsafePointer<Int8>) throws -> T) throws -> T {
         // We need to allocate some memory and prevent it being swapped to disk while we use it.
         // For that reason we use mlock.
         // Note that here we use UnsafePointer and UnsafeBufferPointer. Ideally we'd just use
@@ -211,7 +211,7 @@ internal extension Collection where Element == UInt8 {
 
 
 internal extension Optional where Wrapped: Collection, Wrapped.Element == UInt8 {
-    internal func withSecureCString<T>(_ block: (UnsafePointer<Int8>?) throws -> T) throws -> T {
+    func withSecureCString<T>(_ block: (UnsafePointer<Int8>?) throws -> T) throws -> T {
         if let `self` = self {
             return try self.withSecureCString(block)
         } else {

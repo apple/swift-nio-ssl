@@ -41,7 +41,7 @@ class OpenSSLALPNTest: XCTestCase {
     private func assertNegotiatedProtocol(protocol: String?,
                                           serverContext: NIOOpenSSL.SSLContext,
                                           clientContext: NIOOpenSSL.SSLContext) throws {
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
@@ -81,7 +81,7 @@ class OpenSSLALPNTest: XCTestCase {
     }
 
     private func assertDoesNotNegotiate(serverContext: NIOOpenSSL.SSLContext, clientContext: NIOOpenSSL.SSLContext) throws {
-        let group = MultiThreadedEventLoopGroup(numThreads: 1)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }

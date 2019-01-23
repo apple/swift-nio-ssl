@@ -6,8 +6,8 @@ services:
     image: swift-nio-ssl:16.04-4.1
     build:
       args:
-        ubuntu_version : "16.04"
-        swift_version : "4.1"
+        ubuntu_version: "16.04"
+        swift_version: "4.1"
 
   test:
     image: swift-nio-ssl:16.04-4.1
