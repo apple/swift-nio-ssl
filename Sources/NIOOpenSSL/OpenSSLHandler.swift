@@ -105,8 +105,8 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             let closePromise = self.closePromise
             self.closePromise = nil
 
-            shutdownPromise?.fail(error: OpenSSLError.uncleanShutdown)
-            closePromise?.fail(error: OpenSSLError.uncleanShutdown)
+            shutdownPromise?.fail(OpenSSLError.uncleanShutdown)
+            closePromise?.fail(OpenSSLError.uncleanShutdown)
             ctx.fireErrorCaught(OpenSSLError.uncleanShutdown)
             discardBufferedWrites(reason: OpenSSLError.uncleanShutdown)
         }
@@ -156,7 +156,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
     public func close(ctx: ChannelHandlerContext, mode: CloseMode, promise: EventLoopPromise<Void>?) {
         guard mode == .all else {
             // TODO: Support also other modes ?
-            promise?.fail(error: ChannelError.operationUnsupported)
+            promise?.fail(ChannelError.operationUnsupported)
             return
         }
         
@@ -424,7 +424,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
         let closePromise = self.closePromise
         self.closePromise = nil
 
-        shutdownPromise?.fail(error: reason)
+        shutdownPromise?.fail(reason)
         ctx.close(promise: closePromise)
     }
 
@@ -511,7 +511,7 @@ extension OpenSSLHandler {
         case .idle:
             // We've never activated, it's easy to remove TLS from a connection that never had it.
             guard let storedContext = self.storedContext else {
-                promise?.fail(error: NIOTLSUnwrappingError.invalidInternalState)
+                promise?.fail(NIOTLSUnwrappingError.invalidInternalState)
                 return
             }
 
@@ -522,7 +522,7 @@ extension OpenSSLHandler {
         case .handshaking, .active:
             // Time to try to strip TLS.
             guard let storedContext = self.storedContext else {
-                promise?.fail(error: NIOTLSUnwrappingError.invalidInternalState)
+                promise?.fail(NIOTLSUnwrappingError.invalidInternalState)
                 return
             }
 
@@ -532,10 +532,10 @@ extension OpenSSLHandler {
 
         case .unwrapped:
             // We are already unwrapped. Succeed the promise, do nothing.
-            promise?.succeed(result: ())
+            promise?.succeed(())
 
         case .closed:
-            promise?.fail(error: NIOTLSUnwrappingError.alreadyClosed)
+            promise?.fail(NIOTLSUnwrappingError.alreadyClosed)
         }
     }
 }
@@ -555,7 +555,7 @@ extension OpenSSLHandler {
 
     private func discardBufferedWrites(reason: Error) {
         self.bufferedWrites.forEachRemoving {
-            $0.promise?.fail(error: reason)
+            $0.promise?.fail(reason)
         }
     }
 
@@ -611,7 +611,7 @@ extension OpenSSLHandler {
             // We encountered an error, it's cleanup time. Close ourselves down.
             channelClose(ctx: ctx, reason: error)
             // Fail any writes we've previously encoded but not flushed.
-            promises.forEach { $0.fail(error: error) }
+            promises.forEach { $0.fail(error) }
             // Fail everything else.
             self.discardBufferedWrites(reason: error)
         }
@@ -619,7 +619,7 @@ extension OpenSSLHandler {
 }
 
 fileprivate extension MarkedCircularBuffer {
-    fileprivate mutating func forEachElementUntilMark(callback: (E) throws -> Bool) rethrows {
+    mutating func forEachElementUntilMark(callback: (E) throws -> Bool) rethrows {
         while try self.hasMark && callback(self.first!) {
             _ = self.removeFirst()
         }
