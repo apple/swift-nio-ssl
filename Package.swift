@@ -28,7 +28,7 @@ let package = Package(
     targets: [
         .target(name: "CNIOOpenSSL"),
         .target(name: "NIOOpenSSL",
-                dependencies: ["NIO", "NIOConcurrencyHelpers", "CNIOOpenSSL", "NIOTLS"]),
+                dependencies: ["NIO", "NIOConcurrencyHelpers", "CNIOOpenSSL", "NIOTLS", "_NIO1APIShims"]),
         .target(name: "NIOTLSServer", dependencies: ["NIO", "NIOOpenSSL", "NIOConcurrencyHelpers"]),
         .testTarget(name: "NIOOpenSSLTests", dependencies: ["NIOTLS", "NIOOpenSSL"]),
     ]

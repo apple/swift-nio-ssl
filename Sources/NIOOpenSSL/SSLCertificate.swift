@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _NIO1APIShims
 import CNIOOpenSSL
 import NIO
 

@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _NIO1APIShims
 import CNIOOpenSSL
 
 /// Initialize OpenSSL. Note that this function IS NOT THREAD SAFE, and so must be called inside

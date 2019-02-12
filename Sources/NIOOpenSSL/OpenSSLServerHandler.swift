@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _NIO1APIShims
 import NIO
 
 /// A channel handler that wraps a channel in TLS using OpenSSL, or an

@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _NIO1APIShims
 import CNIOOpenSSL
 
 /// The result of an attempt to verify an X.509 certificate.

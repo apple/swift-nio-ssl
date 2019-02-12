@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 // MARK:- Awful code begins here
 // Hello dear reader. Let me explain what we're doing here.
 //

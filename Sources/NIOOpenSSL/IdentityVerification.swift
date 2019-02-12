@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _NIO1APIShims
 import NIO
 
 private let ASCII_PERIOD: UInt8 = ".".utf8.first!

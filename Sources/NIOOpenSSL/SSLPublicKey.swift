@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _NIO1APIShims
 import CNIOOpenSSL
 
 /// An `OpenSSLPublicKey` is an abstract handle to a public key owned by OpenSSL.
