@@ -437,8 +437,8 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
 
         // We create a promise here to make sure we operate in the special magic state
         // where we are not in the pipeline any more, but we still have a valid context.
-        let removalPromise = ctx.eventLoop.makePromise(of: Bool.self)
-        let removalFuture = removalPromise.futureResult.map { (_: Bool) in
+        let removalPromise = ctx.eventLoop.makePromise(of: Void.self)
+        let removalFuture = removalPromise.futureResult.map { (_: Void) in
             // Now drop the writes.
             self.discardBufferedWrites(reason: NIOTLSUnwrappingError.unflushedWriteOnUnwrap)
 
