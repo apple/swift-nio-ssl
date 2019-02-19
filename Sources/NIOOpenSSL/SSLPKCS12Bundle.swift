@@ -157,7 +157,7 @@ public struct OpenSSLPKCS12Bundle {
 }
 
 
-internal extension Collection where Element == UInt8 {
+extension Collection where Element == UInt8 {
     /// Provides a contiguous copy of the bytes of this collection in a heap-allocated
     /// memory region that is locked into memory (that is, which can never be backed by a file),
     /// and which will be scrubbed and freed after use, and which is null-terminated.

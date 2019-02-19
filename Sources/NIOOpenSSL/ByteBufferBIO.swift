@@ -340,7 +340,7 @@ final class ByteBufferBIO {
             assert(!self.mustClearOutboundBuffer)
         }
 
-        let writtenBytes = self.outboundBuffer.write(bytes: buffer)
+        let writtenBytes = self.outboundBuffer.writeBytes(buffer)
         return CInt(writtenBytes)
     }
 }

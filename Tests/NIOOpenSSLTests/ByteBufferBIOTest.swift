@@ -99,7 +99,7 @@ final class ByteBufferBIOTest: XCTestCase {
         }
 
         var inboundBytes = ByteBufferAllocator().buffer(capacity: 1024)
-        inboundBytes.write(bytes: [1, 2, 3, 4, 5])
+        inboundBytes.writeBytes([1, 2, 3, 4, 5])
         swiftBIO.receiveFromNetwork(buffer: inboundBytes)
 
         var receivedBytes = ByteBufferAllocator().buffer(capacity: 1024)
@@ -128,7 +128,7 @@ final class ByteBufferBIOTest: XCTestCase {
         }
 
         var inboundBytes = ByteBufferAllocator().buffer(capacity: 1024)
-        inboundBytes.write(bytes: [1, 2, 3, 4, 5])
+        inboundBytes.writeBytes([1, 2, 3, 4, 5])
         swiftBIO.receiveFromNetwork(buffer: inboundBytes)
 
         var receivedBytes = ByteBufferAllocator().buffer(capacity: 1024)
@@ -164,7 +164,7 @@ final class ByteBufferBIOTest: XCTestCase {
     func testDropRefToBaseObjectOnWrite() throws {
         let cBIO = self.retainedBIO()
         var receivedBytes = ByteBufferAllocator().buffer(capacity: 1024)
-        receivedBytes.write(bytes: [1, 2, 3, 4, 5])
+        receivedBytes.writeBytes([1, 2, 3, 4, 5])
         receivedBytes.withVeryUnsafeBytes { pointer in
             let rc = CNIOBoringSSL_BIO_write(cBIO, pointer.baseAddress!, 1)
             XCTAssertEqual(rc, -1)
@@ -285,7 +285,7 @@ final class ByteBufferBIOTest: XCTestCase {
         }
 
         var buffer = ByteBufferAllocator().buffer(capacity: 1024)
-        buffer.write(staticString: "Hello, world!")
+        buffer.writeStaticString("Hello, world!")
         swiftBIO.receiveFromNetwork(buffer: buffer)
 
         buffer.withUnsafeMutableReadableBytes { pointer in

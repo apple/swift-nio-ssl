@@ -63,7 +63,7 @@ rwIUx8hwcI3A
 /// Returns whether this system supports resolving IPv6 function.
 func ipv6Supported() throws -> Bool {
     do {
-        _ = try SocketAddress.newAddressResolving(host: "2001:db8::1", port: 443)
+        _ = try SocketAddress.makeAddressResolvingHost("2001:db8::1", port: 443)
         return true
     } catch SocketAddressError.unknown {
         return false
@@ -114,7 +114,7 @@ class IdentityVerificationTest: XCTestCase {
     func testAcceptsIpv4Address() throws {
         let cert = try OpenSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: nil,
-                                                  socketAddress: try .newAddressResolving(host: "192.168.0.1", port: 443),
+                                                  socketAddress: try .makeAddressResolvingHost("192.168.0.1", port: 443),
                                                   leafCertificate: cert)
         XCTAssertTrue(matched)
     }
@@ -122,7 +122,7 @@ class IdentityVerificationTest: XCTestCase {
 
     func testAcceptsIpv6Address() throws {
         guard try ipv6Supported() else { return }
-        let ipv6Address = try SocketAddress.newAddressResolving(host: "2001:db8::1", port: 443)
+        let ipv6Address = try SocketAddress.makeAddressResolvingHost("2001:db8::1", port: 443)
 
         let cert = try OpenSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: nil,
@@ -134,14 +134,14 @@ class IdentityVerificationTest: XCTestCase {
     func testRejectsIncorrectIpv4Address() throws {
         let cert = try OpenSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: nil,
-                                                  socketAddress: try .newAddressResolving(host: "192.168.0.2", port: 443),
+                                                  socketAddress: try .makeAddressResolvingHost("192.168.0.2", port: 443),
                                                   leafCertificate: cert)
         XCTAssertFalse(matched)
     }
 
     func testRejectsIncorrectIpv6Address() throws {
         guard try ipv6Supported() else { return }
-        let ipv6Address = try SocketAddress.newAddressResolving(host: "2001:db8::2", port: 443)
+        let ipv6Address = try SocketAddress.makeAddressResolvingHost("2001:db8::2", port: 443)
 
         let cert = try OpenSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: nil,

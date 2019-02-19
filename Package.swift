@@ -23,13 +23,13 @@ let package = Package(
         .library(name: "CNIOBoringSSL", type: .static, targets: ["CNIOBoringSSL"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-nio.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", .branch("master")),
     ],
     targets: [
         .target(name: "CNIOBoringSSL"),
         .target(name: "CNIOBoringSSLShims", dependencies: ["CNIOBoringSSL"]),
         .target(name: "NIOOpenSSL",
-                dependencies: ["NIO", "NIOConcurrencyHelpers", "CNIOBoringSSL", "CNIOBoringSSLShims", "NIOTLS"]),
+                dependencies: ["NIO", "NIOConcurrencyHelpers", "CNIOBoringSSL", "CNIOBoringSSLShims", "NIOTLS", "_NIO1APIShims"]),
         .target(name: "NIOTLSServer", dependencies: ["NIO", "NIOOpenSSL", "NIOConcurrencyHelpers"]),
         .testTarget(name: "NIOOpenSSLTests", dependencies: ["NIOTLS", "NIOOpenSSL"]),
     ],

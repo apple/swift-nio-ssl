@@ -51,3 +51,12 @@ This product contains code derived from grpc-swift.
   * HOMEPAGE:
     * https://github.com/grpc/grpc-swift
 
+---
+
+This product contains code from boringssl.
+
+  * LICENSE (Combination ISC and OpenSSL license)
+    * https://boringssl.googlesource.com/boringssl/+/refs/heads/master/LICENSE
+  * HOMEPAGE:
+    * https://boringssl.googlesource.com/boringssl/
+
