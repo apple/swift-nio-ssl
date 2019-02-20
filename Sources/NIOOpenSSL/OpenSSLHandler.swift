@@ -620,13 +620,13 @@ extension OpenSSLHandler {
 }
 
 fileprivate extension MarkedCircularBuffer {
-    mutating func forEachElementUntilMark(callback: (E) throws -> Bool) rethrows {
+    mutating func forEachElementUntilMark(callback: (Element) throws -> Bool) rethrows {
         while try self.hasMark && callback(self.first!) {
             _ = self.removeFirst()
         }
     }
 
-    mutating func forEachRemoving(callback: (E) -> Void) {
+    mutating func forEachRemoving(callback: (Element) -> Void) {
         while self.count > 0 {
             callback(self.removeFirst())
         }
