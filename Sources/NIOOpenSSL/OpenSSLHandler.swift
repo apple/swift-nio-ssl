@@ -381,7 +381,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             // autoread turned off then we should call read again, because otherwise the user
             // will never see any result from their read call.
             self.plaintextReadBuffer = receiveBuffer
-            ctx.channel.getOption(option: ChannelOptions.autoRead).whenSuccess { autoRead in
+            ctx.channel.getOption(ChannelOptions.autoRead).whenSuccess { autoRead in
                 if !autoRead {
                     ctx.read()
                 }
