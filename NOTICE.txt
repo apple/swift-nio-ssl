@@ -41,3 +41,22 @@ This product contains a derivation of the Tony Stone's 'process_test_files.rb'.
     * https://www.apache.org/licenses/LICENSE-2.0
   * HOMEPAGE:
     * https://codegists.com/snippet/ruby/generate_xctest_linux_runnerrb_tonystone_ruby
+
+---
+
+This product contains code derived from grpc-swift.
+
+  * LICENSE (Apache License 2.0):
+    * https://github.com/grpc/grpc-swift/blob/0.7.0/LICENSE
+  * HOMEPAGE:
+    * https://github.com/grpc/grpc-swift
+
+---
+
+This product contains code from boringssl.
+
+  * LICENSE (Combination ISC and OpenSSL license)
+    * https://boringssl.googlesource.com/boringssl/+/refs/heads/master/LICENSE
+  * HOMEPAGE:
+    * https://boringssl.googlesource.com/boringssl/
+

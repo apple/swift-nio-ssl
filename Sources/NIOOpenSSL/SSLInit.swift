@@ -12,27 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import CNIOOpenSSL
+import CNIOBoringSSL
 
 /// Initialize OpenSSL. Note that this function IS NOT THREAD SAFE, and so must be called inside
 /// either an explicit or implicit dispatch_once.
 func initializeOpenSSL() -> Bool {
-    // Initializing OpenSSL is made up of two steps. First, we need to load all the various crypto bits.
-    CNIOOpenSSL_InitializeOpenSSL()
-
-    // Now we need to set up our custom BIO.
-    setupBIO()
+    CNIOBoringSSL_CRYPTO_library_init()
     return true
-}
-
-/// Called to initialize our custom OpenSSL BIO.
-private func setupBIO() {
-    /// If the BIO is already initialized, don't do it again.
-    guard CNIOOpenSSL_ByteBufferBIOType == 0 else {
-        return
-    }
-    CNIOOpenSSL_initByteBufferBIO(openSSLBIOWriteFunc, openSSLBIOReadFunc,
-                                  openSSLBIOPutsFunc, openSSLBIOGetsFunc,
-                                  openSSLBIOCtrlFunc, openSSLBIOCreateFunc,
-                                  openSSLBIODestroyFunc)
 }

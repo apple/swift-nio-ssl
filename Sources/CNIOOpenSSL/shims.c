@@ -51,14 +51,6 @@ int CNIOOpenSSL_X509_up_ref(X509 *x) {
 #endif
 }
 
-int CNIOOpenSSL_SSL_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func, CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func) {
-#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
-    return SSL_get_ex_new_index(argl, argp, new_func, dup_func, free_func);
-#else
-    return CRYPTO_get_ex_new_index(CRYPTO_EX_INDEX_SSL, argl, argp, new_func, dup_func, free_func);
-#endif
-}
-
 // MARK: Macro wrappers
 // These are functions that rely on things declared in macros in OpenSSL, at least in
 // some versions. The Swift compiler cannot expand C macros, so we need a file that
@@ -220,10 +212,6 @@ int CNIOOpenSSL_BIO_should_retry(BIO *bio) {
 
 int CNIOOpenSSL_BIO_should_read(BIO *bio) {
     return BIO_should_read(bio);
-}
-
-int CNIOOpenSSL_BIO_get_close(BIO *bio) {
-    return BIO_get_close(bio);
 }
 
 int CNIOOpenSSL_BIO_set_close(BIO *bio, long flag) {

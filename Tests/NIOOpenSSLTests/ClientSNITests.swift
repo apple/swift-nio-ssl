@@ -37,7 +37,7 @@ class ClientSNITests: XCTestCase {
         return ctx
     }
 
-    private func assertSniResult(sniField: String?, expectedResult: SniResult) throws {
+    private func assertSniResult(sniField: String?, expectedResult: SNIResult) throws {
         let ctx = try configuredSSLContext()
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
@@ -45,11 +45,11 @@ class ClientSNITests: XCTestCase {
             try? group.syncShutdownGracefully()
         }
 
-        let sniPromise: EventLoopPromise<SniResult> = group.next().newPromise()
-        let sniHandler = SniHandler {
-            sniPromise.succeed(result: $0)
-            return group.next().newSucceededFuture(result: ())
-        }
+        let sniPromise: EventLoopPromise<SNIResult> = group.next().makePromise()
+        let sniHandler = ByteToMessageHandler(SNIHandler {
+            sniPromise.succeed($0)
+            return group.next().makeSucceededFuture(())
+        })
         let serverChannel = try serverTLSChannel(context: ctx, preHandlers: [sniHandler], postHandlers: [], group: group)
         defer {
             _ = try? serverChannel.close().wait()

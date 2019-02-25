@@ -13,8 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 import NIO
-import CNIOOpenSSL
+import CNIOBoringSSL
 import NIOTLS
+import _NIO1APIShims
 
 /// The base class for all OpenSSL handlers. This class cannot actually be instantiated by
 /// users directly: instead, users must select which mode they would like their handler to
@@ -24,7 +25,7 @@ import NIOTLS
 /// of a TLS connection there is no meaningful distinction between a server and a client.
 /// For this reason almost the entirety of the implementation for the channel and server
 /// handlers in OpenSSL is shared, in the form of this parent class.
-public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
+public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, RemovableChannelHandler {
     public typealias OutboundIn = ByteBuffer
     public typealias OutboundOut = ByteBuffer
     public typealias InboundIn = ByteBuffer
@@ -52,7 +53,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
     
     internal init (connection: SSLConnection, expectedHostname: String? = nil) {
         self.connection = connection
-        self.bufferedWrites = MarkedCircularBuffer(initialRingCapacity: 96)  // 96 brings the total size of the buffer to just shy of one page
+        self.bufferedWrites = MarkedCircularBuffer(initialCapacity: 96)  // 96 brings the total size of the buffer to just shy of one page
         self.expectedHostname = expectedHostname
     }
 
@@ -105,8 +106,8 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             let closePromise = self.closePromise
             self.closePromise = nil
 
-            shutdownPromise?.fail(error: OpenSSLError.uncleanShutdown)
-            closePromise?.fail(error: OpenSSLError.uncleanShutdown)
+            shutdownPromise?.fail(OpenSSLError.uncleanShutdown)
+            closePromise?.fail(OpenSSLError.uncleanShutdown)
             ctx.fireErrorCaught(OpenSSLError.uncleanShutdown)
             discardBufferedWrites(reason: OpenSSLError.uncleanShutdown)
         }
@@ -156,7 +157,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
     public func close(ctx: ChannelHandlerContext, mode: CloseMode, promise: EventLoopPromise<Void>?) {
         guard mode == .all else {
             // TODO: Support also other modes ?
-            promise?.fail(error: ChannelError.operationUnsupported)
+            promise?.fail(ChannelError.operationUnsupported)
             return
         }
         
@@ -165,7 +166,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             // We're in the process of TLS shutdown, so let's let that happen. However,
             // we want to cascade the result of the first request into this new one.
             if let promise = promise, let closePromise = self.closePromise {
-                closePromise.futureResult.cascade(promise: promise)
+                closePromise.futureResult.cascade(to: promise)
             } else if let promise = promise {
                 self.closePromise = promise
             }
@@ -175,7 +176,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             // closing is a more extreme activity than unwrapping.
             self.state = .closing
             if let promise = promise, let closePromise = self.closePromise {
-                closePromise.futureResult.cascade(promise: promise)
+                closePromise.futureResult.cascade(to: promise)
             } else if let promise = promise {
                 self.closePromise = promise
             }
@@ -380,7 +381,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
             // autoread turned off then we should call read again, because otherwise the user
             // will never see any result from their read call.
             self.plaintextReadBuffer = receiveBuffer
-            ctx.channel.getOption(option: ChannelOptions.autoRead).whenSuccess { autoRead in
+            ctx.channel.getOption(ChannelOptions.autoRead).whenSuccess { autoRead in
                 if !autoRead {
                     ctx.read()
                 }
@@ -424,7 +425,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
         let closePromise = self.closePromise
         self.closePromise = nil
 
-        shutdownPromise?.fail(error: reason)
+        shutdownPromise?.fail(reason)
         ctx.close(promise: closePromise)
     }
 
@@ -437,8 +438,8 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
 
         // We create a promise here to make sure we operate in the special magic state
         // where we are not in the pipeline any more, but we still have a valid context.
-        let removalPromise: EventLoopPromise<Bool> = ctx.eventLoop.newPromise()
-        let removalFuture = removalPromise.futureResult.map { (_: Bool) in
+        let removalPromise: EventLoopPromise<Void> = ctx.eventLoop.makePromise()
+        let removalFuture = removalPromise.futureResult.map {
             // Now drop the writes.
             self.discardBufferedWrites(reason: NIOTLSUnwrappingError.unflushedWriteOnUnwrap)
 
@@ -448,7 +449,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler {
         }
 
         if let promise = shutdownPromise {
-            removalFuture.cascade(promise: promise)
+            removalFuture.cascade(to: promise)
         }
 
         // Ok, we've unwrapped. Let's get out of the channel.
@@ -503,7 +504,7 @@ extension OpenSSLHandler {
         case .unwrapping, .closing:
             // We're shutting down here. Nothing has to be done, but we should keep track of this promise.
             if let promise = promise, let shutdownPromise = self.shutdownPromise {
-                shutdownPromise.futureResult.cascade(promise: promise)
+                shutdownPromise.futureResult.cascade(to: promise)
             } else if let promise = promise {
                 self.shutdownPromise = promise
             }
@@ -511,7 +512,7 @@ extension OpenSSLHandler {
         case .idle:
             // We've never activated, it's easy to remove TLS from a connection that never had it.
             guard let storedContext = self.storedContext else {
-                promise?.fail(error: NIOTLSUnwrappingError.invalidInternalState)
+                promise?.fail(NIOTLSUnwrappingError.invalidInternalState)
                 return
             }
 
@@ -522,7 +523,7 @@ extension OpenSSLHandler {
         case .handshaking, .active:
             // Time to try to strip TLS.
             guard let storedContext = self.storedContext else {
-                promise?.fail(error: NIOTLSUnwrappingError.invalidInternalState)
+                promise?.fail(NIOTLSUnwrappingError.invalidInternalState)
                 return
             }
 
@@ -532,10 +533,10 @@ extension OpenSSLHandler {
 
         case .unwrapped:
             // We are already unwrapped. Succeed the promise, do nothing.
-            promise?.succeed(result: ())
+            promise?.succeed(())
 
         case .closed:
-            promise?.fail(error: NIOTLSUnwrappingError.alreadyClosed)
+            promise?.fail(NIOTLSUnwrappingError.alreadyClosed)
         }
     }
 }
@@ -555,13 +556,13 @@ extension OpenSSLHandler {
 
     private func discardBufferedWrites(reason: Error) {
         self.bufferedWrites.forEachRemoving {
-            $0.promise?.fail(error: reason)
+            $0.promise?.fail(reason)
         }
     }
 
     private func doUnbufferWrites(ctx: ChannelHandlerContext) {
         // Return early if the user hasn't called flush.
-        guard bufferedWrites.hasMark() else {
+        guard bufferedWrites.hasMark else {
             return
         }
 
@@ -590,8 +591,8 @@ extension OpenSSLHandler {
         }
 
         func flushWrites() {
-            let ourPromise: EventLoopPromise<Void> = ctx.eventLoop.newPromise()
-            promises.forEach { ourPromise.futureResult.cascade(promise: $0) }
+            let ourPromise: EventLoopPromise<Void> = ctx.eventLoop.makePromise()
+            promises.forEach { ourPromise.futureResult.cascade(to: $0) }
             writeDataToNetwork(ctx: ctx, promise: ourPromise)
             promises = []
         }
@@ -611,7 +612,7 @@ extension OpenSSLHandler {
             // We encountered an error, it's cleanup time. Close ourselves down.
             channelClose(ctx: ctx, reason: error)
             // Fail any writes we've previously encoded but not flushed.
-            promises.forEach { $0.fail(error: error) }
+            promises.forEach { $0.fail(error) }
             // Fail everything else.
             self.discardBufferedWrites(reason: error)
         }
@@ -619,13 +620,13 @@ extension OpenSSLHandler {
 }
 
 fileprivate extension MarkedCircularBuffer {
-    mutating func forEachElementUntilMark(callback: (E) throws -> Bool) rethrows {
-        while try self.hasMark() && callback(self.first!) {
+    mutating func forEachElementUntilMark(callback: (Element) throws -> Bool) rethrows {
+        while try self.hasMark && callback(self.first!) {
             _ = self.removeFirst()
         }
     }
 
-    mutating func forEachRemoving(callback: (E) -> Void) {
+    mutating func forEachRemoving(callback: (Element) -> Void) {
         while self.count > 0 {
             callback(self.removeFirst())
         }

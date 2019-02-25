@@ -1,4 +1,4 @@
-// swift-tools-version:4.0
+// swift-tools-version:5.0
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the SwiftNIO open source project
@@ -20,16 +20,18 @@ let package = Package(
     products: [
         .library(name: "NIOOpenSSL", targets: ["NIOOpenSSL"]),
         .executable(name: "NIOTLSServer", targets: ["NIOTLSServer"]),
+        .library(name: "CNIOBoringSSL", type: .static, targets: ["CNIOBoringSSL"]),
     ],
     dependencies: [
-    .package(url: "https://github.com/apple/swift-nio.git", from: "1.12.0"),
-    .package(url: "https://github.com/apple/swift-nio-ssl-support.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", .branch("master")),
     ],
     targets: [
-        .target(name: "CNIOOpenSSL"),
+        .target(name: "CNIOBoringSSL"),
+        .target(name: "CNIOBoringSSLShims", dependencies: ["CNIOBoringSSL"]),
         .target(name: "NIOOpenSSL",
-                dependencies: ["NIO", "NIOConcurrencyHelpers", "CNIOOpenSSL", "NIOTLS"]),
+                dependencies: ["NIO", "NIOConcurrencyHelpers", "CNIOBoringSSL", "CNIOBoringSSLShims", "NIOTLS", "_NIO1APIShims"]),
         .target(name: "NIOTLSServer", dependencies: ["NIO", "NIOOpenSSL", "NIOConcurrencyHelpers"]),
         .testTarget(name: "NIOOpenSSLTests", dependencies: ["NIOTLS", "NIOOpenSSL"]),
-    ]
+    ],
+    cxxLanguageStandard: .cxx11
 )

@@ -12,15 +12,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import CNIOOpenSSL
-import NIO
+import CNIOBoringSSL
 
 /// Wraps a single error from OpenSSL.
 public struct OpenSSLInternalError: Equatable, CustomStringConvertible {
-    let errorCode: u_long
+    let errorCode: UInt32
 
     var errorMessage: String? {
-        if let cErrorMessage = ERR_error_string(errorCode, nil) {
+        if let cErrorMessage = CNIOBoringSSL_ERR_error_string(errorCode, nil) {
             return String.init(cString: cErrorMessage)
         }
         return nil
@@ -30,7 +29,7 @@ public struct OpenSSLInternalError: Equatable, CustomStringConvertible {
         return "Error: \(errorCode) \(errorMessage ?? "")"
     }
 
-    init(errorCode: u_long) {
+    init(errorCode: UInt32) {
         self.errorCode = errorCode
     }
 
@@ -150,7 +149,7 @@ internal extension OpenSSLError {
         var errorStack = OpenSSLErrorStack()
         
         while true {
-            let errorCode = ERR_get_error()
+            let errorCode = CNIOBoringSSL_ERR_get_error()
             if errorCode == 0 { break }
             errorStack.append(OpenSSLInternalError(errorCode: errorCode))
         }

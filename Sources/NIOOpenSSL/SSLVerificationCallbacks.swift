@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import CNIOOpenSSL
+import CNIOBoringSSL
 
 /// The result of an attempt to verify an X.509 certificate.
 public enum OpenSSLVerificationResult {

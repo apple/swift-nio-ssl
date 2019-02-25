@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import CNIOOpenSSL
+import CNIOBoringSSL
 @testable import NIOOpenSSL
 
 let samplePemCert = """
@@ -167,33 +167,34 @@ E01IMuJH78wMnZcd2SpFSfrmBttWB+/Z91yL3fnrYsU7R/Gp6EEhRPtxEaOPqnHS
 
 let samplePKCS8PemPrivateKey = """
 -----BEGIN ENCRYPTED PRIVATE KEY-----
-MIIE6TAbBgkqhkiG9w0BBQMwDgQIjmfjIn3zZV8CAggABIIEyOYC0SrAyZKo/Q9I
-ntcb2JeQNpgRZFy7jkZc8rOOURZk2ofezymnnQD66B+bldsweK06IiqRIxZXY5VL
-ZafU4c1rWj58pxnV0nckoMS04sOe9qJWjbClsYuq5DTSRLHptTo+AupUyGRF2x2T
-xprevQ4bDmcfjJe7wybBYEbm26bIKpqI9zbDxZURm15MrOT8EFh1xEXXfqj9MP/Z
-s9v3lZL/QeaCyMyGxkRk6bao46uh0NNrRkTU9TaF22bAOtF73XE03a219xHGb5dD
-5rdhub+N0Tcxlswd3k/brYRhvndkN5yVauRlu7EsgLL0/nnt9pYPn8m/PtuKKN9G
-shNXrpRUu21pUdk2WFMr26plGeJZ1/HTpTfifXK8I0PCep8NjQHWEZQyvhhyfHxn
-rDbIhL8MeJmIhx4rCAczCObx04PQ/fTwGp8FpwS1OL9kL61tpBgzeri7KlSS7m4+
-ti4YUwm3OqxZzBBZgQ0c33pxmr4XSUKEmmSmFTkAXSsaHaUh+9lrmbPYYaoxt7Bj
-/mQTABCiBcj3kiSDU5DqkBpFcyD2X6nj/EvEXfJofIK9G7B72NQqfgAF6FNNJ73w
-XWXwbTPgksGyX5sQVLGDLqOvALt/qMXITBA24dfOlxJ7/ZKBDbSIixhzvSUgzufs
-Z4LDnbXYNVgi2IWNNBXzHyhtuwEor4dmdAZGP6uG8ilYfaNVR6dbXnSXC8EyLmoZ
-n0Rttj+z1UzBNmi8WrRN+pf7dfhX2hjZxTcVuqw05/2Y55L8Ts0joZ4QD3M5jwSd
-MaYtdp7R3Xlt33Y2zKg1Cb+XocHNHHLJ7FoT/S9bQkJh0FN0VhGXJ+36BG7P3E3Q
-OlbZuB8lsFRPpc/5GH+x4IaLzqqv1qpoJ/Yifc/4aCZq0RgtLJNHveirQeRD/pY9
-NDrHBzuvowYsBWEx9+qAo0/MkgFNLOTiecPvrpgnU42TyDYtb5+sf8L+/xwDKfqC
-/vcfwQZtyKapjrp4aoMkZBkeBQr7dRCoG02AIVfs4s/dbT5wK0zd7WmohTSUfqge
-3ZLBvFOFQ/pR5gLdppX3xecM/LaegcT+lxrs5Z8hTPCfFTpZe8nmNdDBj2ItV6JA
-/6t4LtksuWHhNK7d4wu3gBgpgqLyXGIc6BvA1RVUPRdweAmPUfAajRxqVMjX5jLC
-w2tMceub6To/5X6vCBF7URwUaomFthOZZDxZ9+SEF4CmkZXDwLK4k4oJ2tC8Qw3K
-Z5CtxsUXhvjH3I9SvOxk68oH7gz7m69Vkxz+bYo3jzZICTkyKsYBOMXQsCrMe6vg
-d5KYPuo1xULbmgt3iS8VzlwvT+xLaerEqSiC4W0Qp7kApNQrasd/GB0Qq1BzSVMp
-iltQTmzBIp3i2JESAWGCdT5JnQOXBm1K+FXGlmWa7nh3gM+TgQtn/zKfqPDdXxl6
-9561DgT8jCkeAVEtyuwCde0PxL7ZY8zhJ8Xm/yFH1bRPAOriwN4gtIp+VVKKQ0vw
-rD26sQi1IcdHa9yDW7hLDpNwXN1GQUmq3l08oySzqJN+H10uWhWZ9ZQLWIQcISgY
-jbYGQuPgO5u8S93b4b+YovmntBF50QqpWNDoMZlnK03spnkjOCSDOjKIKCLE/KM0
-Qm9iVKtLrDinHUpMsA==
+MIIFDjBABgkqhkiG9w0BBQ0wMzAbBgkqhkiG9w0BBQwwDgQIShGta1Mpj/QCAggA
+MBQGCCqGSIb3DQMHBAjQbLTPjvMqpwSCBMh8omeDIM0ceuoiEhaepFqbst/jUwYh
+m1pzLokTph0GS/81vmTDr9U7uI9rHiFbACRRMQBH/cCkZFUN2Jo3pJXA4q3RvGsh
+4UIaWiP+SNkzKR54QcuWRzYoQs/YH8VickNp2per3zQ9R0Regx1ZaHSCk3cFRFy3
+4sJtgoquwJYD2vUdQvhwcuF2Syl/VCpaQ0+KtfBqJ+4YLJPQcsL+OKLlaWFY0ivO
+2oSVCg3QJrVbS8TDnrIgeL8MNhyVHQbuSyh2MlXKcjiKlJHdHXSlYSINgpUsc/Eg
+cTSgod0JXvjbExrtBx2mODwM5hzDkGpdub+TptXinQg3FQjUKhBh/+wrP0HoKBcn
+UFE1emd3n1s0MFN28uSN3OcX3833Lt4KAnxF4xaPfWEAk/2yuukiUqKU+K9cEhNX
+V1arxKq8RLB7n7o6YFt3xuVgAJYWDk6nyr/0I2LgFj2Jz/C2v+YBFYGUcQUKgHQw
+OLzzZnCrPj8JIP2cUqagZrW7JOoMsFCtroJptImaqhsm/4i3tyf2uoUWglZN8DVE
+WbNbnAr5KZSl9U1/sNuEesixIWd+RrJC/l0tNmScCvJifL9WrJnccOI83EAkmz/+
+W8UpcPCscAmAdOcjFQl8T37xHGxwVcvh8LyaoacBqQCYiZzO/M6bA2YuBYVpkk4v
+DFXMmy2SaHGGhGHDmyn4uuzykGCOn1ZN92eT6PXZCmHz0/QCH6RIGx2cK5frfhUP
+icU30GnK1jRv8QFHVx9IZQpHbALRgSNMbtF8EqWmONUIs9wQIQtEMZ2AYwq8gKL2
+9Cwk2SkqO0Y8dbE/lw+iBA37/NO7KiSLB/Mpq0/zX5SfBVcGZAVzGKiyeOW5sKcI
+pSOTTv5jLkoEnels2f0jsPM7aMjG+ys6wveL0tDhfKSbtjyC8Zw/eXpK9AHGW8Hr
+xM7hwTkQpznyt/NUIDmjrDHg7n6O9sp7KWduP1L9bYC/n5Dj2gnxHj6FFTpMqmm7
+Q6GEj/dttmqvSYeG93heWqoS/j6j45dppoKG/3vU9UWODStcc3y66WJ2ULEY0/CF
+IiBd33GJgIKUJlrMGwUSAPxH2wklF3VwWFVXMnLbqpggaWlVxzVnvGjnzoHm3AW6
+hWCMnvsP/pYVBMpaKKdPF6PCW1yQXjTbA67gxpGECoin2Bu/rp+t0GeVmgTcCS9a
+Y2Su4cpwCD1ngIrdodWhVVJSObApRdn3SDI2xOZUgZPVT52AtEMPQ3R5eoIOfLI6
+CPC7cYl2JDmMkKGLaSom1zZpCoXtPTkxDAIpaG4ofT6pIDibCSywllL1KeeVw4WX
+Cr2b/BS5TZNFyPzdrMaN5og6hNkbyca73SyEADnJtHTQc6mi/Q93al4TI3RYaVpk
+KWwIW4kZE/p5pONeZDNNt7dKrgkjaTylNpM9jdnBL3hU5Fxr4I6a6+IBWQC03EwC
+o2zT+g6YmVkod050GMv0V60npTpbOpWIamzB+q3GMMkU9NNyw8xH7RkNS78eWLVv
+niWQmWlbkzLEf5PT264+c4w9IkE8aUKY2V8Ev2k1FXZcLdfw3G5yVzrjXoAwFUaY
+xnOAdO/QLMtD55Kn+jzV6dCXmyZQkBJAMLBF5xEX9DcnXCptZ2Asgvxa4EpO7jzX
+v5o=
 -----END ENCRYPTED PRIVATE KEY-----
 """
 
@@ -247,90 +248,100 @@ func randomSerialNumber() -> ASN1_INTEGER {
 
     // Our 20-byte number needs to be converted into an integer. This is
     // too big for Swift's numbers, but OpenSSL can handle it fine.
-    let bn = BN_new()
+    let bn = CNIOBoringSSL_BN_new()
     defer {
-        BN_free(bn)
+        CNIOBoringSSL_BN_free(bn)
     }
     
     _ = readBytes.withUnsafeBufferPointer {
-        BN_bin2bn($0.baseAddress, Int32($0.count), bn)
+        CNIOBoringSSL_BN_bin2bn($0.baseAddress, $0.count, bn)
     }
 
     // We want to bitshift this right by 1 bit to ensure it's smaller than
     // 2^159.
-    BN_rshift1(bn, bn)
+    CNIOBoringSSL_BN_rshift1(bn, bn)
 
     // Now we can turn this into our ASN1_INTEGER.
     var asn1int = ASN1_INTEGER()
-    BN_to_ASN1_INTEGER(bn, &asn1int)
+    CNIOBoringSSL_BN_to_ASN1_INTEGER(bn, &asn1int)
 
     return asn1int
 }
 
-func generateRSAPrivateKey() -> OpaquePointer {
-    let pkey = OpaquePointer(EVP_PKEY_new()!)
-    let rsa = RSA_generate_key(Int32(2048), UInt(65537), nil, nil)!
-    let assignRC = EVP_PKEY_assign(.make(optional: pkey), EVP_PKEY_RSA, .init(rsa))
+func generateRSAPrivateKey() -> UnsafeMutablePointer<EVP_PKEY> {
+    let exponent = CNIOBoringSSL_BN_new()
+    defer {
+        CNIOBoringSSL_BN_free(exponent)
+    }
+
+    CNIOBoringSSL_BN_set_u64(exponent, 0x10001)
+
+    let rsa = CNIOBoringSSL_RSA_new()!
+    let generateRC = CNIOBoringSSL_RSA_generate_key_ex(rsa, CInt(2048), exponent, nil)
+    precondition(generateRC == 1)
+
+    let pkey = CNIOBoringSSL_EVP_PKEY_new()!
+    let assignRC = CNIOBoringSSL_EVP_PKEY_assign(pkey, EVP_PKEY_RSA, rsa)
     
     precondition(assignRC == 1)
     return pkey
 }
 
-func addExtension(x509: OpaquePointer, nid: Int32, value: String) {
+func addExtension(x509: UnsafeMutablePointer<X509>, nid: Int32, value: String) {
     var extensionContext = X509V3_CTX()
     
-    X509V3_set_ctx(&extensionContext, .make(optional: x509), .make(optional: x509), nil, nil, 0)
+    CNIOBoringSSL_X509V3_set_ctx(&extensionContext, x509, x509, nil, nil, 0)
     let ext = value.withCString { (pointer) in
-        return X509V3_EXT_conf_nid(nil, &extensionContext, nid, UnsafeMutablePointer(mutating: pointer))
+        return CNIOBoringSSL_X509V3_EXT_nconf_nid(nil, &extensionContext, nid, UnsafeMutablePointer(mutating: pointer))
     }!
-    X509_add_ext(.make(optional: x509), ext, -1)
-    X509_EXTENSION_free(ext)
+    CNIOBoringSSL_X509_add_ext(x509, ext, -1)
+    CNIOBoringSSL_X509_EXTENSION_free(ext)
 }
 
 func generateSelfSignedCert() -> (OpenSSLCertificate, OpenSSLPrivateKey) {
     let pkey = generateRSAPrivateKey()
-    let x = X509_new()!
-    X509_set_version(x, 3)
+    let x = CNIOBoringSSL_X509_new()!
+    CNIOBoringSSL_X509_set_version(x, 3)
 
     // NB: X509_set_serialNumber uses an internal copy of the ASN1_INTEGER, so this is
     // safe, there will be no use-after-free.
     var serial = randomSerialNumber()
-    X509_set_serialNumber(x, &serial)
+    CNIOBoringSSL_X509_set_serialNumber(x, &serial)
     
-    let notBefore = ASN1_TIME_new()!
+    let notBefore = CNIOBoringSSL_ASN1_TIME_new()!
     var now = time(nil)
-    ASN1_TIME_set(notBefore, now)
-    CNIOOpenSSL_X509_set_notBefore(x, notBefore)
-    ASN1_TIME_free(notBefore)
+    CNIOBoringSSL_ASN1_TIME_set(notBefore, now)
+    CNIOBoringSSL_X509_set_notBefore(x, notBefore)
+    CNIOBoringSSL_ASN1_TIME_free(notBefore)
     
     now += 60 * 60  // Give ourselves an hour
-    let notAfter = ASN1_TIME_new()!
-    ASN1_TIME_set(notAfter, now)
-    CNIOOpenSSL_X509_set_notAfter(x, notAfter)
-    ASN1_TIME_free(notAfter)
+    let notAfter = CNIOBoringSSL_ASN1_TIME_new()!
+    CNIOBoringSSL_ASN1_TIME_set(notAfter, now)
+    CNIOBoringSSL_X509_set_notAfter(x, notAfter)
+    CNIOBoringSSL_ASN1_TIME_free(notAfter)
     
-    X509_set_pubkey(x, .make(optional: pkey))
+    CNIOBoringSSL_X509_set_pubkey(x, pkey)
     
     let commonName = "localhost"
-    let name = X509_get_subject_name(x)
+    let name = CNIOBoringSSL_X509_get_subject_name(x)
     commonName.withCString { (pointer: UnsafePointer<Int8>) -> Void in
         pointer.withMemoryRebound(to: UInt8.self, capacity: commonName.lengthOfBytes(using: .utf8)) { (pointer: UnsafePointer<UInt8>) -> Void in
-            X509_NAME_add_entry_by_NID(name,
-                                       NID_commonName,
-                                       MBSTRING_UTF8,
-                                       UnsafeMutablePointer(mutating: pointer),
-                                       Int32(commonName.lengthOfBytes(using: .utf8)),
-                                       -1,
-                                       0)
+            CNIOBoringSSL_X509_NAME_add_entry_by_NID(name,
+                                                     NID_commonName,
+                                                     MBSTRING_UTF8,
+                                                     UnsafeMutablePointer(mutating: pointer),
+                                                     Int32(commonName.lengthOfBytes(using: .utf8)),
+                                                     -1,
+                                                     0)
         }
     }
-    X509_set_issuer_name(x, name)
+    CNIOBoringSSL_X509_set_issuer_name(x, name)
     
-    addExtension(x509: .init(x), nid: NID_basic_constraints, value: "critical,CA:FALSE")
-    addExtension(x509: .init(x), nid: NID_subject_key_identifier, value: "hash")
-    addExtension(x509: .init(x), nid: NID_subject_alt_name, value: "DNS:localhost")
+    addExtension(x509: x, nid: NID_basic_constraints, value: "critical,CA:FALSE")
+    addExtension(x509: x, nid: NID_subject_key_identifier, value: "hash")
+    addExtension(x509: x, nid: NID_subject_alt_name, value: "DNS:localhost")
     
-    X509_sign(x, .make(optional: pkey), EVP_sha256())
+    CNIOBoringSSL_X509_sign(x, pkey, CNIOBoringSSL_EVP_sha256())
     
     return (OpenSSLCertificate.fromUnsafePointer(takingOwnership: x), OpenSSLPrivateKey.fromUnsafePointer(takingOwnership: pkey))
 }

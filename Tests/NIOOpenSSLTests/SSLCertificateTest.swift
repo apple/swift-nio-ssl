@@ -128,11 +128,8 @@ internal func dumpToFile(text: String, fileExtension: String = "") throws -> Str
 
 internal extension Data {
     func asArray() -> [Int8] {
-        return self.withUnsafeBytes { (dataPtr: UnsafePointer<UInt8>) -> [Int8] in
-            return dataPtr.withMemoryRebound(to: Int8.self, capacity: self.count) { reboundPtr in
-                let tempBuffer = UnsafeBufferPointer(start: reboundPtr, count: self.count)
-                return [Int8](tempBuffer)
-            }
+        return self.withUnsafeBytes { (dataPtr: UnsafeRawBufferPointer) -> [Int8] in
+            return Array(dataPtr.bindMemory(to: Int8.self))
         }
     }
 }
