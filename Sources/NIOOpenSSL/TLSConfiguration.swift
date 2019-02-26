@@ -134,7 +134,11 @@ public struct TLSConfiguration {
     /// strings representing the ALPN identifiers of the protocols to negotiate. For clients,
     /// the protocols will be offered in the order given. For servers, the protocols will be matched
     /// against the client's offered protocols in order.
-    public var applicationProtocols: [[UInt8]]
+    public var applicationProtocols: [String]
+    
+    internal var encodedApplicationProtocols: [[UInt8]] {
+        return self.applicationProtocols.map(encodeALPNIdentifier)
+    }
 
     private init(cipherSuites: String,
                  minimumTLSVersion: TLSVersion,
@@ -151,7 +155,7 @@ public struct TLSConfiguration {
         self.trustRoots = trustRoots
         self.certificateChain = certificateChain
         self.privateKey = privateKey
-        self.applicationProtocols = applicationProtocols.map(encodeALPNIdentifier)
+        self.applicationProtocols = applicationProtocols
     }
 
     /// Create a TLS configuration for use with server-side contexts.
