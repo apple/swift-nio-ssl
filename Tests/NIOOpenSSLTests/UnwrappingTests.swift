@@ -81,13 +81,13 @@ final class UnwrappingTests: XCTestCase {
             XCTAssertNoThrow(try clientChannel.finish())
         }
 
-        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+        let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: ctx))
-        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: OpenSSLServerHandler(context: ctx)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: clientHandler).wait())
+        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
         // Mark the closure of the channels.
         clientChannel.closeFuture.whenComplete { _ in
@@ -139,14 +139,14 @@ final class UnwrappingTests: XCTestCase {
             XCTAssertNoThrow(try clientChannel.finish())
         }
 
-        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+        let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: ctx))
-        let serverHandler = try assertNoThrowWithValue(OpenSSLServerHandler(context: ctx))
-        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: serverHandler).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: clientHandler).wait())
+        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
+        let serverHandler = try assertNoThrowWithValue(OpenSSLServerHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(serverHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
         // Mark the closure of the channels.
         clientChannel.closeFuture.whenComplete { _ in
@@ -206,13 +206,13 @@ final class UnwrappingTests: XCTestCase {
             XCTAssertThrowsError(try clientChannel.finish())
         }
 
-        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+        let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: ctx))
-        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: OpenSSLServerHandler(context: ctx)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: clientHandler).wait())
+        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
         // Mark the closure of the client.
         clientChannel.closeFuture.whenComplete { _ in
@@ -265,13 +265,13 @@ final class UnwrappingTests: XCTestCase {
             XCTAssertThrowsError(try clientChannel.finish())
         }
 
-        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+        let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: ctx))
-        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: OpenSSLServerHandler(context: ctx)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: clientHandler).wait())
+        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
         // Mark the closure of the client.
         clientChannel.closeFuture.whenComplete { _ in
@@ -318,13 +318,13 @@ final class UnwrappingTests: XCTestCase {
             XCTAssertNoThrow(try clientChannel.finish())
         }
 
-        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+        let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: ctx))
-        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: OpenSSLServerHandler(context: ctx)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: clientHandler).wait())
+        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
         // Connect. This should lead to a completed handshake.
         XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel))
@@ -356,13 +356,13 @@ final class UnwrappingTests: XCTestCase {
             XCTAssertNoThrow(try clientChannel.finish())
         }
 
-        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+        let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: ctx))
-        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: OpenSSLServerHandler(context: ctx)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: clientHandler).wait())
+        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
         // Connect. This should lead to a completed handshake.
         XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel))
@@ -390,10 +390,10 @@ final class UnwrappingTests: XCTestCase {
             XCTAssertNoThrow(try channel.finish())
         }
 
-        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+        let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let handler = try assertNoThrowWithValue(OpenSSLClientHandler(context: ctx))
-        XCTAssertNoThrow(try channel.pipeline.add(handler: handler).wait())
+        let handler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
+        XCTAssertNoThrow(try channel.pipeline.addHandler(handler).wait())
         channel.pipeline.assertContains(handler: handler)
 
         // Let's unwrap. This should succeed easily.
@@ -419,13 +419,13 @@ final class UnwrappingTests: XCTestCase {
             XCTAssertNoThrow(try clientChannel.finish())
         }
 
-        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+        let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: ctx))
-        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: OpenSSLServerHandler(context: ctx)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: clientHandler).wait())
+        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
         // Connect. This should lead to a completed handshake.
         XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel))
@@ -462,13 +462,13 @@ final class UnwrappingTests: XCTestCase {
             XCTAssertThrowsError(try clientChannel.finish())
         }
 
-        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+        let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: ctx))
-        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: OpenSSLServerHandler(context: ctx)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: clientHandler).wait())
+        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
         // Connect. This should lead to a completed handshake.
         XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel))
@@ -506,13 +506,13 @@ final class UnwrappingTests: XCTestCase {
             XCTAssertThrowsError(try clientChannel.finish())
         }
 
-        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+        let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: ctx))
-        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: OpenSSLServerHandler(context: ctx)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: clientHandler).wait())
+        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
         // Mark the closure of the client.
         clientChannel.closeFuture.whenComplete { _ in
@@ -576,13 +576,13 @@ final class UnwrappingTests: XCTestCase {
             XCTAssertNoThrow(try clientChannel.finish())
         }
 
-        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+        let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: ctx))
-        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: OpenSSLServerHandler(context: ctx)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: clientHandler).wait())
+        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
         // Connect. This should lead to a completed handshake.
         XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel))
@@ -626,13 +626,13 @@ final class UnwrappingTests: XCTestCase {
             XCTAssertThrowsError(try clientChannel.finish())
         }
 
-        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+        let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: ctx))
-        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: OpenSSLServerHandler(context: ctx)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: clientHandler).wait())
+        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
         // Connect. This should lead to a completed handshake.
         XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel))
@@ -686,15 +686,15 @@ final class UnwrappingTests: XCTestCase {
             XCTAssertNoThrow(try clientChannel.finish())
         }
 
-        let ctx = try assertNoThrowWithValue(configuredSSLContext())
+        let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: ctx))
-        XCTAssertNoThrow(try serverChannel.pipeline.add(handler: OpenSSLServerHandler(context: ctx)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: clientHandler).wait())
+        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
         let readPromise: EventLoopPromise<ByteBuffer> = clientChannel.eventLoop.makePromise()
-        XCTAssertNoThrow(try clientChannel.pipeline.add(handler: PromiseOnReadHandler(promise: readPromise)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(PromiseOnReadHandler(promise: readPromise)).wait())
 
         var readCompleted = false
         readPromise.futureResult.whenSuccess { buffer in

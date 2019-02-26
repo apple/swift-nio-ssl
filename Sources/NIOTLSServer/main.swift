@@ -19,12 +19,12 @@ import NIOOpenSSL
 private final class EchoHandler: ChannelInboundHandler {
     public typealias InboundIn = ByteBuffer
 
-    func channelRead(ctx: ChannelHandlerContext, data: NIOAny) {
-        ctx.write(data, promise: nil)
+    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+        context.write(data, promise: nil)
     }
 
-    func channelReadComplete(ctx: ChannelHandlerContext) {
-        ctx.flush()
+    func channelReadComplete(context: ChannelHandlerContext) {
+        context.flush()
     }
 }
 
@@ -39,8 +39,8 @@ let bootstrap = ServerBootstrap(group: group)
 
     // Set the handlers that are applied to the accepted channels.
     .childChannelInitializer { channel in
-        return channel.pipeline.add(handler: try! OpenSSLServerHandler(context: sslContext)).flatMap {
-            channel.pipeline.add(handler: EchoHandler())
+        return channel.pipeline.addHandler(try! OpenSSLServerHandler(context: sslContext)).flatMap {
+            channel.pipeline.addHandler(EchoHandler())
         }
     }
 
