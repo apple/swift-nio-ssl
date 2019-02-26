@@ -26,7 +26,7 @@ class ErrorCatcher<T: Error>: ChannelInboundHandler {
         errors = []
     }
 
-    public func errorCaught(ctx: ChannelHandlerContext, error: Error) {
+    public func errorCaught(context: ChannelHandlerContext, error: Error) {
         errors.append(error as! T)
     }
 }
@@ -35,11 +35,11 @@ class HandshakeCompletedHandler: ChannelInboundHandler {
     public typealias InboundIn = Any
     public var handshakeSucceeded = false
 
-    public func userInboundEventTriggered(ctx: ChannelHandlerContext, event: Any) {
+    public func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
         if let event = event as? TLSUserEvent, case .handshakeCompleted = event {
             self.handshakeSucceeded = true
         }
-        ctx.fireUserInboundEventTriggered(event)
+        context.fireUserInboundEventTriggered(event)
     }
 }
 

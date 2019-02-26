@@ -33,12 +33,12 @@ class ClientSNITests: XCTestCase {
         let config = TLSConfiguration.forServer(certificateChain: [.certificate(OpenSSLIntegrationTest.cert)],
                                                 privateKey: .privateKey(OpenSSLIntegrationTest.key),
                                                 trustRoots: .certificates([OpenSSLIntegrationTest.cert]))
-        let ctx = try SSLContext(configuration: config)
-        return ctx
+        let context = try SSLContext(configuration: config)
+        return context
     }
 
     private func assertSniResult(sniField: String?, expectedResult: SNIResult) throws {
-        let ctx = try configuredSSLContext()
+        let context = try configuredSSLContext()
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
@@ -50,12 +50,12 @@ class ClientSNITests: XCTestCase {
             sniPromise.succeed($0)
             return group.next().makeSucceededFuture(())
         })
-        let serverChannel = try serverTLSChannel(context: ctx, preHandlers: [sniHandler], postHandlers: [], group: group)
+        let serverChannel = try serverTLSChannel(context: context, preHandlers: [sniHandler], postHandlers: [], group: group)
         defer {
             _ = try? serverChannel.close().wait()
         }
 
-        let clientChannel = try clientTLSChannel(context: ctx,
+        let clientChannel = try clientTLSChannel(context: context,
                                                  preHandlers: [],
                                                  postHandlers: [],
                                                  group: group,
@@ -78,10 +78,10 @@ class ClientSNITests: XCTestCase {
     }
 
     func testSNIIsRejectedForIPv4Addresses() throws {
-        let ctx = try configuredSSLContext()
+        let context = try configuredSSLContext()
 
         do {
-            _ = try OpenSSLClientHandler(context: ctx, serverHostname: "192.168.0.1")
+            _ = try OpenSSLClientHandler(context: context, serverHostname: "192.168.0.1")
             XCTFail("Created client handler with invalid SNI name")
         } catch OpenSSLError.invalidSNIName {
             // All fine.
@@ -89,10 +89,10 @@ class ClientSNITests: XCTestCase {
     }
 
     func testSNIIsRejectedForIPv6Addresses() throws {
-        let ctx = try configuredSSLContext()
+        let context = try configuredSSLContext()
 
         do {
-            _ = try OpenSSLClientHandler(context: ctx, serverHostname: "fe80::200:f8ff:fe21:67cf")
+            _ = try OpenSSLClientHandler(context: context, serverHostname: "fe80::200:f8ff:fe21:67cf")
             XCTFail("Created client handler with invalid SNI name")
         } catch OpenSSLError.invalidSNIName {
             // All fine.

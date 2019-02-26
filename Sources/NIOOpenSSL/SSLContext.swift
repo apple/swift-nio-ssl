@@ -117,7 +117,7 @@ public final class SSLContext {
     /// configuration.
     internal init(configuration: TLSConfiguration, callbackManager: CallbackManagerProtocol?) throws {
         guard openSSLIsInitialized else { fatalError("Failed to initialize OpenSSL") }
-        guard let ctx = CNIOBoringSSL_SSL_CTX_new(CNIOBoringSSL_TLS_method()) else { throw NIOOpenSSLError.unableToAllocateOpenSSLObject }
+        guard let context = CNIOBoringSSL_SSL_CTX_new(CNIOBoringSSL_TLS_method()) else { throw NIOOpenSSLError.unableToAllocateOpenSSLObject }
 
         let minTLSVersion: Int32
         switch configuration.minimumTLSVersion {
@@ -130,7 +130,7 @@ public final class SSLContext {
         case .tlsv1:
             minTLSVersion = TLS1_VERSION
         }
-        var returnCode = CNIOBoringSSL_SSL_CTX_set_min_proto_version(ctx, UInt16(minTLSVersion))
+        var returnCode = CNIOBoringSSL_SSL_CTX_set_min_proto_version(context, UInt16(minTLSVersion))
         precondition(1 == returnCode)
 
         let maxTLSVersion: Int32
@@ -146,25 +146,25 @@ public final class SSLContext {
             // Unset defaults to TLS1.3 for now. BoringSSL's default is TLS 1.2.
             maxTLSVersion = TLS1_3_VERSION
         }
-        returnCode = CNIOBoringSSL_SSL_CTX_set_max_proto_version(ctx, UInt16(maxTLSVersion))
+        returnCode = CNIOBoringSSL_SSL_CTX_set_max_proto_version(context, UInt16(maxTLSVersion))
         precondition(1 == returnCode)
 
         // Cipher suites. We just pass this straight to OpenSSL.
-        returnCode = CNIOBoringSSL_SSL_CTX_set_cipher_list(ctx, configuration.cipherSuites)
+        returnCode = CNIOBoringSSL_SSL_CTX_set_cipher_list(context, configuration.cipherSuites)
         precondition(1 == returnCode)
 
         // If validation is turned on, set the trust roots and turn on cert validation.
         switch configuration.certificateVerification {
         case .fullVerification, .noHostnameVerification:
-            CNIOBoringSSL_SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, nil)
+            CNIOBoringSSL_SSL_CTX_set_verify(context, SSL_VERIFY_PEER, nil)
 
             switch configuration.trustRoots {
             case .some(.default), .none:
-                precondition(1 == CNIOBoringSSL_SSL_CTX_set_default_verify_paths(ctx))
+                precondition(1 == CNIOBoringSSL_SSL_CTX_set_default_verify_paths(context))
             case .some(.file(let f)):
-                try SSLContext.loadVerifyLocations(f, context: ctx)
+                try SSLContext.loadVerifyLocations(f, context: context)
             case .some(.certificates(let certs)):
-                try certs.forEach { try SSLContext.addRootCertificate($0, context: ctx) }
+                try certs.forEach { try SSLContext.addRootCertificate($0, context: context) }
             }
         default:
             break
@@ -173,22 +173,22 @@ public final class SSLContext {
         // If we were given a certificate chain to use, load it and its associated private key. Before
         // we do, set up a passphrase callback if we need to.
         if let callbackManager = callbackManager {
-            CNIOBoringSSL_SSL_CTX_set_default_passwd_cb(ctx, globalOpenSSLPassphraseCallback(buf:size:rwflag:u:))
-            CNIOBoringSSL_SSL_CTX_set_default_passwd_cb_userdata(ctx, Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
+            CNIOBoringSSL_SSL_CTX_set_default_passwd_cb(context, globalOpenSSLPassphraseCallback(buf:size:rwflag:u:))
+            CNIOBoringSSL_SSL_CTX_set_default_passwd_cb_userdata(context, Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
         }
 
         var leaf = true
         try configuration.certificateChain.forEach {
             switch $0 {
             case .file(let p):
-                SSLContext.useCertificateChainFile(p, context: ctx)
+                SSLContext.useCertificateChainFile(p, context: context)
                 leaf = false
             case .certificate(let cert):
                 if leaf {
-                    try SSLContext.setLeafCertificate(cert, context: ctx)
+                    try SSLContext.setLeafCertificate(cert, context: context)
                     leaf = false
                 } else {
-                    try SSLContext.addAdditionalChainCertificate(cert, context: ctx)
+                    try SSLContext.addAdditionalChainCertificate(cert, context: context)
                 }
             }
         }
@@ -196,24 +196,24 @@ public final class SSLContext {
         if let pkey = configuration.privateKey {
             switch pkey {
             case .file(let p):
-                SSLContext.usePrivateKeyFile(p, context: ctx)
+                SSLContext.usePrivateKeyFile(p, context: context)
             case .privateKey(let key):
-                try SSLContext.setPrivateKey(key, context: ctx)
+                try SSLContext.setPrivateKey(key, context: context)
             }
         }
 
         if configuration.applicationProtocols.count > 0 {
-            try SSLContext.setAlpnProtocols(configuration.applicationProtocols, context: ctx)
-            SSLContext.setAlpnCallback(context: ctx)
+            try SSLContext.setAlpnProtocols(configuration.applicationProtocols, context: context)
+            SSLContext.setAlpnCallback(context: context)
         }
 
-        self.sslContext = ctx
+        self.sslContext = context
         self.configuration = configuration
         self.callbackManager = callbackManager
 
         // Always make it possible to get from an SSL_CTX structure back to this.
         let ptrToSelf = Unmanaged.passUnretained(self).toOpaque()
-        CNIOBoringSSLShims_SSL_CTX_set_app_data(ctx, ptrToSelf)
+        CNIOBoringSSLShims_SSL_CTX_set_app_data(context, ptrToSelf)
     }
 
     /// Initialize a context that will create multiple connections, all with the same

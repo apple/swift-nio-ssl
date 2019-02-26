@@ -81,10 +81,10 @@ class OpenSSLALPNTest: XCTestCase {
     }
 
     func testBasicALPNNegotiation() throws {
-        let ctx: NIOOpenSSL.SSLContext
-        ctx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"]))
+        let context: NIOOpenSSL.SSLContext
+        context = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"]))
 
-        XCTAssertNoThrow(try assertNegotiatedProtocol(protocol: "h2", serverContext: ctx, clientContext: ctx))
+        XCTAssertNoThrow(try assertNegotiatedProtocol(protocol: "h2", serverContext: context, clientContext: context))
     }
 
     func testBasicALPNNegotiationPrefersServerPriority() throws {
