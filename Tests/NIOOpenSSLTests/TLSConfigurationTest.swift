@@ -258,4 +258,13 @@ class TLSConfigurationTest: XCTestCase {
             XCTFail("Unexpected error: \(error)")
         }
     }
+    
+    func testComputedApplicationProtocols() throws {
+        var config = TLSConfiguration.forServer(certificateChain: [], privateKey: .file("fake.file"), applicationProtocols: ["http/1.1"])
+        XCTAssertEqual(config.applicationProtocols, ["http/1.1"])
+        XCTAssertEqual(config.encodedApplicationProtocols, [[8, 104, 116, 116, 112, 47, 49, 46, 49]])
+        config.applicationProtocols.insert("h2", at: 0)
+        XCTAssertEqual(config.applicationProtocols, ["h2", "http/1.1"])
+        XCTAssertEqual(config.encodedApplicationProtocols, [[2, 104, 50], [8, 104, 116, 116, 112, 47, 49, 46, 49]])
+    }
 }
