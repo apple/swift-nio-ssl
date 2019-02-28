@@ -99,6 +99,12 @@ internal func encodeALPNIdentifier(identifier: String) -> [UInt8] {
     return encodedIdentifier
 }
 
+/// Decodes a string from the wire format of an ALPN identifier. These MUST be correctly
+/// formatted ALPN identifiers, and so this routine will crash the program if they aren't.
+internal func decodeALPNIdentifier(identifier: [UInt8]) -> String {
+    return String(decoding: identifier[1..<identifier.count], as: Unicode.ASCII.self)
+}
+
 /// Manages configuration of OpenSSL for SwiftNIO programs.
 ///
 /// OpenSSL has a number of configuration options that are worth setting. This structure allows
@@ -134,7 +140,16 @@ public struct TLSConfiguration {
     /// strings representing the ALPN identifiers of the protocols to negotiate. For clients,
     /// the protocols will be offered in the order given. For servers, the protocols will be matched
     /// against the client's offered protocols in order.
-    public var applicationProtocols: [[UInt8]]
+    public var applicationProtocols: [String] {
+        get {
+            return self.encodedApplicationProtocols.map(decodeALPNIdentifier)
+        }
+        set {
+            self.encodedApplicationProtocols = newValue.map(encodeALPNIdentifier)
+        }
+    }
+    
+    internal var encodedApplicationProtocols: [[UInt8]]
 
     private init(cipherSuites: String,
                  minimumTLSVersion: TLSVersion,
@@ -151,7 +166,8 @@ public struct TLSConfiguration {
         self.trustRoots = trustRoots
         self.certificateChain = certificateChain
         self.privateKey = privateKey
-        self.applicationProtocols = applicationProtocols.map(encodeALPNIdentifier)
+        self.encodedApplicationProtocols = []
+        self.applicationProtocols = applicationProtocols
     }
 
     /// Create a TLS configuration for use with server-side contexts.

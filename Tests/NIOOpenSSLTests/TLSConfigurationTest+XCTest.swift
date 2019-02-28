@@ -33,6 +33,7 @@ extension TLSConfigurationTest {
                 ("testServerCannotValidateClientPostTLS13", testServerCannotValidateClientPostTLS13),
                 ("testMutualValidation", testMutualValidation),
                 ("testNonexistentFileObject", testNonexistentFileObject),
+                ("testComputedApplicationProtocols", testComputedApplicationProtocols),
            ]
    }
 }
