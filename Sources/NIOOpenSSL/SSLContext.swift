@@ -191,7 +191,7 @@ public final class SSLContext {
         }
 
         if configuration.applicationProtocols.count > 0 {
-            try SSLContext.setAlpnProtocols(configuration.applicationProtocols, context: context)
+            try SSLContext.setAlpnProtocols(configuration.encodedApplicationProtocols, context: context)
             SSLContext.setAlpnCallback(context: context)
         }
 
@@ -236,7 +236,7 @@ public final class SSLContext {
     }
 
     fileprivate func alpnSelectCallback(offeredProtocols: UnsafeBufferPointer<UInt8>) ->  (index: Int, length: Int)? {
-        for possibility in configuration.applicationProtocols {
+        for possibility in configuration.encodedApplicationProtocols {
             let match = possibility.withUnsafeBufferPointer {
                 offeredProtocols.locateAlpnIdentifier(identifier: $0)
             }
