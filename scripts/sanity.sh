@@ -18,7 +18,7 @@ here="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 function replace_acceptable_years() {
     # this needs to replace all acceptable forms with 'YEARS'
-    sed 's/201[78]-201[89]/YEARS/g'
+    sed -e 's/201[78]-201[89]/YEARS/g' -e 's/2019/YEARS/g'
 }
 
 printf "=> Checking linux tests... "

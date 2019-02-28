@@ -81,14 +81,14 @@ internal func wrapErrorIsNullReturnCall<T>(where function: StaticString = #funct
 // MARK:- Our functions
 internal enum Posix {
     @inline(never)
-    public static func fopen(file: UnsafePointer<CChar>, mode: UnsafePointer<CChar>) throws -> UnsafeMutablePointer<FILE> {
+    internal static func fopen(file: UnsafePointer<CChar>, mode: UnsafePointer<CChar>) throws -> UnsafeMutablePointer<FILE> {
         return try wrapErrorIsNullReturnCall {
             sysFopen(file, mode)
         }
     }
 
     @inline(never)
-    public static func fclose(file: UnsafeMutablePointer<FILE>) throws -> CInt {
+    internal static func fclose(file: UnsafeMutablePointer<FILE>) throws -> CInt {
         return try wrapSyscall {
             sysFclose(file)
         }
@@ -96,7 +96,7 @@ internal enum Posix {
 
     @inline(never)
     @discardableResult
-    public static func stat(path: UnsafePointer<CChar>, buf: UnsafeMutablePointer<stat>) throws -> CInt {
+    internal static func stat(path: UnsafePointer<CChar>, buf: UnsafeMutablePointer<stat>) throws -> CInt {
         return try wrapSyscall {
             sysStat(path, buf)
         }
@@ -104,7 +104,7 @@ internal enum Posix {
 
     @inline(never)
     @discardableResult
-    public static func mlock(addr: UnsafeRawPointer, len: size_t) throws -> CInt {
+    internal static func mlock(addr: UnsafeRawPointer, len: size_t) throws -> CInt {
         return try wrapSyscall {
             sysMlock(addr, len)
         }
@@ -112,7 +112,7 @@ internal enum Posix {
 
     @inline(never)
     @discardableResult
-    public static func munlock(addr: UnsafeRawPointer, len: size_t) throws -> CInt {
+    internal static func munlock(addr: UnsafeRawPointer, len: size_t) throws -> CInt {
         return try wrapSyscall {
             sysMunlock(addr, len)
         }

@@ -21,11 +21,11 @@ import CNIOBoringSSLShims
 // actually create any object that uses OpenSSL.
 internal var openSSLIsInitialized: Bool = initializeOpenSSL()
 
-private enum FileSystemObject {
+internal enum FileSystemObject {
     case directory
     case file
 
-    static func pathType(path: String) -> FileSystemObject? {
+    static internal func pathType(path: String) -> FileSystemObject? {
         var statObj = stat()
         do {
             try Posix.stat(path: path, buf: &statObj)
@@ -153,22 +153,10 @@ public final class SSLContext {
         returnCode = CNIOBoringSSL_SSL_CTX_set_cipher_list(context, configuration.cipherSuites)
         precondition(1 == returnCode)
 
-        // If validation is turned on, set the trust roots and turn on cert validation.
-        switch configuration.certificateVerification {
-        case .fullVerification, .noHostnameVerification:
-            CNIOBoringSSL_SSL_CTX_set_verify(context, SSL_VERIFY_PEER, nil)
-
-            switch configuration.trustRoots {
-            case .some(.default), .none:
-                precondition(1 == CNIOBoringSSL_SSL_CTX_set_default_verify_paths(context))
-            case .some(.file(let f)):
-                try SSLContext.loadVerifyLocations(f, context: context)
-            case .some(.certificates(let certs)):
-                try certs.forEach { try SSLContext.addRootCertificate($0, context: context) }
-            }
-        default:
-            break
-        }
+        // Configure certificate validation
+        try SSLContext.configureCertificateValidation(context: context,
+                                                      verification: configuration.certificateVerification,
+                                                      trustRoots: configuration.trustRoots)
 
         // If we were given a certificate chain to use, load it and its associated private key. Before
         // we do, set up a passphrase callback if we need to.
@@ -294,14 +282,7 @@ extension SSLContext {
             throw NIOOpenSSLError.failedToLoadPrivateKey
         }
     }
-    
-    private static func addRootCertificate(_ cert: OpenSSLCertificate, context: OpaquePointer) throws {
-        let store = CNIOBoringSSL_SSL_CTX_get_cert_store(context)!
-        if 0 == CNIOBoringSSL_X509_STORE_add_cert(store, cert.ref) {
-            throw NIOOpenSSLError.failedToLoadCertificate
-        }
-    }
-    
+
     private static func usePrivateKeyFile(_ path: String, context: OpaquePointer) {
         let pathExtension = path.split(separator: ".").last
         let fileType: Int32
@@ -324,28 +305,6 @@ extension SSLContext {
         precondition(result == 1)
     }
     
-    private static func loadVerifyLocations(_ path: String, context: OpaquePointer) throws {
-        let isDirectory: Bool
-        switch FileSystemObject.pathType(path: path) {
-        case .some(.directory):
-            isDirectory = true
-        case .some(.file):
-            isDirectory = false
-        case .none:
-            throw NIOOpenSSLError.noSuchFilesystemObject
-        }
-        
-        let result = path.withCString { (pointer) -> Int32 in
-            let file = !isDirectory ? pointer : nil
-            let directory = isDirectory ? pointer: nil
-            return CNIOBoringSSL_SSL_CTX_load_verify_locations(context, file, directory)
-        }
-        
-        if result == 0 {
-            let errorStack = OpenSSLError.buildErrorStack()
-            throw OpenSSLError.unknownError(errorStack)
-        }
-    }
 
     private static func setAlpnProtocols(_ protocols: [[UInt8]], context: OpaquePointer) throws {
         // This copy should be done infrequently, so we don't worry too much about it.
@@ -367,5 +326,87 @@ extension SSLContext {
         CNIOBoringSSL_SSL_CTX_set_alpn_select_cb(context,
                                                  { alpnCallback(ssl:  $0, out: $1, outlen: $2, in: $3, inlen: $4, appData: $5) },
                                                  nil)
+    }
+}
+
+
+// Configuring certificate verification
+extension SSLContext {
+    private static func configureCertificateValidation(context: OpaquePointer, verification: CertificateVerification, trustRoots: OpenSSLTrustRoots?) throws {
+        // If validation is turned on, set the trust roots and turn on cert validation.
+        switch verification {
+        case .fullVerification, .noHostnameVerification:
+            CNIOBoringSSL_SSL_CTX_set_verify(context, SSL_VERIFY_PEER, nil)
+
+            switch trustRoots {
+            case .some(.default), .none:
+                try SSLContext.platformDefaultConfiguration(context: context)
+            case .some(.file(let f)):
+                try SSLContext.loadVerifyLocations(f, context: context)
+            case .some(.certificates(let certs)):
+                try certs.forEach { try SSLContext.addRootCertificate($0, context: context) }
+            }
+        default:
+            break
+        }
+    }
+
+    private static func loadVerifyLocations(_ path: String, context: OpaquePointer) throws {
+        let isDirectory: Bool
+        switch FileSystemObject.pathType(path: path) {
+        case .some(.directory):
+            isDirectory = true
+        case .some(.file):
+            isDirectory = false
+        case .none:
+            throw NIOOpenSSLError.noSuchFilesystemObject
+        }
+
+        let result = path.withCString { (pointer) -> Int32 in
+            let file = !isDirectory ? pointer : nil
+            let directory = isDirectory ? pointer: nil
+            return CNIOBoringSSL_SSL_CTX_load_verify_locations(context, file, directory)
+        }
+
+        if result == 0 {
+            let errorStack = OpenSSLError.buildErrorStack()
+            throw OpenSSLError.unknownError(errorStack)
+        }
+    }
+
+    private static func addRootCertificate(_ cert: OpenSSLCertificate, context: OpaquePointer) throws {
+        let store = CNIOBoringSSL_SSL_CTX_get_cert_store(context)!
+        if 0 == CNIOBoringSSL_X509_STORE_add_cert(store, cert.ref) {
+            throw NIOOpenSSLError.failedToLoadCertificate
+        }
+    }
+
+    private static func platformDefaultConfiguration(context: OpaquePointer) throws {
+        // Platform default trust is configured differently in different places. On Darwin we currently do
+        // nothing (watch this space). On Linux, we use our searched heuristics to guess about where the platform
+        // trust store is.
+        #if os(Linux)
+        let result = rootCAFilePath.withCString { rootCAFilePointer in
+            rootCADirectoryPath.withCString { rootCADirectoryPointer in
+                CNIOBoringSSL_SSL_CTX_load_verify_locations(context, rootCAFilePointer, rootCADirectoryPointer)
+            }
+        }
+
+        if result == 0 {
+            let errorStack = OpenSSLError.buildErrorStack()
+            throw OpenSSLError.unknownError(errorStack)
+        }
+        #endif
+    }
+}
+
+extension Optional where Wrapped == String {
+    internal func withCString<Result>(_ body: (UnsafePointer<CChar>?) throws -> Result) rethrows -> Result {
+        switch self {
+        case .some(let s):
+            return try s.withCString(body)
+        case .none:
+            return try body(nil)
+        }
     }
 }
