@@ -382,9 +382,8 @@ extension NIOSSLContext {
     }
 
     private static func platformDefaultConfiguration(context: OpaquePointer) throws {
-        // Platform default trust is configured differently in different places. On Darwin we currently do
-        // nothing (watch this space). On Linux, we use our searched heuristics to guess about where the platform
-        // trust store is.
+        // Platform default trust is configured differently in different places. On Darwin we invoke Security.framework in a custom callback.
+        // On Linux, we use our searched heuristics to guess about where the platform trust store is.
         #if os(Linux)
         let result = rootCAFilePath.withCString { rootCAFilePointer in
             rootCADirectoryPath.withCString { rootCADirectoryPointer in
@@ -396,6 +395,8 @@ extension NIOSSLContext {
             let errorStack = BoringSSLError.buildErrorStack()
             throw BoringSSLError.unknownError(errorStack)
         }
+        #elseif os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+        CNIOBoringSSL_SSL_CTX_set_custom_verify(context, SSL_VERIFY_PEER, securityFrameworkCustomVerify)
         #endif
     }
 }

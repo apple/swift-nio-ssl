@@ -91,6 +91,7 @@ public enum BoringSSLError: Error {
     case wantConnect
     case wantAccept
     case wantX509Lookup
+    case wantCertificateVerify
     case syscallError
     case sslError(NIOBoringSSLErrorStack)
     case unknownError(NIOBoringSSLErrorStack)
@@ -108,6 +109,7 @@ public func ==(lhs: BoringSSLError, rhs: BoringSSLError) -> Bool {
          (.wantWrite, .wantWrite),
          (.wantConnect, .wantConnect),
          (.wantAccept, .wantAccept),
+         (.wantCertificateVerify, .wantCertificateVerify),
          (.wantX509Lookup, .wantX509Lookup),
          (.syscallError, .syscallError):
         return true
@@ -134,6 +136,8 @@ internal extension BoringSSLError {
             return .wantConnect
         case SSL_ERROR_WANT_ACCEPT:
             return .wantAccept
+        case SSL_ERROR_WANT_CERTIFICATE_VERIFY:
+            return .wantCertificateVerify
         case SSL_ERROR_WANT_X509_LOOKUP:
             return .wantX509Lookup
         case SSL_ERROR_SYSCALL:
