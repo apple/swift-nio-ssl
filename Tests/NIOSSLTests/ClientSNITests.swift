@@ -15,24 +15,24 @@
 import XCTest
 import NIO
 import NIOTLS
-import NIOOpenSSL
+import NIOSSL
 
 
 class ClientSNITests: XCTestCase {
-    static var cert: OpenSSLCertificate!
-    static var key: OpenSSLPrivateKey!
+    static var cert: NIOSSLCertificate!
+    static var key: NIOSSLPrivateKey!
 
     override class func setUp() {
         super.setUp()
         let (cert, key) = generateSelfSignedCert()
-        OpenSSLIntegrationTest.cert = cert
-        OpenSSLIntegrationTest.key = key
+        NIOSSLIntegrationTest.cert = cert
+        NIOSSLIntegrationTest.key = key
     }
 
-    private func configuredSSLContext() throws -> NIOOpenSSL.NIOSSLContext {
-        let config = TLSConfiguration.forServer(certificateChain: [.certificate(OpenSSLIntegrationTest.cert)],
-                                                privateKey: .privateKey(OpenSSLIntegrationTest.key),
-                                                trustRoots: .certificates([OpenSSLIntegrationTest.cert]))
+    private func configuredSSLContext() throws -> NIOSSLContext {
+        let config = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+                                                privateKey: .privateKey(NIOSSLIntegrationTest.key),
+                                                trustRoots: .certificates([NIOSSLIntegrationTest.cert]))
         let context = try NIOSSLContext(configuration: config)
         return context
     }
@@ -81,9 +81,9 @@ class ClientSNITests: XCTestCase {
         let context = try configuredSSLContext()
 
         do {
-            _ = try OpenSSLClientHandler(context: context, serverHostname: "192.168.0.1")
+            _ = try NIOSSLClientHandler(context: context, serverHostname: "192.168.0.1")
             XCTFail("Created client handler with invalid SNI name")
-        } catch OpenSSLError.invalidSNIName {
+        } catch BoringSSLError.invalidSNIName {
             // All fine.
         }
     }
@@ -92,9 +92,9 @@ class ClientSNITests: XCTestCase {
         let context = try configuredSSLContext()
 
         do {
-            _ = try OpenSSLClientHandler(context: context, serverHostname: "fe80::200:f8ff:fe21:67cf")
+            _ = try NIOSSLClientHandler(context: context, serverHostname: "fe80::200:f8ff:fe21:67cf")
             XCTFail("Created client handler with invalid SNI name")
-        } catch OpenSSLError.invalidSNIName {
+        } catch BoringSSLError.invalidSNIName {
             // All fine.
         }
     }

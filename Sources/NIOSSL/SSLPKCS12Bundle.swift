@@ -21,8 +21,8 @@ import NIO
 /// PKCS#12 is a specification that defines an archive format for storing multiple
 /// cryptographic objects together in one file. Its most common usage, and the one
 /// that SwiftNIO is most interested in, is its use to bundle one or more X.509
-/// certificates (`OpenSSLCertificate`) together with an associated private key
-/// (`OpenSSLPrivateKey`).
+/// certificates (`NIOSSLCertificate`) together with an associated private key
+/// (`NIOSSLPrivateKey`).
 ///
 /// ### Working with TLSConfiguration
 ///
@@ -32,14 +32,14 @@ import NIO
 ///
 /// If you have a PKCS12 bundle, you configure a `TLSConfiguration` like this:
 ///
-///     let p12Bundle = OpenSSLPKCS12Bundle(file: pathToMyP12)
+///     let p12Bundle = NIOSSLPKCS12Bundle(file: pathToMyP12)
 ///     let config = TLSConfiguration.forServer(certificateChain: p12Bundle.certificateChain,
 ///                                             privateKey: p12Bundle.privateKey)
 ///
 /// The created `TLSConfiguration` can then be safely used for your endpoint.
-public struct OpenSSLPKCS12Bundle {
-    public let certificateChain: [OpenSSLCertificate]
-    public let privateKey: OpenSSLPrivateKey
+public struct NIOSSLPKCS12Bundle {
+    public let certificateChain: [NIOSSLCertificate]
+    public let privateKey: NIOSSLPrivateKey
 
     private init<Bytes: Collection>(ref: OpaquePointer, passphrase: Bytes?) throws where Bytes.Element == UInt8 {
         var pkey: UnsafeMutablePointer<EVP_PKEY>? = nil
@@ -50,7 +50,7 @@ public struct OpenSSLPKCS12Bundle {
             CNIOBoringSSL_PKCS12_parse(ref, passphrase, &pkey, &cert, &caCerts)
         }
         guard rc == 1 else {
-            throw OpenSSLError.unknownError(OpenSSLError.buildErrorStack())
+            throw BoringSSLError.unknownError(BoringSSLError.buildErrorStack())
         }
 
         // Successfully parsed, let's unpack. The key and cert are mandatory,
@@ -60,34 +60,34 @@ public struct OpenSSLPKCS12Bundle {
             cert.map { CNIOBoringSSL_X509_free($0) }
             pkey.map { CNIOBoringSSL_EVP_PKEY_free($0) }
             caCerts.map { CNIOBoringSSL_sk_X509_pop_free($0, CNIOBoringSSL_X509_free) }
-            throw NIOOpenSSLError.unableToAllocateOpenSSLObject
+            throw NIOSSLError.unableToAllocateBoringSSLObject
         }
 
         let certStackSize = caCerts.map { CNIOBoringSSL_sk_X509_num($0) } ?? 0
-        var certs = [OpenSSLCertificate]()
+        var certs = [NIOSSLCertificate]()
         certs.reserveCapacity(Int(certStackSize) + 1)
-        certs.append(OpenSSLCertificate.fromUnsafePointer(takingOwnership: actualCert))
+        certs.append(NIOSSLCertificate.fromUnsafePointer(takingOwnership: actualCert))
 
         for idx in 0..<certStackSize {
             guard let stackCertPtr = CNIOBoringSSL_sk_X509_value(caCerts, idx) else {
                 preconditionFailure("Unable to get cert \(idx) from stack \(String(describing: caCerts))")
             }
-            certs.append(OpenSSLCertificate.fromUnsafePointer(takingOwnership: stackCertPtr))
+            certs.append(NIOSSLCertificate.fromUnsafePointer(takingOwnership: stackCertPtr))
         }
 
         self.certificateChain = certs
-        self.privateKey = OpenSSLPrivateKey.fromUnsafePointer(takingOwnership: actualKey)
+        self.privateKey = NIOSSLPrivateKey.fromUnsafePointer(takingOwnership: actualKey)
 
     }
 
-    /// Create a `OpenSSLPKCS12Bundle` from the given bytes in memory,
+    /// Create a `NIOSSLPKCS12Bundle` from the given bytes in memory,
     /// optionally decrypting the bundle with the given passphrase.
     ///
     /// - parameters:
     ///     - buffer: The bytes of the PKCS#12 bundle.
     ///     - passphrase: The passphrase used for the bundle, as a sequence of UTF-8 bytes.
     public init<Bytes: Collection>(buffer: [UInt8], passphrase: Bytes?) throws where Bytes.Element == UInt8 {
-        guard openSSLIsInitialized else { fatalError("Failed to initialize OpenSSL") }
+        guard boringSSLIsInitialized else { fatalError("Failed to initialize BoringSSL") }
         
         let p12 = buffer.withUnsafeBytes { pointer -> OpaquePointer? in
             let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: pointer.baseAddress), CInt(pointer.count))!
@@ -103,18 +103,18 @@ public struct OpenSSLPKCS12Bundle {
         if let p12 = p12 {
             try self.init(ref: p12, passphrase: passphrase)
         } else {
-            throw OpenSSLError.unknownError(OpenSSLError.buildErrorStack())
+            throw BoringSSLError.unknownError(BoringSSLError.buildErrorStack())
         }
     }
 
-    /// Create a `OpenSSLPKCS12Bundle` from the given bytes on disk,
+    /// Create a `NIOSSLPKCS12Bundle` from the given bytes on disk,
     /// optionally decrypting the bundle with the given passphrase.
     ///
     /// - parameters:
     ///     - file: The path to the PKCS#12 bundle on disk.
     ///     - passphrase: The passphrase used for the bundle, as a sequence of UTF-8 bytes.
     public init<Bytes: Collection>(file: String, passphrase: Bytes?) throws where Bytes.Element == UInt8 {
-        guard openSSLIsInitialized else { fatalError("Failed to initialize OpenSSL") }
+        guard boringSSLIsInitialized else { fatalError("Failed to initialize BoringSSL") }
 
         let fileObject = try Posix.fopen(file: file, mode: "rb")
         defer {
@@ -129,11 +129,11 @@ public struct OpenSSLPKCS12Bundle {
         if let p12 = p12 {
             try self.init(ref: p12, passphrase: passphrase)
         } else {
-            throw OpenSSLError.unknownError(OpenSSLError.buildErrorStack())
+            throw BoringSSLError.unknownError(BoringSSLError.buildErrorStack())
         }
     }
 
-    /// Create a `OpenSSLPKCS12Bundle` from the given bytes on disk,
+    /// Create a `NIOSSLPKCS12Bundle` from the given bytes on disk,
     /// assuming it has no passphrase.
     ///
     /// If the bundle does have a passphrase, call `init(file:passphrase:)` instead.
@@ -144,7 +144,7 @@ public struct OpenSSLPKCS12Bundle {
         try self.init(file: file, passphrase: Optional<[UInt8]>.none)
     }
 
-    /// Create a `OpenSSLPKCS12Bundle` from the given bytes in memory,
+    /// Create a `NIOSSLPKCS12Bundle` from the given bytes in memory,
     /// assuming it has no passphrase.
     ///
     /// If the bundle does have a passphrase, call `init(buffer:passphrase:)` instead.
@@ -163,7 +163,7 @@ extension Collection where Element == UInt8 {
     /// and which will be scrubbed and freed after use, and which is null-terminated.
     ///
     /// This method should be used when it is necessary to take a secure copy of a collection of
-    /// bytes. Its implementation relies on OpenSSL directly.
+    /// bytes. Its implementation relies on BoringSSL directly.
     func withSecureCString<T>(_ block: (UnsafePointer<Int8>) throws -> T) throws -> T {
         // We need to allocate some memory and prevent it being swapped to disk while we use it.
         // For that reason we use mlock.
@@ -190,7 +190,7 @@ extension Collection where Element == UInt8 {
         bufferPtr.baseAddress!.advanced(by: Int(self.count)).initialize(to: 0)
 
         defer {
-            // We use OPENSSL_cleanse here because the compiler can't optimize this away.
+            // We use OpenSSL_cleanse here because the compiler can't optimize this away.
             // .initialize(repeating: 0) can be, and empirically is, optimized away, bzero
             // is deprecated, memset_s is not well supported cross-platform, and memset-to-zero
             // is famously easily optimised away. This is our best bet.

@@ -14,7 +14,7 @@
 
 import Foundation
 import CNIOBoringSSL
-@testable import NIOOpenSSL
+@testable import NIOSSL
 
 let samplePemCert = """
 -----BEGIN CERTIFICATE-----
@@ -247,7 +247,7 @@ func randomSerialNumber() -> ASN1_INTEGER {
     precondition(readCount == bytesToRead)
 
     // Our 20-byte number needs to be converted into an integer. This is
-    // too big for Swift's numbers, but OpenSSL can handle it fine.
+    // too big for Swift's numbers, but BoringSSL can handle it fine.
     let bn = CNIOBoringSSL_BN_new()
     defer {
         CNIOBoringSSL_BN_free(bn)
@@ -298,7 +298,7 @@ func addExtension(x509: UnsafeMutablePointer<X509>, nid: Int32, value: String) {
     CNIOBoringSSL_X509_EXTENSION_free(ext)
 }
 
-func generateSelfSignedCert() -> (OpenSSLCertificate, OpenSSLPrivateKey) {
+func generateSelfSignedCert() -> (NIOSSLCertificate, NIOSSLPrivateKey) {
     let pkey = generateRSAPrivateKey()
     let x = CNIOBoringSSL_X509_new()!
     CNIOBoringSSL_X509_set_version(x, 3)
@@ -343,5 +343,5 @@ func generateSelfSignedCert() -> (OpenSSLCertificate, OpenSSLPrivateKey) {
     
     CNIOBoringSSL_X509_sign(x, pkey, CNIOBoringSSL_EVP_sha256())
     
-    return (OpenSSLCertificate.fromUnsafePointer(takingOwnership: x), OpenSSLPrivateKey.fromUnsafePointer(takingOwnership: pkey))
+    return (NIOSSLCertificate.fromUnsafePointer(takingOwnership: x), NIOSSLPrivateKey.fromUnsafePointer(takingOwnership: pkey))
 }

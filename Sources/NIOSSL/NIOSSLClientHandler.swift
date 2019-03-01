@@ -27,20 +27,19 @@ private extension String {
     }
 }
 
-/// A channel handler that wraps a channel in TLS using OpenSSL, or an
-/// OpenSSL-compatible library. This handler can be used in channels that
-/// are acting as the client in the TLS dialog. For server connections,
-/// use the `OpenSSLServerHandler`.
-public final class OpenSSLClientHandler: OpenSSLHandler {
-    public init(context: NIOSSLContext, serverHostname: String? = nil, verificationCallback: OpenSSLVerificationCallback? = nil) throws {
+/// A channel handler that wraps a channel in TLS using NIOSSL.
+/// This handler can be used in channels that are acting as the client
+/// in the TLS dialog. For server connections, use the `NIOSSLServerHandler`.
+public final class NIOSSLClientHandler: NIOSSLHandler {
+    public init(context: NIOSSLContext, serverHostname: String? = nil, verificationCallback: NIOSSLVerificationCallback? = nil) throws {
         guard let connection = context.createConnection() else {
-            throw NIOOpenSSLError.unableToAllocateOpenSSLObject
+            throw NIOSSLError.unableToAllocateBoringSSLObject
         }
 
         connection.setConnectState()
         if let serverHostname = serverHostname {
             if serverHostname.isIPAddress() {
-                throw OpenSSLError.invalidSNIName([])
+                throw BoringSSLError.invalidSNIName([])
             }
 
             // IP addresses must not be provided in the SNI extension, so filter them.

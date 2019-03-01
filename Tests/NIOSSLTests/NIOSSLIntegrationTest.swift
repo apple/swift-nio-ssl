@@ -15,7 +15,7 @@
 import XCTest
 import CNIOBoringSSL
 import NIO
-@testable import NIOOpenSSL
+@testable import NIOSSL
 import NIOTLS
 import class Foundation.Process
 
@@ -248,7 +248,7 @@ private class WriteDelayHandler: ChannelOutboundHandler {
     }
 }
 
-internal func serverTLSChannel(context: NIOOpenSSL.NIOSSLContext,
+internal func serverTLSChannel(context: NIOSSLContext,
                                handlers: [ChannelHandler],
                                group: EventLoopGroup,
                                file: StaticString = #file,
@@ -262,7 +262,7 @@ internal func serverTLSChannel(context: NIOOpenSSL.NIOSSLContext,
                                       file: file, line: line)
 }
 
-internal func serverTLSChannel(context: NIOOpenSSL.NIOSSLContext,
+internal func serverTLSChannel(context: NIOSSLContext,
                                preHandlers: [ChannelHandler],
                                postHandlers: [ChannelHandler],
                                group: EventLoopGroup,
@@ -273,7 +273,7 @@ internal func serverTLSChannel(context: NIOOpenSSL.NIOSSLContext,
         .childChannelInitializer { channel in
             let results = preHandlers.map { channel.pipeline.addHandler($0) }
             return EventLoopFuture<Void>.andAllSucceed(results, on: results.first?.eventLoop ?? group.next()).flatMapThrowing {
-                try OpenSSLServerHandler(context: context)
+                try NIOSSLServerHandler(context: context)
                 }.flatMap {
                     channel.pipeline.addHandler($0)
                 }.flatMap {
@@ -283,20 +283,20 @@ internal func serverTLSChannel(context: NIOOpenSSL.NIOSSLContext,
         }.bind(host: "127.0.0.1", port: 0).wait(), file: file, line: line)
 }
 
-internal func clientTLSChannel(context: NIOOpenSSL.NIOSSLContext,
+internal func clientTLSChannel(context: NIOSSLContext,
                                preHandlers: [ChannelHandler],
                                postHandlers: [ChannelHandler],
                                group: EventLoopGroup,
                                connectingTo: SocketAddress,
                                serverHostname: String? = nil,
-                               verificationCallback: OpenSSLVerificationCallback? = nil,
+                               verificationCallback: NIOSSLVerificationCallback? = nil,
                                file: StaticString = #file,
                                line: UInt = #line) throws -> Channel {
     return try assertNoThrowWithValue(ClientBootstrap(group: group)
         .channelInitializer { channel in
             let results = preHandlers.map { channel.pipeline.addHandler($0) }
             return EventLoopFuture<Void>.andAllSucceed(results, on: results.first?.eventLoop ?? group.next()).flatMapThrowing {
-                try OpenSSLClientHandler(context: context, serverHostname: serverHostname, verificationCallback: verificationCallback)
+                try NIOSSLClientHandler(context: context, serverHostname: serverHostname, verificationCallback: verificationCallback)
                 }.flatMap {
                     channel.pipeline.addHandler($0)
                 }.flatMap {
@@ -306,56 +306,56 @@ internal func clientTLSChannel(context: NIOOpenSSL.NIOSSLContext,
         }.connect(to: connectingTo).wait(), file: file, line: line)
 }
 
-class OpenSSLIntegrationTest: XCTestCase {
-    static var cert: OpenSSLCertificate!
-    static var key: OpenSSLPrivateKey!
+class NIOSSLIntegrationTest: XCTestCase {
+    static var cert: NIOSSLCertificate!
+    static var key: NIOSSLPrivateKey!
     static var encryptedKeyPath: String!
     
     override class func setUp() {
         super.setUp()
-        guard openSSLIsInitialized else { fatalError() }
+        guard boringSSLIsInitialized else { fatalError() }
         let (cert, key) = generateSelfSignedCert()
-        OpenSSLIntegrationTest.cert = cert
-        OpenSSLIntegrationTest.key = key
-        OpenSSLIntegrationTest.encryptedKeyPath = keyInFile(key: OpenSSLIntegrationTest.key, passphrase: "thisisagreatpassword")
+        NIOSSLIntegrationTest.cert = cert
+        NIOSSLIntegrationTest.key = key
+        NIOSSLIntegrationTest.encryptedKeyPath = keyInFile(key: NIOSSLIntegrationTest.key, passphrase: "thisisagreatpassword")
     }
 
     override class func tearDown() {
-        _ = unlink(OpenSSLIntegrationTest.encryptedKeyPath)
+        _ = unlink(NIOSSLIntegrationTest.encryptedKeyPath)
     }
-    
-    private func configuredSSLContext(file: StaticString = #file, line: UInt = #line) throws -> NIOOpenSSL.NIOSSLContext {
-        let config = TLSConfiguration.forServer(certificateChain: [.certificate(OpenSSLIntegrationTest.cert)],
-                                                privateKey: .privateKey(OpenSSLIntegrationTest.key),
-                                                trustRoots: .certificates([OpenSSLIntegrationTest.cert]))
+
+    private func configuredSSLContext(file: StaticString = #file, line: UInt = #line) throws -> NIOSSLContext {
+        let config = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+                                                privateKey: .privateKey(NIOSSLIntegrationTest.key),
+                                                trustRoots: .certificates([NIOSSLIntegrationTest.cert]))
         return try assertNoThrowWithValue(NIOSSLContext(configuration: config), file: file, line: line)
     }
 
-    private func configuredSSLContext<T: Collection>(passphraseCallback: @escaping OpenSSLPassphraseCallback<T>,
-                                                     file: StaticString = #file, line: UInt = #line) throws -> NIOOpenSSL.NIOSSLContext
+    private func configuredSSLContext<T: Collection>(passphraseCallback: @escaping NIOSSLPassphraseCallback<T>,
+                                                     file: StaticString = #file, line: UInt = #line) throws -> NIOSSLContext
                                                      where T.Element == UInt8 {
-        let config = TLSConfiguration.forServer(certificateChain: [.certificate(OpenSSLIntegrationTest.cert)],
-                                                privateKey: .file(OpenSSLIntegrationTest.encryptedKeyPath),
-                                                trustRoots: .certificates([OpenSSLIntegrationTest.cert]))
+        let config = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+                                                privateKey: .file(NIOSSLIntegrationTest.encryptedKeyPath),
+                                                trustRoots: .certificates([NIOSSLIntegrationTest.cert]))
         return try assertNoThrowWithValue(NIOSSLContext(configuration: config, passphraseCallback: passphraseCallback), file: file, line: line)
     }
 
-    private func configuredClientContext(file: StaticString = #file, line: UInt = #line) throws -> NIOOpenSSL.NIOSSLContext {
-        let config = TLSConfiguration.forClient(trustRoots: .certificates([OpenSSLIntegrationTest.cert]))
+    private func configuredClientContext(file: StaticString = #file, line: UInt = #line) throws -> NIOSSLContext {
+        let config = TLSConfiguration.forClient(trustRoots: .certificates([NIOSSLIntegrationTest.cert]))
         return try assertNoThrowWithValue(NIOSSLContext(configuration: config), file: file, line: line)
     }
 
-    static func keyInFile(key: OpenSSLPrivateKey, passphrase: String) -> String {
+    static func keyInFile(key: NIOSSLPrivateKey, passphrase: String) -> String {
         let fileName = makeTemporaryFile(fileExtension: ".pem")
         let tempFile = open(fileName, O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0o644)
         precondition(tempFile > 1, String(cString: strerror(errno)))
         let fileBio = CNIOBoringSSL_BIO_new_fp(fdopen(tempFile, "w+"), BIO_CLOSE)
         precondition(fileBio != nil)
 
-        let manager = OpenSSLPassphraseCallbackManager { closure in closure(passphrase.utf8) }
+        let manager = BoringSSLPassphraseCallbackManager { closure in closure(passphrase.utf8) }
         let rc = withExtendedLifetime(manager) { manager -> CInt in
             let userData = Unmanaged.passUnretained(manager).toOpaque()
-            return CNIOBoringSSL_PEM_write_bio_PrivateKey(fileBio, key.ref, CNIOBoringSSL_EVP_aes_256_cbc(), nil, 0, globalOpenSSLPassphraseCallback, userData)
+            return CNIOBoringSSL_PEM_write_bio_PrivateKey(fileBio, key.ref, CNIOBoringSSL_EVP_aes_256_cbc(), nil, 0, globalBoringSSLPassphraseCallback, userData)
         }
         CNIOBoringSSL_BIO_free(fileBio)
         precondition(rc == 1)
@@ -374,7 +374,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         let fileBio = CNIOBoringSSL_BIO_new_fp(fdopen(tempFile, "w+"), BIO_CLOSE)
         precondition(fileBio != nil)
 
-        let rc = CNIOBoringSSL_PEM_write_bio_X509(fileBio, OpenSSLIntegrationTest.cert.ref)
+        let rc = CNIOBoringSSL_PEM_write_bio_X509(fileBio, NIOSSLIntegrationTest.cert.ref)
         CNIOBoringSSL_BIO_free(fileBio)
         precondition(rc == 1)
         return try fn(fileName)
@@ -665,7 +665,7 @@ class OpenSSLIntegrationTest: XCTestCase {
     func testImmediateCloseSatisfiesPromises() throws {
         let context = try configuredSSLContext()
         let channel = EmbeddedChannel()
-        try channel.pipeline.addHandler(OpenSSLClientHandler(context: context)).wait()
+        try channel.pipeline.addHandler(NIOSSLClientHandler(context: context)).wait()
 
         // Start by initiating the handshake.
         try channel.connect(to: SocketAddress(unixDomainSocketPath: "/tmp/doesntmatter")).wait()
@@ -711,7 +711,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         }.wait()
 
         // Now, add the TLS handler to the pipeline.
-        try clientChannel.pipeline.addHandler(OpenSSLClientHandler(context: context), position: .first).wait()
+        try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: context), position: .first).wait()
         var data = clientChannel.allocator.buffer(capacity: 1)
         data.writeStaticString("x")
         try clientChannel.writeAndFlush(data).wait()
@@ -741,7 +741,7 @@ class OpenSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
 
-        let errorHandler = ErrorCatcher<NIOOpenSSLError>()
+        let errorHandler = ErrorCatcher<NIOSSLError>()
         let clientChannel = try clientTLSChannel(context: clientCtx,
                                                  preHandlers: [],
                                                  postHandlers: [errorHandler],
@@ -751,7 +751,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
         originalBuffer.writeString("Hello")
         let writeFuture = clientChannel.writeAndFlush(originalBuffer)
-        let errorsFuture: EventLoopFuture<[NIOOpenSSLError]> = writeFuture.recover { (_: Error) in
+        let errorsFuture: EventLoopFuture<[NIOSSLError]> = writeFuture.recover { (_: Error) in
             // We're swallowing errors here, on purpose, because we'll definitely
             // hit them.
             return ()
@@ -762,7 +762,7 @@ class OpenSSLIntegrationTest: XCTestCase {
 
         // This write will have failed, but that's fine: we just want it as a signal that
         // the handshake is done so we can make our assertions.
-        let expectedErrors: [NIOOpenSSLError] = [NIOOpenSSLError.unableToValidateCertificate]
+        let expectedErrors: [NIOSSLError] = [NIOSSLError.unableToValidateCertificate]
 
         XCTAssertEqual(expectedErrors, actualErrors)
     }
@@ -812,8 +812,8 @@ class OpenSSLIntegrationTest: XCTestCase {
 
         let context = try configuredSSLContext()
 
-        try serverChannel.pipeline.addHandler(try OpenSSLServerHandler(context: context)).wait()
-        try clientChannel.pipeline.addHandler(try OpenSSLClientHandler(context: context)).wait()
+        try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait()
+        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context)).wait()
 
         let addr: SocketAddress = try SocketAddress(unixDomainSocketPath: "/tmp/whatever")
         let connectFuture = clientChannel.connect(to: addr)
@@ -843,7 +843,7 @@ class OpenSSLIntegrationTest: XCTestCase {
             XCTFail("Unexpected success")
         }.whenFailure { error in
             switch error {
-            case let e as OpenSSLError where e == .uncleanShutdown:
+            case let e as BoringSSLError where e == .uncleanShutdown:
                 break
             default:
                 XCTFail("Unexpected error: \(error)")
@@ -862,8 +862,8 @@ class OpenSSLIntegrationTest: XCTestCase {
         let config = try withTrustBundleInFile(tempFile: &tempFile) {
             return TLSConfiguration.forClient(certificateVerification: .noHostnameVerification,
                                               trustRoots: .file($0),
-                                              certificateChain: [.certificate(OpenSSLIntegrationTest.cert)],
-                                              privateKey: .privateKey(OpenSSLIntegrationTest.key))
+                                              certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+                                              privateKey: .privateKey(NIOSSLIntegrationTest.key))
         }
         defer {
             precondition(.some(0) == tempFile.map { unlink($0) }, "couldn't remove temp file \(tempFile.debugDescription)")
@@ -902,8 +902,8 @@ class OpenSSLIntegrationTest: XCTestCase {
         let serverCtx = try configuredSSLContext()
         let clientConfig = TLSConfiguration.forClient(certificateVerification: .noHostnameVerification,
                                                       trustRoots: .file("/tmp"),
-                                                      certificateChain: [.certificate(OpenSSLIntegrationTest.cert)],
-                                                      privateKey: .privateKey(OpenSSLIntegrationTest.key))
+                                                      certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+                                                      privateKey: .privateKey(NIOSSLIntegrationTest.key))
         let clientCtx = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
@@ -918,7 +918,7 @@ class OpenSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
 
-        let errorHandler = ErrorCatcher<NIOOpenSSLError>()
+        let errorHandler = ErrorCatcher<NIOSSLError>()
         let clientChannel = try clientTLSChannel(context: clientCtx,
                                                  preHandlers: [],
                                                  postHandlers: [errorHandler],
@@ -928,7 +928,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
         originalBuffer.writeString("Hello")
         let writeFuture = clientChannel.writeAndFlush(originalBuffer)
-        let errorsFuture: EventLoopFuture<[NIOOpenSSLError]> = writeFuture.recover { (_: Error) in
+        let errorsFuture: EventLoopFuture<[NIOSSLError]> = writeFuture.recover { (_: Error) in
             // We're swallowing errors here, on purpose, because we'll definitely
             // hit them.
             return ()
@@ -949,8 +949,8 @@ class OpenSSLIntegrationTest: XCTestCase {
 
         let context = try configuredSSLContext()
 
-        try serverChannel.pipeline.addHandler(try OpenSSLServerHandler(context: context)).wait()
-        try clientChannel.pipeline.addHandler(try OpenSSLClientHandler(context: context)).wait()
+        try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait()
+        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context)).wait()
 
         let addr = try SocketAddress(unixDomainSocketPath: "/tmp/whatever2")
         let connectFuture = clientChannel.connect(to: addr)
@@ -979,7 +979,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         do {
             try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
             XCTFail("Did not cause error")
-        } catch NIOOpenSSLError.readInInvalidTLSState {
+        } catch NIOSSLError.readInInvalidTLSState {
             // Nothing to do here.
         } catch {
             XCTFail("Encountered unexpected error: \(error)")
@@ -1038,8 +1038,8 @@ class OpenSSLIntegrationTest: XCTestCase {
 
         let context = try configuredSSLContext()
 
-        try serverChannel.pipeline.addHandler(try OpenSSLServerHandler(context: context)).wait()
-        try clientChannel.pipeline.addHandler(try OpenSSLClientHandler(context: context)).wait()
+        try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait()
+        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context)).wait()
 
         let addr = try SocketAddress(unixDomainSocketPath: "/tmp/whatever2")
         let connectFuture = clientChannel.connect(to: addr)
@@ -1124,9 +1124,9 @@ class OpenSSLIntegrationTest: XCTestCase {
 
         let completePromise: EventLoopPromise<ByteBuffer> = serverChannel.eventLoop.makePromise()
 
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(try OpenSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(ReadRecordingHandler(completePromise: completePromise)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(try OpenSSLClientHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context)).wait())
 
         // Connect
         let addr = try assertNoThrowWithValue(SocketAddress(unixDomainSocketPath: "/tmp/whatever2"))
@@ -1171,7 +1171,7 @@ class OpenSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
 
-        let errorHandler = ErrorCatcher<NIOOpenSSLError>()
+        let errorHandler = ErrorCatcher<NIOSSLError>()
         let clientChannel = try clientTLSChannel(context: try configuredClientContext(),
                                                  preHandlers: [],
                                                  postHandlers: [errorHandler],
@@ -1185,7 +1185,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
         originalBuffer.writeString("Hello")
         let writeFuture = clientChannel.writeAndFlush(originalBuffer)
-        let errorsFuture: EventLoopFuture<[NIOOpenSSLError]> = writeFuture.recover { (_: Error) in
+        let errorsFuture: EventLoopFuture<[NIOSSLError]> = writeFuture.recover { (_: Error) in
             // We're swallowing errors here, on purpose, because we'll definitely
             // hit them.
             return ()
@@ -1221,7 +1221,7 @@ class OpenSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
 
-        var certificates = [OpenSSLCertificate]()
+        var certificates = [NIOSSLCertificate]()
         let clientChannel = try clientTLSChannel(context: configuredClientContext(),
                                                  preHandlers: [],
                                                  postHandlers: [PromiseOnReadHandler(promise: completionPromise)],
@@ -1258,8 +1258,8 @@ class OpenSSLIntegrationTest: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(OpenSSLClientHandler(context: context)).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: context)).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
@@ -1297,8 +1297,8 @@ class OpenSSLIntegrationTest: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
@@ -1329,7 +1329,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         do {
             try clientChannel.writeInbound(buffer)
             XCTFail("Did not error")
-        } catch NIOOpenSSLError.shutdownFailed {
+        } catch NIOSSLError.shutdownFailed {
             // expected
         } catch {
             XCTFail("Unexpected error: \(error)")
@@ -1352,8 +1352,8 @@ class OpenSSLIntegrationTest: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())

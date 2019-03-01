@@ -16,15 +16,15 @@ import NIO
 import CNIOBoringSSL
 
 
-/// The OpenSSL entry point to write to the `ByteBufferBIO`. This thunk unwraps the user data
+/// The BoringSSL entry point to write to the `ByteBufferBIO`. This thunk unwraps the user data
 /// and then passes the call on to the specific BIO reference.
 ///
 /// This specific type signature is annoying (I'd rather have UnsafeRawPointer, and rather than a separate
-/// len I'd like a buffer pointer), but this interface is required because this is passed to an OpenSSL
+/// len I'd like a buffer pointer), but this interface is required because this is passed to an BoringSSL
 /// function pointer and so needs to be @convention(c).
-internal func openSSLBIOWriteFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafePointer<CChar>?, len: CInt) -> CInt {
+internal func boringSSLBIOWriteFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafePointer<CChar>?, len: CInt) -> CInt {
     guard let concreteBIO = bio, let concreteBuf = buf else {
-        preconditionFailure("Invalid pointers in openSSLBIOWriteFunc: bio: \(String(describing: bio)) buf: \(String(describing: buf))")
+        preconditionFailure("Invalid pointers in boringSSLBIOWriteFunc: bio: \(String(describing: bio)) buf: \(String(describing: buf))")
     }
 
     // This unwrap may fail if the user has dropped the ref to the ByteBufferBIO but still has
@@ -33,7 +33,7 @@ internal func openSSLBIOWriteFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafePo
         return -1
     }
 
-    // Begin by clearing retry flags. We do this at all OpenSSL entry points.
+    // Begin by clearing retry flags. We do this at all BoringSSL entry points.
     CNIOBoringSSL_BIO_clear_retry_flags(concreteBIO)
 
     // In the event a write of 0 bytes has been asked for, just return early, don't bother with the other work.
@@ -46,15 +46,15 @@ internal func openSSLBIOWriteFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafePo
     return swiftBIO.sslWrite(buffer: bufferPtr)
 }
 
-/// The OpenSSL entry point to read from the `ByteBufferBIO`. This thunk unwraps the user data
+/// The BoringSSL entry point to read from the `ByteBufferBIO`. This thunk unwraps the user data
 /// and then passes the call on to the specific BIO reference.
 ///
 /// This specific type signature is annoying (I'd rather have UnsafeRawPointer, and rather than a separate
-/// len I'd like a buffer pointer), but this interface is required because this is passed to an OpenSSL
+/// len I'd like a buffer pointer), but this interface is required because this is passed to an BoringSSL
 /// function pointer and so needs to be @convention(c).
-internal func openSSLBIOReadFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafeMutablePointer<CChar>?, len: CInt) -> CInt {
+internal func boringSSLBIOReadFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafeMutablePointer<CChar>?, len: CInt) -> CInt {
     guard let concreteBIO = bio, let concreteBuf = buf else {
-        preconditionFailure("Invalid pointers in openSSLBIOReadFunc: bio: \(String(describing: bio)) buf: \(String(describing: buf))")
+        preconditionFailure("Invalid pointers in boringSSLBIOReadFunc: bio: \(String(describing: bio)) buf: \(String(describing: buf))")
     }
 
     // This unwrap may fail if the user has dropped the ref to the ByteBufferBIO but still has
@@ -63,7 +63,7 @@ internal func openSSLBIOReadFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafeMut
         return -1
     }
 
-    // Begin by clearing retry flags. We do this at all OpenSSL entry points.
+    // Begin by clearing retry flags. We do this at all BoringSSL entry points.
     CNIOBoringSSL_BIO_clear_retry_flags(concreteBIO)
 
     // In the event a read for 0 bytes has been asked for, just return early, don't bother with the other work.
@@ -76,31 +76,31 @@ internal func openSSLBIOReadFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafeMut
     return swiftBIO.sslRead(buffer: bufferPtr)
 }
 
-/// The OpenSSL entry point for `puts`. This is a silly function, so we're just going to implement it
+/// The BoringSSL entry point for `puts`. This is a silly function, so we're just going to implement it
 /// in terms of write.
 ///
 /// This specific type signature is annoying (I'd rather have UnsafeRawPointer, and rather than a separate
-/// len I'd like a buffer pointer), but this interface is required because this is passed to an OpenSSL
+/// len I'd like a buffer pointer), but this interface is required because this is passed to an BoringSSL
 /// function pointer and so needs to be @convention(c).
-internal func openSSLBIOPutsFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafePointer<CChar>?) -> CInt {
+internal func boringSSLBIOPutsFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafePointer<CChar>?) -> CInt {
     guard let concreteBIO = bio, let concreteBuf = buf else {
-        preconditionFailure("Invalid pointers in openSSLBIOPutsFunc: bio: \(String(describing: bio)) buf: \(String(describing: buf))")
+        preconditionFailure("Invalid pointers in boringSSLBIOPutsFunc: bio: \(String(describing: bio)) buf: \(String(describing: buf))")
     }
-    return openSSLBIOWriteFunc(bio: concreteBIO, buf: concreteBuf, len: CInt(strlen(concreteBuf)))
+    return boringSSLBIOWriteFunc(bio: concreteBIO, buf: concreteBuf, len: CInt(strlen(concreteBuf)))
 }
 
-/// The OpenSSL entry point for `gets`. This is a *really* silly function and we can't implement it nicely
+/// The BoringSSL entry point for `gets`. This is a *really* silly function and we can't implement it nicely
 /// in terms of read, so we just refuse to support it.
 ///
 /// This specific type signature is annoying (I'd rather have UnsafeRawPointer, and rather than a separate
-/// len I'd like a buffer pointer), but this interface is required because this is passed to an OpenSSL
+/// len I'd like a buffer pointer), but this interface is required because this is passed to an BoringSSL
 /// function pointer and so needs to be @convention(c).
-internal func openSSLBIOGetsFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafeMutablePointer<CChar>?, len: CInt) -> CInt {
+internal func boringSSLBIOGetsFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafeMutablePointer<CChar>?, len: CInt) -> CInt {
     return -2
 }
 
-/// The OpenSSL entry point for `BIO_ctrl`. We don't support most of these.
-internal func openSSLBIOCtrlFunc(bio: UnsafeMutablePointer<BIO>?, cmd: CInt, larg: CLong, parg: UnsafeMutableRawPointer?) -> CLong {
+/// The BoringSSL entry point for `BIO_ctrl`. We don't support most of these.
+internal func boringSSLBIOCtrlFunc(bio: UnsafeMutablePointer<BIO>?, cmd: CInt, larg: CLong, parg: UnsafeMutableRawPointer?) -> CLong {
     switch cmd {
     case BIO_CTRL_GET_CLOSE:
         return CLong(CNIOBoringSSL_BIO_get_shutdown(bio))
@@ -114,20 +114,20 @@ internal func openSSLBIOCtrlFunc(bio: UnsafeMutablePointer<BIO>?, cmd: CInt, lar
     }
 }
 
-internal func openSSLBIOCreateFunc(bio: UnsafeMutablePointer<BIO>?) -> CInt {
+internal func boringSSLBIOCreateFunc(bio: UnsafeMutablePointer<BIO>?) -> CInt {
     return 1
 }
 
-internal func openSSLBIODestroyFunc(bio: UnsafeMutablePointer<BIO>?) -> CInt {
+internal func boringSSLBIODestroyFunc(bio: UnsafeMutablePointer<BIO>?) -> CInt {
     return 1
 }
 
 
-/// An OpenSSL BIO object that wraps `ByteBuffer` objects.
+/// An BoringSSL BIO object that wraps `ByteBuffer` objects.
 ///
-/// OpenSSL extensively uses an abstraction called `BIO` to manage its input and output
+/// BoringSSL extensively uses an abstraction called `BIO` to manage its input and output
 /// channels. For NIO we want a BIO that operates entirely in-memory, and it's tempting
-/// to assume that OpenSSL's `BIO_s_mem` is the best choice for that. However, ultimately
+/// to assume that BoringSSL's `BIO_s_mem` is the best choice for that. However, ultimately
 /// `BIO_s_mem` is a flat memory buffer that we end up using as a staging between one
 /// `ByteBuffer` of plaintext and one of ciphertext. We'd like to cut out that middleman.
 ///
@@ -142,8 +142,8 @@ final class ByteBufferBIO {
     /// and it will always be non-NULL. Failure to initialize this structure is fatal to
     /// the program.
     private static let boringSSLBIOMethod: UnsafeMutablePointer<BIO_METHOD> = {
-        guard openSSLIsInitialized else {
-            preconditionFailure("Failed to initialize OpenSSL")
+        guard boringSSLIsInitialized else {
+            preconditionFailure("Failed to initialize BoringSSL")
         }
 
         let bioType = CNIOBoringSSL_BIO_get_new_index() | BIO_TYPE_SOURCE_SINK
@@ -151,36 +151,36 @@ final class ByteBufferBIO {
             preconditionFailure("Unable to allocate new BIO_METHOD")
         }
 
-        CNIOBoringSSL_BIO_meth_set_write(method, openSSLBIOWriteFunc)
-        CNIOBoringSSL_BIO_meth_set_read(method, openSSLBIOReadFunc)
-        CNIOBoringSSL_BIO_meth_set_puts(method, openSSLBIOPutsFunc)
-        CNIOBoringSSL_BIO_meth_set_gets(method, openSSLBIOGetsFunc)
-        CNIOBoringSSL_BIO_meth_set_ctrl(method, openSSLBIOCtrlFunc)
-        CNIOBoringSSL_BIO_meth_set_create(method, openSSLBIOCreateFunc)
-        CNIOBoringSSL_BIO_meth_set_destroy(method, openSSLBIODestroyFunc)
+        CNIOBoringSSL_BIO_meth_set_write(method, boringSSLBIOWriteFunc)
+        CNIOBoringSSL_BIO_meth_set_read(method, boringSSLBIOReadFunc)
+        CNIOBoringSSL_BIO_meth_set_puts(method, boringSSLBIOPutsFunc)
+        CNIOBoringSSL_BIO_meth_set_gets(method, boringSSLBIOGetsFunc)
+        CNIOBoringSSL_BIO_meth_set_ctrl(method, boringSSLBIOCtrlFunc)
+        CNIOBoringSSL_BIO_meth_set_create(method, boringSSLBIOCreateFunc)
+        CNIOBoringSSL_BIO_meth_set_destroy(method, boringSSLBIODestroyFunc)
 
         return method
     }()
 
-    /// Pointer to the backing OpenSSL BIO object.
+    /// Pointer to the backing BoringSSL BIO object.
     ///
-    /// Generally speaking OpenSSL wants to own the object initialization logic for a BIO.
+    /// Generally speaking BoringSSL wants to own the object initialization logic for a BIO.
     /// This doesn't work for us, because we'd like to ensure that the `ByteBufferBIO` is
     /// correctly initialized with all the state it needs. One of those bits of state is
-    /// a `ByteBuffer`, which OpenSSL cannot give us, so we need to build our `ByteBufferBIO`
+    /// a `ByteBuffer`, which BoringSSL cannot give us, so we need to build our `ByteBufferBIO`
     /// *first* and then use that to drive `BIO` initialization.
     ///
     /// Because of this split initialization dance, we elect to initialize this data structure,
-    /// and have it own building an OpenSSL `BIO` structure.
+    /// and have it own building an BoringSSL `BIO` structure.
     private let bioPtr: UnsafeMutablePointer<BIO>
 
     /// The buffer of bytes received from the network.
     ///
-    /// By default, `ByteBufferBIO` expects to pass data directly to OpenSSL whenever it
+    /// By default, `ByteBufferBIO` expects to pass data directly to BoringSSL whenever it
     /// is received. It is, in essence, a temporary container for a `ByteBuffer` on the
     /// read side. This provides a powerful optimisation, which is that the read buffer
-    /// passed to the `OpenSSLHandler` can be re-used immediately upon receipt. Given that
-    /// the `OpenSSLHandler` is almost always the first handler in the pipeline, this greatly
+    /// passed to the `NIOSSLHandler` can be re-used immediately upon receipt. Given that
+    /// the `NIOSSLHandler` is almost always the first handler in the pipeline, this greatly
     /// improves the allocation profile of busy connections, which can more-easily re-use
     /// the receive buffer.
     private var inboundBuffer: ByteBuffer?
@@ -228,10 +228,10 @@ final class ByteBufferBIO {
         CNIOBoringSSL_BIO_free(self.bioPtr)
     }
 
-    /// Obtain an owned pointer to the backing OpenSSL BIO object.
+    /// Obtain an owned pointer to the backing BoringSSL BIO object.
     ///
     /// This pointer is safe to use elsewhere, as it has increased the reference to the backing
-    /// `BIO`. This makes it safe to use with OpenSSL functions that require an owned reference
+    /// `BIO`. This makes it safe to use with BoringSSL functions that require an owned reference
     /// (that is, that consume a reference count).
     ///
     /// Note that the BIO may not remain useful for long periods of time: if the `ByteBufferBIO`
@@ -243,7 +243,7 @@ final class ByteBufferBIO {
     }
 
 
-    /// Called to obtain the outbound ciphertext written by OpenSSL.
+    /// Called to obtain the outbound ciphertext written by BoringSSL.
     ///
     /// This function obtains a buffer of ciphertext that needs to be written to the network. In a
     /// normal application, this should be obtained on a call to `flush`. If no bytes have been flushed
@@ -265,21 +265,21 @@ final class ByteBufferBIO {
         return self.outboundBuffer
     }
 
-    /// Stores a buffer received from the network for delivery to OpenSSL.
+    /// Stores a buffer received from the network for delivery to BoringSSL.
     ///
     /// Whenever a buffer is received from the network, it is passed to the BIO via this function
-    /// call. Only one buffer may be passed to OpenSSL at any one time: once a buffer is passed, it
+    /// call. Only one buffer may be passed to BoringSSL at any one time: once a buffer is passed, it
     /// is expected to be cleared immediately. If it is not cleared, this is an application error and
     /// must be resolved.
     ///
     /// - parameters:
     ///     - buffer: The buffer of ciphertext bytes received from the network.
     func receiveFromNetwork(buffer: ByteBuffer) {
-        precondition(self.inboundBuffer == nil, "Did not flush inbound bytes to OpenSSL")
+        precondition(self.inboundBuffer == nil, "Did not flush inbound bytes to BoringSSL")
         self.inboundBuffer = buffer
     }
 
-    /// Retrieves any inbound data that has not been processed by OpenSSL.
+    /// Retrieves any inbound data that has not been processed by BoringSSL.
     ///
     /// When unwrapping TLS from a connection, there may be application bytes that follow the terminating
     /// CLOSE_NOTIFY message. Those bytes may be in the buffer passed to this BIO, and so we need to
@@ -296,9 +296,9 @@ final class ByteBufferBIO {
         return self.inboundBuffer
     }
 
-    /// OpenSSL has requested to read ciphertext bytes from the network.
+    /// BoringSSL has requested to read ciphertext bytes from the network.
     ///
-    /// This function is invoked whenever OpenSSL is looking to read data.
+    /// This function is invoked whenever BoringSSL is looking to read data.
     ///
     /// - parameters:
     ///     - buffer: The buffer for NIO to copy bytes into.
@@ -328,7 +328,7 @@ final class ByteBufferBIO {
         return CInt(bytesToCopy)
     }
 
-    /// OpenSSL has requested to write ciphertext bytes from the network.
+    /// BoringSSL has requested to write ciphertext bytes from the network.
     ///
     /// - parameters:
     ///     - buffer: The buffer for NIO to copy bytes from.

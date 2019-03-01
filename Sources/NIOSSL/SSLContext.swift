@@ -17,9 +17,9 @@ import CNIOBoringSSL
 import CNIOBoringSSLShims
 
 // This is a neat trick. Swift lazily initializes module-globals based on when they're first
-// used. This lets us defer OpenSSL intialization as late as possible and only do it if people
-// actually create any object that uses OpenSSL.
-internal var openSSLIsInitialized: Bool = initializeOpenSSL()
+// used. This lets us defer BoringSSL intialization as late as possible and only do it if people
+// actually create any object that uses BoringSSL.
+internal var boringSSLIsInitialized: Bool = initializeBoringSSL()
 
 internal enum FileSystemObject {
     case directory
@@ -41,7 +41,7 @@ internal enum FileSystemObject {
     }
 }
 
-// This bizarre extension to UnsafeBufferPointer is very useful for handling ALPN identifiers. OpenSSL
+// This bizarre extension to UnsafeBufferPointer is very useful for handling ALPN identifiers. BoringSSL
 // likes to work with them in wire format, so rather than us decoding them we can just encode ours to
 // the wire format and then work with them from there.
 private extension UnsafeBufferPointer where Element == UInt8 {
@@ -104,7 +104,7 @@ private func alpnCallback(ssl: OpaquePointer?,
     return SSL_TLSEXT_ERR_OK
 }
 
-/// A wrapper class that encapsulates OpenSSL's `SSL_CTX *` object.
+/// A wrapper class that encapsulates BoringSSL's `SSL_CTX *` object.
 ///
 /// This class represents configuration for a collection of TLS connections, all of
 /// which are expected to be broadly the same.
@@ -116,8 +116,8 @@ public final class NIOSSLContext {
     /// Initialize a context that will create multiple connections, all with the same
     /// configuration.
     internal init(configuration: TLSConfiguration, callbackManager: CallbackManagerProtocol?) throws {
-        guard openSSLIsInitialized else { fatalError("Failed to initialize OpenSSL") }
-        guard let context = CNIOBoringSSL_SSL_CTX_new(CNIOBoringSSL_TLS_method()) else { throw NIOOpenSSLError.unableToAllocateOpenSSLObject }
+        guard boringSSLIsInitialized else { fatalError("Failed to initialize BoringSSL") }
+        guard let context = CNIOBoringSSL_SSL_CTX_new(CNIOBoringSSL_TLS_method()) else { throw NIOSSLError.unableToAllocateBoringSSLObject }
 
         let minTLSVersion: Int32
         switch configuration.minimumTLSVersion {
@@ -149,7 +149,7 @@ public final class NIOSSLContext {
         returnCode = CNIOBoringSSL_SSL_CTX_set_max_proto_version(context, UInt16(maxTLSVersion))
         precondition(1 == returnCode)
 
-        // Cipher suites. We just pass this straight to OpenSSL.
+        // Cipher suites. We just pass this straight to BoringSSL.
         returnCode = CNIOBoringSSL_SSL_CTX_set_cipher_list(context, configuration.cipherSuites)
         precondition(1 == returnCode)
 
@@ -161,7 +161,7 @@ public final class NIOSSLContext {
         // If we were given a certificate chain to use, load it and its associated private key. Before
         // we do, set up a passphrase callback if we need to.
         if let callbackManager = callbackManager {
-            CNIOBoringSSL_SSL_CTX_set_default_passwd_cb(context, globalOpenSSLPassphraseCallback(buf:size:rwflag:u:))
+            CNIOBoringSSL_SSL_CTX_set_default_passwd_cb(context, globalBoringSSLPassphraseCallback(buf:size:rwflag:u:))
             CNIOBoringSSL_SSL_CTX_set_default_passwd_cb_userdata(context, Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
         }
 
@@ -219,10 +219,10 @@ public final class NIOSSLContext {
     ///         `NIOSSLContext`.
     ///     - passphraseCallback: The callback to use to decrypt any private keys used by this
     ///         `NIOSSLContext`. For more details on this parameter see the documentation for
-    ///         `OpenSSLPassphraseCallback`.
+    ///         `NIOSSLPassphraseCallback`.
     public convenience init<T: Collection>(configuration: TLSConfiguration,
-                                           passphraseCallback: @escaping OpenSSLPassphraseCallback<T>) throws where T.Element == UInt8 {
-        let manager = OpenSSLPassphraseCallbackManager(userCallback: passphraseCallback)
+                                           passphraseCallback: @escaping NIOSSLPassphraseCallback<T>) throws where T.Element == UInt8 {
+        let manager = BoringSSLPassphraseCallbackManager(userCallback: passphraseCallback)
         try self.init(configuration: configuration, callbackManager: manager)
     }
 
@@ -264,22 +264,22 @@ extension NIOSSLContext {
         precondition(result == 1)
     }
 
-    private static func setLeafCertificate(_ cert: OpenSSLCertificate, context: OpaquePointer) throws {
+    private static func setLeafCertificate(_ cert: NIOSSLCertificate, context: OpaquePointer) throws {
         let rc = CNIOBoringSSL_SSL_CTX_use_certificate(context, cert.ref)
         guard rc == 1 else {
-            throw NIOOpenSSLError.failedToLoadCertificate
+            throw NIOSSLError.failedToLoadCertificate
         }
     }
     
-    private static func addAdditionalChainCertificate(_ cert: OpenSSLCertificate, context: OpaquePointer) throws {
+    private static func addAdditionalChainCertificate(_ cert: NIOSSLCertificate, context: OpaquePointer) throws {
         guard 1 == CNIOBoringSSL_SSL_CTX_add1_chain_cert(context, cert.ref) else {
-            throw NIOOpenSSLError.failedToLoadCertificate
+            throw NIOSSLError.failedToLoadCertificate
         }
     }
     
-    private static func setPrivateKey(_ key: OpenSSLPrivateKey, context: OpaquePointer) throws {
+    private static func setPrivateKey(_ key: NIOSSLPrivateKey, context: OpaquePointer) throws {
         guard 1 == CNIOBoringSSL_SSL_CTX_use_PrivateKey(context, key.ref) else {
-            throw NIOOpenSSLError.failedToLoadPrivateKey
+            throw NIOSSLError.failedToLoadPrivateKey
         }
     }
 
@@ -315,8 +315,8 @@ extension NIOSSLContext {
 
         // Annoyingly this function reverses the error convention: 0 is success, non-zero is failure.
         if rc != 0 {
-            let errorStack = OpenSSLError.buildErrorStack()
-            throw OpenSSLError.failedToSetALPN(errorStack)
+            let errorStack = BoringSSLError.buildErrorStack()
+            throw BoringSSLError.failedToSetALPN(errorStack)
         }
     }
 
@@ -332,7 +332,7 @@ extension NIOSSLContext {
 
 // Configuring certificate verification
 extension NIOSSLContext {
-    private static func configureCertificateValidation(context: OpaquePointer, verification: CertificateVerification, trustRoots: OpenSSLTrustRoots?) throws {
+    private static func configureCertificateValidation(context: OpaquePointer, verification: CertificateVerification, trustRoots: NIOSSLTrustRoots?) throws {
         // If validation is turned on, set the trust roots and turn on cert validation.
         switch verification {
         case .fullVerification, .noHostnameVerification:
@@ -359,7 +359,7 @@ extension NIOSSLContext {
         case .some(.file):
             isDirectory = false
         case .none:
-            throw NIOOpenSSLError.noSuchFilesystemObject
+            throw NIOSSLError.noSuchFilesystemObject
         }
 
         let result = path.withCString { (pointer) -> Int32 in
@@ -369,15 +369,15 @@ extension NIOSSLContext {
         }
 
         if result == 0 {
-            let errorStack = OpenSSLError.buildErrorStack()
-            throw OpenSSLError.unknownError(errorStack)
+            let errorStack = BoringSSLError.buildErrorStack()
+            throw BoringSSLError.unknownError(errorStack)
         }
     }
 
-    private static func addRootCertificate(_ cert: OpenSSLCertificate, context: OpaquePointer) throws {
+    private static func addRootCertificate(_ cert: NIOSSLCertificate, context: OpaquePointer) throws {
         let store = CNIOBoringSSL_SSL_CTX_get_cert_store(context)!
         if 0 == CNIOBoringSSL_X509_STORE_add_cert(store, cert.ref) {
-            throw NIOOpenSSLError.failedToLoadCertificate
+            throw NIOSSLError.failedToLoadCertificate
         }
     }
 
@@ -393,8 +393,8 @@ extension NIOSSLContext {
         }
 
         if result == 0 {
-            let errorStack = OpenSSLError.buildErrorStack()
-            throw OpenSSLError.unknownError(errorStack)
+            let errorStack = BoringSSLError.buildErrorStack()
+            throw BoringSSLError.unknownError(errorStack)
         }
         #endif
     }

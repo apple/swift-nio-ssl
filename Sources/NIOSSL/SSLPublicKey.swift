@@ -14,13 +14,13 @@
 
 import CNIOBoringSSL
 
-/// An `OpenSSLPublicKey` is an abstract handle to a public key owned by OpenSSL.
+/// An `NIOSSLPublicKey` is an abstract handle to a public key owned by BoringSSL.
 ///
 /// This object is of minimal utility, as it cannot be used for very many operations
-/// in `NIOOpenSSL`. Its primary purpose is to allow extracting public keys from
-/// `OpenSSLCertificate` objects to be serialized, so that they can be passed to
+/// in `NIOSSL`. Its primary purpose is to allow extracting public keys from
+/// `NIOSSLCertificate` objects to be serialized, so that they can be passed to
 /// general-purpose cryptography libraries.
-public class OpenSSLPublicKey {
+public class NIOSSLPublicKey {
     private let ref: UnsafeMutablePointer<EVP_PKEY>
 
     fileprivate init(withOwnedReference ref: UnsafeMutablePointer<EVP_PKEY>) {
@@ -33,20 +33,20 @@ public class OpenSSLPublicKey {
 }
 
 // MARK:- Helpful initializers
-extension OpenSSLPublicKey {
-    /// Create an `OpenSSLPublicKey` object from an internal `EVP_PKEY` pointer.
+extension NIOSSLPublicKey {
+    /// Create an `NIOSSLPublicKey` object from an internal `EVP_PKEY` pointer.
     ///
     /// This method expects `pointer` to be passed at +1, and consumes that reference.
     ///
     /// - parameters:
     ///    - pointer: A pointer to an `EVP_PKEY` structure containing the public key.
-    /// - returns: An `OpenSSLPublicKey` wrapping the pointer.
-    internal static func fromInternalPointer(takingOwnership pointer: UnsafeMutablePointer<EVP_PKEY>) -> OpenSSLPublicKey {
-        return OpenSSLPublicKey(withOwnedReference: pointer)
+    /// - returns: An `NIOSSLPublicKey` wrapping the pointer.
+    internal static func fromInternalPointer(takingOwnership pointer: UnsafeMutablePointer<EVP_PKEY>) -> NIOSSLPublicKey {
+        return NIOSSLPublicKey(withOwnedReference: pointer)
     }
 }
 
-extension OpenSSLPublicKey {
+extension NIOSSLPublicKey {
     /// Extracts the bytes of this public key in the SubjectPublicKeyInfo format.
     ///
     /// The SubjectPublicKeyInfo format is defined in RFC 5280. In addition to the raw key bytes, it also
@@ -56,7 +56,7 @@ extension OpenSSLPublicKey {
     /// - throws: If an error occurred while serializing the key.
     public func toSPKIBytes() throws -> [UInt8] {
         guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_mem()) else {
-            throw NIOOpenSSLError.unableToAllocateOpenSSLObject
+            throw NIOSSLError.unableToAllocateBoringSSLObject
         }
 
         defer {
@@ -65,15 +65,15 @@ extension OpenSSLPublicKey {
 
         let rc = CNIOBoringSSL_i2d_PUBKEY_bio(bio, self.ref)
         guard rc == 1 else {
-            let errorStack = OpenSSLError.buildErrorStack()
-            throw OpenSSLError.unknownError(errorStack)
+            let errorStack = BoringSSLError.buildErrorStack()
+            throw BoringSSLError.unknownError(errorStack)
         }
 
         var dataPtr: UnsafeMutablePointer<CChar>? = nil
         let length = CNIOBoringSSL_BIO_get_mem_data(bio, &dataPtr)
 
         guard let bytes = dataPtr.map({ UnsafeMutableRawBufferPointer(start: $0, count: length) }) else {
-            throw NIOOpenSSLError.unableToAllocateOpenSSLObject
+            throw NIOSSLError.unableToAllocateBoringSSLObject
         }
 
         return Array(bytes)

@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftNIO open source project
 //
-// Copyright (c) 2019 Apple Inc. and the SwiftNIO project authors
+// Copyright (c) 2017-2018 Apple Inc. and the SwiftNIO project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -12,16 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
-import NIO
-@testable import NIOOpenSSL
+import CNIOBoringSSL
 
-final class CertificateVerificationTests: XCTestCase {
-    func testCanFindCAFileOnLinux() {
-        // This test only runs on Linux
-        #if os(Linux)
-            // A valid Linux system means we can find a CA file.
-            XCTAssertNotNil(rootCAFilePath)
-        #endif
-    }
+/// Initialize BoringSSL. Note that this function IS NOT THREAD SAFE, and so must be called inside
+/// either an explicit or implicit dispatch_once.
+func initializeBoringSSL() -> Bool {
+    CNIOBoringSSL_CRYPTO_library_init()
+    return true
 }

@@ -14,7 +14,7 @@
 
 import XCTest
 import NIO
-@testable import NIOOpenSSL
+@testable import NIOSSL
 
 /// This cert contains the following SAN fields:
 /// DNS:*.wildcard.example.com - A straightforward wildcard, should be accepted
@@ -72,7 +72,7 @@ func ipv6Supported() throws -> Bool {
 
 class IdentityVerificationTest: XCTestCase {
     func testCanValidateHostnameInFirstSan() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "localhost",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -80,7 +80,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testCanValidateHostnameInSecondSan() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -88,7 +88,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testIgnoresTrailingPeriod() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "example.com.",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -96,7 +96,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testLowercasesHostnameForSan() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "LoCaLhOsT",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -104,7 +104,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testRejectsIncorrectHostname() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "httpbin.org",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -112,7 +112,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testAcceptsIpv4Address() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: nil,
                                                   socketAddress: try .makeAddressResolvingHost("192.168.0.1", port: 443),
                                                   leafCertificate: cert)
@@ -124,7 +124,7 @@ class IdentityVerificationTest: XCTestCase {
         guard try ipv6Supported() else { return }
         let ipv6Address = try SocketAddress.makeAddressResolvingHost("2001:db8::1", port: 443)
 
-        let cert = try OpenSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: nil,
                                                   socketAddress: ipv6Address,
                                                   leafCertificate: cert)
@@ -132,7 +132,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testRejectsIncorrectIpv4Address() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: nil,
                                                   socketAddress: try .makeAddressResolvingHost("192.168.0.2", port: 443),
                                                   leafCertificate: cert)
@@ -143,7 +143,7 @@ class IdentityVerificationTest: XCTestCase {
         guard try ipv6Supported() else { return }
         let ipv6Address = try SocketAddress.makeAddressResolvingHost("2001:db8::2", port: 443)
 
-        let cert = try OpenSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: nil,
                                                   socketAddress: ipv6Address,
                                                   leafCertificate: cert)
@@ -151,7 +151,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testAcceptsWildcards() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "this.wildcard.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -159,7 +159,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testAcceptsSuffixWildcard() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "foo.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -167,7 +167,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testAcceptsPrefixWildcard() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "bar.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -175,7 +175,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testAcceptsInfixWildcard() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "baz.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -183,7 +183,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testIgnoresTrailingPeriodInCert() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "trailing.period.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -191,12 +191,12 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testRejectsEncodedIDNALabel() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
         do {
             _ = try validIdentityForService(serverHostname: "straße.unicode.example.com",
                                             socketAddress: try .init(unixDomainSocketPath: "/path"),
                                             leafCertificate: cert)
-        } catch NIOOpenSSLError.cannotMatchULabel {
+        } catch NIOSSLError.cannotMatchULabel {
             return
         }
 
@@ -204,7 +204,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testMatchesUnencodedIDNALabel() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "xn--strae-oqa.unicode.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -212,7 +212,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testDoesNotMatchIDNALabelWithWildcard() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "xn--xx-gia.unicode.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -220,7 +220,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testDoesNotMatchNonLeftmostWildcards() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "weirdwildcard.nomatch.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -228,7 +228,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testDoesNotMatchMultipleWildcards() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "one.two.double.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -236,12 +236,12 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testRejectsWildcardBeforeUnencodedIDNALabel() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
         do {
             _ = try validIdentityForService(serverHostname: "foo.straße.example.com",
                                             socketAddress: try .init(unixDomainSocketPath: "/path"),
                                             leafCertificate: cert)
-        } catch NIOOpenSSLError.cannotMatchULabel {
+        } catch NIOSSLError.cannotMatchULabel {
             return
         }
 
@@ -249,7 +249,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testMatchesWildcardBeforeEncodedIDNALabel() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "foo.xn--strae-oqa.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -257,7 +257,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testDoesNotMatchSANWithEmbeddedNULL() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "nul\u{0000}l.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -265,7 +265,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testFallsBackToCommonName() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](multiCNCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](multiCNCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "localhost",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -273,7 +273,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testLowercasesForCommonName() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](multiCNCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](multiCNCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "LoCaLhOsT",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -281,12 +281,12 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testRejectsUnicodeCommonNameWithUnencodedIDNALabel() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](unicodeCNCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](unicodeCNCert.utf8CString), format: .pem)
         do {
             _ = try validIdentityForService(serverHostname: "straße.org",
                                             socketAddress: try .init(unixDomainSocketPath: "/path"),
                                             leafCertificate: cert)
-        } catch NIOOpenSSLError.cannotMatchULabel {
+        } catch NIOSSLError.cannotMatchULabel {
             return
         }
 
@@ -294,7 +294,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testRejectsUnicodeCommonNameWithEncodedIDNALabel() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](unicodeCNCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](unicodeCNCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "xn--strae-oqa.org",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -302,7 +302,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testHandlesMissingCommonName() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](noCNCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](noCNCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "localhost",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)
@@ -310,7 +310,7 @@ class IdentityVerificationTest: XCTestCase {
     }
 
     func testDoesNotFallBackToCNWithSans() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](weirdoPEMCert.utf8CString), format: .pem)
         let matched = try validIdentityForService(serverHostname: "httpbin.org",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
                                                   leafCertificate: cert)

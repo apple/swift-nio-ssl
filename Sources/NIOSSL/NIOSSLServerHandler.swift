@@ -14,14 +14,13 @@
 
 import NIO
 
-/// A channel handler that wraps a channel in TLS using OpenSSL, or an
-/// OpenSSL-compatible library. This handler can be used in channels that
-/// are acting as the server in the TLS dialog. For client connections,
-/// use the `OpenSSLClientHandler`.
-public final class OpenSSLServerHandler: OpenSSLHandler {
-    public init(context: NIOSSLContext, verificationCallback: OpenSSLVerificationCallback? = nil) throws {
+/// A channel handler that wraps a channel in TLS using NIOSSL. This
+/// handler can be used in channels that are acting as the server in
+/// the TLS dialog. For client connections, use the `NIOSSLClientHandler`.
+public final class NIOSSLServerHandler: NIOSSLHandler {
+    public init(context: NIOSSLContext, verificationCallback: NIOSSLVerificationCallback? = nil) throws {
         guard let connection = context.createConnection() else {
-            throw NIOOpenSSLError.unableToAllocateOpenSSLObject
+            throw NIOSSLError.unableToAllocateBoringSSLObject
         }
 
         connection.setAcceptState()
