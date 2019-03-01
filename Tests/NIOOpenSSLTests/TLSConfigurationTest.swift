@@ -78,8 +78,8 @@ class TLSConfigurationTest: XCTestCase {
                               errorTextContainsAnyOf messages: [String],
                               file: StaticString = #file,
                               line: UInt = #line) throws {
-        let clientContext = try assertNoThrowWithValue(SSLContext(configuration: clientConfig), file: file, line: line)
-        let serverContext = try assertNoThrowWithValue(SSLContext(configuration: serverConfig), file: file, line: line)
+        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig), file: file, line: line)
+        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig), file: file, line: line)
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
@@ -113,8 +113,8 @@ class TLSConfigurationTest: XCTestCase {
                                   errorTextContains message: String,
                                   file: StaticString = #file,
                                   line: UInt = #line) throws {
-        let clientContext = try assertNoThrowWithValue(SSLContext(configuration: clientConfig), file: file, line: line)
-        let serverContext = try assertNoThrowWithValue(SSLContext(configuration: serverConfig), file: file, line: line)
+        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig), file: file, line: line)
+        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig), file: file, line: line)
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
@@ -213,8 +213,8 @@ class TLSConfigurationTest: XCTestCase {
                                                       certificateVerification: .noHostnameVerification,
                                                       trustRoots: .certificates([TLSConfigurationTest.cert2]))
 
-        let clientContext = try SSLContext(configuration: clientConfig)
-        let serverContext = try SSLContext(configuration: serverConfig)
+        let clientContext = try NIOSSLContext(configuration: clientConfig)
+        let serverContext = try NIOSSLContext(configuration: serverConfig)
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
@@ -250,7 +250,7 @@ class TLSConfigurationTest: XCTestCase {
         let clientConfig = TLSConfiguration.forClient(trustRoots: .file("/thispathbetternotexist/bogus.foo"))
 
         do {
-            _ = try SSLContext(configuration: clientConfig)
+            _ = try NIOSSLContext(configuration: clientConfig)
             XCTFail("Did not throw")
         } catch NIOOpenSSLError.noSuchFilesystemObject {
             // This is fine

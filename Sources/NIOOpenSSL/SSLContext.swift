@@ -90,7 +90,7 @@ private func alpnCallback(ssl: OpaquePointer?,
     // We want to take the SSL pointer and extract the parent Swift object.
     let parentCtx = CNIOBoringSSL_SSL_get_SSL_CTX(ssl)!
     let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
-    let parentSwiftContext: SSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
+    let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
 
     let offeredProtocols = UnsafeBufferPointer(start: `in`, count: Int(inlen))
     guard let (index, length) = parentSwiftContext.alpnSelectCallback(offeredProtocols: offeredProtocols) else {
@@ -108,7 +108,7 @@ private func alpnCallback(ssl: OpaquePointer?,
 ///
 /// This class represents configuration for a collection of TLS connections, all of
 /// which are expected to be broadly the same.
-public final class SSLContext {
+public final class NIOSSLContext {
     private let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
     internal let configuration: TLSConfiguration
@@ -154,7 +154,7 @@ public final class SSLContext {
         precondition(1 == returnCode)
 
         // Configure certificate validation
-        try SSLContext.configureCertificateValidation(context: context,
+        try NIOSSLContext.configureCertificateValidation(context: context,
                                                       verification: configuration.certificateVerification,
                                                       trustRoots: configuration.trustRoots)
 
@@ -169,14 +169,14 @@ public final class SSLContext {
         try configuration.certificateChain.forEach {
             switch $0 {
             case .file(let p):
-                SSLContext.useCertificateChainFile(p, context: context)
+                NIOSSLContext.useCertificateChainFile(p, context: context)
                 leaf = false
             case .certificate(let cert):
                 if leaf {
-                    try SSLContext.setLeafCertificate(cert, context: context)
+                    try NIOSSLContext.setLeafCertificate(cert, context: context)
                     leaf = false
                 } else {
-                    try SSLContext.addAdditionalChainCertificate(cert, context: context)
+                    try NIOSSLContext.addAdditionalChainCertificate(cert, context: context)
                 }
             }
         }
@@ -184,15 +184,15 @@ public final class SSLContext {
         if let pkey = configuration.privateKey {
             switch pkey {
             case .file(let p):
-                SSLContext.usePrivateKeyFile(p, context: context)
+                NIOSSLContext.usePrivateKeyFile(p, context: context)
             case .privateKey(let key):
-                try SSLContext.setPrivateKey(key, context: context)
+                try NIOSSLContext.setPrivateKey(key, context: context)
             }
         }
 
         if configuration.applicationProtocols.count > 0 {
-            try SSLContext.setAlpnProtocols(configuration.encodedApplicationProtocols, context: context)
-            SSLContext.setAlpnCallback(context: context)
+            try NIOSSLContext.setAlpnProtocols(configuration.encodedApplicationProtocols, context: context)
+            NIOSSLContext.setAlpnCallback(context: context)
         }
 
         self.sslContext = context
@@ -216,9 +216,9 @@ public final class SSLContext {
     ///
     /// - parameters:
     ///     - configuration: The `TLSConfiguration` to use for all the connections with this
-    ///         `SSLContext`.
+    ///         `NIOSSLContext`.
     ///     - passphraseCallback: The callback to use to decrypt any private keys used by this
-    ///         `SSLContext`. For more details on this parameter see the documentation for
+    ///         `NIOSSLContext`. For more details on this parameter see the documentation for
     ///         `OpenSSLPassphraseCallback`.
     public convenience init<T: Collection>(configuration: TLSConfiguration,
                                            passphraseCallback: @escaping OpenSSLPassphraseCallback<T>) throws where T.Element == UInt8 {
@@ -252,7 +252,7 @@ public final class SSLContext {
 }
 
 
-extension SSLContext {
+extension NIOSSLContext {
     private static func useCertificateChainFile(_ path: String, context: OpaquePointer) {
         // TODO(cory): This shouldn't be an assert but should instead be actual error handling.
         // assert(path.isFileURL)
@@ -331,7 +331,7 @@ extension SSLContext {
 
 
 // Configuring certificate verification
-extension SSLContext {
+extension NIOSSLContext {
     private static func configureCertificateValidation(context: OpaquePointer, verification: CertificateVerification, trustRoots: OpenSSLTrustRoots?) throws {
         // If validation is turned on, set the trust roots and turn on cert validation.
         switch verification {
@@ -340,11 +340,11 @@ extension SSLContext {
 
             switch trustRoots {
             case .some(.default), .none:
-                try SSLContext.platformDefaultConfiguration(context: context)
+                try NIOSSLContext.platformDefaultConfiguration(context: context)
             case .some(.file(let f)):
-                try SSLContext.loadVerifyLocations(f, context: context)
+                try NIOSSLContext.loadVerifyLocations(f, context: context)
             case .some(.certificates(let certs)):
-                try certs.forEach { try SSLContext.addRootCertificate($0, context: context) }
+                try certs.forEach { try NIOSSLContext.addRootCertificate($0, context: context) }
             }
         default:
             break

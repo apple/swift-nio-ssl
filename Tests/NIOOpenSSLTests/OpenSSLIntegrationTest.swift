@@ -248,7 +248,7 @@ private class WriteDelayHandler: ChannelOutboundHandler {
     }
 }
 
-internal func serverTLSChannel(context: NIOOpenSSL.SSLContext,
+internal func serverTLSChannel(context: NIOOpenSSL.NIOSSLContext,
                                handlers: [ChannelHandler],
                                group: EventLoopGroup,
                                file: StaticString = #file,
@@ -262,7 +262,7 @@ internal func serverTLSChannel(context: NIOOpenSSL.SSLContext,
                                       file: file, line: line)
 }
 
-internal func serverTLSChannel(context: NIOOpenSSL.SSLContext,
+internal func serverTLSChannel(context: NIOOpenSSL.NIOSSLContext,
                                preHandlers: [ChannelHandler],
                                postHandlers: [ChannelHandler],
                                group: EventLoopGroup,
@@ -283,7 +283,7 @@ internal func serverTLSChannel(context: NIOOpenSSL.SSLContext,
         }.bind(host: "127.0.0.1", port: 0).wait(), file: file, line: line)
 }
 
-internal func clientTLSChannel(context: NIOOpenSSL.SSLContext,
+internal func clientTLSChannel(context: NIOOpenSSL.NIOSSLContext,
                                preHandlers: [ChannelHandler],
                                postHandlers: [ChannelHandler],
                                group: EventLoopGroup,
@@ -324,25 +324,25 @@ class OpenSSLIntegrationTest: XCTestCase {
         _ = unlink(OpenSSLIntegrationTest.encryptedKeyPath)
     }
     
-    private func configuredSSLContext(file: StaticString = #file, line: UInt = #line) throws -> NIOOpenSSL.SSLContext {
+    private func configuredSSLContext(file: StaticString = #file, line: UInt = #line) throws -> NIOOpenSSL.NIOSSLContext {
         let config = TLSConfiguration.forServer(certificateChain: [.certificate(OpenSSLIntegrationTest.cert)],
                                                 privateKey: .privateKey(OpenSSLIntegrationTest.key),
                                                 trustRoots: .certificates([OpenSSLIntegrationTest.cert]))
-        return try assertNoThrowWithValue(SSLContext(configuration: config), file: file, line: line)
+        return try assertNoThrowWithValue(NIOSSLContext(configuration: config), file: file, line: line)
     }
 
     private func configuredSSLContext<T: Collection>(passphraseCallback: @escaping OpenSSLPassphraseCallback<T>,
-                                                     file: StaticString = #file, line: UInt = #line) throws -> NIOOpenSSL.SSLContext
+                                                     file: StaticString = #file, line: UInt = #line) throws -> NIOOpenSSL.NIOSSLContext
                                                      where T.Element == UInt8 {
         let config = TLSConfiguration.forServer(certificateChain: [.certificate(OpenSSLIntegrationTest.cert)],
                                                 privateKey: .file(OpenSSLIntegrationTest.encryptedKeyPath),
                                                 trustRoots: .certificates([OpenSSLIntegrationTest.cert]))
-        return try assertNoThrowWithValue(SSLContext(configuration: config, passphraseCallback: passphraseCallback), file: file, line: line)
+        return try assertNoThrowWithValue(NIOSSLContext(configuration: config, passphraseCallback: passphraseCallback), file: file, line: line)
     }
 
-    private func configuredClientContext(file: StaticString = #file, line: UInt = #line) throws -> NIOOpenSSL.SSLContext {
+    private func configuredClientContext(file: StaticString = #file, line: UInt = #line) throws -> NIOOpenSSL.NIOSSLContext {
         let config = TLSConfiguration.forClient(trustRoots: .certificates([OpenSSLIntegrationTest.cert]))
-        return try assertNoThrowWithValue(SSLContext(configuration: config), file: file, line: line)
+        return try assertNoThrowWithValue(NIOSSLContext(configuration: config), file: file, line: line)
     }
 
     static func keyInFile(key: OpenSSLPrivateKey, passphrase: String) -> String {
@@ -868,7 +868,7 @@ class OpenSSLIntegrationTest: XCTestCase {
         defer {
             precondition(.some(0) == tempFile.map { unlink($0) }, "couldn't remove temp file \(tempFile.debugDescription)")
         }
-        let clientCtx = try assertNoThrowWithValue(SSLContext(configuration: config))
+        let clientCtx = try assertNoThrowWithValue(NIOSSLContext(configuration: config))
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
@@ -904,7 +904,7 @@ class OpenSSLIntegrationTest: XCTestCase {
                                                       trustRoots: .file("/tmp"),
                                                       certificateChain: [.certificate(OpenSSLIntegrationTest.cert)],
                                                       privateKey: .privateKey(OpenSSLIntegrationTest.key))
-        let clientCtx = try assertNoThrowWithValue(SSLContext(configuration: clientConfig))
+        let clientCtx = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
