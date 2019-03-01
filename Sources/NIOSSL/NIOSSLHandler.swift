@@ -17,15 +17,15 @@ import CNIOBoringSSL
 import NIOTLS
 import _NIO1APIShims
 
-/// The base class for all OpenSSL handlers. This class cannot actually be instantiated by
+/// The base class for all NIOSSL handlers. This class cannot actually be instantiated by
 /// users directly: instead, users must select which mode they would like their handler to
 /// operate in, client or server.
 ///
 /// This class exists to deal with the reality that for almost the entirety of the lifetime
 /// of a TLS connection there is no meaningful distinction between a server and a client.
 /// For this reason almost the entirety of the implementation for the channel and server
-/// handlers in OpenSSL is shared, in the form of this parent class.
-public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, RemovableChannelHandler {
+/// handlers in NIOSSL is shared, in the form of this parent class.
+public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, RemovableChannelHandler {
     public typealias OutboundIn = ByteBuffer
     public typealias OutboundOut = ByteBuffer
     public typealias InboundIn = ByteBuffer
@@ -106,10 +106,10 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Rem
             let closePromise = self.closePromise
             self.closePromise = nil
 
-            shutdownPromise?.fail(OpenSSLError.uncleanShutdown)
-            closePromise?.fail(OpenSSLError.uncleanShutdown)
-            context.fireErrorCaught(OpenSSLError.uncleanShutdown)
-            discardBufferedWrites(reason: OpenSSLError.uncleanShutdown)
+            shutdownPromise?.fail(BoringSSLError.uncleanShutdown)
+            closePromise?.fail(BoringSSLError.uncleanShutdown)
+            context.fireErrorCaught(BoringSSLError.uncleanShutdown)
+            discardBufferedWrites(reason: BoringSSLError.uncleanShutdown)
         }
 
         context.fireChannelInactive()
@@ -132,8 +132,8 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Rem
         case .unwrapping:
             self.doShutdownStep(context: context)
         default:
-            context.fireErrorCaught(NIOOpenSSLError.readInInvalidTLSState)
-            channelClose(context: context, reason: NIOOpenSSLError.readInInvalidTLSState)
+            context.fireErrorCaught(NIOSSLError.readInInvalidTLSState)
+            channelClose(context: context, reason: NIOSSLError.readInInvalidTLSState)
         }
     }
     
@@ -199,7 +199,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Rem
     /// Attempt to perform another stage of the TLS handshake.
     ///
     /// A TLS connection has a multi-step handshake that requires at least two messages sent by each
-    /// peer. As a result, a handshake will never complete in a single call to OpenSSL. This method
+    /// peer. As a result, a handshake will never complete in a single call to BoringSSL. This method
     /// will call `doHandshake`, and will then attempt to write whatever data this generated to the
     /// network. If we are waiting on data from the remote peer, this method will do nothing.
     ///
@@ -224,7 +224,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Rem
             state = .active
             writeDataToNetwork(context: context, promise: nil)
             
-            // TODO(cory): This event should probably fire out of the OpenSSL info callback.
+            // TODO(cory): This event should probably fire out of the BoringSSL info callback.
             let negotiatedProtocol = connection.getAlpnProtocol()
             context.fireUserInboundEventTriggered(TLSUserEvent.handshakeCompleted(negotiatedProtocol: negotiatedProtocol))
             
@@ -236,9 +236,9 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Rem
         case .failed(let err):
             writeDataToNetwork(context: context, promise: nil)
             
-            // TODO(cory): This event should probably fire out of the OpenSSL info callback.
-            context.fireErrorCaught(NIOOpenSSLError.handshakeFailed(err))
-            channelClose(context: context, reason: NIOOpenSSLError.handshakeFailed(err))
+            // TODO(cory): This event should probably fire out of the BoringSSL info callback.
+            context.fireErrorCaught(NIOSSLError.handshakeFailed(err))
+            channelClose(context: context, reason: NIOSSLError.handshakeFailed(err))
         }
     }
 
@@ -273,7 +273,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Rem
             state = targetCompleteState
             writeDataToNetwork(context: context, promise: nil)
 
-            // TODO(cory): This should probably fire out of the OpenSSL info callback.
+            // TODO(cory): This should probably fire out of the BoringSSL info callback.
             context.fireUserInboundEventTriggered(TLSUserEvent.shutdownCompleted)
 
             switch targetCompleteState {
@@ -285,9 +285,9 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Rem
                 preconditionFailure("Cannot be in \(targetCompleteState) at this code point")
             }
         case .failed(let err):
-            // TODO(cory): This should probably fire out of the OpenSSL info callback.
-            context.fireErrorCaught(NIOOpenSSLError.shutdownFailed(err))
-            channelClose(context: context, reason: NIOOpenSSLError.shutdownFailed(err))
+            // TODO(cory): This should probably fire out of the BoringSSL info callback.
+            context.fireErrorCaught(NIOSSLError.shutdownFailed(err))
+            channelClose(context: context, reason: NIOSSLError.shutdownFailed(err))
         }
     }
 
@@ -325,7 +325,7 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Rem
                 self.plaintextReadBuffer = receiveBuffer
                 break readLoop
 
-            case .failed(OpenSSLError.zeroReturn):
+            case .failed(BoringSSLError.zeroReturn):
                 switch self.state {
                 case .idle, .closed, .unwrapped, .handshaking:
                     preconditionFailure("Should not get zeroReturn in \(self.state)")
@@ -466,25 +466,25 @@ public class OpenSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Rem
         // If there is no remote address, something weird is happening here. We can't
         // validate a certificate without it, so bail.
         guard let ipAddress = context.channel.remoteAddress else {
-            throw NIOOpenSSLError.cannotFindPeerIP
+            throw NIOSSLError.cannotFindPeerIP
         }
 
         // We want the leaf certificate.
         guard let peerCert = connection.getPeerCertificate() else {
-            throw NIOOpenSSLError.noCertificateToValidate
+            throw NIOSSLError.noCertificateToValidate
         }
 
         guard try validIdentityForService(serverHostname: expectedHostname,
                                          socketAddress: ipAddress,
                                          leafCertificate: peerCert) else {
-            throw NIOOpenSSLError.unableToValidateCertificate
+            throw NIOSSLError.unableToValidateCertificate
         }
     }
 }
 
 
 // MARK:- Extension APIs for users.
-extension OpenSSLHandler {
+extension NIOSSLHandler {
     /// Called to instruct this handler to perform an orderly TLS shutdown and then remove itself
     /// from the pipeline. This will leave the connection established, but remove the TLS wrapper
     /// from it.
@@ -543,7 +543,7 @@ extension OpenSSLHandler {
 
 
 // MARK: Code that handles buffering/unbuffering writes.
-extension OpenSSLHandler {
+extension NIOSSLHandler {
     private typealias BufferedWrite = (data: ByteBuffer, promise: EventLoopPromise<Void>?)
 
     private func bufferWrite(data: ByteBuffer, promise: EventLoopPromise<Void>?) {
@@ -571,7 +571,7 @@ extension OpenSSLHandler {
         var promises: [EventLoopPromise<Void>] = []
         var didWrite = false
 
-        /// Given a byte buffer to encode, passes it to OpenSSL and handles the result.
+        /// Given a byte buffer to encode, passes it to BoringSSL and handles the result.
         func encodeWrite(buf: inout ByteBuffer, promise: EventLoopPromise<Void>?) throws -> Bool {
             let result = connection.writeDataToNetwork(&buf)
 
@@ -585,7 +585,7 @@ extension OpenSSLHandler {
                 return false
             case .failed(let err):
                 // Once a write fails, all writes must fail. This includes prior writes
-                // that successfully made it through OpenSSL.
+                // that successfully made it through BoringSSL.
                 throw err
             }
         }

@@ -15,7 +15,7 @@
 import Foundation
 import XCTest
 import NIO
-@testable import NIOOpenSSL
+@testable import NIOSSL
 
 let multiSanCert = """
 -----BEGIN CERTIFICATE-----
@@ -137,7 +137,7 @@ internal extension Data {
 class SSLCertificateTest: XCTestCase {
     static var pemCertFilePath: String! = nil
     static var derCertFilePath: String! = nil
-    static var dynamicallyGeneratedCert: OpenSSLCertificate! = nil
+    static var dynamicallyGeneratedCert: NIOSSLCertificate! = nil
 
     override class func setUp() {
         SSLCertificateTest.pemCertFilePath = try! dumpToFile(text: samplePemCert)
@@ -157,39 +157,39 @@ class SSLCertificateTest: XCTestCase {
     }
 
     func testLoadingPemCertFromFile() throws {
-        let cert1 = try OpenSSLCertificate(file: SSLCertificateTest.pemCertFilePath, format: .pem)
-        let cert2 = try OpenSSLCertificate(file: SSLCertificateTest.pemCertFilePath, format: .pem)
+        let cert1 = try NIOSSLCertificate(file: SSLCertificateTest.pemCertFilePath, format: .pem)
+        let cert2 = try NIOSSLCertificate(file: SSLCertificateTest.pemCertFilePath, format: .pem)
 
         XCTAssertEqual(cert1, cert2)
         XCTAssertNotEqual(cert1, SSLCertificateTest.dynamicallyGeneratedCert)
     }
 
     func testLoadingDerCertFromFile() throws {
-        let cert1 = try OpenSSLCertificate(file: SSLCertificateTest.derCertFilePath, format: .der)
-        let cert2 = try OpenSSLCertificate(file: SSLCertificateTest.derCertFilePath, format: .der)
+        let cert1 = try NIOSSLCertificate(file: SSLCertificateTest.derCertFilePath, format: .der)
+        let cert2 = try NIOSSLCertificate(file: SSLCertificateTest.derCertFilePath, format: .der)
 
         XCTAssertEqual(cert1, cert2)
         XCTAssertNotEqual(cert1, SSLCertificateTest.dynamicallyGeneratedCert)
     }
 
     func testDerAndPemAreIdentical() throws {
-        let cert1 = try OpenSSLCertificate(file: SSLCertificateTest.pemCertFilePath, format: .pem)
-        let cert2 = try OpenSSLCertificate(file: SSLCertificateTest.derCertFilePath, format: .der)
+        let cert1 = try NIOSSLCertificate(file: SSLCertificateTest.pemCertFilePath, format: .pem)
+        let cert2 = try NIOSSLCertificate(file: SSLCertificateTest.derCertFilePath, format: .der)
 
         XCTAssertEqual(cert1, cert2)
     }
 
     func testLoadingPemCertFromMemory() throws {
-        let cert1 = try OpenSSLCertificate(buffer: [Int8](samplePemCert.utf8CString), format: .pem)
-        let cert2 = try OpenSSLCertificate(buffer: [Int8](samplePemCert.utf8CString), format: .pem)
+        let cert1 = try NIOSSLCertificate(buffer: [Int8](samplePemCert.utf8CString), format: .pem)
+        let cert2 = try NIOSSLCertificate(buffer: [Int8](samplePemCert.utf8CString), format: .pem)
 
         XCTAssertEqual(cert1, cert2)
     }
 
     func testLoadingDerCertFromMemory() throws {
         let certBuffer = sampleDerCert.asArray()
-        let cert1 = try OpenSSLCertificate(buffer: certBuffer, format: .der)
-        let cert2 = try OpenSSLCertificate(buffer: certBuffer, format: .der)
+        let cert1 = try NIOSSLCertificate(buffer: certBuffer, format: .der)
+        let cert2 = try NIOSSLCertificate(buffer: certBuffer, format: .der)
 
         XCTAssertEqual(cert1, cert2)
     }
@@ -198,9 +198,9 @@ class SSLCertificateTest: XCTestCase {
         let keyBuffer: [Int8] = [1, 2, 3]
 
         do {
-            _ = try OpenSSLCertificate(buffer: keyBuffer, format: .pem)
+            _ = try NIOSSLCertificate(buffer: keyBuffer, format: .pem)
             XCTFail("Gibberish successfully loaded")
-        } catch NIOOpenSSLError.failedToLoadCertificate {
+        } catch NIOSSLError.failedToLoadCertificate {
             // Do nothing.
         }
     }
@@ -209,9 +209,9 @@ class SSLCertificateTest: XCTestCase {
         let keyBuffer: [Int8] = [1, 2, 3]
 
         do {
-            _ = try OpenSSLCertificate(buffer: keyBuffer, format: .der)
+            _ = try NIOSSLCertificate(buffer: keyBuffer, format: .der)
             XCTFail("Gibberish successfully loaded")
-        } catch NIOOpenSSLError.failedToLoadCertificate {
+        } catch NIOSSLError.failedToLoadCertificate {
             // Do nothing.
         }
     }
@@ -223,9 +223,9 @@ class SSLCertificateTest: XCTestCase {
         }
 
         do {
-            _ = try OpenSSLCertificate(file: tempFile, format: .pem)
+            _ = try NIOSSLCertificate(file: tempFile, format: .pem)
             XCTFail("Gibberish successfully loaded")
-        } catch NIOOpenSSLError.failedToLoadCertificate {
+        } catch NIOSSLError.failedToLoadCertificate {
             // Do nothing.
         }
     }
@@ -237,16 +237,16 @@ class SSLCertificateTest: XCTestCase {
         }
 
         do {
-            _ = try OpenSSLCertificate(file: tempFile, format: .der)
+            _ = try NIOSSLCertificate(file: tempFile, format: .der)
             XCTFail("Gibberish successfully loaded")
-        } catch NIOOpenSSLError.failedToLoadCertificate {
+        } catch NIOSSLError.failedToLoadCertificate {
             // Do nothing.
         }
     }
 
     func testLoadingNonexistentFileAsPem() throws {
         do {
-            _ = try OpenSSLCertificate(file: "/nonexistent/path", format: .pem)
+            _ = try NIOSSLCertificate(file: "/nonexistent/path", format: .pem)
             XCTFail("Did not throw")
         } catch let error as IOError {
             XCTAssertEqual(error.errnoCode, ENOENT)
@@ -257,7 +257,7 @@ class SSLCertificateTest: XCTestCase {
 
     func testLoadingNonexistentFileAsDer() throws {
         do {
-            _ = try OpenSSLCertificate(file: "/nonexistent/path", format: .der)
+            _ = try NIOSSLCertificate(file: "/nonexistent/path", format: .der)
             XCTFail("Did not throw")
         } catch let error as IOError {
             XCTAssertEqual(error.errnoCode, ENOENT)
@@ -272,14 +272,14 @@ class SSLCertificateTest: XCTestCase {
         precondition(inet_pton(AF_INET, "192.168.0.1", &v4addr) == 1)
         precondition(inet_pton(AF_INET6, "2001:db8::1", &v6addr) == 1)
 
-        let expectedSanFields: [OpenSSLCertificate.AlternativeName] = [
+        let expectedSanFields: [NIOSSLCertificate.AlternativeName] = [
             .dnsName(Array("localhost".utf8)),
             .dnsName(Array("example.com".utf8)),
             .ipAddress(.ipv4(v4addr)),
             .ipAddress(.ipv6(v6addr)),
         ]
-        let cert = try OpenSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
-        let sans = [OpenSSLCertificate.AlternativeName](cert.subjectAlternativeNames()!)
+        let cert = try NIOSSLCertificate(buffer: [Int8](multiSanCert.utf8CString), format: .pem)
+        let sans = [NIOSSLCertificate.AlternativeName](cert.subjectAlternativeNames()!)
 
         XCTAssertEqual(sans.count, expectedSanFields.count)
         for index in 0..<sans.count {
@@ -297,12 +297,12 @@ class SSLCertificateTest: XCTestCase {
     }
 
     func testNonexistentSan() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](samplePemCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](samplePemCert.utf8CString), format: .pem)
         XCTAssertNil(cert.subjectAlternativeNames())
     }
 
     func testCommonName() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](samplePemCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](samplePemCert.utf8CString), format: .pem)
         XCTAssertEqual([UInt8]("robots.sanfransokyo.edu".utf8), cert.commonName()!)
     }
 
@@ -311,22 +311,22 @@ class SSLCertificateTest: XCTestCase {
     }
 
     func testMultipleCommonNames() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](multiCNCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](multiCNCert.utf8CString), format: .pem)
         XCTAssertEqual([UInt8]("localhost".utf8), cert.commonName()!)
     }
 
     func testNoCommonName() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](noCNCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](noCNCert.utf8CString), format: .pem)
         XCTAssertNil(cert.commonName())
     }
 
     func testUnicodeCommonName() throws {
-        let cert = try OpenSSLCertificate(buffer: [Int8](unicodeCNCert.utf8CString), format: .pem)
+        let cert = try NIOSSLCertificate(buffer: [Int8](unicodeCNCert.utf8CString), format: .pem)
         XCTAssertEqual([UInt8]("straße.org".utf8), cert.commonName()!)
     }
 
     func testExtractingPublicKey() throws {
-        let cert = try assertNoThrowWithValue(OpenSSLCertificate(buffer: [Int8](samplePemCert.utf8CString), format: .pem))
+        let cert = try assertNoThrowWithValue(NIOSSLCertificate(buffer: [Int8](samplePemCert.utf8CString), format: .pem))
         let publicKey = try assertNoThrowWithValue(cert.extractPublicKey())
         let spkiBytes = try assertNoThrowWithValue(publicKey.toSPKIBytes())
 

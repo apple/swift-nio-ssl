@@ -66,7 +66,7 @@ private extension String {
 
         for codeUnit in self.utf8 {
             guard codeUnit < 128 else {
-                throw NIOOpenSSLError.cannotMatchULabel
+                throw NIOSSLError.cannotMatchULabel
             }
 
             if asciiCapitals.contains(codeUnit) {
@@ -89,23 +89,20 @@ private extension String {
 /// defines the common algorithm used for validating that an X.509 certificate
 /// is valid for a given service
 ///
-/// It is extremely frustrating that we need to validate this, given that in a
-/// sensible world OpenSSL would do it for us. Sadly, it does not always have
-/// access to the functions to do this: in particular, OpenSSL versions before
-/// 1.0.2, and all LibreSSL versions, do not include this code. So we are forced
-/// by necessity to write it ourselves.
-///
 /// This is extremely dangerous code: logic errors in this function or any function
 /// that it calls potentially allow for us to accept X.509 certificates that we
 /// should reject. Even having this code in the codebase is a massive liability, and
 /// as soon as it is practically possible we should aim to remove it and rely on a
 /// more trustworthy implementation.
 ///
+/// As we're now using BoringSSL, we can rely on having this supported by the stack
+/// unconditionally, so we should aim to do that in the near future.
+///
 /// The algorithm we're implementing is specified in RFC 6125 Section 6 if you want to
 /// follow along at home.
 internal func validIdentityForService(serverHostname: String?,
                                       socketAddress: SocketAddress,
-                                      leafCertificate: OpenSSLCertificate) throws -> Bool {
+                                      leafCertificate: NIOSSLCertificate) throws -> Bool {
     if let serverHostname = serverHostname {
         return try serverHostname.withLowercaseASCIIBuffer {
             try validIdentityForService(serverHostname: $0,
@@ -121,7 +118,7 @@ internal func validIdentityForService(serverHostname: String?,
 
 private func validIdentityForService(serverHostname: UnsafeBufferPointer<UInt8>?,
                                      socketAddress: SocketAddress,
-                                     leafCertificate: OpenSSLCertificate) throws -> Bool {
+                                     leafCertificate: NIOSSLCertificate) throws -> Bool {
     // Step 1 is to ensure that the user's domain name has any IDN U-labels transformed
     // into IDN A-labels.
 
@@ -243,7 +240,7 @@ private func matchHostname(serverHostname: UnsafeBufferPointer<UInt8>?, dnsName:
     return certComponents[1] == hostnameComponents[1]
 }
 
-private func matchIpAddress(socketAddress: SocketAddress, certificateIP: OpenSSLCertificate.IPAddress) -> Bool {
+private func matchIpAddress(socketAddress: SocketAddress, certificateIP: NIOSSLCertificate.IPAddress) -> Bool {
     // These match if the two underlying IP address structures match.
     switch (socketAddress, certificateIP) {
     case (.v4(let address), .ipv4(var addr2)):

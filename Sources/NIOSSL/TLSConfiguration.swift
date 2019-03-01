@@ -22,27 +22,27 @@ public enum TLSVersion {
     case tlsv13
 }
 
-/// Places OpenSSL can obtain certificates from.
-public enum OpenSSLCertificateSource {
+/// Places NIOSSL can obtain certificates from.
+public enum NIOSSLCertificateSource {
     case file(String)
-    case certificate(OpenSSLCertificate)
+    case certificate(NIOSSLCertificate)
 }
 
-/// Places OpenSSL can obtain private keys from.
-public enum OpenSSLPrivateKeySource {
+/// Places NIOSSL can obtain private keys from.
+public enum NIOSSLPrivateKeySource {
     case file(String)
-    case privateKey(OpenSSLPrivateKey)
+    case privateKey(NIOSSLPrivateKey)
 }
 
-/// Places OpenSSL can obtain a trust store from.
-public enum OpenSSLTrustRoots {
+/// Places NIOSSL can obtain a trust store from.
+public enum NIOSSLTrustRoots {
     case file(String)
-    case certificates([OpenSSLCertificate])
+    case certificates([NIOSSLCertificate])
     case `default`
 }
 
-/// Formats OpenSSL supports for serializing keys and certificates.
-public enum OpenSSLSerializationFormats {
+/// Formats NIOSSL supports for serializing keys and certificates.
+public enum NIOSSLSerializationFormats {
     case pem
     case der
 }
@@ -105,10 +105,7 @@ internal func decodeALPNIdentifier(identifier: [UInt8]) -> String {
     return String(decoding: identifier[1..<identifier.count], as: Unicode.ASCII.self)
 }
 
-/// Manages configuration of OpenSSL for SwiftNIO programs.
-///
-/// OpenSSL has a number of configuration options that are worth setting. This structure allows
-/// setting those options in a more expressive manner than OpenSSL itself allows.
+/// Manages configuration of TLS for SwiftNIO programs.
 public struct TLSConfiguration {
     /// A default TLS configuration for client use.
     public static let clientDefault = TLSConfiguration.forClient()
@@ -128,13 +125,13 @@ public struct TLSConfiguration {
 
     /// The trust roots to use to validate certificates. This only needs to be provided if you intend to validate
     /// certificates.
-    public var trustRoots: OpenSSLTrustRoots?
+    public var trustRoots: NIOSSLTrustRoots?
 
     /// The certificates to offer during negotiation. If not present, no certificates will be offered.
-    public var certificateChain: [OpenSSLCertificateSource]
+    public var certificateChain: [NIOSSLCertificateSource]
 
     /// The private key associated with the leaf certificate.
-    public var privateKey: OpenSSLPrivateKeySource?
+    public var privateKey: NIOSSLPrivateKeySource?
 
     /// The application protocols to use in the connection. Should be an ordered list of ASCII
     /// strings representing the ALPN identifiers of the protocols to negotiate. For clients,
@@ -155,9 +152,9 @@ public struct TLSConfiguration {
                  minimumTLSVersion: TLSVersion,
                  maximumTLSVersion: TLSVersion?,
                  certificateVerification: CertificateVerification,
-                 trustRoots: OpenSSLTrustRoots,
-                 certificateChain: [OpenSSLCertificateSource],
-                 privateKey: OpenSSLPrivateKeySource?,
+                 trustRoots: NIOSSLTrustRoots,
+                 certificateChain: [NIOSSLCertificateSource],
+                 privateKey: NIOSSLPrivateKeySource?,
                  applicationProtocols: [String]) {
         self.cipherSuites = cipherSuites
         self.minimumTLSVersion = minimumTLSVersion
@@ -174,13 +171,13 @@ public struct TLSConfiguration {
     ///
     /// This provides sensible defaults while requiring that you provide any data that is necessary
     /// for server-side function. For client use, try `forClient` instead.
-    public static func forServer(certificateChain: [OpenSSLCertificateSource],
-                                 privateKey: OpenSSLPrivateKeySource,
+    public static func forServer(certificateChain: [NIOSSLCertificateSource],
+                                 privateKey: NIOSSLPrivateKeySource,
                                  cipherSuites: String = defaultCipherSuites,
                                  minimumTLSVersion: TLSVersion = .tlsv1,
                                  maximumTLSVersion: TLSVersion? = nil,
                                  certificateVerification: CertificateVerification = .none,
-                                 trustRoots: OpenSSLTrustRoots = .default,
+                                 trustRoots: NIOSSLTrustRoots = .default,
                                  applicationProtocols: [String] = []) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
                                 minimumTLSVersion: minimumTLSVersion,
@@ -201,9 +198,9 @@ public struct TLSConfiguration {
                                  minimumTLSVersion: TLSVersion = .tlsv1,
                                  maximumTLSVersion: TLSVersion? = nil,
                                  certificateVerification: CertificateVerification = .fullVerification,
-                                 trustRoots: OpenSSLTrustRoots = .default,
-                                 certificateChain: [OpenSSLCertificateSource] = [],
-                                 privateKey: OpenSSLPrivateKeySource? = nil,
+                                 trustRoots: NIOSSLTrustRoots = .default,
+                                 certificateChain: [NIOSSLCertificateSource] = [],
+                                 privateKey: NIOSSLPrivateKeySource? = nil,
                                  applicationProtocols: [String] = []) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
                                 minimumTLSVersion: minimumTLSVersion,

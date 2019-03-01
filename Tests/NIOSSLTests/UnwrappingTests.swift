@@ -14,7 +14,7 @@
 
 import XCTest
 import NIO
-@testable import NIOOpenSSL
+@testable import NIOSSL
 
 func connectInMemory(client: EmbeddedChannel, server: EmbeddedChannel) throws {
     let addr = try assertNoThrowWithValue(SocketAddress(unixDomainSocketPath: "/tmp/whatever2"))
@@ -44,26 +44,26 @@ extension ChannelPipeline {
 }
 
 final class UnwrappingTests: XCTestCase {
-    static var cert: OpenSSLCertificate!
-    static var key: OpenSSLPrivateKey!
+    static var cert: NIOSSLCertificate!
+    static var key: NIOSSLPrivateKey!
     static var encryptedKeyPath: String!
 
     override class func setUp() {
         super.setUp()
-        guard openSSLIsInitialized else { fatalError() }
+        guard boringSSLIsInitialized else { fatalError() }
         let (cert, key) = generateSelfSignedCert()
-        OpenSSLIntegrationTest.cert = cert
-        OpenSSLIntegrationTest.key = key
+        NIOSSLIntegrationTest.cert = cert
+        NIOSSLIntegrationTest.key = key
     }
 
     override class func tearDown() {
-        _ = unlink(OpenSSLIntegrationTest.encryptedKeyPath)
+        _ = unlink(NIOSSLIntegrationTest.encryptedKeyPath)
     }
 
-    private func configuredSSLContext(file: StaticString = #file, line: UInt = #line) throws -> NIOOpenSSL.NIOSSLContext {
-        let config = TLSConfiguration.forServer(certificateChain: [.certificate(OpenSSLIntegrationTest.cert)],
-                                                privateKey: .privateKey(OpenSSLIntegrationTest.key),
-                                                trustRoots: .certificates([OpenSSLIntegrationTest.cert]))
+    private func configuredSSLContext(file: StaticString = #file, line: UInt = #line) throws -> NIOSSLContext {
+        let config = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+                                                privateKey: .privateKey(NIOSSLIntegrationTest.key),
+                                                trustRoots: .certificates([NIOSSLIntegrationTest.cert]))
         return try assertNoThrowWithValue(NIOSSLContext(configuration: config), file: file, line: line)
     }
 
@@ -83,8 +83,8 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
@@ -141,8 +141,8 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
-        let serverHandler = try assertNoThrowWithValue(OpenSSLServerHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let serverHandler = try assertNoThrowWithValue(NIOSSLServerHandler(context: context))
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(serverHandler).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
@@ -208,8 +208,8 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
@@ -267,8 +267,8 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
@@ -287,7 +287,7 @@ final class UnwrappingTests: XCTestCase {
         clientStopPromise.futureResult.map {
             XCTFail("Must not succeed")
         }.whenFailure { error in
-            XCTAssertEqual(error as? OpenSSLError, .uncleanShutdown)
+            XCTAssertEqual(error as? BoringSSLError, .uncleanShutdown)
             clientUnwrapped = true
         }
         clientHandler.stopTLS(promise: clientStopPromise)
@@ -320,8 +320,8 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
@@ -358,8 +358,8 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
@@ -392,7 +392,7 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let handler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
+        let handler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
         XCTAssertNoThrow(try channel.pipeline.addHandler(handler).wait())
         channel.pipeline.assertContains(handler: handler)
 
@@ -421,8 +421,8 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
@@ -464,8 +464,8 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
@@ -508,8 +508,8 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
@@ -528,7 +528,7 @@ final class UnwrappingTests: XCTestCase {
         clientStopPromise.futureResult.map {
             XCTFail("Must not succeed")
         }.whenFailure { error in
-            switch error as? NIOOpenSSLError {
+            switch error as? NIOSSLError {
             case .some(.shutdownFailed):
                 // Expected
                 break
@@ -551,7 +551,7 @@ final class UnwrappingTests: XCTestCase {
         do {
             try clientChannel.writeInbound(buffer)
             XCTFail("Did not error")
-        } catch NIOOpenSSLError.shutdownFailed {
+        } catch NIOSSLError.shutdownFailed {
             // expected
         } catch {
             XCTFail("Unexpected error: \(error)")
@@ -578,8 +578,8 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
@@ -628,8 +628,8 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
@@ -653,7 +653,7 @@ final class UnwrappingTests: XCTestCase {
         var unwrapped = false
         let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
         stopPromise.futureResult.whenFailure { error in
-            switch error as? OpenSSLError {
+            switch error as? BoringSSLError {
             case .some(.sslError):
                 // ok
                 break
@@ -688,8 +688,8 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(OpenSSLClientHandler(context: context))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(OpenSSLServerHandler(context: context)).wait())
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())

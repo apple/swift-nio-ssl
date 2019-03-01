@@ -15,7 +15,7 @@
 import XCTest
 import CNIOBoringSSL
 import NIO
-@testable import NIOOpenSSL
+@testable import NIOSSL
 import NIOTLS
 
 class ErrorCatcher<T: Error>: ChannelInboundHandler {
@@ -44,11 +44,11 @@ class HandshakeCompletedHandler: ChannelInboundHandler {
 }
 
 class TLSConfigurationTest: XCTestCase {
-    static var cert1: OpenSSLCertificate!
-    static var key1: OpenSSLPrivateKey!
+    static var cert1: NIOSSLCertificate!
+    static var key1: NIOSSLPrivateKey!
 
-    static var cert2: OpenSSLCertificate!
-    static var key2: OpenSSLPrivateKey!
+    static var cert2: NIOSSLCertificate!
+    static var key2: NIOSSLPrivateKey!
 
     override class func setUp() {
         super.setUp()
@@ -86,7 +86,7 @@ class TLSConfigurationTest: XCTestCase {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
 
-        let eventHandler = ErrorCatcher<NIOOpenSSLError>()
+        let eventHandler = ErrorCatcher<NIOSSLError>()
         let handshakeHandler = HandshakeCompletedHandler()
         let serverChannel = try assertNoThrowWithValue(serverTLSChannel(context: serverContext, handlers: [], group: group), file: file, line: line)
         let clientChannel = try assertNoThrowWithValue(clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!), file: file, line: line)
@@ -121,7 +121,7 @@ class TLSConfigurationTest: XCTestCase {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
 
-        let eventHandler = ErrorCatcher<OpenSSLError>()
+        let eventHandler = ErrorCatcher<BoringSSLError>()
         let handshakeHandler = HandshakeCompletedHandler()
         let serverChannel = try assertNoThrowWithValue(serverTLSChannel(context: serverContext, handlers: [], group: group), file: file, line: line)
         let clientChannel = try assertNoThrowWithValue(clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!), file: file, line: line)
@@ -252,7 +252,7 @@ class TLSConfigurationTest: XCTestCase {
         do {
             _ = try NIOSSLContext(configuration: clientConfig)
             XCTFail("Did not throw")
-        } catch NIOOpenSSLError.noSuchFilesystemObject {
+        } catch NIOSSLError.noSuchFilesystemObject {
             // This is fine
         } catch {
             XCTFail("Unexpected error: \(error)")

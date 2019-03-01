@@ -16,16 +16,16 @@ import CNIOBoringSSL
 import CNIOBoringSSLShims
 import NIO
 
-/// A reference to an OpenSSL Certificate object (`X509 *`).
+/// A reference to a BoringSSL Certificate object (`X509 *`).
 ///
 /// This thin wrapper class allows us to use ARC to automatically manage
-/// the memory associated with this TLS certificate. That ensures that OpenSSL
+/// the memory associated with this TLS certificate. That ensures that BoringSSL
 /// will not free the underlying buffer until we are done with the certificate.
 ///
 /// This class also provides several convenience constructors that allow users
 /// to obtain an in-memory representation of a TLS certificate from a buffer of
 /// bytes or from a file path.
-public class OpenSSLCertificate {
+public class NIOSSLCertificate {
     internal let ref: UnsafeMutablePointer<X509>
 
     internal enum AlternativeName {
@@ -42,11 +42,11 @@ public class OpenSSLCertificate {
         self.ref = ref
     }
 
-    /// Create an OpenSSLCertificate from a file at a given path in either PEM or
+    /// Create a NIOSSLCertificate from a file at a given path in either PEM or
     /// DER format.
     ///
     /// Note that this method will only ever load the first certificate from a given file.
-    public convenience init (file: String, format: OpenSSLSerializationFormats) throws {
+    public convenience init (file: String, format: NIOSSLSerializationFormats) throws {
         let fileObject = try Posix.fopen(file: file, mode: "rb")
         defer {
             fclose(fileObject)
@@ -61,15 +61,15 @@ public class OpenSSLCertificate {
         }
 
         if x509 == nil {
-            throw NIOOpenSSLError.failedToLoadCertificate
+            throw NIOSSLError.failedToLoadCertificate
         }
 
         self.init(withReference: x509!)
     }
 
-    /// Create an OpenSSLCertificate from a buffer of bytes in either PEM or
+    /// Create a NIOSSLCertificate from a buffer of bytes in either PEM or
     /// DER format.
-    public convenience init (buffer: [Int8], format: OpenSSLSerializationFormats) throws  {
+    public convenience init (buffer: [Int8], format: NIOSSLSerializationFormats) throws  {
         let ref = buffer.withUnsafeBytes { (ptr) -> UnsafeMutablePointer<X509>? in
             let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), Int32(ptr.count))!
 
@@ -86,24 +86,24 @@ public class OpenSSLCertificate {
         }
 
         if ref == nil {
-            throw NIOOpenSSLError.failedToLoadCertificate
+            throw NIOSSLError.failedToLoadCertificate
         }
 
         self.init(withReference: ref!)
     }
 
-    /// Create an OpenSSLCertificate wrapping a pointer into OpenSSL.
+    /// Create a NIOSSLCertificate wrapping a pointer into BoringSSL.
     ///
     /// This is a function that should be avoided as much as possible because it plays poorly with
-    /// OpenSSL's reference-counted memory. This function does not increment the reference count for the `X509`
+    /// BoringSSL's reference-counted memory. This function does not increment the reference count for the `X509`
     /// object here, nor does it duplicate it: it just takes ownership of the copy here. This object
     /// **will** deallocate the underlying `X509` object when deinited, and so if you need to keep that
     /// `X509` object alive you should call `X509_dup` before passing the pointer here.
     ///
     /// In general, however, this function should be avoided in favour of one of the convenience
     /// initializers, which ensure that the lifetime of the `X509` object is better-managed.
-    static public func fromUnsafePointer(takingOwnership pointer: UnsafeMutablePointer<X509>) -> OpenSSLCertificate {
-        return OpenSSLCertificate(withReference: pointer)
+    static public func fromUnsafePointer(takingOwnership pointer: UnsafeMutablePointer<X509>) -> NIOSSLCertificate {
+        return NIOSSLCertificate(withReference: pointer)
     }
 
     /// Get a sequence of the alternative names in the certificate.
@@ -144,7 +144,7 @@ public class OpenSSLCertificate {
             return nil
         }
 
-        // Cool, we have the name. Let's have OpenSSL give it to us in UTF-8 form and then put those bytes
+        // Cool, we have the name. Let's have BoringSSL give it to us in UTF-8 form and then put those bytes
         // into our own array.
         var encodedName: UnsafeMutablePointer<UInt8>? = nil
         let stringLength = CNIOBoringSSL_ASN1_STRING_to_UTF8(&encodedName, nameData)
@@ -168,22 +168,22 @@ public class OpenSSLCertificate {
 // and private keys: this is really the domain of alternative cryptography libraries. However, to
 // enable users of swift-nio-ssl to use other cryptography libraries it will be helpful to provide
 // the ability to obtain the bytes that correspond to certificates and keys.
-extension OpenSSLCertificate {
-    /// Obtain the public key for this `OpenSSLCertificate`.
+extension NIOSSLCertificate {
+    /// Obtain the public key for this `NIOSSLCertificate`.
     ///
-    /// - returns: This certificate's `OpenSSLPublicKey`.
+    /// - returns: This certificate's `NIOSSLPublicKey`.
     /// - throws: If an error is encountered extracting the key.
-    public func extractPublicKey() throws -> OpenSSLPublicKey {
+    public func extractPublicKey() throws -> NIOSSLPublicKey {
         guard let key = CNIOBoringSSL_X509_get_pubkey(self.ref) else {
-            throw NIOOpenSSLError.unableToAllocateOpenSSLObject
+            throw NIOSSLError.unableToAllocateBoringSSLObject
         }
 
-        return OpenSSLPublicKey.fromInternalPointer(takingOwnership: key)
+        return NIOSSLPublicKey.fromInternalPointer(takingOwnership: key)
     }
 }
 
-extension OpenSSLCertificate: Equatable {
-    public static func ==(lhs: OpenSSLCertificate, rhs: OpenSSLCertificate) -> Bool {
+extension NIOSSLCertificate: Equatable {
+    public static func ==(lhs: NIOSSLCertificate, rhs: NIOSSLCertificate) -> Bool {
         return CNIOBoringSSL_X509_cmp(lhs.ref, rhs.ref) == 0
     }
 }
@@ -191,7 +191,7 @@ extension OpenSSLCertificate: Equatable {
 /// A helper sequence object that enables us to represent subject alternative names
 /// as an iterable Swift sequence.
 internal class SubjectAltNameSequence: Sequence, IteratorProtocol {
-    typealias Element = OpenSSLCertificate.AlternativeName
+    typealias Element = NIOSSLCertificate.AlternativeName
 
     private let nameStack: OpaquePointer
     private var nextIdx: Int
@@ -203,7 +203,7 @@ internal class SubjectAltNameSequence: Sequence, IteratorProtocol {
         self.nextIdx = 0
     }
 
-    private func addressFromBytes(bytes: UnsafeBufferPointer<UInt8>) -> OpenSSLCertificate.IPAddress? {
+    private func addressFromBytes(bytes: UnsafeBufferPointer<UInt8>) -> NIOSSLCertificate.IPAddress? {
         switch bytes.count {
         case 4:
             let addr = bytes.baseAddress?.withMemoryRebound(to: in_addr.self, capacity: 1) {
@@ -226,7 +226,7 @@ internal class SubjectAltNameSequence: Sequence, IteratorProtocol {
         }
     }
 
-    func next() -> OpenSSLCertificate.AlternativeName? {
+    func next() -> NIOSSLCertificate.AlternativeName? {
         guard self.nextIdx < self.stackSize else {
             return nil
         }

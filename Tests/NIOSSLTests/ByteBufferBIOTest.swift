@@ -15,13 +15,13 @@
 import XCTest
 import NIO
 import CNIOBoringSSL
-@testable import NIOOpenSSL
+@testable import NIOSSL
 
 
 final class ByteBufferBIOTest: XCTestCase {
     override func setUp() {
-        guard openSSLIsInitialized else {
-            fatalError("Cannot run tests without OpenSSL")
+        guard boringSSLIsInitialized else {
+            fatalError("Cannot run tests without BoringSSL")
         }
     }
 

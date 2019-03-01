@@ -14,7 +14,7 @@
 
 import struct Foundation.URL
 import NIO
-import NIOOpenSSL
+import NIOSSL
 
 private final class EchoHandler: ChannelInboundHandler {
     public typealias InboundIn = ByteBuffer
@@ -39,7 +39,7 @@ let bootstrap = ServerBootstrap(group: group)
 
     // Set the handlers that are applied to the accepted channels.
     .childChannelInitializer { channel in
-        return channel.pipeline.addHandler(try! OpenSSLServerHandler(context: sslContext)).flatMap {
+        return channel.pipeline.addHandler(try! NIOSSLServerHandler(context: sslContext)).flatMap {
             channel.pipeline.addHandler(EchoHandler())
         }
     }

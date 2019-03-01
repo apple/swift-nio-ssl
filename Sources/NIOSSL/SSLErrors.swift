@@ -14,8 +14,8 @@
 
 import CNIOBoringSSL
 
-/// Wraps a single error from OpenSSL.
-public struct OpenSSLInternalError: Equatable, CustomStringConvertible {
+/// Wraps a single error from BoringSSL.
+public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
     let errorCode: UInt32
 
     var errorMessage: String? {
@@ -33,25 +33,25 @@ public struct OpenSSLInternalError: Equatable, CustomStringConvertible {
         self.errorCode = errorCode
     }
 
-    public static func ==(lhs: OpenSSLInternalError, rhs: OpenSSLInternalError) -> Bool {
+    public static func ==(lhs: BoringSSLInternalError, rhs: BoringSSLInternalError) -> Bool {
         return lhs.errorCode == rhs.errorCode
     }
 
 }
 
-/// A representation of OpenSSL's internal error stack: a list of OpenSSL errors.
-public typealias OpenSSLErrorStack = [OpenSSLInternalError]
+/// A representation of BoringSSL's internal error stack: a list of BoringSSL errors.
+public typealias NIOBoringSSLErrorStack = [BoringSSLInternalError]
 
 
-/// Errors that can be raised by NIO's OpenSSL wrapper.
-public enum NIOOpenSSLError: Error {
+/// Errors that can be raised by NIO's BoringSSL wrapper.
+public enum NIOSSLError: Error {
     case writeDuringTLSShutdown
-    case unableToAllocateOpenSSLObject
+    case unableToAllocateBoringSSLObject
     case noSuchFilesystemObject
     case failedToLoadCertificate
     case failedToLoadPrivateKey
-    case handshakeFailed(OpenSSLError)
-    case shutdownFailed(OpenSSLError)
+    case handshakeFailed(BoringSSLError)
+    case shutdownFailed(BoringSSLError)
     case cannotMatchULabel
     case noCertificateToValidate
     case unableToValidateCertificate
@@ -59,11 +59,11 @@ public enum NIOOpenSSLError: Error {
     case readInInvalidTLSState
 }
 
-extension NIOOpenSSLError: Equatable {
-    public static func ==(lhs: NIOOpenSSLError, rhs: NIOOpenSSLError) -> Bool {
+extension NIOSSLError: Equatable {
+    public static func ==(lhs: NIOSSLError, rhs: NIOSSLError) -> Bool {
         switch (lhs, rhs) {
         case (.writeDuringTLSShutdown, .writeDuringTLSShutdown),
-             (.unableToAllocateOpenSSLObject, .unableToAllocateOpenSSLObject),
+             (.unableToAllocateBoringSSLObject, .unableToAllocateBoringSSLObject),
              (.noSuchFilesystemObject, .noSuchFilesystemObject),
              (.failedToLoadCertificate, .failedToLoadCertificate),
              (.failedToLoadPrivateKey, .failedToLoadPrivateKey),
@@ -80,8 +80,8 @@ extension NIOOpenSSLError: Equatable {
     }
 }
 
-/// An enum that wraps individual OpenSSL errors directly.
-public enum OpenSSLError: Error {
+/// An enum that wraps individual BoringSSL errors directly.
+public enum BoringSSLError: Error {
     case noError
     case zeroReturn
     case wantRead
@@ -90,16 +90,16 @@ public enum OpenSSLError: Error {
     case wantAccept
     case wantX509Lookup
     case syscallError
-    case sslError(OpenSSLErrorStack)
-    case unknownError(OpenSSLErrorStack)
+    case sslError(NIOBoringSSLErrorStack)
+    case unknownError(NIOBoringSSLErrorStack)
     case uncleanShutdown
-    case invalidSNIName(OpenSSLErrorStack)
-    case failedToSetALPN(OpenSSLErrorStack)
+    case invalidSNIName(NIOBoringSSLErrorStack)
+    case failedToSetALPN(NIOBoringSSLErrorStack)
 }
 
-extension OpenSSLError: Equatable {}
+extension BoringSSLError: Equatable {}
 
-public func ==(lhs: OpenSSLError, rhs: OpenSSLError) -> Bool {
+public func ==(lhs: BoringSSLError, rhs: BoringSSLError) -> Bool {
     switch (lhs, rhs) {
     case (.noError, .noError),
          (.zeroReturn, .zeroReturn),
@@ -119,8 +119,8 @@ public func ==(lhs: OpenSSLError, rhs: OpenSSLError) -> Bool {
     }
 }
 
-internal extension OpenSSLError {
-    static func fromSSLGetErrorResult(_ result: Int32) -> OpenSSLError? {
+internal extension BoringSSLError {
+    static func fromSSLGetErrorResult(_ result: Int32) -> BoringSSLError? {
         switch result {
         case SSL_ERROR_NONE:
             return .noError
@@ -145,13 +145,13 @@ internal extension OpenSSLError {
         }
     }
     
-    static func buildErrorStack() -> OpenSSLErrorStack {
-        var errorStack = OpenSSLErrorStack()
+    static func buildErrorStack() -> NIOBoringSSLErrorStack {
+        var errorStack = NIOBoringSSLErrorStack()
         
         while true {
             let errorCode = CNIOBoringSSL_ERR_get_error()
             if errorCode == 0 { break }
-            errorStack.append(OpenSSLInternalError(errorCode: errorCode))
+            errorStack.append(BoringSSLInternalError(errorCode: errorCode))
         }
         
         return errorStack

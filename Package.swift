@@ -18,7 +18,7 @@ import PackageDescription
 let package = Package(
     name: "swift-nio-ssl",
     products: [
-        .library(name: "NIOOpenSSL", targets: ["NIOOpenSSL"]),
+        .library(name: "NIOSSL", targets: ["NIOSSL"]),
         .executable(name: "NIOTLSServer", targets: ["NIOTLSServer"]),
         .library(name: "CNIOBoringSSL", type: .static, targets: ["CNIOBoringSSL"]),
     ],
@@ -28,10 +28,10 @@ let package = Package(
     targets: [
         .target(name: "CNIOBoringSSL"),
         .target(name: "CNIOBoringSSLShims", dependencies: ["CNIOBoringSSL"]),
-        .target(name: "NIOOpenSSL",
+        .target(name: "NIOSSL",
                 dependencies: ["NIO", "NIOConcurrencyHelpers", "CNIOBoringSSL", "CNIOBoringSSLShims", "NIOTLS", "_NIO1APIShims"]),
-        .target(name: "NIOTLSServer", dependencies: ["NIO", "NIOOpenSSL", "NIOConcurrencyHelpers"]),
-        .testTarget(name: "NIOOpenSSLTests", dependencies: ["NIOTLS", "NIOOpenSSL"]),
+        .target(name: "NIOTLSServer", dependencies: ["NIO", "NIOSSL", "NIOConcurrencyHelpers"]),
+        .testTarget(name: "NIOSSLTests", dependencies: ["NIOTLS", "NIOSSL"]),
     ],
     cxxLanguageStandard: .cxx11
 )

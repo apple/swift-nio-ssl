@@ -15,14 +15,14 @@
 import CNIOBoringSSL
 
 /// The result of an attempt to verify an X.509 certificate.
-public enum OpenSSLVerificationResult {
+public enum NIOSSLVerificationResult {
     /// The certificate was successfully verified.
     case certificateVerified
 
     /// The certificate was not verified.
     case failed
 
-    internal init(fromOpenSSLPreverify preverify: CInt) {
+    internal init(fromBoringSSLPreverify preverify: CInt) {
         switch preverify {
         case 1:
             self = .certificateVerified
@@ -40,17 +40,17 @@ public enum OpenSSLVerificationResult {
 /// per certificate in the peer's complete certificate chain (including the root CA). The calls proceed
 /// from root to leaf, ending with the peer's leaf certificate. Each time it is invoked with 2 arguments:
 ///
-/// 1. The result of the OpenSSL verification for this certificate
+/// 1. The result of the BoringSSL verification for this certificate
 /// 2. The `SSLCertificate` for this level of the chain.
 ///
 /// Please be cautious with calling out from this method. This method is always invoked on the event loop,
 /// so you must not block or wait. It is not possible to return an `EventLoopFuture` from this method, as it
 /// must not block or wait. Additionally, this method must take care to ensure that it does not cause any
-/// ChannelHandler to recursively call back into the `OpenSSLHandler` that triggered it, as making re-entrant
-/// calls into OpenSSL is not supported by SwiftNIO and leads to undefined behaviour.
+/// ChannelHandler to recursively call back into the `NIOSSLHandler` that triggered it, as making re-entrant
+/// calls into BoringSSL is not supported by SwiftNIO and leads to undefined behaviour.
 ///
 /// In general, the only safe thing to do here is to either perform some cryptographic operations, to log,
-/// or to store the `OpenSSLCertificate` somewhere for later consumption. The easiest way to be sure that the
-/// `OpenSSLCertificate` is safe to consume is to wait for a user event that shows the handshake as completed,
+/// or to store the `NIOSSLCertificate` somewhere for later consumption. The easiest way to be sure that the
+/// `NIOSSLCertificate` is safe to consume is to wait for a user event that shows the handshake as completed,
 /// or for channelInactive.
-public typealias OpenSSLVerificationCallback = (OpenSSLVerificationResult, OpenSSLCertificate) -> OpenSSLVerificationResult
+public typealias NIOSSLVerificationCallback = (NIOSSLVerificationResult, NIOSSLCertificate) -> NIOSSLVerificationResult

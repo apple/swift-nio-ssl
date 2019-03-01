@@ -18,24 +18,24 @@ import CNIOBoringSSL
 internal let SSL_MAX_RECORD_SIZE = 16 * 1024
 
 /// This is used as the application data index to store pointers to `SSLConnection` objects in
-/// `SSL` objects. It is only safe to use after OpenSSL initialization. As it's declared global,
+/// `SSL` objects. It is only safe to use after BoringSSL initialization. As it's declared global,
 /// it will be lazily initialized and protected by a dispatch_once, ensuring that it's thread-safe.
 private let exDataIndex = CNIOBoringSSL_SSL_get_ex_new_index(0, nil, nil, nil, nil)
 
-/// Encodes the return value of a non-blocking OpenSSL method call.
+/// Encodes the return value of a non-blocking BoringSSL method call.
 ///
-/// This enum maps OpenSSL's return values to a small number of cases. A success
+/// This enum maps BoringSSL's return values to a small number of cases. A success
 /// value naturally maps to `.complete`, and most errors map to `.failed`. However,
-/// the OpenSSL "errors" `WANT_READ` and `WANT_WRITE` are mapped to `.incomplete`, to
+/// the BoringSSL "errors" `WANT_READ` and `WANT_WRITE` are mapped to `.incomplete`, to
 /// help distinguish them from the other error cases. This makes it easier for code to
 /// handle the "must wait for more data" case by calling it out directly.
 enum AsyncOperationResult<T> {
     case incomplete
     case complete(T)
-    case failed(OpenSSLError)
+    case failed(BoringSSLError)
 }
 
-/// A wrapper class that encapsulates OpenSSL's `SSL *` object.
+/// A wrapper class that encapsulates BoringSSL's `SSL *` object.
 ///
 /// This class represents a single TLS connection, and performs all of crypto and record
 /// framing required by TLS. It also records the configuration and parent `NIOSSLContext` object
@@ -44,7 +44,7 @@ internal final class SSLConnection {
     private let ssl: OpaquePointer
     private let parentContext: NIOSSLContext
     private var bio: ByteBufferBIO?
-    private var verificationCallback: OpenSSLVerificationCallback?
+    private var verificationCallback: NIOSSLVerificationCallback?
 
     /// Whether certificate hostnames should be validated.
     var validateHostnames: Bool {
@@ -81,7 +81,7 @@ internal final class SSLConnection {
         self.bio = ByteBufferBIO(allocator: allocator)
 
         // This weird dance where we pass the *exact same* pointer in to both objects is because, weirdly,
-        // the OpenSSL docs claim that only one reference count will be consumed here. We therefore need to
+        // the BoringSSL docs claim that only one reference count will be consumed here. We therefore need to
         // avoid calling BIO_up_ref too many times.
         let bioPtr = self.bio!.retainedBIO()
         CNIOBoringSSL_SSL_set_bio(self.ssl, bioPtr, bioPtr)
@@ -98,12 +98,12 @@ internal final class SSLConnection {
             return CNIOBoringSSL_SSL_set_tlsext_host_name(ssl, $0)
         }
         guard rc == 1 else {
-            throw OpenSSLError.invalidSNIName(OpenSSLError.buildErrorStack())
+            throw BoringSSLError.invalidSNIName(BoringSSLError.buildErrorStack())
         }
     }
 
-    /// Sets the OpenSSL verification callback.
-    func setVerificationCallback(_ callback: @escaping OpenSSLVerificationCallback) {
+    /// Sets the BoringSSL verification callback.
+    func setVerificationCallback(_ callback: @escaping NIOSSLVerificationCallback) {
         // Store the verification callback. We need to do this to keep it alive throughout the connection.
         // We'll drop this when we're told that it's no longer needed to ensure we break the reference cycles
         // that this callback inevitably produces.
@@ -117,10 +117,10 @@ internal final class SSLConnection {
                 preconditionFailure("Can only have verification function invoked with actual certificate: bad store \(String(describing: storeContext))")
             }
             CNIOBoringSSL_X509_up_ref(certPointer)
-            let cert = OpenSSLCertificate.fromUnsafePointer(takingOwnership: certPointer)
+            let cert = NIOSSLCertificate.fromUnsafePointer(takingOwnership: certPointer)
 
             // Next, prepare the verification result.
-            let verificationResult = OpenSSLVerificationResult(fromOpenSSLPreverify: preverify)
+            let verificationResult = NIOSSLVerificationResult(fromBoringSSLPreverify: preverify)
 
             // Now, grab the SSLConnection object.
             guard let ssl = CNIOBoringSSL_X509_STORE_CTX_get_ex_data(storeContext, CNIOBoringSSL_SSL_get_ex_data_X509_STORE_CTX_idx()) else {
@@ -156,7 +156,7 @@ internal final class SSLConnection {
         if (rc == 1) { return .complete(rc) }
         
         let result = CNIOBoringSSL_SSL_get_error(ssl, rc)
-        let error = OpenSSLError.fromSSLGetErrorResult(result)!
+        let error = BoringSSLError.fromSSLGetErrorResult(result)!
         
         switch error {
         case .wantRead,
@@ -185,7 +185,7 @@ internal final class SSLConnection {
             return .incomplete
         default:
             let result = CNIOBoringSSL_SSL_get_error(ssl, rc)
-            let error = OpenSSLError.fromSSLGetErrorResult(result)!
+            let error = BoringSSLError.fromSSLGetErrorResult(result)!
             
             switch error {
             case .wantRead,
@@ -198,7 +198,7 @@ internal final class SSLConnection {
     }
     
     /// Given some unprocessed data from the remote peer, places it into
-    /// OpenSSL's receive buffer ready for handling by OpenSSL.
+    /// BoringSSL's receive buffer ready for handling by BoringSSL.
     ///
     /// This method should be called whenever data is received from the remote
     /// peer. It must be immediately followed by an I/O operation, e.g. `readDataFromNetwork`
@@ -207,11 +207,11 @@ internal final class SSLConnection {
         self.bio!.receiveFromNetwork(buffer: data)
     }
 
-    /// Obtains some encrypted data ready for the network from OpenSSL.
+    /// Obtains some encrypted data ready for the network from BoringSSL.
     ///
-    /// This call obtains only data that OpenSSL has already written into its send
+    /// This call obtains only data that BoringSSL has already written into its send
     /// buffer. As a result, it should be called last, after all other operations have
-    /// been performed, to allow OpenSSL to write as much data as necessary into the
+    /// been performed, to allow BoringSSL to write as much data as necessary into the
     /// `BIO`.
     ///
     /// Returns `nil` if there is no data to write. Otherwise, returns all of the pending
@@ -223,7 +223,7 @@ internal final class SSLConnection {
     /// Attempts to decrypt any application data sent by the remote peer, and fills a buffer
     /// containing the cleartext bytes.
     ///
-    /// This method can only consume data previously fed into OpenSSL in `consumeDataFromNetwork`.
+    /// This method can only consume data previously fed into BoringSSL in `consumeDataFromNetwork`.
     func readDataFromNetwork(outputBuffer: inout ByteBuffer) -> AsyncOperationResult<Int> {
         // TODO(cory): It would be nice to have an withUnsafeMutableWriteableBytes here, but we don't, so we
         // need to make do with writeWithUnsafeMutableBytes instead. The core issue is that we can't
@@ -240,7 +240,7 @@ internal final class SSLConnection {
             return .complete(rc)
         } else {
             let result = CNIOBoringSSL_SSL_get_error(ssl, Int32(bytesRead))
-            let error = OpenSSLError.fromSSLGetErrorResult(result)!
+            let error = BoringSSLError.fromSSLGetErrorResult(result)!
             
             switch error {
             case .wantRead,
@@ -254,10 +254,10 @@ internal final class SSLConnection {
 
     /// Encrypts cleartext application data ready for sending on the network.
     ///
-    /// This call will only write the data into OpenSSL's internal buffers. It needs to be obtained
+    /// This call will only write the data into BoringSSL's internal buffers. It needs to be obtained
     /// by calling `getDataForNetwork` after this call completes.
     func writeDataToNetwork(_ data: inout ByteBuffer) -> AsyncOperationResult<Int32> {
-        // OpenSSL does not allow calling SSL_write with zero-length buffers. Zero-length
+        // BoringSSL does not allow calling SSL_write with zero-length buffers. Zero-length
         // writes always succeed.
         guard data.readableBytes > 0 else {
             return .complete(0)
@@ -277,7 +277,7 @@ internal final class SSLConnection {
             return .complete(writtenBytes)
         } else {
             let result = CNIOBoringSSL_SSL_get_error(ssl, writtenBytes)
-            let error = OpenSSLError.fromSSLGetErrorResult(result)!
+            let error = BoringSSLError.fromSSLGetErrorResult(result)!
             
             switch error {
             case .wantRead, .wantWrite:
@@ -304,12 +304,12 @@ internal final class SSLConnection {
 
     /// Get the leaf certificate from the peer certificate chain as a managed object,
     /// if available.
-    func getPeerCertificate() -> OpenSSLCertificate? {
+    func getPeerCertificate() -> NIOSSLCertificate? {
         guard let certPtr = CNIOBoringSSL_SSL_get_peer_certificate(ssl) else {
             return nil
         }
 
-        return OpenSSLCertificate.fromUnsafePointer(takingOwnership: certPtr)
+        return NIOSSLCertificate.fromUnsafePointer(takingOwnership: certPtr)
     }
 
     /// Drops persistent connection state.
@@ -322,7 +322,7 @@ internal final class SSLConnection {
         self.verificationCallback = nil
     }
 
-    /// Retrieves any inbound data that has not been processed by OpenSSL.
+    /// Retrieves any inbound data that has not been processed by BoringSSL.
     ///
     /// When unwrapping TLS from a connection, there may be application bytes that follow the terminating
     /// CLOSE_NOTIFY message. Those bytes may have been passed to this `SSLConnection`, and so we need to

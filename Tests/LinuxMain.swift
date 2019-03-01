@@ -23,15 +23,15 @@ import XCTest
 ///
 
 #if os(Linux) || os(FreeBSD)
-   @testable import NIOOpenSSLTests
+   @testable import NIOSSLTests
 
    XCTMain([
          testCase(ByteBufferBIOTest.allTests),
          testCase(CertificateVerificationTests.allTests),
          testCase(ClientSNITests.allTests),
          testCase(IdentityVerificationTest.allTests),
-         testCase(OpenSSLALPNTest.allTests),
-         testCase(OpenSSLIntegrationTest.allTests),
+         testCase(NIOSSLALPNTest.allTests),
+         testCase(NIOSSLIntegrationTest.allTests),
          testCase(SSLCertificateTest.allTests),
          testCase(SSLPKCS12BundleTest.allTests),
          testCase(SSLPrivateKeyTest.allTests),
