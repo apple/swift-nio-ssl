@@ -30,17 +30,17 @@ class OpenSSLALPNTest: XCTestCase {
         OpenSSLIntegrationTest.key = key
     }
 
-    private func configuredSSLContextWithAlpnProtocols(protocols: [String]) throws -> NIOOpenSSL.SSLContext {
+    private func configuredSSLContextWithAlpnProtocols(protocols: [String]) throws -> NIOOpenSSL.NIOSSLContext {
         let config = TLSConfiguration.forServer(certificateChain: [.certificate(OpenSSLIntegrationTest.cert)],
                                                 privateKey: .privateKey(OpenSSLIntegrationTest.key),
                                                 trustRoots: .certificates([OpenSSLIntegrationTest.cert]),
                                                 applicationProtocols: protocols)
-        return try SSLContext(configuration: config)
+        return try NIOSSLContext(configuration: config)
     }
 
     private func assertNegotiatedProtocol(protocol: String?,
-                                          serverContext: NIOOpenSSL.SSLContext,
-                                          clientContext: NIOOpenSSL.SSLContext) throws {
+                                          serverContext: NIOOpenSSL.NIOSSLContext,
+                                          clientContext: NIOOpenSSL.NIOSSLContext) throws {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
@@ -81,15 +81,15 @@ class OpenSSLALPNTest: XCTestCase {
     }
 
     func testBasicALPNNegotiation() throws {
-        let context: NIOOpenSSL.SSLContext
+        let context: NIOOpenSSL.NIOSSLContext
         context = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"]))
 
         XCTAssertNoThrow(try assertNegotiatedProtocol(protocol: "h2", serverContext: context, clientContext: context))
     }
 
     func testBasicALPNNegotiationPrefersServerPriority() throws {
-        let serverCtx: NIOOpenSSL.SSLContext
-        let clientCtx: NIOOpenSSL.SSLContext
+        let serverCtx: NIOOpenSSL.NIOSSLContext
+        let clientCtx: NIOOpenSSL.NIOSSLContext
         serverCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"]))
         clientCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: ["http/1.1", "h2"]))
 
@@ -97,24 +97,24 @@ class OpenSSLALPNTest: XCTestCase {
     }
 
     func testBasicALPNNegotiationNoOverlap() throws {
-        let serverCtx: NIOOpenSSL.SSLContext
-        let clientCtx: NIOOpenSSL.SSLContext
+        let serverCtx: NIOOpenSSL.NIOSSLContext
+        let clientCtx: NIOOpenSSL.NIOSSLContext
         serverCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"]))
         clientCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: ["spdy/3", "webrtc"]))
         XCTAssertNoThrow(try assertNegotiatedProtocol(protocol: nil, serverContext: serverCtx, clientContext: clientCtx))
     }
 
     func testBasicALPNNegotiationNotOfferedByClient() throws {
-        let serverCtx: NIOOpenSSL.SSLContext
-        let clientCtx: NIOOpenSSL.SSLContext
+        let serverCtx: NIOOpenSSL.NIOSSLContext
+        let clientCtx: NIOOpenSSL.NIOSSLContext
         serverCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"]))
         clientCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: []))
         XCTAssertNoThrow(try assertNegotiatedProtocol(protocol: nil, serverContext: serverCtx, clientContext: clientCtx))
     }
 
     func testBasicALPNNegotiationNotSupportedByServer() throws {
-        let serverCtx: NIOOpenSSL.SSLContext
-        let clientCtx: NIOOpenSSL.SSLContext
+        let serverCtx: NIOOpenSSL.NIOSSLContext
+        let clientCtx: NIOOpenSSL.NIOSSLContext
         serverCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: []))
         clientCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"]))
 

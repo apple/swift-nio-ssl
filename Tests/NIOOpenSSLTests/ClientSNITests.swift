@@ -29,11 +29,11 @@ class ClientSNITests: XCTestCase {
         OpenSSLIntegrationTest.key = key
     }
 
-    private func configuredSSLContext() throws -> NIOOpenSSL.SSLContext {
+    private func configuredSSLContext() throws -> NIOOpenSSL.NIOSSLContext {
         let config = TLSConfiguration.forServer(certificateChain: [.certificate(OpenSSLIntegrationTest.cert)],
                                                 privateKey: .privateKey(OpenSSLIntegrationTest.key),
                                                 trustRoots: .certificates([OpenSSLIntegrationTest.cert]))
-        let context = try SSLContext(configuration: config)
+        let context = try NIOSSLContext(configuration: config)
         return context
     }
 

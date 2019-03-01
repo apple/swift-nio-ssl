@@ -38,11 +38,11 @@ enum AsyncOperationResult<T> {
 /// A wrapper class that encapsulates OpenSSL's `SSL *` object.
 ///
 /// This class represents a single TLS connection, and performs all of crypto and record
-/// framing required by TLS. It also records the configuration and parent `SSLContext` object
+/// framing required by TLS. It also records the configuration and parent `NIOSSLContext` object
 /// used to create the connection.
 internal final class SSLConnection {
     private let ssl: OpaquePointer
-    private let parentContext: SSLContext
+    private let parentContext: NIOSSLContext
     private var bio: ByteBufferBIO?
     private var verificationCallback: OpenSSLVerificationCallback?
 
@@ -54,7 +54,7 @@ internal final class SSLConnection {
         return false
     }
 
-    init(ownedSSL: OpaquePointer, parentContext: SSLContext) {
+    init(ownedSSL: OpaquePointer, parentContext: NIOSSLContext) {
         self.ssl = ownedSSL
         self.parentContext = parentContext
 
