@@ -32,7 +32,7 @@ private extension String {
 /// are acting as the client in the TLS dialog. For server connections,
 /// use the `OpenSSLServerHandler`.
 public final class OpenSSLClientHandler: OpenSSLHandler {
-    public init(context: SSLContext, serverHostname: String? = nil, verificationCallback: OpenSSLVerificationCallback? = nil) throws {
+    public init(context: NIOSSLContext, serverHostname: String? = nil, verificationCallback: OpenSSLVerificationCallback? = nil) throws {
         guard let connection = context.createConnection() else {
             throw NIOOpenSSLError.unableToAllocateOpenSSLObject
         }

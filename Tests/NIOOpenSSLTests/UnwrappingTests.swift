@@ -60,11 +60,11 @@ final class UnwrappingTests: XCTestCase {
         _ = unlink(OpenSSLIntegrationTest.encryptedKeyPath)
     }
 
-    private func configuredSSLContext(file: StaticString = #file, line: UInt = #line) throws -> NIOOpenSSL.SSLContext {
+    private func configuredSSLContext(file: StaticString = #file, line: UInt = #line) throws -> NIOOpenSSL.NIOSSLContext {
         let config = TLSConfiguration.forServer(certificateChain: [.certificate(OpenSSLIntegrationTest.cert)],
                                                 privateKey: .privateKey(OpenSSLIntegrationTest.key),
                                                 trustRoots: .certificates([OpenSSLIntegrationTest.cert]))
-        return try assertNoThrowWithValue(SSLContext(configuration: config), file: file, line: line)
+        return try assertNoThrowWithValue(NIOSSLContext(configuration: config), file: file, line: line)
     }
 
     func testSimpleUnwrapping() throws {
