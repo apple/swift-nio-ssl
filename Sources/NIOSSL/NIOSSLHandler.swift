@@ -106,10 +106,10 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             let closePromise = self.closePromise
             self.closePromise = nil
 
-            shutdownPromise?.fail(BoringSSLError.uncleanShutdown)
-            closePromise?.fail(BoringSSLError.uncleanShutdown)
-            context.fireErrorCaught(BoringSSLError.uncleanShutdown)
-            discardBufferedWrites(reason: BoringSSLError.uncleanShutdown)
+            shutdownPromise?.fail(NIOSSLError.uncleanShutdown)
+            closePromise?.fail(NIOSSLError.uncleanShutdown)
+            context.fireErrorCaught(NIOSSLError.uncleanShutdown)
+            discardBufferedWrites(reason: NIOSSLError.uncleanShutdown)
         }
 
         context.fireChannelInactive()
