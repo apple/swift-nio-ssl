@@ -57,6 +57,7 @@ public enum NIOSSLError: Error {
     case unableToValidateCertificate
     case cannotFindPeerIP
     case readInInvalidTLSState
+    case uncleanShutdown
 }
 
 extension NIOSSLError: Equatable {
@@ -69,7 +70,8 @@ extension NIOSSLError: Equatable {
              (.failedToLoadPrivateKey, .failedToLoadPrivateKey),
              (.cannotMatchULabel, .cannotMatchULabel),
              (.noCertificateToValidate, .noCertificateToValidate),
-             (.unableToValidateCertificate, .unableToValidateCertificate):
+             (.unableToValidateCertificate, .unableToValidateCertificate),
+             (.uncleanShutdown, .uncleanShutdown):
             return true
         case (.handshakeFailed(let err1), .handshakeFailed(let err2)),
              (.shutdownFailed(let err1), .shutdownFailed(let err2)):
@@ -92,7 +94,6 @@ public enum BoringSSLError: Error {
     case syscallError
     case sslError(NIOBoringSSLErrorStack)
     case unknownError(NIOBoringSSLErrorStack)
-    case uncleanShutdown
     case invalidSNIName(NIOBoringSSLErrorStack)
     case failedToSetALPN(NIOBoringSSLErrorStack)
 }
@@ -108,8 +109,7 @@ public func ==(lhs: BoringSSLError, rhs: BoringSSLError) -> Bool {
          (.wantConnect, .wantConnect),
          (.wantAccept, .wantAccept),
          (.wantX509Lookup, .wantX509Lookup),
-         (.syscallError, .syscallError),
-         (.uncleanShutdown, .uncleanShutdown):
+         (.syscallError, .syscallError):
         return true
     case (.sslError(let e1), .sslError(let e2)),
          (.unknownError(let e1), .unknownError(let e2)):

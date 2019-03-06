@@ -287,7 +287,7 @@ final class UnwrappingTests: XCTestCase {
         clientStopPromise.futureResult.map {
             XCTFail("Must not succeed")
         }.whenFailure { error in
-            XCTAssertEqual(error as? BoringSSLError, .uncleanShutdown)
+            XCTAssertEqual(error as? NIOSSLError, .uncleanShutdown)
             clientUnwrapped = true
         }
         clientHandler.stopTLS(promise: clientStopPromise)
@@ -716,11 +716,11 @@ final class UnwrappingTests: XCTestCase {
         clientHandler.stopTLS(promise: stopPromise)
 
         // Now we want to manually handle the interaction. The client will have sent a CLOSE_NOTIFY: send it to the server.
-        let clientCloseNotify = clientChannel.readOutbound(as: ByteBuffer.self)!
+        let clientCloseNotify = try clientChannel.readOutbound(as: ByteBuffer.self)!
         XCTAssertNoThrow(try serverChannel.writeInbound(clientCloseNotify))
 
         // The server will have sent a CLOSE_NOTIFY: grab it.
-        var serverCloseNotify = serverChannel.readOutbound(as: ByteBuffer.self)!
+        var serverCloseNotify = try serverChannel.readOutbound(as: ByteBuffer.self)!
 
         // We're going to append some plaintext data.
         serverCloseNotify.writeStaticString("Hello, world!")

@@ -36,8 +36,8 @@ internal func interactInMemory(clientChannel: EmbeddedChannel, serverChannel: Em
     var workToDo = true
     while workToDo {
         workToDo = false
-        let clientDatum = clientChannel.readOutbound(as: IOData.self)
-        let serverDatum = serverChannel.readOutbound(as: IOData.self)
+        let clientDatum = try clientChannel.readOutbound(as: IOData.self)
+        let serverDatum = try serverChannel.readOutbound(as: IOData.self)
 
         if let clientMsg = clientDatum {
             try serverChannel.writeInbound(clientMsg)
@@ -843,7 +843,7 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTFail("Unexpected success")
         }.whenFailure { error in
             switch error {
-            case let e as BoringSSLError where e == .uncleanShutdown:
+            case let e as NIOSSLError where e == .uncleanShutdown:
                 break
             default:
                 XCTFail("Unexpected error: \(error)")
@@ -1144,7 +1144,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         let clientClosePromise = clientChannel.close()
 
         var buffer = clientChannel.allocator.buffer(capacity: 1024)
-        while case .some(.byteBuffer(var data)) = clientChannel.readOutbound(as: IOData.self) {
+        while case .some(.byteBuffer(var data)) = try clientChannel.readOutbound(as: IOData.self) {
             buffer.writeBuffer(&data)
         }
         XCTAssertNoThrow(try serverChannel.writeInbound(buffer))
