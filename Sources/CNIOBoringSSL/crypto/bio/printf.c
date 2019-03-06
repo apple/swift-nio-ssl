@@ -54,14 +54,14 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/bio.h"
+#include <CNIOBoringSSL/bio.h>
 
-#include "assert.h"
-#include "stdarg.h"
-#include "stdio.h"
+#include <assert.h>
+#include <stdarg.h>
+#include <stdio.h>
 
-#include "openssl/err.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
 
 int BIO_printf(BIO *bio, const char *format, ...) {
   va_list args;

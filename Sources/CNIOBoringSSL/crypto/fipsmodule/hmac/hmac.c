@@ -54,13 +54,13 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/hmac.h"
+#include <CNIOBoringSSL/hmac.h>
 
-#include "assert.h"
-#include "string.h"
+#include <assert.h>
+#include <string.h>
 
-#include "openssl/digest.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/digest.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "../../internal.h"
 

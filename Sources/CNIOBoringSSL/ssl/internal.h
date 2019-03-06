@@ -142,22 +142,22 @@
 #ifndef OPENSSL_HEADER_SSL_INTERNAL_H
 #define OPENSSL_HEADER_SSL_INTERNAL_H
 
-#include "openssl/base.h"
+#include <CNIOBoringSSL/base.h>
 
-#include "stdlib.h"
+#include <stdlib.h>
 
-#include "limits"
-#include "new"
-#include "type_traits"
-#include "utility"
+#include <limits>
+#include <new>
+#include <type_traits>
+#include <utility>
 
-#include "openssl/aead.h"
-#include "openssl/err.h"
-#include "openssl/lhash.h"
-#include "openssl/mem.h"
-#include "openssl/span.h"
-#include "openssl/ssl.h"
-#include "openssl/stack.h"
+#include <CNIOBoringSSL/aead.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/lhash.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/span.h>
+#include <CNIOBoringSSL/ssl.h>
+#include <CNIOBoringSSL/stack.h>
 
 #include "../crypto/err/internal.h"
 #include "../crypto/internal.h"
@@ -166,10 +166,10 @@
 #if defined(OPENSSL_WINDOWS)
 // Windows defines struct timeval in winsock2.h.
 OPENSSL_MSVC_PRAGMA(warning(push, 3))
-#include "winsock2.h"
+#include <winsock2.h>
 OPENSSL_MSVC_PRAGMA(warning(pop))
 #else
-#include "sys/time.h"
+#include <sys/time.h>
 #endif
 
 
@@ -2114,7 +2114,7 @@ BSSL_NAMESPACE_END
 
 DEFINE_LHASH_OF(SSL_SESSION)
 
-DEFINE_NAMED_STACK_OF(CertCompressionAlg, bssl::CertCompressionAlg);
+DEFINE_NAMED_STACK_OF(CertCompressionAlg, bssl::CertCompressionAlg)
 
 BSSL_NAMESPACE_BEGIN
 

@@ -54,11 +54,11 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/cipher.h"
+#include <CNIOBoringSSL/cipher.h>
 
-#include "string.h"
+#include <string.h>
 
-#include "openssl/nid.h"
+#include <CNIOBoringSSL/nid.h>
 
 #include "../internal.h"
 

@@ -54,14 +54,14 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/x509.h"
+#include <CNIOBoringSSL/x509.h>
 
-#include "inttypes.h"
-#include "string.h"
+#include <inttypes.h>
+#include <string.h>
 
-#include "openssl/asn1.h"
-#include "openssl/mem.h"
-#include "openssl/obj.h"
+#include <CNIOBoringSSL/asn1.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/obj.h>
 
 #include "charmap.h"
 #include "../asn1/asn1_locl.h"

@@ -55,10 +55,10 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "stdio.h"
+#include <stdio.h>
 
-#include "openssl/asn1t.h"
-#include "openssl/x509.h"
+#include <CNIOBoringSSL/asn1t.h>
+#include <CNIOBoringSSL/x509.h>
 
 
 ASN1_SEQUENCE(X509_VAL) = {

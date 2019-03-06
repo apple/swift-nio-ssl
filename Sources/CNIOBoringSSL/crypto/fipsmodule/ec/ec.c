@@ -65,15 +65,15 @@
  * Sheueling Chang Shantz and Douglas Stebila of Sun Microsystems
  * Laboratories. */
 
-#include "openssl/ec.h"
+#include <CNIOBoringSSL/ec.h>
 
-#include "assert.h"
-#include "string.h"
+#include <assert.h>
+#include <string.h>
 
-#include "openssl/bn.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
-#include "openssl/nid.h"
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/nid.h>
 
 #include "internal.h"
 #include "../../internal.h"
@@ -499,8 +499,8 @@ err:
 struct built_in_groups_st {
   EC_GROUP *groups[OPENSSL_NUM_BUILT_IN_CURVES];
 };
-DEFINE_BSS_GET(struct built_in_groups_st, built_in_groups);
-DEFINE_STATIC_MUTEX(built_in_groups_lock);
+DEFINE_BSS_GET(struct built_in_groups_st, built_in_groups)
+DEFINE_STATIC_MUTEX(built_in_groups_lock)
 
 EC_GROUP *EC_GROUP_new_by_curve_name(int nid) {
   struct built_in_groups_st *groups = built_in_groups_bss_get();

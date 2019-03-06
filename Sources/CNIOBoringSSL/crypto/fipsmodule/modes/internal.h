@@ -49,13 +49,13 @@
 #ifndef OPENSSL_HEADER_MODES_INTERNAL_H
 #define OPENSSL_HEADER_MODES_INTERNAL_H
 
-#include "openssl/base.h"
+#include <CNIOBoringSSL/base.h>
 
-#include "openssl/aes.h"
-#include "openssl/cpu.h"
+#include <CNIOBoringSSL/aes.h>
+#include <CNIOBoringSSL/cpu.h>
 
-#include "stdlib.h"
-#include "string.h"
+#include <stdlib.h>
+#include <string.h>
 
 #include "../../internal.h"
 
@@ -282,13 +282,6 @@ void gcm_gmult_clmul(uint64_t Xi[2], const u128 Htable[16]);
 void gcm_ghash_clmul(uint64_t Xi[2], const u128 Htable[16], const uint8_t *inp,
                      size_t len);
 
-#if defined(OPENSSL_X86_64)
-#define GHASH_ASM_X86_64
-void gcm_init_avx(u128 Htable[16], const uint64_t Xi[2]);
-void gcm_gmult_avx(uint64_t Xi[2], const u128 Htable[16]);
-void gcm_ghash_avx(uint64_t Xi[2], const u128 Htable[16], const uint8_t *in,
-                   size_t len);
-
 OPENSSL_INLINE char gcm_ssse3_capable(void) {
   return (OPENSSL_ia32cap_get()[1] & (1 << (41 - 32))) != 0;
 }
@@ -299,6 +292,13 @@ void gcm_init_ssse3(u128 Htable[16], const uint64_t Xi[2]);
 void gcm_gmult_ssse3(uint64_t Xi[2], const u128 Htable[16]);
 void gcm_ghash_ssse3(uint64_t Xi[2], const u128 Htable[16], const uint8_t *in,
                      size_t len);
+
+#if defined(OPENSSL_X86_64)
+#define GHASH_ASM_X86_64
+void gcm_init_avx(u128 Htable[16], const uint64_t Xi[2]);
+void gcm_gmult_avx(uint64_t Xi[2], const u128 Htable[16]);
+void gcm_ghash_avx(uint64_t Xi[2], const u128 Htable[16], const uint8_t *in,
+                   size_t len);
 
 #define AESNI_GCM
 size_t aesni_gcm_encrypt(const uint8_t *in, uint8_t *out, size_t len,
@@ -315,8 +315,6 @@ void gcm_ghash_4bit_mmx(uint64_t Xi[2], const u128 Htable[16], const uint8_t *in
 #endif  // OPENSSL_X86
 
 #elif defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)
-#include "openssl/arm_arch.h"
-#if __ARM_ARCH__ >= 7
 #define GHASH_ASM_ARM
 #define GCM_FUNCREF_4BIT
 
@@ -352,7 +350,6 @@ OPENSSL_INLINE void gcm_ghash_neon(uint64_t Xi[2], const u128 Htable[16],
 }
 #endif  // OPENSSL_ARM
 
-#endif  // __ARM_ARCH__ >= 7
 #elif defined(OPENSSL_PPC64LE)
 #define GHASH_ASM_PPC64LE
 #define GCM_FUNCREF_4BIT

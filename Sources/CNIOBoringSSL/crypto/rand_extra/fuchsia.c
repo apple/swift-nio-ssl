@@ -12,14 +12,14 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include "openssl/rand.h"
+#include <CNIOBoringSSL/rand.h>
 
 #if defined(OPENSSL_FUCHSIA) && !defined(BORINGSSL_UNSAFE_DETERMINISTIC_MODE)
 
-#include "limits.h"
-#include "stdlib.h"
+#include <limits.h>
+#include <stdlib.h>
 
-#include "zircon/syscalls.h"
+#include <zircon/syscalls.h>
 
 #include "../fipsmodule/rand/internal.h"
 

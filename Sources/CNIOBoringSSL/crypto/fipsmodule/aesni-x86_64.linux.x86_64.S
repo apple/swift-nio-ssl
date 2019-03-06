@@ -553,7 +553,7 @@ aes_hw_ecb_encrypt:
 	movl	%eax,%r10d
 	testl	%r8d,%r8d
 	jz	.Lecb_decrypt
-#--------------------------- ECB ENCRYPT ------------------------------#
+
 	cmpq	$0x80,%rdx
 	jb	.Lecb_enc_tail
 
@@ -694,7 +694,7 @@ aes_hw_ecb_encrypt:
 	movups	%xmm6,64(%rsi)
 	movups	%xmm7,80(%rsi)
 	jmp	.Lecb_ret
-#--------------------------- ECB DECRYPT ------------------------------#
+
 .align	16
 .Lecb_decrypt:
 	cmpq	$0x80,%rdx
@@ -1296,7 +1296,7 @@ aes_hw_ctr32_encrypt_blocks:
 	movdqa	64(%rsp),%xmm15
 .byte	102,68,15,56,221,193
 	movdqa	80(%rsp),%xmm0
-	movups	16-128(%rcx),%xmm1#real 1st-round key
+	movups	16-128(%rcx),%xmm1
 .byte	102,69,15,56,221,202
 
 	movups	%xmm2,(%rsi)
@@ -1481,7 +1481,7 @@ aes_hw_cbc_encrypt:
 	movq	%rcx,%r11
 	testl	%r9d,%r9d
 	jz	.Lcbc_decrypt
-#--------------------------- CBC ENCRYPT ------------------------------#
+
 	movups	(%r8),%xmm2
 	movl	%r10d,%eax
 	cmpq	$16,%rdx
@@ -1492,7 +1492,7 @@ aes_hw_cbc_encrypt:
 .Lcbc_enc_loop:
 	movups	(%rdi),%xmm3
 	leaq	16(%rdi),%rdi
-#xorps	%xmm3,%xmm2
+
 	movups	(%rcx),%xmm0
 	movups	16(%rcx),%xmm1
 	xorps	%xmm0,%xmm3
@@ -1534,7 +1534,7 @@ aes_hw_cbc_encrypt:
 	movq	%r11,%rcx
 	xorq	%rdx,%rdx
 	jmp	.Lcbc_enc_loop
-#--------------------------- CBC DECRYPT ------------------------------#
+
 .align	16
 .Lcbc_decrypt:
 	cmpq	$16,%rdx

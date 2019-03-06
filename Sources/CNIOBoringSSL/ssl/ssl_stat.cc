@@ -81,7 +81,7 @@
  * OTHERWISE.
  */
 
-#include <openssl/ssl.h>
+#include <CNIOBoringSSL/ssl.h>
 
 #include <assert.h>
 

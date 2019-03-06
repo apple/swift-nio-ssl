@@ -7,11 +7,11 @@
  * https://www.openssl.org/source/license.html
  */
 
-#include "openssl/x509v3.h"
+#include <CNIOBoringSSL/x509v3.h>
 
-#include "openssl/asn1.h"
-#include "openssl/bio.h"
-#include "openssl/nid.h"
+#include <CNIOBoringSSL/asn1.h>
+#include <CNIOBoringSSL/bio.h>
+#include <CNIOBoringSSL/nid.h>
 
 /*
  * OCSP extensions and a couple of CRL entry extensions

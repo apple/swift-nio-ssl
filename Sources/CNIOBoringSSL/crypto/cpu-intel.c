@@ -54,20 +54,20 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/cpu.h"
+#include <CNIOBoringSSL/cpu.h>
 
 
 #if !defined(OPENSSL_NO_ASM) && (defined(OPENSSL_X86) || defined(OPENSSL_X86_64))
 
-#include "inttypes.h"
-#include "stdio.h"
-#include "stdlib.h"
-#include "string.h"
+#include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #if defined(_MSC_VER)
 OPENSSL_MSVC_PRAGMA(warning(push, 3))
-#include "immintrin.h"
-#include "intrin.h"
+#include <immintrin.h>
+#include <intrin.h>
 OPENSSL_MSVC_PRAGMA(warning(pop))
 #endif
 

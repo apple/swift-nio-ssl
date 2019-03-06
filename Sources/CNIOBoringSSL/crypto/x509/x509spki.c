@@ -54,12 +54,12 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include "string.h"
+#include <string.h>
 
-#include "openssl/base64.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
-#include "openssl/x509.h"
+#include <CNIOBoringSSL/base64.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/x509.h>
 
 int NETSCAPE_SPKI_set_pubkey(NETSCAPE_SPKI *x, EVP_PKEY *pkey)
 {

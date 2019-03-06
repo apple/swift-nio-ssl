@@ -16,24 +16,24 @@
 #define _GNU_SOURCE  // needed for syscall() on Linux.
 #endif
 
-#include "openssl/rand.h"
+#include <CNIOBoringSSL/rand.h>
 
 #if !defined(OPENSSL_WINDOWS) && !defined(OPENSSL_FUCHSIA) && \
     !defined(BORINGSSL_UNSAFE_DETERMINISTIC_MODE) && !defined(OPENSSL_TRUSTY)
 
-#include "assert.h"
-#include "errno.h"
-#include "fcntl.h"
-#include "stdio.h"
-#include "string.h"
-#include "unistd.h"
+#include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
 #if defined(OPENSSL_LINUX)
 #if defined(BORINGSSL_FIPS)
-#include "linux/random.h"
-#include "sys/ioctl.h"
+#include <linux/random.h>
+#include <sys/ioctl.h>
 #endif
-#include "sys/syscall.h"
+#include <sys/syscall.h>
 
 #if !defined(OPENSSL_ANDROID)
 #define OPENSSL_HAS_GETAUXVAL
@@ -49,12 +49,12 @@
 #endif
 #endif
 #if defined(OPENSSL_HAS_GETAUXVAL)
-#include "sys/auxv.h"
+#include <sys/auxv.h>
 #endif
 #endif  // OPENSSL_LINUX
 
-#include "openssl/thread.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/thread.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "internal.h"
 #include "../delocate.h"
@@ -120,7 +120,7 @@ static ssize_t boringssl_getrandom(void *buf, size_t buf_len, unsigned flags) {
 #endif  // OPENSSL_LINUX
 
 // rand_lock is used to protect the |*_requested| variables.
-DEFINE_STATIC_MUTEX(rand_lock);
+DEFINE_STATIC_MUTEX(rand_lock)
 
 // The following constants are magic values of |urandom_fd|.
 static const int kUnset = 0;
@@ -128,12 +128,12 @@ static const int kHaveGetrandom = -3;
 
 // urandom_fd_requested is set by |RAND_set_urandom_fd|. It's protected by
 // |rand_lock|.
-DEFINE_BSS_GET(int, urandom_fd_requested);
+DEFINE_BSS_GET(int, urandom_fd_requested)
 
 // urandom_fd is a file descriptor to /dev/urandom. It's protected by |once|.
-DEFINE_BSS_GET(int, urandom_fd);
+DEFINE_BSS_GET(int, urandom_fd)
 
-DEFINE_STATIC_ONCE(rand_once);
+DEFINE_STATIC_ONCE(rand_once)
 
 // init_once initializes the state of this module to values previously
 // requested. This is the only function that modifies |urandom_fd| and

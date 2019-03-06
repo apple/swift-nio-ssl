@@ -54,15 +54,15 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/digest.h"
+#include <CNIOBoringSSL/digest.h>
 
-#include "assert.h"
-#include "string.h"
+#include <assert.h>
+#include <string.h>
 
-#include "openssl/md4.h"
-#include "openssl/md5.h"
-#include "openssl/nid.h"
-#include "openssl/sha.h"
+#include <CNIOBoringSSL/md4.h>
+#include <CNIOBoringSSL/md5.h>
+#include <CNIOBoringSSL/nid.h>
+#include <CNIOBoringSSL/sha.h>
 
 #include "internal.h"
 #include "../delocate.h"

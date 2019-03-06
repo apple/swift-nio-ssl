@@ -17,14 +17,14 @@
 #if defined(OPENSSL_WINDOWS_THREADS)
 
 OPENSSL_MSVC_PRAGMA(warning(push, 3))
-#include "windows.h"
+#include <windows.h>
 OPENSSL_MSVC_PRAGMA(warning(pop))
 
-#include "stdlib.h"
-#include "string.h"
+#include <stdlib.h>
+#include <string.h>
 
-#include "openssl/mem.h"
-#include "openssl/type_check.h"
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/type_check.h>
 
 
 OPENSSL_STATIC_ASSERT(sizeof(CRYPTO_MUTEX) >= sizeof(SRWLOCK),

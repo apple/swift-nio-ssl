@@ -109,18 +109,18 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <openssl/ssl.h>
+#include <CNIOBoringSSL/ssl.h>
 
 #include <assert.h>
 #include <string.h>
 
-#include <openssl/bio.h>
-#include <openssl/buf.h>
-#include <openssl/bytestring.h>
-#include <openssl/mem.h>
-#include <openssl/evp.h>
-#include <openssl/err.h>
-#include <openssl/rand.h>
+#include <CNIOBoringSSL/bio.h>
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/bytestring.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/rand.h>
 
 #include "../crypto/internal.h"
 #include "internal.h"

@@ -54,14 +54,14 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "stdio.h"
+#include <stdio.h>
 
-#include "openssl/bn.h"
-#include "openssl/buffer.h"
-#include "openssl/err.h"
-#include "openssl/objects.h"
-#include "openssl/x509.h"
-#include "openssl/x509v3.h"
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/buffer.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/objects.h>
+#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL/x509v3.h>
 
 
 int X509_REQ_print_fp(FILE *fp, X509_REQ *x) {

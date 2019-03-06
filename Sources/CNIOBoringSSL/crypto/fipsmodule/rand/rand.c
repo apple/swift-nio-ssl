@@ -12,19 +12,19 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include "openssl/rand.h"
+#include <CNIOBoringSSL/rand.h>
 
-#include "assert.h"
-#include "limits.h"
-#include "string.h"
+#include <assert.h>
+#include <limits.h>
+#include <string.h>
 
 #if defined(BORINGSSL_FIPS)
-#include "unistd.h"
+#include <unistd.h>
 #endif
 
-#include "openssl/chacha.h"
-#include "openssl/cpu.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/chacha.h>
+#include <CNIOBoringSSL/cpu.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "internal.h"
 #include "../../internal.h"

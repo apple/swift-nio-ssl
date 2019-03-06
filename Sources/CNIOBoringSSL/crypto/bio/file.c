@@ -71,17 +71,17 @@
 #endif
 #endif
 
-#include "openssl/bio.h"
+#include <CNIOBoringSSL/bio.h>
 
 #if !defined(OPENSSL_TRUSTY)
 
-#include "errno.h"
-#include "stdio.h"
-#include "string.h"
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
 
-#include "openssl/buf.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "../internal.h"
 

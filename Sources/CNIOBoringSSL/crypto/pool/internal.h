@@ -15,15 +15,15 @@
 #ifndef OPENSSL_HEADER_POOL_INTERNAL_H
 #define OPENSSL_HEADER_POOL_INTERNAL_H
 
-#include "openssl/lhash.h"
-#include "openssl/thread.h"
+#include <CNIOBoringSSL/lhash.h>
+#include <CNIOBoringSSL/thread.h>
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
 
 
-DECLARE_LHASH_OF(CRYPTO_BUFFER);
+DECLARE_LHASH_OF(CRYPTO_BUFFER)
 
 struct crypto_buffer_st {
   CRYPTO_BUFFER_POOL *pool;

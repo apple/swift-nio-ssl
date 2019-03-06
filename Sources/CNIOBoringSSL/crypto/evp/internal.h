@@ -57,9 +57,9 @@
 #ifndef OPENSSL_HEADER_EVP_INTERNAL_H
 #define OPENSSL_HEADER_EVP_INTERNAL_H
 
-#include "openssl/base.h"
+#include <CNIOBoringSSL/base.h>
 
-#include "openssl/rsa.h"
+#include <CNIOBoringSSL/rsa.h>
 
 #if defined(__cplusplus)
 extern "C" {

@@ -54,19 +54,19 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/x509.h"
+#include <CNIOBoringSSL/x509.h>
 
-#include "stdio.h"
-#include "time.h"
-#include "sys/types.h"
+#include <stdio.h>
+#include <time.h>
+#include <sys/types.h>
 
-#include "openssl/bn.h"
-#include "openssl/buf.h"
-#include "openssl/digest.h"
-#include "openssl/err.h"
-#include "openssl/evp.h"
-#include "openssl/mem.h"
-#include "openssl/obj.h"
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/digest.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/obj.h>
 
 #include "internal.h"
 

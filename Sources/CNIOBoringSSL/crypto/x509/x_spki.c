@@ -60,8 +60,8 @@
   * It is under my Copyright with his permission.
   */
 
-#include "openssl/x509.h"
-#include "openssl/asn1t.h"
+#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL/asn1t.h>
 
 
 ASN1_SEQUENCE(NETSCAPE_SPKAC) = {

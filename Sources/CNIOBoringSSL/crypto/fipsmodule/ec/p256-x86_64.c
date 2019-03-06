@@ -16,18 +16,18 @@
  *                          256 Bit Primes"
  */
 
-#include "openssl/ec.h"
+#include <CNIOBoringSSL/ec.h>
 
-#include "assert.h"
-#include "stdint.h"
-#include "string.h"
+#include <assert.h>
+#include <stdint.h>
+#include <string.h>
 
-#include "openssl/bn.h"
-#include "openssl/cpu.h"
-#include "openssl/crypto.h"
-#include "openssl/err.h"
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/cpu.h>
+#include <CNIOBoringSSL/crypto.h>
+#include <CNIOBoringSSL/err.h>
 
-#include "openssl/cpu.h"
+#include <CNIOBoringSSL/cpu.h>
 
 #include "../bn/internal.h"
 #include "../delocate.h"
@@ -656,7 +656,7 @@ DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistz256_method) {
   out->scalar_inv_montgomery = ecp_nistz256_inv_mod_ord;
   out->scalar_inv_montgomery_vartime = ecp_nistz256_mont_inv_mod_ord_vartime;
   out->cmp_x_coordinate = ecp_nistz256_cmp_x_coordinate;
-};
+}
 
 #endif /* !defined(OPENSSL_NO_ASM) && defined(OPENSSL_X86_64) && \
           !defined(OPENSSL_SMALL) */

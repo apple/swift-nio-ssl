@@ -52,12 +52,12 @@
  * Hudson (tjh@cryptsoft.com). */
 
 
-#include "openssl/bn.h"
+#include <CNIOBoringSSL/bn.h>
 
-#include "string.h"
+#include <string.h>
 
-#include "openssl/err.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "../../internal.h"
 

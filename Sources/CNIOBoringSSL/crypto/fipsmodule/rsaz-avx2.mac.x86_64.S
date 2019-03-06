@@ -384,9 +384,9 @@ L$OOP_REDUCE_1024:
 	vpaddq	%ymm10,%ymm7,%ymm7
 	vpmuludq	256-128(%r13),%ymm12,%ymm14
 	vmovd	%eax,%xmm12
-#vmovdqu	32*1-8-128(%r13), %ymm11
+
 	vpaddq	%ymm14,%ymm8,%ymm8
-#vmovdqu	32*2-8-128(%r13), %ymm10
+
 	vpbroadcastq	%xmm12,%ymm12
 
 	vpmuludq	32-8-128(%r13),%ymm13,%ymm11
@@ -462,7 +462,7 @@ L$OOP_REDUCE_1024:
 	addq	%r12,%rax
 	vpaddq	%ymm14,%ymm7,%ymm7
 	vpmuludq	%ymm12,%ymm11,%ymm11
-#vmovdqu	32*2-24-128(%r13), %ymm14
+
 	movq	%rax,%r9
 	imull	%ecx,%eax
 	vpaddq	%ymm11,%ymm8,%ymm8

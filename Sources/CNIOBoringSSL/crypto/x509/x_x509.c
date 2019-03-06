@@ -55,18 +55,18 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "assert.h"
-#include "limits.h"
-#include "stdio.h"
+#include <assert.h>
+#include <limits.h>
+#include <stdio.h>
 
-#include "openssl/asn1t.h"
-#include "openssl/evp.h"
-#include "openssl/mem.h"
-#include "openssl/obj.h"
-#include "openssl/pool.h"
-#include "openssl/thread.h"
-#include "openssl/x509.h"
-#include "openssl/x509v3.h"
+#include <CNIOBoringSSL/asn1t.h>
+#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL/pool.h>
+#include <CNIOBoringSSL/thread.h>
+#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL/x509v3.h>
 
 #include "../internal.h"
 

@@ -54,10 +54,10 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/bn.h"
+#include <CNIOBoringSSL/bn.h>
 
-#include "openssl/mem.h"
-#include "openssl/type_check.h"
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/type_check.h>
 
 #include "internal.h"
 #include "../../internal.h"

@@ -16,18 +16,18 @@
 .text	
 
 
-#
 
-#
 
-#
-#
-#
-#
 
-#
-#
-#
+
+
+
+
+
+
+
+
+
 
 
 .type	_vpaes_encrypt_core,@function
@@ -118,9 +118,9 @@ _vpaes_encrypt_core:
 .size	_vpaes_encrypt_core,.-_vpaes_encrypt_core
 
 
-#
 
-#
+
+
 
 .type	_vpaes_decrypt_core,@function
 .align	16
@@ -152,7 +152,7 @@ _vpaes_decrypt_core:
 .align	16
 .Ldec_loop:
 
-#
+
 
 	movdqa	-32(%r10),%xmm4
 	movdqa	-16(%r10),%xmm1
@@ -226,9 +226,9 @@ _vpaes_decrypt_core:
 .size	_vpaes_decrypt_core,.-_vpaes_decrypt_core
 
 
-#
-#
-#
+
+
+
 
 .type	_vpaes_schedule_core,@function
 .align	16
@@ -271,12 +271,12 @@ _vpaes_schedule_core:
 
 
 
-#
 
-#
 
-#
-#
+
+
+
+
 
 .Lschedule_128:
 	movl	$10,%esi
@@ -289,19 +289,19 @@ _vpaes_schedule_core:
 	jmp	.Loop_schedule_128
 
 
-#
 
-#
 
-#
-#
-#
-#
 
-#
-#
-#
-#
+
+
+
+
+
+
+
+
+
+
 
 .align	16
 .Lschedule_192:
@@ -326,14 +326,14 @@ _vpaes_schedule_core:
 	jmp	.Loop_schedule_192
 
 
-#
 
-#
 
-#
-#
-#
-#
+
+
+
+
+
+
 
 .align	16
 .Lschedule_256:
@@ -362,14 +362,14 @@ _vpaes_schedule_core:
 
 
 
-#
 
-#
-#
-#
-#
 
-#
+
+
+
+
+
+
 
 .align	16
 .Lschedule_mangle_last:
@@ -404,18 +404,18 @@ _vpaes_schedule_core:
 .size	_vpaes_schedule_core,.-_vpaes_schedule_core
 
 
-#
 
-#
 
-#
-#
-#
-#
 
-#
-#
-#
+
+
+
+
+
+
+
+
+
 
 .type	_vpaes_schedule_192_smear,@function
 .align	16
@@ -433,22 +433,22 @@ _vpaes_schedule_192_smear:
 .size	_vpaes_schedule_192_smear,.-_vpaes_schedule_192_smear
 
 
-#
 
-#
 
-#
-#
-#
 
-#
-#
 
-#
-#
 
-#
-#
+
+
+
+
+
+
+
+
+
+
+
 
 .type	_vpaes_schedule_round,@function
 .align	16
@@ -511,13 +511,13 @@ _vpaes_schedule_low_round:
 .size	_vpaes_schedule_round,.-_vpaes_schedule_round
 
 
-#
 
-#
 
-#
-#
-#
+
+
+
+
+
 
 .type	_vpaes_schedule_transform,@function
 .align	16
@@ -537,27 +537,27 @@ _vpaes_schedule_transform:
 .size	_vpaes_schedule_transform,.-_vpaes_schedule_transform
 
 
-#
-
-#
-#
-
-#
-#
-#
-#
-
-#
-#
-#
-#
-#
 
 
-#
-#
-#
-#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 .type	_vpaes_schedule_mangle,@function
 .align	16
@@ -630,15 +630,23 @@ _vpaes_schedule_mangle:
 .cfi_endproc	
 .size	_vpaes_schedule_mangle,.-_vpaes_schedule_mangle
 
-#
 
-#
+
+
 .globl	vpaes_set_encrypt_key
 .hidden vpaes_set_encrypt_key
 .type	vpaes_set_encrypt_key,@function
 .align	16
 vpaes_set_encrypt_key:
 .cfi_startproc	
+#ifndef NDEBUG
+#ifndef BORINGSSL_FIPS
+.extern	BORINGSSL_function_hit
+.hidden BORINGSSL_function_hit
+	movb	$1,BORINGSSL_function_hit+5(%rip)
+#endif
+#endif
+
 	movl	%esi,%eax
 	shrl	$5,%eax
 	addl	$5,%eax
@@ -682,6 +690,13 @@ vpaes_set_decrypt_key:
 .align	16
 vpaes_encrypt:
 .cfi_startproc	
+#ifndef NDEBUG
+#ifndef BORINGSSL_FIPS
+.extern	BORINGSSL_function_hit
+.hidden BORINGSSL_function_hit
+	movb	$1,BORINGSSL_function_hit+4(%rip)
+#endif
+#endif
 	movdqu	(%rdi),%xmm0
 	call	_vpaes_preheat
 	call	_vpaes_encrypt_core
@@ -747,10 +762,10 @@ vpaes_cbc_encrypt:
 .cfi_endproc	
 .size	vpaes_cbc_encrypt,.-vpaes_cbc_encrypt
 
-#
 
-#
-#
+
+
+
 
 .type	_vpaes_preheat,@function
 .align	16
@@ -768,9 +783,9 @@ _vpaes_preheat:
 .cfi_endproc	
 .size	_vpaes_preheat,.-_vpaes_preheat
 
-#
-#
-#
+
+
+
 
 .type	_vpaes_consts,@object
 .align	64
@@ -829,8 +844,8 @@ _vpaes_consts:
 .quad	0x5F36B5DC83EA6900, 0x2841C2ABF49D1E77
 
 
-#
-#
+
+
 
 .Lk_dksd:
 .quad	0xFEB91A5DA3E44700, 0x0740E3A45A1DBEF9
@@ -846,8 +861,8 @@ _vpaes_consts:
 .quad	0x4576516227143300, 0x8BB89FACE9DAFDCE
 
 
-#
-#
+
+
 
 .Lk_dipt:
 .quad	0x0F505B040B545F00, 0x154A411E114E451A

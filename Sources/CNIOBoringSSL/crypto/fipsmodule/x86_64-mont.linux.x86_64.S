@@ -61,7 +61,7 @@ bn_mul_mont:
 	andq	$-1024,%r10
 
 
-#
+
 
 
 
@@ -742,7 +742,7 @@ bn_sqr8x_mont:
 
 
 
-#
+
 	leaq	-64(%rsp,%r9,2),%r11
 	movq	%rsp,%rbp
 	movq	(%r8),%r8
@@ -956,7 +956,7 @@ bn_mulx4x_mont:
 
 
 
-#
+
 	movq	%r9,0(%rsp)
 	shrq	$5,%r9
 	movq	%r10,16(%rsp)

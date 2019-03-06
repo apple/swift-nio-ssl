@@ -54,17 +54,17 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/bn.h"
+#include <CNIOBoringSSL/bn.h>
 
-#include "assert.h"
-#include "ctype.h"
-#include "limits.h"
-#include "stdio.h"
+#include <assert.h>
+#include <ctype.h>
+#include <limits.h>
+#include <stdio.h>
 
-#include "openssl/bio.h"
-#include "openssl/bytestring.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/bio.h>
+#include <CNIOBoringSSL/bytestring.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "../fipsmodule/bn/internal.h"
 

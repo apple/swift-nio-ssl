@@ -12,10 +12,10 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include "openssl/evp.h"
+#include <CNIOBoringSSL/evp.h>
 
-#include "openssl/curve25519.h"
-#include "openssl/err.h"
+#include <CNIOBoringSSL/curve25519.h>
+#include <CNIOBoringSSL/err.h>
 
 #include "internal.h"
 

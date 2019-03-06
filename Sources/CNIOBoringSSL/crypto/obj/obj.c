@@ -54,19 +54,19 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/obj.h"
+#include <CNIOBoringSSL/obj.h>
 
-#include "inttypes.h"
-#include "limits.h"
-#include "string.h"
+#include <inttypes.h>
+#include <limits.h>
+#include <string.h>
 
-#include "openssl/asn1.h"
-#include "openssl/buf.h"
-#include "openssl/bytestring.h"
-#include "openssl/err.h"
-#include "openssl/lhash.h"
-#include "openssl/mem.h"
-#include "openssl/thread.h"
+#include <CNIOBoringSSL/asn1.h>
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/bytestring.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/lhash.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/thread.h>
 
 #include "obj_dat.h"
 #include "../internal.h"

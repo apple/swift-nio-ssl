@@ -3633,7 +3633,7 @@ seal_sse_tail_16:
 
 
 
-#
+
 
 
 	movq	288+32(%rsp),%r9
@@ -5820,7 +5820,7 @@ open_avx2_tail:
 	vmovdqa	%xmm0,%xmm1
 	jb	1f
 	subq	$16,%rbx
-#load for decryption
+
 	vpxor	(%rsi),%xmm0,%xmm1
 	vmovdqu	%xmm1,(%rdi)
 	leaq	16(%rsi),%rsi

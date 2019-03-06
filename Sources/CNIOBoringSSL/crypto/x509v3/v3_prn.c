@@ -57,12 +57,12 @@
 
 /* X509 v3 extension utilities */
 
-#include "stdio.h"
+#include <stdio.h>
 
-#include "openssl/bio.h"
-#include "openssl/conf.h"
-#include "openssl/mem.h"
-#include "openssl/x509v3.h"
+#include <CNIOBoringSSL/bio.h>
+#include <CNIOBoringSSL/conf.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/x509v3.h>
 
 /* Extension printing routines */
 

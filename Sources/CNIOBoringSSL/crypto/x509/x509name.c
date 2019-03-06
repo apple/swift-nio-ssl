@@ -54,14 +54,14 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "string.h"
+#include <string.h>
 
-#include "openssl/asn1.h"
-#include "openssl/err.h"
-#include "openssl/evp.h"
-#include "openssl/obj.h"
-#include "openssl/stack.h"
-#include "openssl/x509.h"
+#include <CNIOBoringSSL/asn1.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL/stack.h>
+#include <CNIOBoringSSL/x509.h>
 
 #include "../internal.h"
 

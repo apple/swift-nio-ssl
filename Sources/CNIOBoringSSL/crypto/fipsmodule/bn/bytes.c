@@ -54,10 +54,10 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/bn.h"
+#include <CNIOBoringSSL/bn.h>
 
-#include "assert.h"
-#include "limits.h"
+#include <assert.h>
+#include <limits.h>
 
 #include "internal.h"
 

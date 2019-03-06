@@ -17,14 +17,14 @@
 // Inspired by Daniel J. Bernstein's public domain nistp224 implementation
 // and Adam Langley's public domain 64-bit C implementation of curve25519.
 
-#include "openssl/base.h"
+#include <CNIOBoringSSL/base.h>
 
-#include "openssl/bn.h"
-#include "openssl/ec.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/ec.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
 
-#include "string.h"
+#include <string.h>
 
 #include "internal.h"
 #include "../delocate.h"
@@ -1120,6 +1120,6 @@ DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp224_method) {
   out->scalar_inv_montgomery = ec_simple_scalar_inv_montgomery;
   out->scalar_inv_montgomery_vartime = ec_GFp_simple_mont_inv_mod_ord_vartime;
   out->cmp_x_coordinate = ec_GFp_simple_cmp_x_coordinate;
-};
+}
 
 #endif  // BORINGSSL_HAS_UINT128 && !SMALL

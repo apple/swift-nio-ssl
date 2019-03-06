@@ -46,10 +46,10 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  * ==================================================================== */
 
-#include "openssl/type_check.h"
+#include <CNIOBoringSSL/type_check.h>
 
-#include "assert.h"
-#include "string.h"
+#include <assert.h>
+#include <string.h>
 
 #include "internal.h"
 

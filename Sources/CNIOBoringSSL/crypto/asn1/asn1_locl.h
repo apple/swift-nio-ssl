@@ -60,9 +60,9 @@
 #ifndef OPENSSL_HEADER_ASN1_ASN1_LOCL_H
 #define OPENSSL_HEADER_ASN1_ASN1_LOCL_H
 
-#include "time.h"
+#include <time.h>
 
-#include "openssl/asn1.h"
+#include <CNIOBoringSSL/asn1.h>
 
 #if defined(__cplusplus)
 extern "C" {
