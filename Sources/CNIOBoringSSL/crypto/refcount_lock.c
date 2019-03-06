@@ -14,9 +14,9 @@
 
 #include "internal.h"
 
-#include "stdlib.h"
+#include <stdlib.h>
 
-#include "openssl/type_check.h"
+#include <CNIOBoringSSL/type_check.h>
 
 
 #if !defined(OPENSSL_C11_ATOMIC)

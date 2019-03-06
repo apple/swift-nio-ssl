@@ -55,10 +55,10 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include "stdio.h"
+#include <stdio.h>
 
-#include "openssl/obj.h"
-#include "openssl/x509v3.h"
+#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL/x509v3.h>
 
 const X509V3_EXT_METHOD v3_crl_num = {
     NID_crl_number, 0, ASN1_ITEM_ref(ASN1_INTEGER),

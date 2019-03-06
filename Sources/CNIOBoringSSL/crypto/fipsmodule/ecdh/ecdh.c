@@ -64,15 +64,15 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include "openssl/ecdh.h"
+#include <CNIOBoringSSL/ecdh.h>
 
-#include "string.h"
+#include <string.h>
 
-#include "openssl/ec.h"
-#include "openssl/ec_key.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
-#include "openssl/sha.h"
+#include <CNIOBoringSSL/ec.h>
+#include <CNIOBoringSSL/ec_key.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/sha.h>
 
 #include "../ec/internal.h"
 

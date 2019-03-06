@@ -65,24 +65,24 @@
  * Sheueling Chang Shantz and Douglas Stebila of Sun Microsystems
  * Laboratories. */
 
-#include "openssl/ec_key.h"
+#include <CNIOBoringSSL/ec_key.h>
 
-#include "string.h"
+#include <string.h>
 
-#include "openssl/ec.h"
-#include "openssl/ecdsa.h"
-#include "openssl/engine.h"
-#include "openssl/err.h"
-#include "openssl/ex_data.h"
-#include "openssl/mem.h"
-#include "openssl/thread.h"
+#include <CNIOBoringSSL/ec.h>
+#include <CNIOBoringSSL/ecdsa.h>
+#include <CNIOBoringSSL/engine.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/ex_data.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/thread.h>
 
 #include "internal.h"
 #include "../delocate.h"
 #include "../../internal.h"
 
 
-DEFINE_STATIC_EX_DATA_CLASS(g_ec_ex_data_class);
+DEFINE_STATIC_EX_DATA_CLASS(g_ec_ex_data_class)
 
 static EC_WRAPPED_SCALAR *ec_wrapped_scalar_new(const EC_GROUP *group) {
   EC_WRAPPED_SCALAR *wrapped = OPENSSL_malloc(sizeof(EC_WRAPPED_SCALAR));
@@ -267,7 +267,7 @@ int EC_KEY_set_public_key(EC_KEY *key, const EC_POINT *pub_key) {
     return 0;
   }
 
-  if (EC_GROUP_cmp(key->group, pub_key->group, NULL) != 0) {
+  if (pub_key != NULL && EC_GROUP_cmp(key->group, pub_key->group, NULL) != 0) {
     OPENSSL_PUT_ERROR(EC, EC_R_GROUP_MISMATCH);
     return 0;
   }

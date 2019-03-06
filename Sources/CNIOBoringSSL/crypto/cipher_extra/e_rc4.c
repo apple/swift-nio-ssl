@@ -54,12 +54,12 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "assert.h"
-#include "string.h"
+#include <assert.h>
+#include <string.h>
 
-#include "openssl/cipher.h"
-#include "openssl/nid.h"
-#include "openssl/rc4.h"
+#include <CNIOBoringSSL/cipher.h>
+#include <CNIOBoringSSL/nid.h>
+#include <CNIOBoringSSL/rc4.h>
 
 
 static int rc4_init_key(EVP_CIPHER_CTX *ctx, const uint8_t *key,

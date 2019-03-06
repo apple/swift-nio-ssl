@@ -12,19 +12,19 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include <openssl/ssl.h>
+#include <CNIOBoringSSL/ssl.h>
 
 #include <assert.h>
 #include <string.h>
 
 #include <utility>
 
-#include <openssl/aead.h>
-#include <openssl/bytestring.h>
-#include <openssl/digest.h>
-#include <openssl/hkdf.h>
-#include <openssl/hmac.h>
-#include <openssl/mem.h>
+#include <CNIOBoringSSL/aead.h>
+#include <CNIOBoringSSL/bytestring.h>
+#include <CNIOBoringSSL/digest.h>
+#include <CNIOBoringSSL/hkdf.h>
+#include <CNIOBoringSSL/hmac.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "../crypto/internal.h"
 #include "internal.h"

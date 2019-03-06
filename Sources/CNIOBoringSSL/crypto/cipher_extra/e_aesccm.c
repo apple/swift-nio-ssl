@@ -12,13 +12,13 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include "openssl/aead.h"
+#include <CNIOBoringSSL/aead.h>
 
-#include "assert.h"
+#include <assert.h>
 
-#include "openssl/cipher.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/cipher.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "../fipsmodule/cipher/internal.h"
 
@@ -67,7 +67,7 @@ static int aead_aes_ccm_init(EVP_AEAD_CTX *ctx, const uint8_t *key,
 
   block128_f block;
   ctr128_f ctr = aes_ctr_set_key(&ccm_ctx->ks.ks, NULL, &block, key, key_len,
-                                 1 /* large inputs */);
+                                 0 /* small inputs */);
   ctx->tag_len = tag_len;
   if (!CRYPTO_ccm128_init(&ccm_ctx->ccm, &ccm_ctx->ks.ks, block, ctr, M, L)) {
     OPENSSL_PUT_ERROR(CIPHER, ERR_R_INTERNAL_ERROR);

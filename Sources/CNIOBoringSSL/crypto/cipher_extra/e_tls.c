@@ -12,18 +12,18 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include "assert.h"
-#include "limits.h"
-#include "string.h"
+#include <assert.h>
+#include <limits.h>
+#include <string.h>
 
-#include "openssl/aead.h"
-#include "openssl/cipher.h"
-#include "openssl/err.h"
-#include "openssl/hmac.h"
-#include "openssl/md5.h"
-#include "openssl/mem.h"
-#include "openssl/sha.h"
-#include "openssl/type_check.h"
+#include <CNIOBoringSSL/aead.h>
+#include <CNIOBoringSSL/cipher.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/hmac.h>
+#include <CNIOBoringSSL/md5.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/sha.h>
+#include <CNIOBoringSSL/type_check.h>
 
 #include "../fipsmodule/cipher/internal.h"
 #include "../internal.h"

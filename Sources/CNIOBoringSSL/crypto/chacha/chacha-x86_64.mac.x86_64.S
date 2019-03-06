@@ -74,13 +74,13 @@ _ChaCha20_ctr32:
 
 L$ctr32_body:
 
-#movdqa	.Lsigma(%rip),%xmm0
+
 	movdqu	(%rcx),%xmm1
 	movdqu	16(%rcx),%xmm2
 	movdqu	(%r8),%xmm3
 	movdqa	L$one(%rip),%xmm4
 
-#movdqa	%xmm0,4*0(%rsp)
+
 	movdqa	%xmm1,16(%rsp)
 	movdqa	%xmm2,32(%rsp)
 	movdqa	%xmm3,48(%rsp)
@@ -873,9 +873,9 @@ L$tail4x:
 	cmpq	$64,%rdx
 	jae	L$64_or_more4x
 
-#movdqa		0x00(%rsp),%xmm6
+
 	xorq	%r10,%r10
-#movdqa		%xmm6,0x00(%rsp)
+
 	movdqa	%xmm12,16(%rsp)
 	movdqa	%xmm4,32(%rsp)
 	movdqa	%xmm0,48(%rsp)

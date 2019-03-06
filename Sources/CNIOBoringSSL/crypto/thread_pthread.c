@@ -16,12 +16,12 @@
 
 #if defined(OPENSSL_PTHREADS)
 
-#include "pthread.h"
-#include "stdlib.h"
-#include "string.h"
+#include <pthread.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "openssl/mem.h"
-#include "openssl/type_check.h"
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/type_check.h>
 
 
 OPENSSL_STATIC_ASSERT(sizeof(CRYPTO_MUTEX) >= sizeof(pthread_rwlock_t),

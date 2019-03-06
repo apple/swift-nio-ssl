@@ -58,17 +58,17 @@
  */
 /* X509 v3 extension utilities */
 
-#include "ctype.h"
-#include "stdio.h"
-#include "string.h"
+#include <ctype.h>
+#include <stdio.h>
+#include <string.h>
 
-#include "openssl/bn.h"
-#include "openssl/buf.h"
-#include "openssl/conf.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
-#include "openssl/obj.h"
-#include "openssl/x509v3.h"
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/conf.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL/x509v3.h>
 
 #include "../conf/internal.h"
 #include "../internal.h"

@@ -61,7 +61,7 @@
 
 #include "asn1_locl.h"
 
-#include "time.h"
+#include <time.h>
 
 
 #define SECS_PER_DAY (24 * 60 * 60)

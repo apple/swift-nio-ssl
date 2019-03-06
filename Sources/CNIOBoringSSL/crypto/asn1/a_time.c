@@ -54,15 +54,15 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/asn1.h"
+#include <CNIOBoringSSL/asn1.h>
 
-#include "string.h"
-#include "time.h"
+#include <string.h>
+#include <time.h>
 
-#include "openssl/asn1t.h"
-#include "openssl/buf.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/asn1t.h>
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "asn1_locl.h"
 

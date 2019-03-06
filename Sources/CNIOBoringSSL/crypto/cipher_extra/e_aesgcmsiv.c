@@ -12,14 +12,14 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include "openssl/aead.h"
+#include <CNIOBoringSSL/aead.h>
 
-#include "assert.h"
+#include <assert.h>
 
-#include "openssl/cipher.h"
-#include "openssl/cpu.h"
-#include "openssl/crypto.h"
-#include "openssl/err.h"
+#include <CNIOBoringSSL/cipher.h>
+#include <CNIOBoringSSL/cpu.h>
+#include <CNIOBoringSSL/crypto.h>
+#include <CNIOBoringSSL/err.h>
 
 #include "../fipsmodule/cipher/internal.h"
 
@@ -595,7 +595,7 @@ static int aead_aes_gcm_siv_init(EVP_AEAD_CTX *ctx, const uint8_t *key,
   OPENSSL_memset(gcm_siv_ctx, 0, sizeof(struct aead_aes_gcm_siv_ctx));
 
   aes_ctr_set_key(&gcm_siv_ctx->ks.ks, NULL, &gcm_siv_ctx->kgk_block, key,
-                  key_len, 1 /* large inputs */);
+                  key_len, 0 /* small inputs */);
   gcm_siv_ctx->is_256 = (key_len == 32);
   ctx->tag_len = tag_len;
 
@@ -720,7 +720,7 @@ static void gcm_siv_keys(
   OPENSSL_memcpy(out_keys->auth_key, key_material, 16);
   aes_ctr_set_key(&out_keys->enc_key.ks, NULL, &out_keys->enc_block,
                   key_material + 16, gcm_siv_ctx->is_256 ? 32 : 16,
-                  1 /* large inputs */);
+                  0 /* small inputs */);
 }
 
 static int aead_aes_gcm_siv_seal_scatter(

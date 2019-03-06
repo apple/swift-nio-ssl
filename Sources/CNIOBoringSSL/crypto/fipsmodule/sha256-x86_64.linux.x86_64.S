@@ -1821,8 +1821,8 @@ sha256_block_data_order_ssse3:
 	movl	20(%rdi),%r9d
 	movl	24(%rdi),%r10d
 	movl	28(%rdi),%r11d
-#movdqa	K256+512+32(%rip),%xmm8
-#movdqa	K256+512+64(%rip),%xmm9
+
+
 	jmp	.Lloop_ssse3
 .align	16
 .Lloop_ssse3:

@@ -12,10 +12,10 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include "openssl/rand.h"
+#include <CNIOBoringSSL/rand.h>
 
-#include "openssl/type_check.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/type_check.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "internal.h"
 #include "../cipher/internal.h"

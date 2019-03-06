@@ -15,9 +15,9 @@
 #ifndef OPENSSL_HEADER_X509_INTERNAL_H
 #define OPENSSL_HEADER_X509_INTERNAL_H
 
-#include "openssl/base.h"
-#include "openssl/evp.h"
-#include "openssl/x509.h"
+#include <CNIOBoringSSL/base.h>
+#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL/x509.h>
 
 #if defined(__cplusplus)
 extern "C" {

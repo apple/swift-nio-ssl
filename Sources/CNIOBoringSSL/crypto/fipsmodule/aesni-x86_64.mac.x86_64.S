@@ -551,7 +551,7 @@ _aes_hw_ecb_encrypt:
 	movl	%eax,%r10d
 	testl	%r8d,%r8d
 	jz	L$ecb_decrypt
-#--------------------------- ECB ENCRYPT ------------------------------#
+
 	cmpq	$0x80,%rdx
 	jb	L$ecb_enc_tail
 
@@ -692,7 +692,7 @@ L$ecb_enc_six:
 	movups	%xmm6,64(%rsi)
 	movups	%xmm7,80(%rsi)
 	jmp	L$ecb_ret
-#--------------------------- ECB DECRYPT ------------------------------#
+
 .p2align	4
 L$ecb_decrypt:
 	cmpq	$0x80,%rdx
@@ -1294,7 +1294,7 @@ L$ctr32_enc_done:
 	movdqa	64(%rsp),%xmm15
 .byte	102,68,15,56,221,193
 	movdqa	80(%rsp),%xmm0
-	movups	16-128(%rcx),%xmm1#real 1st-round key
+	movups	16-128(%rcx),%xmm1
 .byte	102,69,15,56,221,202
 
 	movups	%xmm2,(%rsi)
@@ -1479,7 +1479,7 @@ _aes_hw_cbc_encrypt:
 	movq	%rcx,%r11
 	testl	%r9d,%r9d
 	jz	L$cbc_decrypt
-#--------------------------- CBC ENCRYPT ------------------------------#
+
 	movups	(%r8),%xmm2
 	movl	%r10d,%eax
 	cmpq	$16,%rdx
@@ -1490,7 +1490,7 @@ _aes_hw_cbc_encrypt:
 L$cbc_enc_loop:
 	movups	(%rdi),%xmm3
 	leaq	16(%rdi),%rdi
-#xorps	%xmm3,%xmm2
+
 	movups	(%rcx),%xmm0
 	movups	16(%rcx),%xmm1
 	xorps	%xmm0,%xmm3
@@ -1532,7 +1532,7 @@ L$cbc_enc_tail:
 	movq	%r11,%rcx
 	xorq	%rdx,%rdx
 	jmp	L$cbc_enc_loop
-#--------------------------- CBC DECRYPT ------------------------------#
+
 .p2align	4
 L$cbc_decrypt:
 	cmpq	$16,%rdx

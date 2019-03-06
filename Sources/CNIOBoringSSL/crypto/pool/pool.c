@@ -12,15 +12,15 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include "openssl/pool.h"
+#include <CNIOBoringSSL/pool.h>
 
-#include "assert.h"
-#include "string.h"
+#include <assert.h>
+#include <string.h>
 
-#include "openssl/buf.h"
-#include "openssl/bytestring.h"
-#include "openssl/mem.h"
-#include "openssl/thread.h"
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/bytestring.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/thread.h>
 
 #include "../internal.h"
 #include "internal.h"

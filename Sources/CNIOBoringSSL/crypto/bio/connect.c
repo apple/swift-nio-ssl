@@ -54,29 +54,29 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/bio.h"
+#include <CNIOBoringSSL/bio.h>
 
 #if !defined(OPENSSL_TRUSTY)
 
-#include "assert.h"
-#include "errno.h"
-#include "string.h"
+#include <assert.h>
+#include <errno.h>
+#include <string.h>
 
 #if !defined(OPENSSL_WINDOWS)
-#include "sys/socket.h"
-#include "netinet/in.h"
-#include "arpa/inet.h"
-#include "unistd.h"
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 #else
 OPENSSL_MSVC_PRAGMA(warning(push, 3))
-#include "winsock2.h"
-#include "ws2tcpip.h"
+#include <winsock2.h>
+#include <ws2tcpip.h>
 OPENSSL_MSVC_PRAGMA(warning(pop))
 #endif
 
-#include "openssl/buf.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "internal.h"
 #include "../internal.h"

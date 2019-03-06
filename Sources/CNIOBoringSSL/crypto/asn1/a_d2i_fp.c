@@ -54,13 +54,13 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/asn1.h"
+#include <CNIOBoringSSL/asn1.h>
 
-#include "limits.h"
+#include <limits.h>
 
-#include "openssl/bio.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/bio.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
 
 
 void *ASN1_item_d2i_bio(const ASN1_ITEM *it, BIO *in, void *x)

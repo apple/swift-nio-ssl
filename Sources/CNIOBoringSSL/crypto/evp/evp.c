@@ -54,18 +54,18 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/evp.h"
+#include <CNIOBoringSSL/evp.h>
 
-#include "assert.h"
-#include "string.h"
+#include <assert.h>
+#include <string.h>
 
-#include "openssl/dsa.h"
-#include "openssl/ec.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
-#include "openssl/nid.h"
-#include "openssl/rsa.h"
-#include "openssl/thread.h"
+#include <CNIOBoringSSL/dsa.h>
+#include <CNIOBoringSSL/ec.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/nid.h>
+#include <CNIOBoringSSL/rsa.h>
+#include <CNIOBoringSSL/thread.h>
 
 #include "internal.h"
 #include "../internal.h"

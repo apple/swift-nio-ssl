@@ -55,13 +55,13 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include "stdio.h"
+#include <stdio.h>
 
-#include "openssl/asn1.h"
-#include "openssl/asn1t.h"
-#include "openssl/mem.h"
-#include "openssl/obj.h"
-#include "openssl/x509v3.h"
+#include <CNIOBoringSSL/asn1.h>
+#include <CNIOBoringSSL/asn1t.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL/x509v3.h>
 
 static int i2r_PKEY_USAGE_PERIOD(X509V3_EXT_METHOD *method,
                                  PKEY_USAGE_PERIOD *usage, BIO *out,

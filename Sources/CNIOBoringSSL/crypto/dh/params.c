@@ -50,9 +50,9 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include "openssl/dh.h"
+#include <CNIOBoringSSL/dh.h>
 
-#include "openssl/bn.h"
+#include <CNIOBoringSSL/bn.h>
 
 #include "../fipsmodule/bn/internal.h"
 

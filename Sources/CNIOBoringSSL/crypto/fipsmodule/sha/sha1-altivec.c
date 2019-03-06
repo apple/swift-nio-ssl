@@ -63,11 +63,11 @@
 // This code used the generic SHA-1 from OpenSSL as a basis and AltiVec
 // optimisations were added on top.
 
-#include "openssl/sha.h"
+#include <CNIOBoringSSL/sha.h>
 
 #if defined(OPENSSL_PPC64LE)
 
-#include "altivec.h"
+#include <altivec.h>
 
 void sha1_block_data_order(uint32_t *state, const uint8_t *data, size_t num);
 

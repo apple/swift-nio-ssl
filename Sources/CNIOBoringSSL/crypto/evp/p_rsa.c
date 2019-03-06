@@ -53,19 +53,19 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include "openssl/evp.h"
+#include <CNIOBoringSSL/evp.h>
 
-#include "limits.h"
-#include "string.h"
+#include <limits.h>
+#include <string.h>
 
-#include "openssl/bn.h"
-#include "openssl/buf.h"
-#include "openssl/bytestring.h"
-#include "openssl/digest.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
-#include "openssl/nid.h"
-#include "openssl/rsa.h"
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/bytestring.h>
+#include <CNIOBoringSSL/digest.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/nid.h>
+#include <CNIOBoringSSL/rsa.h>
 
 #include "../internal.h"
 #include "../fipsmodule/rsa/internal.h"

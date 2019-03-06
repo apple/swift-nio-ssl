@@ -109,15 +109,15 @@
 #ifndef OPENSSL_HEADER_CRYPTO_INTERNAL_H
 #define OPENSSL_HEADER_CRYPTO_INTERNAL_H
 
-#include "openssl/ex_data.h"
-#include "openssl/stack.h"
-#include "openssl/thread.h"
+#include <CNIOBoringSSL/ex_data.h>
+#include <CNIOBoringSSL/stack.h>
+#include <CNIOBoringSSL/thread.h>
 
-#include "assert.h"
-#include "string.h"
+#include <assert.h>
+#include <string.h>
 
 #if defined(BORINGSSL_CONSTANT_TIME_VALIDATION)
-#include "valgrind/memcheck.h"
+#include <valgrind/memcheck.h>
 #endif
 
 #if !defined(__cplusplus)
@@ -125,13 +125,13 @@
 #define alignas(x) __declspec(align(x))
 #define alignof __alignof
 #else
-#include "stdalign.h"
+#include <stdalign.h>
 #endif
 #endif
 
 #if defined(OPENSSL_THREADS) && \
     (!defined(OPENSSL_WINDOWS) || defined(__MINGW32__))
-#include "pthread.h"
+#include <pthread.h>
 #define OPENSSL_PTHREADS
 #endif
 
@@ -139,7 +139,7 @@
     defined(OPENSSL_WINDOWS)
 #define OPENSSL_WINDOWS_THREADS
 OPENSSL_MSVC_PRAGMA(warning(push, 3))
-#include "windows.h"
+#include <windows.h>
 OPENSSL_MSVC_PRAGMA(warning(pop))
 #endif
 
@@ -645,7 +645,7 @@ static inline uint64_t CRYPTO_bswap8(uint64_t x) {
 }
 #elif defined(_MSC_VER)
 OPENSSL_MSVC_PRAGMA(warning(push, 3))
-#include "stdlib.h"
+#include <stdlib.h>
 OPENSSL_MSVC_PRAGMA(warning(pop))
 #pragma intrinsic(_byteswap_uint64, _byteswap_ulong)
 static inline uint32_t CRYPTO_bswap4(uint32_t x) {

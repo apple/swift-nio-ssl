@@ -27,16 +27,16 @@
 // 256-bit Montgomery form, generated using fiat-crypto, for 64 and 32-bit.
 // Field operations with inputs in [0,p) return outputs in [0,p).
 
-#include "openssl/base.h"
+#include <CNIOBoringSSL/base.h>
 
-#include "openssl/bn.h"
-#include "openssl/ec.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
-#include "openssl/type_check.h"
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/ec.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/type_check.h>
 
-#include "assert.h"
-#include "string.h"
+#include <assert.h>
+#include <string.h>
 
 #include "../../crypto/fipsmodule/delocate.h"
 #include "../../crypto/fipsmodule/ec/internal.h"
@@ -1075,6 +1075,6 @@ DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp256_method) {
   out->scalar_inv_montgomery = ec_simple_scalar_inv_montgomery;
   out->scalar_inv_montgomery_vartime = ec_GFp_simple_mont_inv_mod_ord_vartime;
   out->cmp_x_coordinate = ec_GFp_nistp256_cmp_x_coordinate;
-};
+}
 
 #undef BORINGSSL_NISTP256_64BIT

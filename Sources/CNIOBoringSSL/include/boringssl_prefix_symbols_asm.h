@@ -13,7 +13,7 @@
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #if !defined(__APPLE__)
-#include "boringssl_prefix_symbols.h"
+#include <boringssl_prefix_symbols.h>
 #else
 // On iOS and macOS, we need to treat assembly symbols differently from other
 // symbols. The linker expects symbols to be prefixed with an underscore.
@@ -462,6 +462,7 @@
 #define _CBB_add_u24 BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, CBB_add_u24)
 #define _CBB_add_u24_length_prefixed BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, CBB_add_u24_length_prefixed)
 #define _CBB_add_u32 BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, CBB_add_u32)
+#define _CBB_add_u64 BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, CBB_add_u64)
 #define _CBB_add_u8 BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, CBB_add_u8)
 #define _CBB_add_u8_length_prefixed BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, CBB_add_u8_length_prefixed)
 #define _CBB_cleanup BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, CBB_cleanup)
@@ -502,6 +503,7 @@
 #define _CBS_get_u24 BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, CBS_get_u24)
 #define _CBS_get_u24_length_prefixed BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, CBS_get_u24_length_prefixed)
 #define _CBS_get_u32 BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, CBS_get_u32)
+#define _CBS_get_u64 BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, CBS_get_u64)
 #define _CBS_get_u8 BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, CBS_get_u8)
 #define _CBS_get_u8_length_prefixed BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, CBS_get_u8_length_prefixed)
 #define _CBS_init BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, CBS_init)
@@ -1217,6 +1219,7 @@
 #define _OPENSSL_built_in_curves BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, OPENSSL_built_in_curves)
 #define _OPENSSL_cleanse BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, OPENSSL_cleanse)
 #define _OPENSSL_cleanup BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, OPENSSL_cleanup)
+#define _OPENSSL_clear_free BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, OPENSSL_clear_free)
 #define _OPENSSL_config BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, OPENSSL_config)
 #define _OPENSSL_cpuid_setup BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, OPENSSL_cpuid_setup)
 #define _OPENSSL_free BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, OPENSSL_free)
@@ -1826,7 +1829,6 @@
 #define _SSL_get_signature_algorithm_key_type BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, SSL_get_signature_algorithm_key_type)
 #define _SSL_get_signature_algorithm_name BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, SSL_get_signature_algorithm_name)
 #define _SSL_get_srtp_profiles BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, SSL_get_srtp_profiles)
-#define _SSL_get_structure_sizes BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, SSL_get_structure_sizes)
 #define _SSL_get_ticket_age_skew BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, SSL_get_ticket_age_skew)
 #define _SSL_get_tls_channel_id BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, SSL_get_tls_channel_id)
 #define _SSL_get_tls_unique BORINGSSL_ADD_PREFIX_MAC_ASM(BORINGSSL_PREFIX, SSL_get_tls_unique)

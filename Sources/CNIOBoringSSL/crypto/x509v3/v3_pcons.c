@@ -55,15 +55,15 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include "stdio.h"
-#include "string.h"
+#include <stdio.h>
+#include <string.h>
 
-#include "openssl/asn1.h"
-#include "openssl/asn1t.h"
-#include "openssl/conf.h"
-#include "openssl/err.h"
-#include "openssl/obj.h"
-#include "openssl/x509v3.h"
+#include <CNIOBoringSSL/asn1.h>
+#include <CNIOBoringSSL/asn1t.h>
+#include <CNIOBoringSSL/conf.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL/x509v3.h>
 
 static STACK_OF(CONF_VALUE) *i2v_POLICY_CONSTRAINTS(const X509V3_EXT_METHOD
                                                     *method, void *bcons, STACK_OF(CONF_VALUE)

@@ -1820,8 +1820,8 @@ L$prologue_ssse3:
 	movl	20(%rdi),%r9d
 	movl	24(%rdi),%r10d
 	movl	28(%rdi),%r11d
-#movdqa	K256+512+32(%rip),%xmm8
-#movdqa	K256+512+64(%rip),%xmm9
+
+
 	jmp	L$loop_ssse3
 .p2align	4
 L$loop_ssse3:

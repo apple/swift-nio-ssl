@@ -454,6 +454,7 @@
 %xdefine _CBB_add_u24 _ %+ BORINGSSL_PREFIX %+ _CBB_add_u24
 %xdefine _CBB_add_u24_length_prefixed _ %+ BORINGSSL_PREFIX %+ _CBB_add_u24_length_prefixed
 %xdefine _CBB_add_u32 _ %+ BORINGSSL_PREFIX %+ _CBB_add_u32
+%xdefine _CBB_add_u64 _ %+ BORINGSSL_PREFIX %+ _CBB_add_u64
 %xdefine _CBB_add_u8 _ %+ BORINGSSL_PREFIX %+ _CBB_add_u8
 %xdefine _CBB_add_u8_length_prefixed _ %+ BORINGSSL_PREFIX %+ _CBB_add_u8_length_prefixed
 %xdefine _CBB_cleanup _ %+ BORINGSSL_PREFIX %+ _CBB_cleanup
@@ -494,6 +495,7 @@
 %xdefine _CBS_get_u24 _ %+ BORINGSSL_PREFIX %+ _CBS_get_u24
 %xdefine _CBS_get_u24_length_prefixed _ %+ BORINGSSL_PREFIX %+ _CBS_get_u24_length_prefixed
 %xdefine _CBS_get_u32 _ %+ BORINGSSL_PREFIX %+ _CBS_get_u32
+%xdefine _CBS_get_u64 _ %+ BORINGSSL_PREFIX %+ _CBS_get_u64
 %xdefine _CBS_get_u8 _ %+ BORINGSSL_PREFIX %+ _CBS_get_u8
 %xdefine _CBS_get_u8_length_prefixed _ %+ BORINGSSL_PREFIX %+ _CBS_get_u8_length_prefixed
 %xdefine _CBS_init _ %+ BORINGSSL_PREFIX %+ _CBS_init
@@ -1209,6 +1211,7 @@
 %xdefine _OPENSSL_built_in_curves _ %+ BORINGSSL_PREFIX %+ _OPENSSL_built_in_curves
 %xdefine _OPENSSL_cleanse _ %+ BORINGSSL_PREFIX %+ _OPENSSL_cleanse
 %xdefine _OPENSSL_cleanup _ %+ BORINGSSL_PREFIX %+ _OPENSSL_cleanup
+%xdefine _OPENSSL_clear_free _ %+ BORINGSSL_PREFIX %+ _OPENSSL_clear_free
 %xdefine _OPENSSL_config _ %+ BORINGSSL_PREFIX %+ _OPENSSL_config
 %xdefine _OPENSSL_cpuid_setup _ %+ BORINGSSL_PREFIX %+ _OPENSSL_cpuid_setup
 %xdefine _OPENSSL_free _ %+ BORINGSSL_PREFIX %+ _OPENSSL_free
@@ -1818,7 +1821,6 @@
 %xdefine _SSL_get_signature_algorithm_key_type _ %+ BORINGSSL_PREFIX %+ _SSL_get_signature_algorithm_key_type
 %xdefine _SSL_get_signature_algorithm_name _ %+ BORINGSSL_PREFIX %+ _SSL_get_signature_algorithm_name
 %xdefine _SSL_get_srtp_profiles _ %+ BORINGSSL_PREFIX %+ _SSL_get_srtp_profiles
-%xdefine _SSL_get_structure_sizes _ %+ BORINGSSL_PREFIX %+ _SSL_get_structure_sizes
 %xdefine _SSL_get_ticket_age_skew _ %+ BORINGSSL_PREFIX %+ _SSL_get_ticket_age_skew
 %xdefine _SSL_get_tls_channel_id _ %+ BORINGSSL_PREFIX %+ _SSL_get_tls_channel_id
 %xdefine _SSL_get_tls_unique _ %+ BORINGSSL_PREFIX %+ _SSL_get_tls_unique
@@ -3614,6 +3616,7 @@
 %xdefine CBB_add_u24 BORINGSSL_PREFIX %+ _CBB_add_u24
 %xdefine CBB_add_u24_length_prefixed BORINGSSL_PREFIX %+ _CBB_add_u24_length_prefixed
 %xdefine CBB_add_u32 BORINGSSL_PREFIX %+ _CBB_add_u32
+%xdefine CBB_add_u64 BORINGSSL_PREFIX %+ _CBB_add_u64
 %xdefine CBB_add_u8 BORINGSSL_PREFIX %+ _CBB_add_u8
 %xdefine CBB_add_u8_length_prefixed BORINGSSL_PREFIX %+ _CBB_add_u8_length_prefixed
 %xdefine CBB_cleanup BORINGSSL_PREFIX %+ _CBB_cleanup
@@ -3654,6 +3657,7 @@
 %xdefine CBS_get_u24 BORINGSSL_PREFIX %+ _CBS_get_u24
 %xdefine CBS_get_u24_length_prefixed BORINGSSL_PREFIX %+ _CBS_get_u24_length_prefixed
 %xdefine CBS_get_u32 BORINGSSL_PREFIX %+ _CBS_get_u32
+%xdefine CBS_get_u64 BORINGSSL_PREFIX %+ _CBS_get_u64
 %xdefine CBS_get_u8 BORINGSSL_PREFIX %+ _CBS_get_u8
 %xdefine CBS_get_u8_length_prefixed BORINGSSL_PREFIX %+ _CBS_get_u8_length_prefixed
 %xdefine CBS_init BORINGSSL_PREFIX %+ _CBS_init
@@ -4369,6 +4373,7 @@
 %xdefine OPENSSL_built_in_curves BORINGSSL_PREFIX %+ _OPENSSL_built_in_curves
 %xdefine OPENSSL_cleanse BORINGSSL_PREFIX %+ _OPENSSL_cleanse
 %xdefine OPENSSL_cleanup BORINGSSL_PREFIX %+ _OPENSSL_cleanup
+%xdefine OPENSSL_clear_free BORINGSSL_PREFIX %+ _OPENSSL_clear_free
 %xdefine OPENSSL_config BORINGSSL_PREFIX %+ _OPENSSL_config
 %xdefine OPENSSL_cpuid_setup BORINGSSL_PREFIX %+ _OPENSSL_cpuid_setup
 %xdefine OPENSSL_free BORINGSSL_PREFIX %+ _OPENSSL_free
@@ -4978,7 +4983,6 @@
 %xdefine SSL_get_signature_algorithm_key_type BORINGSSL_PREFIX %+ _SSL_get_signature_algorithm_key_type
 %xdefine SSL_get_signature_algorithm_name BORINGSSL_PREFIX %+ _SSL_get_signature_algorithm_name
 %xdefine SSL_get_srtp_profiles BORINGSSL_PREFIX %+ _SSL_get_srtp_profiles
-%xdefine SSL_get_structure_sizes BORINGSSL_PREFIX %+ _SSL_get_structure_sizes
 %xdefine SSL_get_ticket_age_skew BORINGSSL_PREFIX %+ _SSL_get_ticket_age_skew
 %xdefine SSL_get_tls_channel_id BORINGSSL_PREFIX %+ _SSL_get_tls_channel_id
 %xdefine SSL_get_tls_unique BORINGSSL_PREFIX %+ _SSL_get_tls_unique

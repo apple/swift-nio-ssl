@@ -138,18 +138,18 @@
  * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
  * OTHERWISE. */
 
-#include <openssl/ssl.h>
+#include <CNIOBoringSSL/ssl.h>
 
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <openssl/bytestring.h>
-#include <openssl/crypto.h>
-#include <openssl/err.h>
-#include <openssl/lhash.h>
-#include <openssl/mem.h>
-#include <openssl/rand.h>
+#include <CNIOBoringSSL/bytestring.h>
+#include <CNIOBoringSSL/crypto.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/lhash.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/rand.h>
 
 #include "internal.h"
 #include "../crypto/internal.h"
@@ -2670,13 +2670,6 @@ int SSL_in_false_start(const SSL *ssl) {
 
 int SSL_cutthrough_complete(const SSL *ssl) {
   return SSL_in_false_start(ssl);
-}
-
-void SSL_get_structure_sizes(size_t *ssl_size, size_t *ssl_ctx_size,
-                             size_t *ssl_session_size) {
-  *ssl_size = sizeof(SSL);
-  *ssl_ctx_size = sizeof(SSL_CTX);
-  *ssl_session_size = sizeof(SSL_SESSION);
 }
 
 int SSL_is_server(const SSL *ssl) { return ssl->server; }

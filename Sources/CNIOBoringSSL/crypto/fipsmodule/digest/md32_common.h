@@ -46,9 +46,9 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  * ==================================================================== */
 
-#include "openssl/base.h"
+#include <CNIOBoringSSL/base.h>
 
-#include "assert.h"
+#include <assert.h>
 
 #include "../../internal.h"
 

@@ -54,11 +54,11 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include "openssl/buf.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
-#include "openssl/obj.h"
-#include "openssl/x509v3.h"
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL/x509v3.h>
 
 static int tr_cmp(const X509_TRUST **a, const X509_TRUST **b);
 static void trtable_free(X509_TRUST *p);

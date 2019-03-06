@@ -50,11 +50,11 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include "assert.h"
+#include <assert.h>
 
-#include "openssl/digest.h"
-#include "openssl/hmac.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/digest.h>
+#include <CNIOBoringSSL/hmac.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "internal.h"
 #include "../../internal.h"

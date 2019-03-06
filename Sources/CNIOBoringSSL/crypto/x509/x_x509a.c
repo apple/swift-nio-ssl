@@ -54,12 +54,12 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include "stdio.h"
+#include <stdio.h>
 
-#include "openssl/asn1t.h"
-#include "openssl/evp.h"
-#include "openssl/obj.h"
-#include "openssl/x509.h"
+#include <CNIOBoringSSL/asn1t.h>
+#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL/x509.h>
 
 /*
  * X509_CERT_AUX routines. These are used to encode additional user

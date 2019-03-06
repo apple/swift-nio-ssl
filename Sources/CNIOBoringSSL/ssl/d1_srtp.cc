@@ -114,12 +114,12 @@
   Copyright (C) 2011, RTFM, Inc.
 */
 
-#include <openssl/ssl.h>
+#include <CNIOBoringSSL/ssl.h>
 
 #include <string.h>
 
-#include <openssl/bytestring.h>
-#include <openssl/err.h>
+#include <CNIOBoringSSL/bytestring.h>
+#include <CNIOBoringSSL/err.h>
 
 #include "internal.h"
 

@@ -12,11 +12,11 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include "openssl/cpu.h"
+#include <CNIOBoringSSL/cpu.h>
 
 #if defined(OPENSSL_PPC64LE)
 
-#include "sys/auxv.h"
+#include <sys/auxv.h>
 
 #include "internal.h"
 

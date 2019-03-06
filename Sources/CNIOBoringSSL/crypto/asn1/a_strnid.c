@@ -54,15 +54,15 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/asn1.h"
+#include <CNIOBoringSSL/asn1.h>
 
-#include "stdlib.h"             /* For bsearch */
-#include "string.h"
+#include <stdlib.h>             /* For bsearch */
+#include <string.h>
 
-#include "openssl/err.h"
-#include "openssl/mem.h"
-#include "openssl/obj.h"
-#include "openssl/stack.h"
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL/stack.h>
 
 DEFINE_STACK_OF(ASN1_STRING_TABLE)
 

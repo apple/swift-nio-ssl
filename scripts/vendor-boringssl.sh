@@ -45,6 +45,22 @@ DSTROOT=Sources/CNIOBoringSSL
 TMPDIR=$(mktemp -d /tmp/.workingXXXXXX)
 SRCROOT="${TMPDIR}/src/boringssl.googlesource.com/boringssl"
 
+case "$(uname -s)" in
+    Darwin)
+        sed=gsed
+        ;;
+    *)
+        sed=sed
+        ;;
+esac
+
+if ! hash ${sed} 2>/dev/null; then
+    echo "You need sed \"${sed}\" to run this script ..."
+    echo
+    echo "On macOS: brew install gnu-sed"
+    exit 43
+fi
+
 echo "REMOVING any previously-vendored BoringSSL code"
 rm -rf $DSTROOT/include
 rm -rf $DSTROOT/ssl
@@ -136,37 +152,39 @@ perl -pi -e '$_ .= qq(\n#define BORINGSSL_PREFIX CNIOBoringSSL\n) if /#define OP
 
 for assembly_file in $(find "$DSTROOT" -name "*.S")
 do
-    echo "#define BORINGSSL_PREFIX CNIOBoringSSL\n$(cat "$assembly_file")" > "$assembly_file"
+    $sed -i '1 i #define BORINGSSL_PREFIX CNIOBoringSSL' "$assembly_file"
 done
+
+echo "RENAMING header files"
+(
+    cd "$DSTROOT"
+    mv "include/openssl" "include/CNIOBoringSSL"
+    find . -name "*.[ch]" -or -name "*.cc" -or -name "*.S" | xargs $sed -i -e 's_#include <openssl/_#include <CNIOBoringSSL/_'
+)
 
 # We need BoringSSL to be modularised
 echo "MODULARISING BoringSSL"
 cat << EOF > "$DSTROOT/include/module.modulemap"
 module CNIOBoringSSL {
-  header "openssl/base.h"
-  header "openssl/conf.h"
-  header "openssl/evp.h"
-  header "openssl/err.h"
-  header "openssl/bio.h"
-  header "openssl/ssl.h"
-  header "openssl/sha.h"
-  header "openssl/md5.h"
-  header "openssl/hmac.h"
-  header "openssl/rand.h"
-  header "openssl/pkcs12.h"
-  header "openssl/x509v3.h"
-  header "openssl/rsa.h"
-  header "openssl/ec.h"
-  header "openssl/ecdsa.h"
-  header "openssl/ec_key.h"
+  header "CNIOBoringSSL/base.h"
+  header "CNIOBoringSSL/conf.h"
+  header "CNIOBoringSSL/evp.h"
+  header "CNIOBoringSSL/err.h"
+  header "CNIOBoringSSL/bio.h"
+  header "CNIOBoringSSL/ssl.h"
+  header "CNIOBoringSSL/sha.h"
+  header "CNIOBoringSSL/md5.h"
+  header "CNIOBoringSSL/hmac.h"
+  header "CNIOBoringSSL/rand.h"
+  header "CNIOBoringSSL/pkcs12.h"
+  header "CNIOBoringSSL/x509v3.h"
+  header "CNIOBoringSSL/rsa.h"
+  header "CNIOBoringSSL/ec.h"
+  header "CNIOBoringSSL/ecdsa.h"
+  header "CNIOBoringSSL/ec_key.h"
   export *
 }
 EOF
-
-# Due to SR-8620, we need to rewrite all includes to use quotes. Remove this
-# when that's fixed.
-echo "WORKING around SR-8620"
-find "$DSTROOT" -name "*.[ch]" | xargs sed -i '' -e 's/\#include \<\(.*\)\>/\#include \"\1\"/'
 
 echo "CLEANING temporary directory"
 rm -rf "${TMPDIR}"

@@ -54,10 +54,10 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/evp.h"
+#include <CNIOBoringSSL/evp.h>
 
-#include "openssl/digest.h"
-#include "openssl/err.h"
+#include <CNIOBoringSSL/digest.h>
+#include <CNIOBoringSSL/err.h>
 
 #include "internal.h"
 

@@ -221,7 +221,7 @@ L$enc_sbox:
 	pxor	%xmm13,%xmm8
 	pxor	%xmm14,%xmm7
 
-#Inv_GF16 	0, 	1, 	2, 	3, s0, s1, s2, s3
+
 
 
 
@@ -692,7 +692,7 @@ L$dec_sbox:
 	pxor	%xmm13,%xmm8
 	pxor	%xmm14,%xmm7
 
-#Inv_GF16 	0, 	1, 	2, 	3, s0, s1, s2, s3
+
 
 
 
@@ -1079,7 +1079,7 @@ L$key_loop:
 	jnz	L$key_loop
 
 	movdqa	80(%r11),%xmm7
-#movdqa	%xmm6, (%rax)
+
 	.byte	0xf3,0xc3
 
 

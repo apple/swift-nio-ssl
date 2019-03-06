@@ -54,18 +54,18 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/x509.h"
+#include <CNIOBoringSSL/x509.h>
 
-#include "limits.h"
+#include <limits.h>
 
-#include "openssl/asn1.h"
-#include "openssl/buf.h"
-#include "openssl/digest.h"
-#include "openssl/dsa.h"
-#include "openssl/evp.h"
-#include "openssl/mem.h"
-#include "openssl/rsa.h"
-#include "openssl/stack.h"
+#include <CNIOBoringSSL/asn1.h>
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/digest.h>
+#include <CNIOBoringSSL/dsa.h>
+#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/rsa.h>
+#include <CNIOBoringSSL/stack.h>
 
 int X509_verify(X509 *a, EVP_PKEY *r)
 {

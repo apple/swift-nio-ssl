@@ -55,11 +55,11 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include "stdio.h"
+#include <stdio.h>
 
-#include "openssl/bio.h"
-#include "openssl/evp.h"
-#include "openssl/pem.h"
-#include "openssl/x509.h"
+#include <CNIOBoringSSL/bio.h>
+#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL/pem.h>
+#include <CNIOBoringSSL/x509.h>
 
 IMPLEMENT_PEM_rw(X509_AUX, X509, PEM_STRING_X509_TRUSTED, X509_AUX)

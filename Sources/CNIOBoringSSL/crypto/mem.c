@@ -54,15 +54,15 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/mem.h>
 
-#include "assert.h"
-#include "stdarg.h"
-#include "stdio.h"
+#include <assert.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 #if defined(OPENSSL_WINDOWS)
 OPENSSL_MSVC_PRAGMA(warning(push, 3))
-#include "windows.h"
+#include <windows.h>
 OPENSSL_MSVC_PRAGMA(warning(pop))
 #endif
 
@@ -70,6 +70,14 @@ OPENSSL_MSVC_PRAGMA(warning(pop))
 
 
 #define OPENSSL_MALLOC_PREFIX 8
+
+#if defined(OPENSSL_ASAN)
+void __asan_poison_memory_region(const volatile void *addr, size_t size);
+void __asan_unpoison_memory_region(const volatile void *addr, size_t size);
+#else
+static void __asan_poison_memory_region(const void *addr, size_t size) {}
+static void __asan_unpoison_memory_region(const void *addr, size_t size) {}
+#endif
 
 #if defined(__GNUC__) || defined(__clang__)
 // sdallocx is a sized |free| function. By passing the size (which we happen to
@@ -99,6 +107,7 @@ void *OPENSSL_malloc(size_t size) {
 
   *(size_t *)ptr = size;
 
+  __asan_poison_memory_region(ptr, OPENSSL_MALLOC_PREFIX);
   return ((uint8_t *)ptr) + OPENSSL_MALLOC_PREFIX;
 }
 
@@ -108,6 +117,7 @@ void OPENSSL_free(void *orig_ptr) {
   }
 
   void *ptr = ((uint8_t *)orig_ptr) - OPENSSL_MALLOC_PREFIX;
+  __asan_unpoison_memory_region(ptr, OPENSSL_MALLOC_PREFIX);
 
   size_t size = *(size_t *)ptr;
   OPENSSL_cleanse(ptr, size + OPENSSL_MALLOC_PREFIX);
@@ -120,7 +130,9 @@ void *OPENSSL_realloc(void *orig_ptr, size_t new_size) {
   }
 
   void *ptr = ((uint8_t *)orig_ptr) - OPENSSL_MALLOC_PREFIX;
+  __asan_unpoison_memory_region(ptr, OPENSSL_MALLOC_PREFIX);
   size_t old_size = *(size_t *)ptr;
+  __asan_poison_memory_region(ptr, OPENSSL_MALLOC_PREFIX);
 
   void *ret = OPENSSL_malloc(new_size);
   if (ret == NULL) {
@@ -151,6 +163,10 @@ void OPENSSL_cleanse(void *ptr, size_t len) {
   __asm__ __volatile__("" : : "r"(ptr) : "memory");
 #endif
 #endif  // !OPENSSL_NO_ASM
+}
+
+void OPENSSL_clear_free(void *ptr, size_t unused) {
+  OPENSSL_free(ptr);
 }
 
 int CRYPTO_memcmp(const void *in_a, const void *in_b, size_t len) {
