@@ -15,7 +15,6 @@
 import NIO
 import CNIOBoringSSL
 import NIOTLS
-import _NIO1APIShims
 
 /// The base class for all NIOSSL handlers. This class cannot actually be instantiated by
 /// users directly: instead, users must select which mode they would like their handler to
