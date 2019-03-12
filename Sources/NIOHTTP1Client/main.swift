@@ -15,7 +15,7 @@
 import NIO
 import NIOFoundationCompat
 import NIOHTTP1
-import NIOOpenSSL
+import NIOSSL
 import Foundation
 
 private final class HTTPResponseHandler: ChannelInboundHandler {
@@ -44,21 +44,21 @@ private final class HTTPResponseHandler: ChannelInboundHandler {
             }
         case .end(_):
             closeFuture = ctx.channel.close()
-            promise.succeed(result: ())
+            promise.succeed(())
         }
     }
 
     func channelInactive(ctx: ChannelHandlerContext) {
         if closeFuture == nil {
             closeFuture = ctx.channel.close()
-            promise.fail(error: ChannelError.inputClosed)
+            promise.fail(ChannelError.inputClosed)
         }
     }
 
     func errorCaught(ctx: ChannelHandlerContext, error: Error) {
         print("Error: ", error)
         closeFuture = ctx.channel.close()
-        promise.succeed(result: ())
+        promise.succeed(())
     }
 }
 
@@ -74,23 +74,23 @@ if let u = arg1 {
 }
 
 let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-let promise: EventLoopPromise<Void> = eventLoopGroup.next().newPromise()
+let promise: EventLoopPromise<Void> = eventLoopGroup.next().makePromise(of: Void.self)
 defer {
     try! promise.futureResult.wait()
     try! eventLoopGroup.syncShutdownGracefully()
 }
 
 let tlsConfiguration = TLSConfiguration.forClient()
-let sslContext = try! SSLContext(configuration: tlsConfiguration)
+let sslContext = try! NIOSSLContext(configuration: tlsConfiguration)
 
 let bootstrap = ClientBootstrap(group: eventLoopGroup)
         .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
         .channelInitializer { channel in
-            let openSslHandler = try! OpenSSLClientHandler(context: sslContext, serverHostname: url.host)
-            return channel.pipeline.add(handler: openSslHandler).then {
+            let openSslHandler = try! NIOSSLClientHandler(context: sslContext, serverHostname: url.host)
+            return channel.pipeline.addHandler(openSslHandler).flatMap {
                 channel.pipeline.addHTTPClientHandlers()
-            }.then {
-                channel.pipeline.add(handler: HTTPResponseHandler(promise))
+            }.flatMap {
+                channel.pipeline.addHandler(HTTPResponseHandler(promise))
             }
         }
 
@@ -107,5 +107,5 @@ func sendRequest(_ channel: Channel) -> EventLoopFuture<Void> {
 }
 
 bootstrap.connect(host: url.host!, port: url.port ?? 443)
-        .then { sendRequest($0) }
-        .cascadeFailure(promise: promise)
+        .flatMap { sendRequest($0) }
+        .cascadeFailure(to: promise)
