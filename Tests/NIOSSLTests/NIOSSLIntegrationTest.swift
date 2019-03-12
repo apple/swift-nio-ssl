@@ -665,7 +665,7 @@ class NIOSSLIntegrationTest: XCTestCase {
     func testImmediateCloseSatisfiesPromises() throws {
         let context = try configuredSSLContext()
         let channel = EmbeddedChannel()
-        try channel.pipeline.addHandler(NIOSSLClientHandler(context: context)).wait()
+        try channel.pipeline.addHandler(NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
 
         // Start by initiating the handshake.
         try channel.connect(to: SocketAddress(unixDomainSocketPath: "/tmp/doesntmatter")).wait()
@@ -711,7 +711,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         }.wait()
 
         // Now, add the TLS handler to the pipeline.
-        try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: context), position: .first).wait()
+        try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: context, serverHostname: nil), position: .first).wait()
         var data = clientChannel.allocator.buffer(capacity: 1)
         data.writeStaticString("x")
         try clientChannel.writeAndFlush(data).wait()
@@ -813,7 +813,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         let context = try configuredSSLContext()
 
         try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait()
-        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context)).wait()
+        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
 
         let addr: SocketAddress = try SocketAddress(unixDomainSocketPath: "/tmp/whatever")
         let connectFuture = clientChannel.connect(to: addr)
@@ -950,7 +950,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         let context = try configuredSSLContext()
 
         try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait()
-        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context)).wait()
+        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
 
         let addr = try SocketAddress(unixDomainSocketPath: "/tmp/whatever2")
         let connectFuture = clientChannel.connect(to: addr)
@@ -1039,7 +1039,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         let context = try configuredSSLContext()
 
         try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait()
-        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context)).wait()
+        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
 
         let addr = try SocketAddress(unixDomainSocketPath: "/tmp/whatever2")
         let connectFuture = clientChannel.connect(to: addr)
@@ -1126,7 +1126,7 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(ReadRecordingHandler(completePromise: completePromise)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait())
 
         // Connect
         let addr = try assertNoThrowWithValue(SocketAddress(unixDomainSocketPath: "/tmp/whatever2"))
@@ -1259,7 +1259,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: context, serverHostname: nil)).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
@@ -1297,7 +1297,7 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
@@ -1352,7 +1352,7 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()

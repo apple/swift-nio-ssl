@@ -31,7 +31,7 @@ private extension String {
 /// This handler can be used in channels that are acting as the client
 /// in the TLS dialog. For server connections, use the `NIOSSLServerHandler`.
 public final class NIOSSLClientHandler: NIOSSLHandler {
-    public init(context: NIOSSLContext, serverHostname: String? = nil, verificationCallback: NIOSSLVerificationCallback? = nil) throws {
+    public init(context: NIOSSLContext, serverHostname: String?, verificationCallback: NIOSSLVerificationCallback? = nil) throws {
         guard let connection = context.createConnection() else {
             throw NIOSSLError.unableToAllocateBoringSSLObject
         }
