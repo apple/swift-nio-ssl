@@ -48,7 +48,6 @@ SRCROOT="${TMPDIR}/src/boringssl.googlesource.com/boringssl"
 # This function namespaces the awkward inline functions declared in OpenSSL
 # and BoringSSL.
 function namespace_inlines {
-    echo `pwd`
     # Pull out all STACK_OF functions.
     STACKS=$(grep --no-filename -rE "DEFINE_(SPECIAL_)?STACK_OF\([A-Z_0-9a-z]+\)" "$1/"* | grep -v '//' | grep -v '#' | gsed 's/DEFINE_\(SPECIAL_\)\?STACK_OF(\(.*\))/\2/')
     STACK_FUNCTIONS=("call_free_func" "call_copy_func" "call_cmp_func" "new" "new_null" "num" "zero" "value" "set" "free" "pop_free" "insert" "delete" "delete_ptr" "find" "shift" "push" "pop" "dup" "sort" "is_sorted" "set_cmp_func" "deep_copy")
@@ -95,6 +94,10 @@ rm -rf $DSTROOT/err_data.c
 echo "CLONING boringssl"
 mkdir -p "$SRCROOT"
 git clone https://boringssl.googlesource.com/boringssl "$SRCROOT"
+cd "$SRCROOT"
+BORINGSSL_REVISION=$(git rev-parse HEAD)
+cd "$HERE"
+echo "CLONED boringssl@${BORINGSSL_REVISION}"
 
 echo "OBTAINING submodules"
 (
@@ -211,6 +214,10 @@ module CNIOBoringSSL {
   export *
 }
 EOF
+
+echo "RECORDING BoringSSL revision"
+$sed -i -e "s/BoringSSL Commit: [0-9a-f]\+/BoringSSL Commit: ${BORINGSSL_REVISION}/" "$HERE/Package.swift"
+echo "This directory is derived from BoringSSL cloned from https://boringssl.googlesource.com/boringssl at revision ${BORINGSSL_REVISION}" > "$DSTROOT/hash.txt"
 
 echo "CLEANING temporary directory"
 rm -rf "${TMPDIR}"

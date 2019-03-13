@@ -13,7 +13,7 @@
 #if defined(BORINGSSL_PREFIX)
 #include <boringssl_prefix_symbols_asm.h>
 #endif
-.text
+.section	__TEXT,__const
 
 
 .align	7	// totally strategic alignment
@@ -105,6 +105,8 @@ Lk_deskew:	//	deskew tables: inverts the sbox's "skew"
 .align	2
 
 .align	6
+
+.text
 ##
 ##  _aes_preheat
 ##
@@ -114,7 +116,8 @@ Lk_deskew:	//	deskew tables: inverts the sbox's "skew"
 
 .align	4
 _vpaes_encrypt_preheat:
-	adr	x10, Lk_inv
+	adrp	x10, Lk_inv@PAGE
+	add	x10, x10, Lk_inv@PAGEOFF
 	movi	v17.16b, #0x0f
 	ld1	{v18.2d,v19.2d}, [x10],#32	// Lk_inv
 	ld1	{v20.2d,v21.2d,v22.2d,v23.2d}, [x10],#64	// Lk_ipt, Lk_sbo
@@ -142,7 +145,8 @@ _vpaes_encrypt_preheat:
 _vpaes_encrypt_core:
 	mov	x9, x2
 	ldr	w8, [x2,#240]			// pull rounds
-	adr	x11, Lk_mc_forward+16
+	adrp	x11, Lk_mc_forward@PAGE+16
+	add	x11, x11, Lk_mc_forward@PAGEOFF+16
 						// vmovdqa	.Lk_ipt(%rip),	%xmm2	# iptlo
 	ld1	{v16.2d}, [x9], #16		// vmovdqu	(%r9),	%xmm5		# round0 key
 	and	v1.16b, v7.16b, v17.16b		// vpand	%xmm9,	%xmm0,	%xmm1
@@ -228,7 +232,8 @@ _vpaes_encrypt:
 _vpaes_encrypt_2x:
 	mov	x9, x2
 	ldr	w8, [x2,#240]			// pull rounds
-	adr	x11, Lk_mc_forward+16
+	adrp	x11, Lk_mc_forward@PAGE+16
+	add	x11, x11, Lk_mc_forward@PAGEOFF+16
 						// vmovdqa	.Lk_ipt(%rip),	%xmm2	# iptlo
 	ld1	{v16.2d}, [x9], #16		// vmovdqu	(%r9),	%xmm5		# round0 key
 	and	v1.16b,  v14.16b,  v17.16b	// vpand	%xmm9,	%xmm0,	%xmm1
@@ -331,9 +336,11 @@ Lenc_2x_entry:
 
 .align	4
 _vpaes_decrypt_preheat:
-	adr	x10, Lk_inv
+	adrp	x10, Lk_inv@PAGE
+	add	x10, x10, Lk_inv@PAGEOFF
 	movi	v17.16b, #0x0f
-	adr	x11, Lk_dipt
+	adrp	x11, Lk_dipt@PAGE
+	add	x11, x11, Lk_dipt@PAGEOFF
 	ld1	{v18.2d,v19.2d}, [x10],#32	// Lk_inv
 	ld1	{v20.2d,v21.2d,v22.2d,v23.2d}, [x11],#64	// Lk_dipt, Lk_dsbo
 	ld1	{v24.2d,v25.2d,v26.2d,v27.2d}, [x11],#64	// Lk_dsb9, Lk_dsbd
@@ -355,10 +362,12 @@ _vpaes_decrypt_core:
 						// vmovdqa	.Lk_dipt(%rip), %xmm2	# iptlo
 	lsl	x11, x8, #4			// mov	%rax,	%r11;	shl	$4, %r11
 	eor	x11, x11, #0x30			// xor		$0x30,	%r11
-	adr	x10, Lk_sr
+	adrp	x10, Lk_sr@PAGE
+	add	x10, x10, Lk_sr@PAGEOFF
 	and	x11, x11, #0x30			// and		$0x30,	%r11
 	add	x11, x11, x10
-	adr	x10, Lk_mc_forward+48
+	adrp	x10, Lk_mc_forward@PAGE+48
+	add	x10, x10, Lk_mc_forward@PAGEOFF+48
 
 	ld1	{v16.2d}, [x9],#16		// vmovdqu	(%r9),	%xmm4		# round0 key
 	and	v1.16b, v7.16b, v17.16b		// vpand	%xmm9,	%xmm0,	%xmm1
@@ -465,10 +474,12 @@ _vpaes_decrypt_2x:
 						// vmovdqa	.Lk_dipt(%rip), %xmm2	# iptlo
 	lsl	x11, x8, #4			// mov	%rax,	%r11;	shl	$4, %r11
 	eor	x11, x11, #0x30			// xor		$0x30,	%r11
-	adr	x10, Lk_sr
+	adrp	x10, Lk_sr@PAGE
+	add	x10, x10, Lk_sr@PAGEOFF
 	and	x11, x11, #0x30			// and		$0x30,	%r11
 	add	x11, x11, x10
-	adr	x10, Lk_mc_forward+48
+	adrp	x10, Lk_mc_forward@PAGE+48
+	add	x10, x10, Lk_mc_forward@PAGEOFF+48
 
 	ld1	{v16.2d}, [x9],#16		// vmovdqu	(%r9),	%xmm4		# round0 key
 	and	v1.16b,  v14.16b, v17.16b	// vpand	%xmm9,	%xmm0,	%xmm1
@@ -597,14 +608,18 @@ Ldec_2x_entry:
 
 .align	4
 _vpaes_key_preheat:
-	adr	x10, Lk_inv
+	adrp	x10, Lk_inv@PAGE
+	add	x10, x10, Lk_inv@PAGEOFF
 	movi	v16.16b, #0x5b			// Lk_s63
-	adr	x11, Lk_sb1
+	adrp	x11, Lk_sb1@PAGE
+	add	x11, x11, Lk_sb1@PAGEOFF
 	movi	v17.16b, #0x0f			// Lk_s0F
 	ld1	{v18.2d,v19.2d,v20.2d,v21.2d}, [x10]		// Lk_inv, Lk_ipt
-	adr	x10, Lk_dksd
+	adrp	x10, Lk_dksd@PAGE
+	add	x10, x10, Lk_dksd@PAGEOFF
 	ld1	{v22.2d,v23.2d}, [x11]		// Lk_sb1
-	adr	x11, Lk_mc_forward
+	adrp	x11, Lk_mc_forward@PAGE
+	add	x11, x11, Lk_mc_forward@PAGEOFF
 	ld1	{v24.2d,v25.2d,v26.2d,v27.2d}, [x10],#64	// Lk_dksd, Lk_dksb
 	ld1	{v28.2d,v29.2d,v30.2d,v31.2d}, [x10],#64	// Lk_dkse, Lk_dks9
 	ld1	{v8.2d}, [x10]			// Lk_rcon
@@ -627,7 +642,9 @@ _vpaes_schedule_core:
 	bl	_vpaes_schedule_transform
 	mov	v7.16b, v0.16b			// vmovdqa	%xmm0,	%xmm7
 
-	adr	x10, Lk_sr			// lea	Lk_sr(%rip),%r10
+	adrp	x10, Lk_sr@PAGE		// lea	Lk_sr(%rip),%r10
+	add	x10, x10, Lk_sr@PAGEOFF
+
 	add	x8, x8, x10
 	cbnz	w3, Lschedule_am_decrypting
 
@@ -753,12 +770,15 @@ Loop_schedule_256:
 .align	4
 Lschedule_mangle_last:
 	// schedule last round key from xmm0
-	adr	x11, Lk_deskew			// lea	Lk_deskew(%rip),%r11	# prepare to deskew
+	adrp	x11, Lk_deskew@PAGE	// lea	Lk_deskew(%rip),%r11	# prepare to deskew
+	add	x11, x11, Lk_deskew@PAGEOFF
+
 	cbnz	w3, Lschedule_mangle_last_dec
 
 	// encrypting
 	ld1	{v1.2d}, [x8]			// vmovdqa	(%r8,%r10),%xmm1
-	adr	x11, Lk_opt			// lea	Lk_opt(%rip),	%r11		# prepare to output transform
+	adrp	x11, Lk_opt@PAGE		// lea	Lk_opt(%rip),	%r11		# prepare to output transform
+	add	x11, x11, Lk_opt@PAGEOFF
 	add	x2, x2, #32			// add	$32,	%rdx
 	tbl	v0.16b, {v0.16b}, v1.16b	// vpshufb	%xmm1,	%xmm0,	%xmm0		# output permute
 
