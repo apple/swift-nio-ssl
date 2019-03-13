@@ -30,6 +30,7 @@ let package = Package(
         .library(name: "NIOSSL", targets: ["NIOSSL"]),
         .executable(name: "NIOTLSServer", targets: ["NIOTLSServer"]),
         .library(name: "CNIOBoringSSL", type: .static, targets: ["CNIOBoringSSL"]),
+        .executable(name: "NIOHTTP1Client", targets: ["NIOHTTP1Client"])
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0-convergence.1"),
@@ -40,6 +41,7 @@ let package = Package(
         .target(name: "NIOSSL",
                 dependencies: ["NIO", "NIOConcurrencyHelpers", "CNIOBoringSSL", "CNIOBoringSSLShims", "NIOTLS"]),
         .target(name: "NIOTLSServer", dependencies: ["NIO", "NIOSSL", "NIOConcurrencyHelpers"]),
+        .target(name: "NIOHTTP1Client", dependencies: ["NIO", "NIOHTTP1", "NIOSSL", "NIOFoundationCompat"]),
         .testTarget(name: "NIOSSLTests", dependencies: ["NIOTLS", "NIOSSL"]),
     ],
     cxxLanguageStandard: .cxx11

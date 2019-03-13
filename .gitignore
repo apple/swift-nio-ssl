@@ -7,4 +7,4 @@ Package.resolved
 *.pem
 /docs
 DerivedData
-
+/.idea
