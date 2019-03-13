@@ -165,13 +165,19 @@ rm -f $DSTROOT/crypto/fipsmodule/bcm.c
 echo "FIXING missing include"
 perl -pi -e '$_ .= qq(\n#include <openssl/cpu.h>\n) if /#include <openssl\/err.h>/' "$DSTROOT/crypto/fipsmodule/ec/p256-x86_64.c"
 
+
 echo "GENERATING mangled symbol list"
 (
     # We need a .a: may as well get SwiftPM to give it to us.
+    # Temporarily enable the product we need.
+    $sed -i -e 's/MANGLE_START/MANGLE_START*\//' -e 's/MANGLE_END/\/*MANGLE_END/' "${HERE}/Package.swift"
     swift build --product CNIOBoringSSL
     export GOPATH="${TMPDIR}"
     go run "${SRCROOT}/util/read_symbols.go" -out "${TMPDIR}/symbols.txt" "${HERE}/.build/debug/libCNIOBoringSSL.a"
     go run "${SRCROOT}/util/make_prefix_headers.go" -out "${HERE}/${DSTROOT}/include" "${TMPDIR}/symbols.txt"
+    
+    # Remove the product, as we no longer need it.
+    $sed -i -e 's/MANGLE_START\*\//MANGLE_START/' -e 's/\/\*MANGLE_END/MANGLE_END/' "${HERE}/Package.swift"
 )
 
 # Now edit the headers again to add the symbol mangling.
