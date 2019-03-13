@@ -268,15 +268,21 @@ final class ByteBufferBIO {
     /// Stores a buffer received from the network for delivery to BoringSSL.
     ///
     /// Whenever a buffer is received from the network, it is passed to the BIO via this function
-    /// call. Only one buffer may be passed to BoringSSL at any one time: once a buffer is passed, it
-    /// is expected to be cleared immediately. If it is not cleared, this is an application error and
-    /// must be resolved.
+    /// call. In almost all cases this BIO should be immediately consumed by BoringSSL, but in some cases
+    /// it may not be. In those cases, additional calls will cause byte-by-byte copies. This should
+    /// be avoided, but usually only happens during asynchronous certificate verification in the
+    /// handshake.
     ///
     /// - parameters:
     ///     - buffer: The buffer of ciphertext bytes received from the network.
     func receiveFromNetwork(buffer: ByteBuffer) {
-        precondition(self.inboundBuffer == nil, "Did not flush inbound bytes to BoringSSL")
-        self.inboundBuffer = buffer
+        var buffer = buffer
+
+        if self.inboundBuffer == nil {
+            self.inboundBuffer = buffer
+        } else {
+            self.inboundBuffer!.writeBuffer(&buffer)
+        }
     }
 
     /// Retrieves any inbound data that has not been processed by BoringSSL.

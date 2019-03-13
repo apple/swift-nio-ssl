@@ -43,13 +43,13 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
             }
 
             // IP addresses must not be provided in the SNI extension, so filter them.
-            try connection.setSNIServerName(name: serverHostname)
+            try connection.setServerName(name: serverHostname)
         }
 
         if let verificationCallback = verificationCallback {
             connection.setVerificationCallback(verificationCallback)
         }
 
-        super.init(connection: connection, expectedHostname: serverHostname)
+        super.init(connection: connection)
     }
 }

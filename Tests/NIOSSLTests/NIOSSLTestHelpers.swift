@@ -301,7 +301,7 @@ func addExtension(x509: UnsafeMutablePointer<X509>, nid: Int32, value: String) {
 func generateSelfSignedCert() -> (NIOSSLCertificate, NIOSSLPrivateKey) {
     let pkey = generateRSAPrivateKey()
     let x = CNIOBoringSSL_X509_new()!
-    CNIOBoringSSL_X509_set_version(x, 3)
+    CNIOBoringSSL_X509_set_version(x, 2)
 
     // NB: X509_set_serialNumber uses an internal copy of the ASN1_INTEGER, so this is
     // safe, there will be no use-after-free.

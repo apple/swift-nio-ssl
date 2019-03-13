@@ -110,7 +110,7 @@ class TLSConfigurationTest: XCTestCase {
 
     func assertPostHandshakeError(withClientConfig clientConfig: TLSConfiguration,
                                   andServerConfig serverConfig: TLSConfiguration,
-                                  errorTextContains message: String,
+                                  errorTextContainsAnyOf messages: [String],
                                   file: StaticString = #file,
                                   line: UInt = #line) throws {
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig), file: file, line: line)
@@ -133,7 +133,7 @@ class TLSConfigurationTest: XCTestCase {
             switch eventHandler.errors[0] {
             case .sslError(let errs):
                 XCTAssertEqual(errs.count, 1, file: file, line: line)
-                let correctError = errs[0].description.contains(message)
+                let correctError: Bool = messages.map { errs[0].description.contains($0) }.reduce(false) { $0 || $1 }
                 XCTAssert(correctError, errs[0].description, file: file, line: line)
             default:
                 XCTFail("Unexpected error: \(eventHandler.errors[0])", file: file, line: line)
@@ -187,7 +187,7 @@ class TLSConfigurationTest: XCTestCase {
                                                       maximumTLSVersion: .tlsv12,
                                                       certificateVerification: .noHostnameVerification)
 
-        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_UNKNOWN_CA")
+        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["ALERT_UNKNOWN_CA", "ALERT_CERTIFICATE_UNKNOWN"])
     }
 
     func testServerCannotValidateClientPostTLS13() throws {
@@ -201,7 +201,7 @@ class TLSConfigurationTest: XCTestCase {
                                                       minimumTLSVersion: .tlsv13,
                                                       certificateVerification: .noHostnameVerification)
 
-        try assertPostHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_UNKNOWN_CA")
+        try assertPostHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["ALERT_UNKNOWN_CA", "ALERT_CERTIFICATE_UNKNOWN"])
     }
 
     func testMutualValidation() throws {
