@@ -32,7 +32,7 @@ let package = Package(
         .target(name: "NIOSSL",
                 dependencies: ["NIO", "NIOConcurrencyHelpers", "CNIOBoringSSL", "CNIOBoringSSLShims", "NIOTLS", "_NIO1APIShims"]),
         .target(name: "NIOTLSServer", dependencies: ["NIO", "NIOSSL", "NIOConcurrencyHelpers"]),
-        .target(name: "NIOHTTP1Client", dependencies: ["NIO", "NIOHTTP1", "NIOSSL"]),
+        .target(name: "NIOHTTP1Client", dependencies: ["NIO", "NIOHTTP1", "NIOSSL", "NIOFoundationCompat"]),
         .testTarget(name: "NIOSSLTests", dependencies: ["NIOTLS", "NIOSSL"]),
     ],
     cxxLanguageStandard: .cxx11
