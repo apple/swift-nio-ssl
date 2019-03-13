@@ -106,13 +106,13 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/rsa.h"
+#include <CNIOBoringSSL/rsa.h>
 
-#include "string.h"
+#include <string.h>
 
-#include "openssl/bn.h"
-#include "openssl/mem.h"
-#include "openssl/err.h"
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/err.h>
 
 #include "internal.h"
 #include "../../internal.h"

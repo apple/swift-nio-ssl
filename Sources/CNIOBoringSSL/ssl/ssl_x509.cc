@@ -138,18 +138,18 @@
  * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
  * OTHERWISE. */
 
-#include <openssl/ssl.h>
+#include <CNIOBoringSSL/ssl.h>
 
 #include <assert.h>
 
-#include <openssl/asn1.h>
-#include <openssl/bytestring.h>
-#include <openssl/err.h>
-#include <openssl/pem.h>
-#include <openssl/stack.h>
-#include <openssl/x509.h>
-#include <openssl/x509v3.h>
-#include <openssl/x509_vfy.h>
+#include <CNIOBoringSSL/asn1.h>
+#include <CNIOBoringSSL/bytestring.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/pem.h>
+#include <CNIOBoringSSL/stack.h>
+#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL/x509v3.h>
+#include <CNIOBoringSSL/x509_vfy.h>
 
 #include "internal.h"
 #include "../crypto/internal.h"

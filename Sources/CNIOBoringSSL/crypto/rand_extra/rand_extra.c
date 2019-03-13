@@ -12,9 +12,9 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include "openssl/rand.h"
+#include <CNIOBoringSSL/rand.h>
 
-#include "limits.h"
+#include <limits.h>
 
 
 void RAND_seed(const void *buf, int num) {

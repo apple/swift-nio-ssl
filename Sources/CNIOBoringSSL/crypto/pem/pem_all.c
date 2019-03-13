@@ -106,16 +106,16 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include "stdio.h"
+#include <stdio.h>
 
-#include "openssl/bio.h"
-#include "openssl/dh.h"
-#include "openssl/dsa.h"
-#include "openssl/evp.h"
-#include "openssl/pem.h"
-#include "openssl/pkcs7.h"
-#include "openssl/rsa.h"
-#include "openssl/x509.h"
+#include <CNIOBoringSSL/bio.h>
+#include <CNIOBoringSSL/dh.h>
+#include <CNIOBoringSSL/dsa.h>
+#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL/pem.h>
+#include <CNIOBoringSSL/pkcs7.h>
+#include <CNIOBoringSSL/rsa.h>
+#include <CNIOBoringSSL/x509.h>
 
 static RSA *pkey_get_rsa(EVP_PKEY *key, RSA **rsa);
 static DSA *pkey_get_dsa(EVP_PKEY *key, DSA **dsa);

@@ -58,13 +58,13 @@
  */
 /* X509 v3 extension utilities */
 
-#include "stdio.h"
+#include <stdio.h>
 
-#include "openssl/conf.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
-#include "openssl/obj.h"
-#include "openssl/x509v3.h"
+#include <CNIOBoringSSL/conf.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL/x509v3.h>
 
 #include "ext_dat.h"
 static STACK_OF(X509V3_EXT_METHOD) *ext_list = NULL;

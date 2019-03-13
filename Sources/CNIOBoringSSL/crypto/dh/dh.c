@@ -54,16 +54,16 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/dh.h"
+#include <CNIOBoringSSL/dh.h>
 
-#include "string.h"
+#include <string.h>
 
-#include "openssl/bn.h"
-#include "openssl/buf.h"
-#include "openssl/err.h"
-#include "openssl/ex_data.h"
-#include "openssl/mem.h"
-#include "openssl/thread.h"
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/ex_data.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/thread.h>
 
 #include "../internal.h"
 

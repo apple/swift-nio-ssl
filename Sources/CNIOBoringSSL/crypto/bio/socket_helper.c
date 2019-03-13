@@ -15,22 +15,22 @@
 #undef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200112L
 
-#include "openssl/bio.h"
-#include "openssl/err.h"
+#include <CNIOBoringSSL/bio.h>
+#include <CNIOBoringSSL/err.h>
 
 #if !defined(OPENSSL_TRUSTY)
 
-#include "fcntl.h"
-#include "string.h"
-#include "sys/types.h"
+#include <fcntl.h>
+#include <string.h>
+#include <sys/types.h>
 
 #if !defined(OPENSSL_WINDOWS)
-#include "netdb.h"
-#include "unistd.h"
+#include <netdb.h>
+#include <unistd.h>
 #else
 OPENSSL_MSVC_PRAGMA(warning(push, 3))
-#include "winsock2.h"
-#include "ws2tcpip.h"
+#include <winsock2.h>
+#include <ws2tcpip.h>
 OPENSSL_MSVC_PRAGMA(warning(pop))
 #endif
 

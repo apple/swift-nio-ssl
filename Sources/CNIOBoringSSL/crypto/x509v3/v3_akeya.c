@@ -55,12 +55,12 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include "stdio.h"
+#include <stdio.h>
 
-#include "openssl/asn1.h"
-#include "openssl/asn1t.h"
-#include "openssl/conf.h"
-#include "openssl/x509v3.h"
+#include <CNIOBoringSSL/asn1.h>
+#include <CNIOBoringSSL/asn1t.h>
+#include <CNIOBoringSSL/conf.h>
+#include <CNIOBoringSSL/x509v3.h>
 
 
 ASN1_SEQUENCE(AUTHORITY_KEYID) = {

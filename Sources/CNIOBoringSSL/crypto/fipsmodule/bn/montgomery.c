@@ -106,17 +106,17 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include "openssl/bn.h"
+#include <CNIOBoringSSL/bn.h>
 
-#include "assert.h"
-#include "stdio.h"
-#include "stdlib.h"
-#include "string.h"
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "openssl/err.h"
-#include "openssl/mem.h"
-#include "openssl/thread.h"
-#include "openssl/type_check.h"
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/thread.h>
+#include <CNIOBoringSSL/type_check.h>
 
 #include "internal.h"
 #include "../../internal.h"

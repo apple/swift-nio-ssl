@@ -12,25 +12,25 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include "openssl/hrss.h"
+#include <CNIOBoringSSL/hrss.h>
 
-#include "assert.h"
-#include "stdio.h"
-#include "stdlib.h"
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#include "openssl/bn.h"
-#include "openssl/cpu.h"
-#include "openssl/hmac.h"
-#include "openssl/mem.h"
-#include "openssl/sha.h"
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/cpu.h>
+#include <CNIOBoringSSL/hmac.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/sha.h>
 
 #if defined(OPENSSL_X86) || defined(OPENSSL_X86_64)
-#include "emmintrin.h"
+#include <emmintrin.h>
 #endif
 
 #if (defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)) && \
     (defined(__ARM_NEON__) || defined(__ARM_NEON))
-#include "arm_neon.h"
+#include <arm_neon.h>
 #endif
 
 #if defined(_MSC_VER)

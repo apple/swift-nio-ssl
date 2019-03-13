@@ -55,17 +55,17 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "string.h"
+#include <string.h>
 
-#include "openssl/asn1.h"
-#include "openssl/buf.h"
-#include "openssl/digest.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
-#include "openssl/obj.h"
-#include "openssl/stack.h"
-#include "openssl/x509.h"
-#include "openssl/x509v3.h"
+#include <CNIOBoringSSL/asn1.h>
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/digest.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL/stack.h>
+#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL/x509v3.h>
 
 #include "../internal.h"
 

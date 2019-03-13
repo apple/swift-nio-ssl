@@ -57,10 +57,10 @@
  *
  */
 
-#include "openssl/mem.h"
-#include "openssl/obj.h"
-#include "openssl/x509.h"
-#include "openssl/x509v3.h"
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL/x509v3.h>
 
 #include "pcy_int.h"
 

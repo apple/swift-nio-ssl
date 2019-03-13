@@ -57,6 +57,7 @@ public enum NIOSSLError: Error {
     case unableToValidateCertificate
     case cannotFindPeerIP
     case readInInvalidTLSState
+    case uncleanShutdown
 }
 
 extension NIOSSLError: Equatable {
@@ -69,7 +70,8 @@ extension NIOSSLError: Equatable {
              (.failedToLoadPrivateKey, .failedToLoadPrivateKey),
              (.cannotMatchULabel, .cannotMatchULabel),
              (.noCertificateToValidate, .noCertificateToValidate),
-             (.unableToValidateCertificate, .unableToValidateCertificate):
+             (.unableToValidateCertificate, .unableToValidateCertificate),
+             (.uncleanShutdown, .uncleanShutdown):
             return true
         case (.handshakeFailed(let err1), .handshakeFailed(let err2)),
              (.shutdownFailed(let err1), .shutdownFailed(let err2)):
@@ -89,10 +91,10 @@ public enum BoringSSLError: Error {
     case wantConnect
     case wantAccept
     case wantX509Lookup
+    case wantCertificateVerify
     case syscallError
     case sslError(NIOBoringSSLErrorStack)
     case unknownError(NIOBoringSSLErrorStack)
-    case uncleanShutdown
     case invalidSNIName(NIOBoringSSLErrorStack)
     case failedToSetALPN(NIOBoringSSLErrorStack)
 }
@@ -107,9 +109,9 @@ public func ==(lhs: BoringSSLError, rhs: BoringSSLError) -> Bool {
          (.wantWrite, .wantWrite),
          (.wantConnect, .wantConnect),
          (.wantAccept, .wantAccept),
+         (.wantCertificateVerify, .wantCertificateVerify),
          (.wantX509Lookup, .wantX509Lookup),
-         (.syscallError, .syscallError),
-         (.uncleanShutdown, .uncleanShutdown):
+         (.syscallError, .syscallError):
         return true
     case (.sslError(let e1), .sslError(let e2)),
          (.unknownError(let e1), .unknownError(let e2)):
@@ -134,6 +136,8 @@ internal extension BoringSSLError {
             return .wantConnect
         case SSL_ERROR_WANT_ACCEPT:
             return .wantAccept
+        case SSL_ERROR_WANT_CERTIFICATE_VERIFY:
+            return .wantCertificateVerify
         case SSL_ERROR_WANT_X509_LOOKUP:
             return .wantX509Lookup
         case SSL_ERROR_SYSCALL:

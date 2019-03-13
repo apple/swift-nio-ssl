@@ -55,18 +55,18 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include "stdio.h"
+#include <stdio.h>
 
-#include "string.h"
+#include <string.h>
 
-#include "openssl/buf.h"
-#include "openssl/err.h"
-#include "openssl/digest.h"
-#include "openssl/mem.h"
-#include "openssl/obj.h"
-#include "openssl/thread.h"
-#include "openssl/x509_vfy.h"
-#include "openssl/x509v3.h"
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/digest.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL/thread.h>
+#include <CNIOBoringSSL/x509_vfy.h>
+#include <CNIOBoringSSL/x509v3.h>
 
 #include "../internal.h"
 

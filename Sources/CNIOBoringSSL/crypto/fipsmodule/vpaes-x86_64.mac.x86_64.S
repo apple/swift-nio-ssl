@@ -16,18 +16,18 @@
 .text	
 
 
-#
 
-#
 
-#
-#
-#
-#
 
-#
-#
-#
+
+
+
+
+
+
+
+
+
 
 
 
@@ -118,9 +118,9 @@ L$enc_entry:
 
 
 
-#
 
-#
+
+
 
 
 .p2align	4
@@ -152,7 +152,7 @@ _vpaes_decrypt_core:
 .p2align	4
 L$dec_loop:
 
-#
+
 
 	movdqa	-32(%r10),%xmm4
 	movdqa	-16(%r10),%xmm1
@@ -226,9 +226,9 @@ L$dec_entry:
 
 
 
-#
-#
-#
+
+
+
 
 
 .p2align	4
@@ -271,12 +271,12 @@ L$schedule_go:
 
 
 
-#
 
-#
 
-#
-#
+
+
+
+
 
 L$schedule_128:
 	movl	$10,%esi
@@ -289,19 +289,19 @@ L$oop_schedule_128:
 	jmp	L$oop_schedule_128
 
 
-#
 
-#
 
-#
-#
-#
-#
 
-#
-#
-#
-#
+
+
+
+
+
+
+
+
+
+
 
 .p2align	4
 L$schedule_192:
@@ -326,14 +326,14 @@ L$oop_schedule_192:
 	jmp	L$oop_schedule_192
 
 
-#
 
-#
 
-#
-#
-#
-#
+
+
+
+
+
+
 
 .p2align	4
 L$schedule_256:
@@ -362,14 +362,14 @@ L$oop_schedule_256:
 
 
 
-#
 
-#
-#
-#
-#
 
-#
+
+
+
+
+
+
 
 .p2align	4
 L$schedule_mangle_last:
@@ -404,18 +404,18 @@ L$schedule_mangle_last_dec:
 
 
 
-#
 
-#
 
-#
-#
-#
-#
 
-#
-#
-#
+
+
+
+
+
+
+
+
+
 
 
 .p2align	4
@@ -433,22 +433,22 @@ _vpaes_schedule_192_smear:
 
 
 
-#
 
-#
 
-#
-#
-#
 
-#
-#
 
-#
-#
 
-#
-#
+
+
+
+
+
+
+
+
+
+
+
 
 
 .p2align	4
@@ -511,13 +511,13 @@ _vpaes_schedule_low_round:
 
 
 
-#
 
-#
 
-#
-#
-#
+
+
+
+
+
 
 
 .p2align	4
@@ -537,27 +537,27 @@ _vpaes_schedule_transform:
 
 
 
-#
-
-#
-#
-
-#
-#
-#
-#
-
-#
-#
-#
-#
-#
 
 
-#
-#
-#
-#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 .p2align	4
@@ -630,14 +630,21 @@ L$schedule_mangle_both:
 
 
 
-#
 
-#
+
+
 .globl	_vpaes_set_encrypt_key
 .private_extern _vpaes_set_encrypt_key
 
 .p2align	4
 _vpaes_set_encrypt_key:
+
+#ifndef NDEBUG
+#ifndef BORINGSSL_FIPS
+
+	movb	$1,_BORINGSSL_function_hit+5(%rip)
+#endif
+#endif
 
 	movl	%esi,%eax
 	shrl	$5,%eax
@@ -682,6 +689,12 @@ _vpaes_set_decrypt_key:
 .p2align	4
 _vpaes_encrypt:
 
+#ifndef NDEBUG
+#ifndef BORINGSSL_FIPS
+
+	movb	$1,_BORINGSSL_function_hit+4(%rip)
+#endif
+#endif
 	movdqu	(%rdi),%xmm0
 	call	_vpaes_preheat
 	call	_vpaes_encrypt_core
@@ -747,10 +760,10 @@ L$cbc_abort:
 
 
 
-#
 
-#
-#
+
+
+
 
 
 .p2align	4
@@ -768,9 +781,9 @@ _vpaes_preheat:
 
 
 
-#
-#
-#
+
+
+
 
 
 .p2align	6
@@ -829,8 +842,8 @@ L$k_deskew:
 .quad	0x5F36B5DC83EA6900, 0x2841C2ABF49D1E77
 
 
-#
-#
+
+
 
 L$k_dksd:
 .quad	0xFEB91A5DA3E44700, 0x0740E3A45A1DBEF9
@@ -846,8 +859,8 @@ L$k_dks9:
 .quad	0x4576516227143300, 0x8BB89FACE9DAFDCE
 
 
-#
-#
+
+
 
 L$k_dipt:
 .quad	0x0F505B040B545F00, 0x154A411E114E451A

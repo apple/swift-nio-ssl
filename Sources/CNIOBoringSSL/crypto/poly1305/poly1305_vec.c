@@ -18,14 +18,14 @@
 // http://cr.yp.to/papers.html#neoncrypto. Unrolled to 2 powers, i.e. 64 byte
 // block size
 
-#include "openssl/poly1305.h"
+#include <CNIOBoringSSL/poly1305.h>
 
 #include "../internal.h"
 
 
 #if !defined(OPENSSL_WINDOWS) && defined(OPENSSL_X86_64)
 
-#include "emmintrin.h"
+#include <emmintrin.h>
 
 #define U8TO64_LE(m) (*(const uint64_t *)(m))
 #define U8TO32_LE(m) (*(const uint32_t *)(m))

@@ -12,16 +12,16 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include "openssl/cpu.h"
+#include <CNIOBoringSSL/cpu.h>
 
 #if defined(OPENSSL_AARCH64) && defined(OPENSSL_FUCHSIA) && \
     !defined(OPENSSL_STATIC_ARMCAP)
 
-#include "zircon/features.h"
-#include "zircon/syscalls.h"
-#include "zircon/types.h"
+#include <zircon/features.h>
+#include <zircon/syscalls.h>
+#include <zircon/types.h>
 
-#include "openssl/arm_arch.h"
+#include <CNIOBoringSSL/arm_arch.h>
 
 #include "internal.h"
 

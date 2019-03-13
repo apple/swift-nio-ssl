@@ -13,13 +13,13 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
 
-#include "openssl/bytestring.h"
+#include <CNIOBoringSSL/bytestring.h>
 
-#include "assert.h"
-#include "limits.h"
-#include "string.h"
+#include <assert.h>
+#include <limits.h>
+#include <string.h>
 
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/mem.h>
 
 #include "internal.h"
 #include "../internal.h"

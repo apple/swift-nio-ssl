@@ -14,7 +14,7 @@
 #if defined(BORINGSSL_PREFIX)
 #include <boringssl_prefix_symbols_asm.h>
 #endif
-#include <openssl/arm_arch.h>
+#include <CNIOBoringSSL/arm_arch.h>
 
 
 

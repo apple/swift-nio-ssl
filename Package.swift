@@ -15,6 +15,15 @@
 
 import PackageDescription
 
+// This package contains a vendored copy of BoringSSL. For ease of tracking
+// down problems with the copy of BoringSSL in use, we include a copy of the
+// commit hash of the revision of BoringSSL included in the given release.
+// This is also reproduced in a file called hash.txt in the
+// Sources/CNIOBoringSSL directory. The source repository is at
+// https://boringssl.googlesource.com/boringssl.
+//
+// BoringSSL Commit: 35941f2923155664bd9fa5d897cb336a0ab729a1
+
 let package = Package(
     name: "swift-nio-ssl",
     products: [
@@ -24,13 +33,13 @@ let package = Package(
         .executable(name: "NIOHTTP1Client", targets: ["NIOHTTP1Client"])
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-nio.git", .branch("master")),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0-convergence.1"),
     ],
     targets: [
         .target(name: "CNIOBoringSSL"),
         .target(name: "CNIOBoringSSLShims", dependencies: ["CNIOBoringSSL"]),
         .target(name: "NIOSSL",
-                dependencies: ["NIO", "NIOConcurrencyHelpers", "CNIOBoringSSL", "CNIOBoringSSLShims", "NIOTLS", "_NIO1APIShims"]),
+                dependencies: ["NIO", "NIOConcurrencyHelpers", "CNIOBoringSSL", "CNIOBoringSSLShims", "NIOTLS"]),
         .target(name: "NIOTLSServer", dependencies: ["NIO", "NIOSSL", "NIOConcurrencyHelpers"]),
         .target(name: "NIOHTTP1Client", dependencies: ["NIO", "NIOHTTP1", "NIOSSL", "NIOFoundationCompat"]),
         .testTarget(name: "NIOSSLTests", dependencies: ["NIOTLS", "NIOSSL"]),

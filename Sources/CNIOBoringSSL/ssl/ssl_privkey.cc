@@ -54,16 +54,16 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <openssl/ssl.h>
+#include <CNIOBoringSSL/ssl.h>
 
 #include <assert.h>
 #include <limits.h>
 
-#include <openssl/ec.h>
-#include <openssl/ec_key.h>
-#include <openssl/err.h>
-#include <openssl/evp.h>
-#include <openssl/mem.h>
+#include <CNIOBoringSSL/ec.h>
+#include <CNIOBoringSSL/ec_key.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "internal.h"
 #include "../crypto/internal.h"

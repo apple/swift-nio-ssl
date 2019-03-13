@@ -54,25 +54,25 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/bio.h"
+#include <CNIOBoringSSL/bio.h>
 
 #if !defined(OPENSSL_TRUSTY)
 
-#include "errno.h"
-#include "string.h"
+#include <errno.h>
+#include <string.h>
 
 #if !defined(OPENSSL_WINDOWS)
-#include "unistd.h"
+#include <unistd.h>
 #else
-#include "io.h"
+#include <io.h>
 OPENSSL_MSVC_PRAGMA(warning(push, 3))
-#include "windows.h"
+#include <windows.h>
 OPENSSL_MSVC_PRAGMA(warning(pop))
 #endif
 
-#include "openssl/buf.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "internal.h"
 #include "../internal.h"

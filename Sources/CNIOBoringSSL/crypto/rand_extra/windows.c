@@ -12,22 +12,22 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include "openssl/rand.h"
+#include <CNIOBoringSSL/rand.h>
 
 #if defined(OPENSSL_WINDOWS) && !defined(BORINGSSL_UNSAFE_DETERMINISTIC_MODE)
 
-#include "limits.h"
-#include "stdlib.h"
+#include <limits.h>
+#include <stdlib.h>
 
 OPENSSL_MSVC_PRAGMA(warning(push, 3))
 
-#include "windows.h"
+#include <windows.h>
 
 // #define needed to link in RtlGenRandom(), a.k.a. SystemFunction036.  See the
 // "Community Additions" comment on MSDN here:
 // http://msdn.microsoft.com/en-us/library/windows/desktop/aa387694.aspx
 #define SystemFunction036 NTAPI SystemFunction036
-#include "ntsecapi.h"
+#include <ntsecapi.h>
 #undef SystemFunction036
 
 OPENSSL_MSVC_PRAGMA(warning(pop))

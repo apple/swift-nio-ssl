@@ -47,11 +47,11 @@
  * ====================================================================
  */
 
-#include "assert.h"
-#include "string.h"
+#include <assert.h>
+#include <string.h>
 
-#include "openssl/cpu.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/cpu.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "../../internal.h"
 #include "internal.h"

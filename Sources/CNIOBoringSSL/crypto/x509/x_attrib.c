@@ -54,10 +54,10 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/asn1.h"
-#include "openssl/asn1t.h"
-#include "openssl/x509.h"
-#include "openssl/obj.h"
+#include <CNIOBoringSSL/asn1.h>
+#include <CNIOBoringSSL/asn1t.h>
+#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL/obj.h>
 
 /*
  * X509_ATTRIBUTE: this has the following form: typedef struct

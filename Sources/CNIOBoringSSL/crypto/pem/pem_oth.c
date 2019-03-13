@@ -55,17 +55,17 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/pem.h"
+#include <CNIOBoringSSL/pem.h>
 
-#include "stdio.h"
+#include <stdio.h>
 
-#include "openssl/buf.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
-#include "openssl/evp.h"
-#include "openssl/obj.h"
-#include "openssl/rand.h"
-#include "openssl/x509.h"
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL/rand.h>
+#include <CNIOBoringSSL/x509.h>
 
 /* Handle 'other' PEMs: not private keys */
 

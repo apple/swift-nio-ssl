@@ -6,7 +6,7 @@
 /* c = [(1, 19)] (from "1,19") */
 /* machine_wordsize = 32 (from "32") */
 
-#include "stdint.h"
+#include <stdint.h>
 typedef unsigned char fiat_25519_uint1;
 typedef signed char fiat_25519_int1;
 

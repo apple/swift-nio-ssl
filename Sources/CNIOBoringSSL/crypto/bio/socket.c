@@ -55,18 +55,18 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/bio.h"
+#include <CNIOBoringSSL/bio.h>
 
 #if !defined(OPENSSL_TRUSTY)
 
-#include "fcntl.h"
-#include "string.h"
+#include <fcntl.h>
+#include <string.h>
 
 #if !defined(OPENSSL_WINDOWS)
-#include "unistd.h"
+#include <unistd.h>
 #else
 OPENSSL_MSVC_PRAGMA(warning(push, 3))
-#include "winsock2.h"
+#include <winsock2.h>
 OPENSSL_MSVC_PRAGMA(warning(pop))
 
 OPENSSL_MSVC_PRAGMA(comment(lib, "Ws2_32.lib"))

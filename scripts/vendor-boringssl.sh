@@ -45,6 +45,46 @@ DSTROOT=Sources/CNIOBoringSSL
 TMPDIR=$(mktemp -d /tmp/.workingXXXXXX)
 SRCROOT="${TMPDIR}/src/boringssl.googlesource.com/boringssl"
 
+# This function namespaces the awkward inline functions declared in OpenSSL
+# and BoringSSL.
+function namespace_inlines {
+    # Pull out all STACK_OF functions.
+    STACKS=$(grep --no-filename -rE "DEFINE_(SPECIAL_)?STACK_OF\([A-Z_0-9a-z]+\)" "$1/"* | grep -v '//' | grep -v '#' | gsed 's/DEFINE_\(SPECIAL_\)\?STACK_OF(\(.*\))/\2/')
+    STACK_FUNCTIONS=("call_free_func" "call_copy_func" "call_cmp_func" "new" "new_null" "num" "zero" "value" "set" "free" "pop_free" "insert" "delete" "delete_ptr" "find" "shift" "push" "pop" "dup" "sort" "is_sorted" "set_cmp_func" "deep_copy")
+
+    for s in $STACKS; do
+        for f in "${STACK_FUNCTIONS[@]}"; do
+            echo "#define sk_${s}_${f} BORINGSSL_ADD_PREFIX(BORINGSSL_PREFIX, sk_${s}_${f})" >> "$1/boringssl_prefix_symbols.h"
+        done
+    done
+
+    # Now pull out all LHASH_OF functions.
+    LHASHES=$(grep --no-filename -rE "DECLARE_LHASH_OF\([A-Z_0-9a-z]+\)" "$1/"* | grep -v '//' | grep -v '#' | grep -v '\\$' | gsed 's/DECLARE_LHASH_OF(\(.*\))/\1/')
+    LHASH_FUNCTIONS=("call_cmp_func" "call_hash_func" "new" "free" "num_items" "retrieve" "call_cmp_key" "retrieve_key" "insert" "delete" "call_doall" "call_doall_arg" "doall" "doall_arg")
+
+    for l in $LHASHES; do
+        for f in "${LHASH_FUNCTIONS[@]}"; do
+            echo "#define lh_${l}_${f} BORINGSSL_ADD_PREFIX(BORINGSSL_PREFIX, lh_${l}_${f})" >> "$1/boringssl_prefix_symbols.h"
+        done
+    done
+}
+
+case "$(uname -s)" in
+    Darwin)
+        sed=gsed
+        ;;
+    *)
+        sed=sed
+        ;;
+esac
+
+if ! hash ${sed} 2>/dev/null; then
+    echo "You need sed \"${sed}\" to run this script ..."
+    echo
+    echo "On macOS: brew install gnu-sed"
+    exit 43
+fi
+
 echo "REMOVING any previously-vendored BoringSSL code"
 rm -rf $DSTROOT/include
 rm -rf $DSTROOT/ssl
@@ -54,6 +94,10 @@ rm -rf $DSTROOT/err_data.c
 echo "CLONING boringssl"
 mkdir -p "$SRCROOT"
 git clone https://boringssl.googlesource.com/boringssl "$SRCROOT"
+cd "$SRCROOT"
+BORINGSSL_REVISION=$(git rev-parse HEAD)
+cd "$HERE"
+echo "CLONED boringssl@${BORINGSSL_REVISION}"
 
 echo "OBTAINING submodules"
 (
@@ -136,37 +180,44 @@ perl -pi -e '$_ .= qq(\n#define BORINGSSL_PREFIX CNIOBoringSSL\n) if /#define OP
 
 for assembly_file in $(find "$DSTROOT" -name "*.S")
 do
-    echo "#define BORINGSSL_PREFIX CNIOBoringSSL\n$(cat "$assembly_file")" > "$assembly_file"
+    $sed -i '1 i #define BORINGSSL_PREFIX CNIOBoringSSL' "$assembly_file"
 done
+namespace_inlines "$DSTROOT/include"
+
+echo "RENAMING header files"
+(
+    cd "$DSTROOT"
+    mv "include/openssl" "include/CNIOBoringSSL"
+    find . -name "*.[ch]" -or -name "*.cc" -or -name "*.S" | xargs $sed -i -e 's_#include <openssl/_#include <CNIOBoringSSL/_'
+)
 
 # We need BoringSSL to be modularised
 echo "MODULARISING BoringSSL"
 cat << EOF > "$DSTROOT/include/module.modulemap"
 module CNIOBoringSSL {
-  header "openssl/base.h"
-  header "openssl/conf.h"
-  header "openssl/evp.h"
-  header "openssl/err.h"
-  header "openssl/bio.h"
-  header "openssl/ssl.h"
-  header "openssl/sha.h"
-  header "openssl/md5.h"
-  header "openssl/hmac.h"
-  header "openssl/rand.h"
-  header "openssl/pkcs12.h"
-  header "openssl/x509v3.h"
-  header "openssl/rsa.h"
-  header "openssl/ec.h"
-  header "openssl/ecdsa.h"
-  header "openssl/ec_key.h"
+  header "CNIOBoringSSL/base.h"
+  header "CNIOBoringSSL/conf.h"
+  header "CNIOBoringSSL/evp.h"
+  header "CNIOBoringSSL/err.h"
+  header "CNIOBoringSSL/bio.h"
+  header "CNIOBoringSSL/ssl.h"
+  header "CNIOBoringSSL/sha.h"
+  header "CNIOBoringSSL/md5.h"
+  header "CNIOBoringSSL/hmac.h"
+  header "CNIOBoringSSL/rand.h"
+  header "CNIOBoringSSL/pkcs12.h"
+  header "CNIOBoringSSL/x509v3.h"
+  header "CNIOBoringSSL/rsa.h"
+  header "CNIOBoringSSL/ec.h"
+  header "CNIOBoringSSL/ecdsa.h"
+  header "CNIOBoringSSL/ec_key.h"
   export *
 }
 EOF
 
-# Due to SR-8620, we need to rewrite all includes to use quotes. Remove this
-# when that's fixed.
-echo "WORKING around SR-8620"
-find "$DSTROOT" -name "*.[ch]" | xargs sed -i '' -e 's/\#include \<\(.*\)\>/\#include \"\1\"/'
+echo "RECORDING BoringSSL revision"
+$sed -i -e "s/BoringSSL Commit: [0-9a-f]\+/BoringSSL Commit: ${BORINGSSL_REVISION}/" "$HERE/Package.swift"
+echo "This directory is derived from BoringSSL cloned from https://boringssl.googlesource.com/boringssl at revision ${BORINGSSL_REVISION}" > "$DSTROOT/hash.txt"
 
 echo "CLEANING temporary directory"
 rm -rf "${TMPDIR}"

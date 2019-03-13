@@ -15,7 +15,7 @@
 #ifndef OPENSSL_HEADER_CHACHA_INTERNAL
 #define OPENSSL_HEADER_CHACHA_INTERNAL
 
-#include "openssl/base.h"
+#include <CNIOBoringSSL/base.h>
 
 #if defined(__cplusplus)
 extern "C" {

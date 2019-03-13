@@ -46,14 +46,14 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  * ==================================================================== */
 
-#include "openssl/cmac.h"
+#include <CNIOBoringSSL/cmac.h>
 
-#include "assert.h"
-#include "string.h"
+#include <assert.h>
+#include <string.h>
 
-#include "openssl/aes.h"
-#include "openssl/cipher.h"
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/aes.h>
+#include <CNIOBoringSSL/cipher.h>
+#include <CNIOBoringSSL/mem.h>
 
 #include "../internal.h"
 

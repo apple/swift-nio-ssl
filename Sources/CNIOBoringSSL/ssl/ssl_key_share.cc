@@ -12,22 +12,22 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include <openssl/ssl.h>
+#include <CNIOBoringSSL/ssl.h>
 
 #include <assert.h>
 #include <string.h>
 
 #include <utility>
 
-#include <openssl/bn.h>
-#include <openssl/bytestring.h>
-#include <openssl/curve25519.h>
-#include <openssl/ec.h>
-#include <openssl/err.h>
-#include <openssl/hrss.h>
-#include <openssl/mem.h>
-#include <openssl/nid.h>
-#include <openssl/rand.h>
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/bytestring.h>
+#include <CNIOBoringSSL/curve25519.h>
+#include <CNIOBoringSSL/ec.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/hrss.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/nid.h>
+#include <CNIOBoringSSL/rand.h>
 
 #include "internal.h"
 #include "../crypto/internal.h"
@@ -234,7 +234,7 @@ class CECPQ2KeyShare : public SSLKeyShare {
     }
 
     return true;
-  };
+  }
 
   bool Accept(CBB *out_public_key, Array<uint8_t> *out_secret,
               uint8_t *out_alert, Span<const uint8_t> peer_key) override {
@@ -293,7 +293,7 @@ class CECPQ2KeyShare : public SSLKeyShare {
 
     *out_secret = std::move(secret);
     return true;
-  };
+  }
 
  private:
   uint8_t x25519_private_key_[32];

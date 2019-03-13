@@ -147,7 +147,7 @@
  * OTHERWISE.
  */
 
-#include <openssl/ssl.h>
+#include <CNIOBoringSSL/ssl.h>
 
 #include <assert.h>
 #include <limits.h>
@@ -155,18 +155,18 @@
 
 #include <utility>
 
-#include <openssl/aead.h>
-#include <openssl/bn.h>
-#include <openssl/buf.h>
-#include <openssl/bytestring.h>
-#include <openssl/ec_key.h>
-#include <openssl/ecdsa.h>
-#include <openssl/err.h>
-#include <openssl/evp.h>
-#include <openssl/md5.h>
-#include <openssl/mem.h>
-#include <openssl/rand.h>
-#include <openssl/sha.h>
+#include <CNIOBoringSSL/aead.h>
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/bytestring.h>
+#include <CNIOBoringSSL/ec_key.h>
+#include <CNIOBoringSSL/ecdsa.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL/md5.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/rand.h>
+#include <CNIOBoringSSL/sha.h>
 
 #include "../crypto/internal.h"
 #include "internal.h"

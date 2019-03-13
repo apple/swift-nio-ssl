@@ -112,7 +112,7 @@
  * ECC cipher suite support in OpenSSL originally developed by
  * SUN MICROSYSTEMS, INC., and contributed to the OpenSSL project. */
 
-#include <openssl/ssl.h>
+#include <CNIOBoringSSL/ssl.h>
 
 #include <assert.h>
 #include <limits.h>
@@ -120,14 +120,14 @@
 
 #include <utility>
 
-#include <openssl/bn.h>
-#include <openssl/buf.h>
-#include <openssl/bytestring.h>
-#include <openssl/ec_key.h>
-#include <openssl/err.h>
-#include <openssl/mem.h>
-#include <openssl/sha.h>
-#include <openssl/x509.h>
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/bytestring.h>
+#include <CNIOBoringSSL/ec_key.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/sha.h>
+#include <CNIOBoringSSL/x509.h>
 
 #include "../crypto/internal.h"
 #include "internal.h"
@@ -804,9 +804,7 @@ UniquePtr<DC> DC::Parse(CRYPTO_BUFFER *in, uint8_t *out_alert) {
 
 // ssl_can_serve_dc returns true if the host has configured a DC that it can
 // serve in the handshake. Specifically, it checks that a DC has been
-// configured, that the DC protocol version is the same as the negotiated
-// protocol version, and that the DC signature algorithm is supported by the
-// peer.
+// configured and that the DC signature algorithm is supported by the peer.
 static bool ssl_can_serve_dc(const SSL_HANDSHAKE *hs) {
   // Check that a DC has been configured.
   const CERT *cert = hs->config->cert.get();

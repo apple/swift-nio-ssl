@@ -1304,7 +1304,7 @@ __ecp_nistz256_mul_montq:
 
 
 
-#
+
 
 
 
@@ -2910,9 +2910,9 @@ ecp_nistz256_point_add:
 	movq	24+32(%rsp),%r12
 	leaq	192(%rsp),%rdi
 	call	__ecp_nistz256_mul_montq
-#lea	192(%rsp), %rsi
-#lea	32(%rsp), %rdi
-#call	__ecp_nistz256_mul_by_2
+
+
+
 
 	xorq	%r11,%r11
 	addq	%r12,%r12
@@ -3155,7 +3155,7 @@ ecp_nistz256_point_add_affine:
 	pcmpeqd	%xmm4,%xmm5
 	pshufd	$0xb1,%xmm3,%xmm4
 	movq	0(%rbx),%rax
-#lea	0x00(%rbx), %rbx
+
 	movq	%r12,%r9
 	por	%xmm3,%xmm4
 	pshufd	$0,%xmm5,%xmm5
@@ -3245,9 +3245,9 @@ ecp_nistz256_point_add_affine:
 	movq	24+128(%rsp),%r12
 	leaq	0(%rsp),%rdi
 	call	__ecp_nistz256_mul_montq
-#lea	0(%rsp), %rsi
-#lea	128(%rsp), %rdi
-#call	__ecp_nistz256_mul_by_2
+
+
+
 
 	xorq	%r11,%r11
 	addq	%r12,%r12
@@ -4031,9 +4031,9 @@ ecp_nistz256_point_addx:
 	movq	24+32(%rsp),%r12
 	leaq	192(%rsp),%rdi
 	call	__ecp_nistz256_mul_montx
-#lea	192(%rsp), %rsi
-#lea	32(%rsp), %rdi
-#call	__ecp_nistz256_mul_by_2
+
+
+
 
 	xorq	%r11,%r11
 	addq	%r12,%r12
@@ -4270,7 +4270,7 @@ ecp_nistz256_point_add_affinex:
 	pcmpeqd	%xmm4,%xmm5
 	pshufd	$0xb1,%xmm3,%xmm4
 	movq	0(%rbx),%rdx
-#lea	0x00(%rbx), %rbx
+
 	movq	%r12,%r9
 	por	%xmm3,%xmm4
 	pshufd	$0,%xmm5,%xmm5
@@ -4360,9 +4360,9 @@ ecp_nistz256_point_add_affinex:
 	movq	24+128(%rsp),%r12
 	leaq	0(%rsp),%rdi
 	call	__ecp_nistz256_mul_montx
-#lea	0(%rsp), %rsi
-#lea	128(%rsp), %rdi
-#call	__ecp_nistz256_mul_by_2
+
+
+
 
 	xorq	%r11,%r11
 	addq	%r12,%r12

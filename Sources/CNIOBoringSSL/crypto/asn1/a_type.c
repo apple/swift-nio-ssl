@@ -54,12 +54,12 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/asn1.h"
+#include <CNIOBoringSSL/asn1.h>
 
-#include "openssl/asn1t.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
-#include "openssl/obj.h"
+#include <CNIOBoringSSL/asn1t.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/obj.h>
 
 int ASN1_TYPE_get(ASN1_TYPE *a)
 {

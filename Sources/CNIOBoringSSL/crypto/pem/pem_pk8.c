@@ -54,16 +54,16 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/pem.h"
+#include <CNIOBoringSSL/pem.h>
 
-#include "openssl/buf.h"
-#include "openssl/err.h"
-#include "openssl/evp.h"
-#include "openssl/mem.h"
-#include "openssl/obj.h"
-#include "openssl/pkcs8.h"
-#include "openssl/rand.h"
-#include "openssl/x509.h"
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL/pkcs8.h>
+#include <CNIOBoringSSL/rand.h>
+#include <CNIOBoringSSL/x509.h>
 
 static int do_pk8pkey(BIO *bp, EVP_PKEY *x, int isder,
                       int nid, const EVP_CIPHER *enc,

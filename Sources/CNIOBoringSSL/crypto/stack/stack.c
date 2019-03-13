@@ -54,11 +54,11 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/stack.h"
+#include <CNIOBoringSSL/stack.h>
 
-#include "string.h"
+#include <string.h>
 
-#include "openssl/mem.h"
+#include <CNIOBoringSSL/mem.h>
 
 #include "../internal.h"
 

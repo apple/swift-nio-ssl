@@ -57,18 +57,18 @@
 #ifndef OPENSSL_HEADER_BIO_INTERNAL_H
 #define OPENSSL_HEADER_BIO_INTERNAL_H
 
-#include "openssl/base.h"
+#include <CNIOBoringSSL/base.h>
 
 #if !defined(OPENSSL_WINDOWS)
 #if defined(OPENSSL_PNACL)
 // newlib uses u_short in socket.h without defining it.
 typedef unsigned short u_short;
 #endif
-#include "sys/types.h"
-#include "sys/socket.h"
+#include <sys/types.h>
+#include <sys/socket.h>
 #else
 OPENSSL_MSVC_PRAGMA(warning(push, 3))
-#include "winsock2.h"
+#include <winsock2.h>
 OPENSSL_MSVC_PRAGMA(warning(pop))
 typedef int socklen_t;
 #endif

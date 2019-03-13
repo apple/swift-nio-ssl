@@ -133,10 +133,10 @@
  * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
  * OTHERWISE. */
 
-#include <openssl/ssl.h>
+#include <CNIOBoringSSL/ssl.h>
 
-#include <openssl/buf.h>
-#include <openssl/digest.h>
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/digest.h>
 
 #include "internal.h"
 

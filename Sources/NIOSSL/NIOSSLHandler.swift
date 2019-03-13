@@ -15,7 +15,6 @@
 import NIO
 import CNIOBoringSSL
 import NIOTLS
-import _NIO1APIShims
 
 /// The base class for all NIOSSL handlers. This class cannot actually be instantiated by
 /// users directly: instead, users must select which mode they would like their handler to
@@ -49,17 +48,18 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private var shutdownPromise: EventLoopPromise<Void>?
     private var didDeliverData: Bool = false
     private var storedContext: ChannelHandlerContext? = nil
-    private let expectedHostname: String?
     
-    internal init (connection: SSLConnection, expectedHostname: String? = nil) {
+    internal init (connection: SSLConnection) {
         self.connection = connection
         self.bufferedWrites = MarkedCircularBuffer(initialCapacity: 96)  // 96 brings the total size of the buffer to just shy of one page
-        self.expectedHostname = expectedHostname
     }
 
     public func handlerAdded(context: ChannelHandlerContext) {
         self.storedContext = context
         self.connection.setAllocator(context.channel.allocator)
+        self.connection.parentHandler = self
+        self.connection.eventLoop = context.eventLoop
+        
         self.plaintextReadBuffer = context.channel.allocator.buffer(capacity: SSL_MAX_RECORD_SIZE)
         // If this channel is already active, immediately begin handshaking.
         if context.channel.isActive {
@@ -106,10 +106,10 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             let closePromise = self.closePromise
             self.closePromise = nil
 
-            shutdownPromise?.fail(BoringSSLError.uncleanShutdown)
-            closePromise?.fail(BoringSSLError.uncleanShutdown)
-            context.fireErrorCaught(BoringSSLError.uncleanShutdown)
-            discardBufferedWrites(reason: BoringSSLError.uncleanShutdown)
+            shutdownPromise?.fail(NIOSSLError.uncleanShutdown)
+            closePromise?.fail(NIOSSLError.uncleanShutdown)
+            context.fireErrorCaught(NIOSSLError.uncleanShutdown)
+            discardBufferedWrites(reason: NIOSSLError.uncleanShutdown)
         }
 
         context.fireChannelInactive()
@@ -469,16 +469,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             throw NIOSSLError.cannotFindPeerIP
         }
 
-        // We want the leaf certificate.
-        guard let peerCert = connection.getPeerCertificate() else {
-            throw NIOSSLError.noCertificateToValidate
-        }
-
-        guard try validIdentityForService(serverHostname: expectedHostname,
-                                         socketAddress: ipAddress,
-                                         leafCertificate: peerCert) else {
-            throw NIOSSLError.unableToValidateCertificate
-        }
+        try connection.validateHostname(address: ipAddress)
     }
 }
 
@@ -630,5 +621,18 @@ fileprivate extension MarkedCircularBuffer {
         while self.count > 0 {
             callback(self.removeFirst())
         }
+    }
+}
+
+
+// MARK:- Code for handling asynchronous handshake resumption.
+extension NIOSSLHandler {
+    internal func asynchronousCertificateVerificationComplete() {
+        guard let storedContext = self.storedContext else {
+            // Oh well, the connection is dead. Do nothing.
+            return
+        }
+
+        self.doHandshakeStep(context: storedContext)
     }
 }

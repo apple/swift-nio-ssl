@@ -54,21 +54,21 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/rsa.h"
+#include <CNIOBoringSSL/rsa.h>
 
-#include "limits.h"
-#include "string.h"
+#include <limits.h>
+#include <string.h>
 
-#include "openssl/bn.h"
-#include "openssl/digest.h"
-#include "openssl/engine.h"
-#include "openssl/err.h"
-#include "openssl/ex_data.h"
-#include "openssl/md5.h"
-#include "openssl/mem.h"
-#include "openssl/nid.h"
-#include "openssl/sha.h"
-#include "openssl/thread.h"
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/digest.h>
+#include <CNIOBoringSSL/engine.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/ex_data.h>
+#include <CNIOBoringSSL/md5.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/nid.h>
+#include <CNIOBoringSSL/sha.h>
+#include <CNIOBoringSSL/thread.h>
 
 #include "../bn/internal.h"
 #include "../delocate.h"
@@ -80,7 +80,7 @@
 // Cryptography.io depends on this error code.
 OPENSSL_DECLARE_ERROR_REASON(RSA, BLOCK_TYPE_IS_NOT_02)
 
-DEFINE_STATIC_EX_DATA_CLASS(g_rsa_ex_data_class);
+DEFINE_STATIC_EX_DATA_CLASS(g_rsa_ex_data_class)
 
 RSA *RSA_new(void) { return RSA_new_method(NULL); }
 

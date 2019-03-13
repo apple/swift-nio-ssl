@@ -83,7 +83,7 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
@@ -141,7 +141,7 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         let serverHandler = try assertNoThrowWithValue(NIOSSLServerHandler(context: context))
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(serverHandler).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
@@ -208,7 +208,7 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
@@ -267,7 +267,7 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
@@ -287,7 +287,7 @@ final class UnwrappingTests: XCTestCase {
         clientStopPromise.futureResult.map {
             XCTFail("Must not succeed")
         }.whenFailure { error in
-            XCTAssertEqual(error as? BoringSSLError, .uncleanShutdown)
+            XCTAssertEqual(error as? NIOSSLError, .uncleanShutdown)
             clientUnwrapped = true
         }
         clientHandler.stopTLS(promise: clientStopPromise)
@@ -320,7 +320,7 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
@@ -358,7 +358,7 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
@@ -392,7 +392,7 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let handler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let handler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         XCTAssertNoThrow(try channel.pipeline.addHandler(handler).wait())
         channel.pipeline.assertContains(handler: handler)
 
@@ -421,7 +421,7 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
@@ -464,7 +464,7 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
@@ -508,7 +508,7 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
@@ -578,7 +578,7 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
@@ -628,7 +628,7 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
@@ -688,7 +688,7 @@ final class UnwrappingTests: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
         let handshakeHandler = HandshakeCompletedHandler()
@@ -716,11 +716,11 @@ final class UnwrappingTests: XCTestCase {
         clientHandler.stopTLS(promise: stopPromise)
 
         // Now we want to manually handle the interaction. The client will have sent a CLOSE_NOTIFY: send it to the server.
-        let clientCloseNotify = clientChannel.readOutbound(as: ByteBuffer.self)!
+        let clientCloseNotify = try clientChannel.readOutbound(as: ByteBuffer.self)!
         XCTAssertNoThrow(try serverChannel.writeInbound(clientCloseNotify))
 
         // The server will have sent a CLOSE_NOTIFY: grab it.
-        var serverCloseNotify = serverChannel.readOutbound(as: ByteBuffer.self)!
+        var serverCloseNotify = try serverChannel.readOutbound(as: ByteBuffer.self)!
 
         // We're going to append some plaintext data.
         serverCloseNotify.writeStaticString("Hello, world!")

@@ -1088,6 +1088,9 @@ Lkey_loop:
 	@ don't save last round key
 	bx	lr
 
+@ TODO(davidben): This should be aes_nohw_cbc_encrypt, but that function does
+@ not exist. Rather than add it, patch this fallback out. See
+@ https://crbug.com/boringssl/256.
 
 
 
@@ -1338,7 +1341,7 @@ Lcbc_dec_one:
 	mov	r2, r3
 	vmov	q4,q15		@ just in case ensure that IV
 	vmov	q5,q0			@ and input are preserved
-	bl	_AES_decrypt
+	bl	_aes_nohw_decrypt
 	vld1.8	{q0}, [r9]		@ load result
 	veor	q0, q0, q4	@ ^= IV
 	vmov	q15, q5		@ q5 holds input
@@ -1569,7 +1572,7 @@ Lctr_enc_short_loop:
 	mov	r1, sp			@ output on the stack
 	mov	r2, r7			@ key
 
-	bl	_AES_encrypt
+	bl	_aes_nohw_encrypt
 
 	vld1.8	{q0}, [r4]!	@ load input
 	vld1.8	{q1}, [sp]		@ load encrypted counter

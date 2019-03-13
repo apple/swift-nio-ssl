@@ -54,9 +54,9 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/des.h"
+#include <CNIOBoringSSL/des.h>
 
-#include "stdlib.h"
+#include <stdlib.h>
 
 #include "internal.h"
 

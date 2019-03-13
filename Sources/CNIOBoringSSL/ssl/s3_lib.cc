@@ -146,17 +146,17 @@
  * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
  * OTHERWISE. */
 
-#include <openssl/ssl.h>
+#include <CNIOBoringSSL/ssl.h>
 
 #include <assert.h>
 #include <string.h>
 
-#include <openssl/buf.h>
-#include <openssl/digest.h>
-#include <openssl/err.h>
-#include <openssl/md5.h>
-#include <openssl/mem.h>
-#include <openssl/nid.h>
+#include <CNIOBoringSSL/buf.h>
+#include <CNIOBoringSSL/digest.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/md5.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/nid.h>
 
 #include "../crypto/internal.h"
 #include "internal.h"

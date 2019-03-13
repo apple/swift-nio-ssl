@@ -55,7 +55,7 @@ L$mul_enter:
 	andq	$-1024,%r10
 
 
-#
+
 
 
 
@@ -496,7 +496,7 @@ L$mul4x_prologue:
 
 
 
-#
+
 	leaq	-320(%rsp,%r9,2),%r11
 	movq	%rsp,%rbp
 	subq	%rdi,%r11
@@ -1129,7 +1129,7 @@ L$power5_prologue:
 
 
 
-#
+
 	leaq	-320(%rsp,%r9,2),%r11
 	movq	%rsp,%rbp
 	subq	%rdi,%r11
@@ -1171,13 +1171,13 @@ L$pwr_page_walk_done:
 
 
 
-#
 
 
 
 
 
-#
+
+
 	movq	%r8,32(%rsp)
 	movq	%rax,40(%rsp)
 
@@ -1238,11 +1238,11 @@ __bn_sqr8x_internal:
 
 
 
-#
 
 
 
-#
+
+
 
 
 
@@ -2113,7 +2113,7 @@ L$from_prologue:
 
 
 
-#
+
 	leaq	-320(%rsp,%r9,2),%r11
 	movq	%rsp,%rbp
 	subq	%rdi,%r11
@@ -2155,13 +2155,13 @@ L$from_page_walk_done:
 
 
 
-#
 
 
 
 
 
-#
+
+
 	movq	%r8,32(%rsp)
 	movq	%rax,40(%rsp)
 
@@ -2283,7 +2283,7 @@ L$mulx4x_prologue:
 
 
 
-#
+
 	leaq	-320(%rsp,%r9,2),%r11
 	movq	%rsp,%rbp
 	subq	%rdi,%r11
@@ -2330,7 +2330,7 @@ L$mulx4x_page_walk_done:
 
 
 
-#
+
 	movq	%r8,32(%rsp)
 	movq	%rax,40(%rsp)
 
@@ -2816,7 +2816,7 @@ L$powerx5_prologue:
 
 
 
-#
+
 	leaq	-320(%rsp,%r9,2),%r11
 	movq	%rsp,%rbp
 	subq	%rdi,%r11
@@ -2858,7 +2858,6 @@ L$pwrx_page_walk_done:
 
 
 
-#
 
 
 
@@ -2866,7 +2865,8 @@ L$pwrx_page_walk_done:
 
 
 
-#
+
+
 	pxor	%xmm0,%xmm0
 .byte	102,72,15,110,207
 .byte	102,72,15,110,209
@@ -2929,20 +2929,6 @@ __bn_sqrx8x_internal:
 
 
 
-#
-
-
-
-#
-
-
-
-
-
-
-
-
-#
 
 
 
@@ -2959,7 +2945,21 @@ __bn_sqrx8x_internal:
 
 
 
-#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2991,7 +2991,7 @@ L$sqr8x_zero_start:
 	jnz	L$sqrx8x_zero
 
 	movq	0(%rsi),%rdx
-#xor	%r9,%r9
+
 	xorq	%r10,%r10
 	xorq	%r11,%r11
 	xorq	%r12,%r12
@@ -3108,7 +3108,7 @@ L$sqrx8x_outer_loop:
 	movq	%r14,%rdx
 	adoxq	%rbx,%r11
 	adcxq	%r12,%r11
-#adox	%rbp,%rax
+
 	adcxq	%rbp,%rax
 
 	mulxq	%r15,%r14,%rbx
@@ -3147,7 +3147,7 @@ L$sqrx8x_outer_loop:
 	movq	%rax,16+8(%rsp)
 	movq	%rdi,24+8(%rsp)
 
-#lea	8*8(%rdi),%rdi
+
 	xorl	%eax,%eax
 	jmp	L$sqrx8x_loop
 
@@ -3270,7 +3270,7 @@ L$sqrx8x_outer_break:
 	adoxq	%r11,%r11
 	movq	16(%rdi),%r12
 	movq	24(%rdi),%r13
-#jmp	.Lsqrx4x_shift_n_add
+
 
 .p2align	5
 L$sqrx4x_shift_n_add:
@@ -3335,7 +3335,7 @@ __bn_sqrx8x_reduction:
 	movq	32+8(%rsp),%rbx
 	movq	48+8(%rsp),%rdx
 	leaq	-64(%rbp,%r9,1),%rcx
-#lea	48+8(%rsp,%r9,2),%rdi
+
 	movq	%rcx,0+8(%rsp)
 	movq	%rdi,8+8(%rsp)
 
@@ -3549,7 +3549,7 @@ __bn_postx4x_internal:
 	movq	%rcx,%r9
 	negq	%rax
 	sarq	$3+2,%rcx
-#lea	48+8(%rsp,%r9),%rdi
+
 .byte	102,72,15,126,202
 .byte	102,72,15,126,206
 	decq	%r12
@@ -3622,9 +3622,9 @@ _bn_gather5:
 
 L$SEH_begin_bn_gather5:
 
-.byte	0x4c,0x8d,0x14,0x24			#lea    (%rsp),%r10
+.byte	0x4c,0x8d,0x14,0x24
 
-.byte	0x48,0x81,0xec,0x08,0x01,0x00,0x00	#sub	crypto/fipsmodule/bn/asm/x86_64-mont5.plx108,%rsp
+.byte	0x48,0x81,0xec,0x08,0x01,0x00,0x00
 	leaq	L$inc(%rip),%rax
 	andq	$-16,%rsp
 

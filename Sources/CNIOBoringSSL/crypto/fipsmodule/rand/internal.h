@@ -15,8 +15,8 @@
 #ifndef OPENSSL_HEADER_CRYPTO_RAND_INTERNAL_H
 #define OPENSSL_HEADER_CRYPTO_RAND_INTERNAL_H
 
-#include "openssl/aes.h"
-#include "openssl/cpu.h"
+#include <CNIOBoringSSL/aes.h>
+#include <CNIOBoringSSL/cpu.h>
 
 #include "../../internal.h"
 #include "../modes/internal.h"

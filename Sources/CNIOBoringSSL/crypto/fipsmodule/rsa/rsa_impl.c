@@ -54,17 +54,17 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include "openssl/rsa.h"
+#include <CNIOBoringSSL/rsa.h>
 
-#include "assert.h"
-#include "limits.h"
-#include "string.h"
+#include <assert.h>
+#include <limits.h>
+#include <string.h>
 
-#include "openssl/bn.h"
-#include "openssl/err.h"
-#include "openssl/mem.h"
-#include "openssl/thread.h"
-#include "openssl/type_check.h"
+#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL/thread.h>
+#include <CNIOBoringSSL/type_check.h>
 
 #include "internal.h"
 #include "../bn/internal.h"
