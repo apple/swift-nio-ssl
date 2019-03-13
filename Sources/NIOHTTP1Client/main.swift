@@ -30,7 +30,7 @@ private final class HTTPResponseHandler: ChannelInboundHandler {
 
     typealias InboundIn = HTTPClientResponsePart
 
-    func channelRead(ctx: ChannelHandlerContext, data: NIOAny) {
+    func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let httpResponsePart = unwrapInboundIn(data)
         switch httpResponsePart {
         case .head(let httpResponseHeader):
@@ -43,21 +43,21 @@ private final class HTTPResponseHandler: ChannelInboundHandler {
                 FileHandle.standardOutput.write(data)
             }
         case .end(_):
-            closeFuture = ctx.channel.close()
+            closeFuture = context.channel.close()
             promise.succeed(())
         }
     }
 
-    func channelInactive(ctx: ChannelHandlerContext) {
+    func channelInactive(context: ChannelHandlerContext) {
         if closeFuture == nil {
-            closeFuture = ctx.channel.close()
+            closeFuture = context.channel.close()
             promise.fail(ChannelError.inputClosed)
         }
     }
 
-    func errorCaught(ctx: ChannelHandlerContext, error: Error) {
+    func errorCaught(context: ChannelHandlerContext, error: Error) {
         print("Error: ", error)
-        closeFuture = ctx.channel.close()
+        closeFuture = context.channel.close()
         promise.succeed(())
     }
 }
