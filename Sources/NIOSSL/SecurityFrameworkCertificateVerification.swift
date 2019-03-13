@@ -101,7 +101,7 @@ extension SSLConnection {
         // This force-unwrap is safe as we must have decided if we're a client or a server before validation.
         var trust: SecTrust? = nil
         var result: OSStatus
-        let policy = SecPolicyCreateSSL(self.role! == .server, self.expectedHostname as CFString?)
+        let policy = SecPolicyCreateSSL(self.role! == .client, self.expectedHostname as CFString?)
         result = SecTrustCreateWithCertificates(certificates as CFArray, policy, &trust)
         guard result == errSecSuccess, let actualTrust = trust else {
             throw NIOSSLError.unableToValidateCertificate
