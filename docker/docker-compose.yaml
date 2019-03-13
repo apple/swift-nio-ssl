@@ -25,4 +25,4 @@ services:
 
   test:
     <<: *common
-    command: /bin/bash -cl "swift test"
+    command: /bin/bash -cl "swift test -Xswiftc -warnings-as-errors"

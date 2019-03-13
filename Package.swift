@@ -29,8 +29,10 @@ let package = Package(
     products: [
         .library(name: "NIOSSL", targets: ["NIOSSL"]),
         .executable(name: "NIOTLSServer", targets: ["NIOTLSServer"]),
-        .library(name: "CNIOBoringSSL", type: .static, targets: ["CNIOBoringSSL"]),
         .executable(name: "NIOHTTP1Client", targets: ["NIOHTTP1Client"])
+/* This target is used only for symbol mangling. It's added and removed automatically because it emits build warnings. MANGLE_START
+        .library(name: "CNIOBoringSSL", type: .static, targets: ["CNIOBoringSSL"]),
+MANGLE_END */
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.0.0-convergence.1"),
