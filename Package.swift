@@ -29,7 +29,7 @@ let package = Package(
     products: [
         .library(name: "NIOSSL", targets: ["NIOSSL"]),
         .executable(name: "NIOTLSServer", targets: ["NIOTLSServer"]),
-        .executable(name: "NIOHTTP1Client", targets: ["NIOHTTP1Client"])
+        .executable(name: "NIOHTTP1Client", targets: ["NIOHTTP1Client"]),
 /* This target is used only for symbol mangling. It's added and removed automatically because it emits build warnings. MANGLE_START
         .library(name: "CNIOBoringSSL", type: .static, targets: ["CNIOBoringSSL"]),
 MANGLE_END */
