@@ -55,7 +55,7 @@
 @ improvement on Cortex A8 core and ~21.5 cycles per byte.
 
 #ifndef __KERNEL__
-# include <openssl/arm_arch.h>
+# include <CNIOBoringSSL/arm_arch.h>
 #else
 # define __ARM_ARCH__ __LINUX_ARM_ARCH__
 #endif

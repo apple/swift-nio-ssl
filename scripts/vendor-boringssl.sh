@@ -194,7 +194,7 @@ echo "RENAMING header files"
 (
     cd "$DSTROOT"
     mv "include/openssl" "include/CNIOBoringSSL"
-    find . -name "*.[ch]" -or -name "*.cc" -or -name "*.S" | xargs $sed -i -e 's_#include <openssl/_#include <CNIOBoringSSL/_'
+    find . -name "*.[ch]" -or -name "*.cc" -or -name "*.S" | xargs $sed -i -e 's_include <openssl/_include <CNIOBoringSSL/_'
 )
 
 # We need BoringSSL to be modularised
