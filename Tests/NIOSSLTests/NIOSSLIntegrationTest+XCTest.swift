@@ -49,6 +49,7 @@ extension NIOSSLIntegrationTest {
                 ("testRepeatedClosure", testRepeatedClosure),
                 ("testReceivingGibberishAfterAttemptingToClose", testReceivingGibberishAfterAttemptingToClose),
                 ("testPendingWritesFailWhenFlushedOnClose", testPendingWritesFailWhenFlushedOnClose),
+                ("testChannelInactiveAfterCloseNotify", testChannelInactiveAfterCloseNotify),
            ]
    }
 }
