@@ -1398,4 +1398,70 @@ class NIOSSLIntegrationTest: XCTestCase {
         // Bring the server up to speed.
         serverChannel.pipeline.fireChannelInactive()
     }
+
+    func testChannelInactiveAfterCloseNotify() throws {
+        class SecondChannelInactiveSwallower: ChannelInboundHandler {
+            typealias InboundIn = Any
+            private var channelInactiveCalls = 0
+
+            func channelInactive(context: ChannelHandlerContext) {
+                if self.channelInactiveCalls == 0 {
+                    self.channelInactiveCalls += 1
+                    context.fireChannelInactive()
+                }
+            }
+        }
+
+        class FlushOnReadHandler: ChannelInboundHandler {
+            typealias InboundIn = Any
+
+            func channelRead(context: ChannelHandlerContext, data: NIOAny) {
+                context.pipeline.fireChannelInactive()
+            }
+        }
+
+        let context = try assertNoThrowWithValue(configuredSSLContext())
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+        defer {
+            _ = try? serverChannel.finish()
+            // The client channel is closed in the test.
+        }
+
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(SecondChannelInactiveSwallower()).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(FlushOnReadHandler()).wait())
+
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait())
+
+        // Connect
+        let addr = try assertNoThrowWithValue(SocketAddress(unixDomainSocketPath: "/tmp/whatever2"))
+        let connectFuture = clientChannel.connect(to: addr)
+        serverChannel.pipeline.fireChannelActive()
+        XCTAssertNoThrow(try serverChannel.connect(to: SocketAddress(ipAddress: "1.2.3.4", port: 5678)).wait())
+        XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
+        XCTAssertNoThrow(try connectFuture.wait())
+
+        // Here we want to issue a write, a flush, and then a close. This will trigger a CLOSE_NOTIFY message to be emitted by the
+        // client. Unfortunately, interactInMemory doesn't do quite what we want, as we need to coalesce all these writes, so
+        // we'll have to do some of this ourselves.
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        let clientClose = clientChannel.writeAndFlush(originalBuffer)
+        clientChannel.close(promise: nil)
+
+        var buffer = clientChannel.allocator.buffer(capacity: 1024)
+        while case .some(.byteBuffer(var data)) = try clientChannel.readOutbound(as: IOData.self) {
+            buffer.writeBuffer(&data)
+        }
+
+        // The client has sent CLOSE_NOTIFY, so the server will unbuffer any reads it has. This in turn
+        // causes channelInactive to be fired back into the SSL handler.
+        XCTAssertThrowsError(try serverChannel.writeInbound(buffer)) { error in
+            XCTAssertEqual(NIOSSLError.uncleanShutdown, error as? NIOSSLError)
+        }
+
+        XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
+        XCTAssertNoThrow(try clientClose.wait())
+    }
 }

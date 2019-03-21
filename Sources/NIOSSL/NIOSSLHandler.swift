@@ -49,7 +49,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private var didDeliverData: Bool = false
     private var storedContext: ChannelHandlerContext? = nil
     
-    internal init (connection: SSLConnection) {
+    internal init(connection: SSLConnection) {
         self.connection = connection
         self.bufferedWrites = MarkedCircularBuffer(initialCapacity: 96)  // 96 brings the total size of the buffer to just shy of one page
     }
@@ -254,6 +254,10 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     /// Once `state` has transitioned to `.closed`, further calls to this method will
     /// do nothing.
     private func doShutdownStep(context: ChannelHandlerContext) {
+        guard self.state != .closed else {
+            return
+        }
+
         let result = connection.doShutdown()
 
         let targetCompleteState: ConnectionState
