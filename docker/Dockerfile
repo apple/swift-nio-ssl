@@ -33,12 +33,13 @@ RUN update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.9 
 ARG install_curl_from_source
 RUN apt-get update && apt-get install -y curl libcurl4-openssl-dev libz-dev
 
-# ruby
+# ruby and jazzy for docs generation
 ARG skip_ruby_from_ppa
 RUN [ -n "$skip_ruby_from_ppa" ] || apt-add-repository -y ppa:brightbox/ruby-ng
 RUN [ -n "$skip_ruby_from_ppa" ] || { apt-get update && apt-get install -y ruby2.4 ruby2.4-dev; }
 RUN [ -z "$skip_ruby_from_ppa" ] || { apt-get update && apt-get install -y ruby ruby-dev; }
 RUN apt-get update && apt-get install -y libsqlite3-dev
+RUN gem install jazzy --no-ri --no-rdoc
 
 # swift
 ARG swift_version=4.0.3
