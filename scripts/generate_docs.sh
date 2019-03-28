@@ -72,6 +72,14 @@ Additionally, we provide a number of low-level primitives for configuring your T
 
 To secure a server connection, you will need a X.509 certificate chain in a file (either PEM or DER, but PEM is far easier), and the associated private key for the leaf certificate. These objects can then be wrapped up in a `TLSConfiguration` object that is used to initialize the `ChannelHandler`.
 
+---
+
+For the API documentation of the other repositories in the SwiftNIO family check:
+
+- [`swift-nio` API docs](https://apple.github.io/swift-nio/docs/current/NIO/index.html)
+- [`swift-nio-ssl` API docs](https://apple.github.io/swift-nio-ssl/docs/current/NIOSSL/index.html)
+- [`swift-nio-http2` API docs](https://apple.github.io/swift-nio-http2/docs/current/NIOHTTP2/index.html)
+
 EOF
 
 tmp=`mktemp -d`
