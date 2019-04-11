@@ -50,6 +50,7 @@ extension NIOSSLIntegrationTest {
                 ("testReceivingGibberishAfterAttemptingToClose", testReceivingGibberishAfterAttemptingToClose),
                 ("testPendingWritesFailWhenFlushedOnClose", testPendingWritesFailWhenFlushedOnClose),
                 ("testChannelInactiveAfterCloseNotify", testChannelInactiveAfterCloseNotify),
+                ("testKeyLoggingClientAndServer", testKeyLoggingClientAndServer),
            ]
    }
 }

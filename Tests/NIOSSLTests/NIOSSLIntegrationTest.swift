@@ -324,10 +324,11 @@ class NIOSSLIntegrationTest: XCTestCase {
         _ = unlink(NIOSSLIntegrationTest.encryptedKeyPath)
     }
 
-    private func configuredSSLContext(file: StaticString = #file, line: UInt = #line) throws -> NIOSSLContext {
+    private func configuredSSLContext(keyLogCallback: NIOSSLKeyLogCallback? = nil, file: StaticString = #file, line: UInt = #line) throws -> NIOSSLContext {
         let config = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
                                                 privateKey: .privateKey(NIOSSLIntegrationTest.key),
-                                                trustRoots: .certificates([NIOSSLIntegrationTest.cert]))
+                                                trustRoots: .certificates([NIOSSLIntegrationTest.cert]),
+                                                keyLogCallback: keyLogCallback)
         return try assertNoThrowWithValue(NIOSSLContext(configuration: config), file: file, line: line)
     }
 
@@ -1463,5 +1464,54 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
         XCTAssertNoThrow(try clientClose.wait())
+    }
+
+    func testKeyLoggingClientAndServer() throws {
+        var clientLines: [ByteBuffer] = []
+        var serverLines: [ByteBuffer] = []
+
+        let clientContext = try assertNoThrowWithValue(self.configuredSSLContext(keyLogCallback: { clientLines.append($0) }))
+        let serverContext = try assertNoThrowWithValue(self.configuredSSLContext(keyLogCallback: { serverLines.append($0) }))
+
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+        defer {
+            // These error as the channel is already closed.
+            XCTAssertThrowsError(try serverChannel.finish())
+            XCTAssertThrowsError(try clientChannel.finish())
+        }
+
+        // Handshake
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil)).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext)).wait())
+        let handshakeHandler = HandshakeCompletedHandler()
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+
+        // Connect. This should lead to a completed handshake.
+        let addr: SocketAddress = try SocketAddress(unixDomainSocketPath: "/tmp/whatever")
+        let connectFuture = clientChannel.connect(to: addr)
+        serverChannel.pipeline.fireChannelActive()
+        try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
+        try connectFuture.wait()
+        XCTAssertTrue(handshakeHandler.handshakeSucceeded)
+
+        // In our code this should do TLS 1.3, so we expect 5 lines each.
+        XCTAssertEqual(clientLines.count, 5)
+        XCTAssertEqual(serverLines.count, 5)
+
+        // Each in the same order.
+        XCTAssertEqual(clientLines, serverLines)
+
+        // Each line should be newline terminated.
+        for line in clientLines {
+            XCTAssertTrue(line.readableBytesView.last! == UInt8(ascii: "\n"))
+        }
+        for line in serverLines {
+            XCTAssertTrue(line.readableBytesView.last! == UInt8(ascii: "\n"))
+        }
+
+        // Close and let the two channels shutdown.
+        clientChannel.close(promise: nil)
+        try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
     }
 }

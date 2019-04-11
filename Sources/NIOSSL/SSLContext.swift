@@ -111,6 +111,7 @@ private func alpnCallback(ssl: OpaquePointer?,
 public final class NIOSSLContext {
     private let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
+    private var keyLogManager: KeyLogCallbackManager?
     internal let configuration: TLSConfiguration
 
     /// Initialize a context that will create multiple connections, all with the same
@@ -193,6 +194,14 @@ public final class NIOSSLContext {
         if configuration.applicationProtocols.count > 0 {
             try NIOSSLContext.setAlpnProtocols(configuration.encodedApplicationProtocols, context: context)
             NIOSSLContext.setAlpnCallback(context: context)
+        }
+
+        // Add a key log callback.
+        if let keyLogCallback = configuration.keyLogCallback {
+            self.keyLogManager = KeyLogCallbackManager(callback: keyLogCallback)
+            try NIOSSLContext.setKeylogCallback(context: context)
+        } else {
+            self.keyLogManager = nil
         }
 
         self.sslContext = context
@@ -398,6 +407,25 @@ extension NIOSSLContext {
         #elseif os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
         CNIOBoringSSL_SSL_CTX_set_custom_verify(context, SSL_VERIFY_PEER, securityFrameworkCustomVerify)
         #endif
+    }
+
+    private static func setKeylogCallback(context: OpaquePointer) throws {
+        CNIOBoringSSL_SSL_CTX_set_keylog_callback(context) { (ssl, linePointer) in
+            guard let ssl = ssl, let linePointer = linePointer else {
+                return
+            }
+
+            // We want to take the SSL pointer and extract the parent Swift object. These force-unwraps are for
+            // safety: a correct NIO program can never fail to set these pointers, and if it does failing loudly is
+            // more useful than failing quietly.
+            let parentCtx = CNIOBoringSSL_SSL_get_SSL_CTX(ssl)!
+            let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
+            let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
+
+            // Similarly, this force-unwrap is safe because a correct NIO program can never fail to unwrap this entry
+            // either.
+            parentSwiftContext.keyLogManager!.log(linePointer)
+        }
     }
 }
 
