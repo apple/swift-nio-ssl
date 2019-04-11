@@ -1392,7 +1392,7 @@ struct DC {
   static UniquePtr<DC> Parse(CRYPTO_BUFFER *in, uint8_t *out_alert);
 
   // raw is the delegated credential encoded as specified in draft-ietf-tls-
-  // subcerts-02.
+  // subcerts-03.
   UniquePtr<CRYPTO_BUFFER> raw;
 
   // expected_cert_verify_algorithm is the signature scheme of the DC public
@@ -2464,14 +2464,14 @@ struct SSL_CONFIG {
   // ssl is a non-owning pointer to the parent |SSL| object.
   SSL *const ssl = nullptr;
 
-  // conf_max_version is the maximum acceptable protocol version configured by
-  // |SSL_set_max_proto_version|. Note this version is normalized in DTLS and is
-  // further constrainted by |SSL_OP_NO_*|.
+  // conf_max_version is the maximum acceptable version configured by
+  // |SSL_set_max_proto_version|. Note this version is not normalized in DTLS
+  // and is further constrained by |SSL_OP_NO_*|.
   uint16_t conf_max_version = 0;
 
-  // conf_min_version is the minimum acceptable protocol version configured by
-  // |SSL_set_min_proto_version|. Note this version is normalized in DTLS and is
-  // further constrainted by |SSL_OP_NO_*|.
+  // conf_min_version is the minimum acceptable version configured by
+  // |SSL_set_min_proto_version|. Note this version is not normalized in DTLS
+  // and is further constrained by |SSL_OP_NO_*|.
   uint16_t conf_min_version = 0;
 
   X509_VERIFY_PARAM *param = nullptr;

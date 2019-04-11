@@ -35,14 +35,12 @@ OPENSSL_INLINE int hwaes_capable(void) {
 }
 
 #define VPAES
+#if defined(OPENSSL_X86_64)
+#define VPAES_CTR32
+#endif
 OPENSSL_INLINE int vpaes_capable(void) {
   return (OPENSSL_ia32cap_get()[1] & (1 << (41 - 32))) != 0;
 }
-
-#if defined(OPENSSL_X86_64)
-#define BSAES
-OPENSSL_INLINE int bsaes_capable(void) { return vpaes_capable(); }
-#endif  // X86_64
 
 #elif defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)
 #define HWAES
@@ -133,7 +131,7 @@ void aes_hw_ecb_encrypt(const uint8_t *in, uint8_t *out, size_t length,
 
 #if defined(BSAES)
 // On platforms where BSAES gets defined (just above), then these functions are
-// provided by asm.
+// provided by asm. Note |bsaes_cbc_encrypt| requires |enc| to be zero.
 void bsaes_cbc_encrypt(const uint8_t *in, uint8_t *out, size_t length,
                        const AES_KEY *key, uint8_t ivec[16], int enc);
 void bsaes_ctr32_encrypt_blocks(const uint8_t *in, uint8_t *out, size_t len,
