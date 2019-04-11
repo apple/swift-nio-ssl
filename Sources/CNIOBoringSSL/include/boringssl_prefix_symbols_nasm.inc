@@ -1559,6 +1559,8 @@
 %xdefine _SSL_CTX_get_info_callback _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_get_info_callback
 %xdefine _SSL_CTX_get_keylog_callback _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_get_keylog_callback
 %xdefine _SSL_CTX_get_max_cert_list _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_get_max_cert_list
+%xdefine _SSL_CTX_get_max_proto_version _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_get_max_proto_version
+%xdefine _SSL_CTX_get_min_proto_version _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_get_min_proto_version
 %xdefine _SSL_CTX_get_mode _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_get_mode
 %xdefine _SSL_CTX_get_options _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_get_options
 %xdefine _SSL_CTX_get_quiet_shutdown _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_get_quiet_shutdown
@@ -2639,8 +2641,6 @@
 %xdefine _bn_uadd_consttime _ %+ BORINGSSL_PREFIX %+ _bn_uadd_consttime
 %xdefine _bn_usub_consttime _ %+ BORINGSSL_PREFIX %+ _bn_usub_consttime
 %xdefine _bn_wexpand _ %+ BORINGSSL_PREFIX %+ _bn_wexpand
-%xdefine _bsaes_cbc_encrypt _ %+ BORINGSSL_PREFIX %+ _bsaes_cbc_encrypt
-%xdefine _bsaes_ctr32_encrypt_blocks _ %+ BORINGSSL_PREFIX %+ _bsaes_ctr32_encrypt_blocks
 %xdefine _c2i_ASN1_BIT_STRING _ %+ BORINGSSL_PREFIX %+ _c2i_ASN1_BIT_STRING
 %xdefine _c2i_ASN1_INTEGER _ %+ BORINGSSL_PREFIX %+ _c2i_ASN1_INTEGER
 %xdefine _c2i_ASN1_OBJECT _ %+ BORINGSSL_PREFIX %+ _c2i_ASN1_OBJECT
@@ -2675,7 +2675,6 @@
 %xdefine _d2i_ASN1_T61STRING _ %+ BORINGSSL_PREFIX %+ _d2i_ASN1_T61STRING
 %xdefine _d2i_ASN1_TIME _ %+ BORINGSSL_PREFIX %+ _d2i_ASN1_TIME
 %xdefine _d2i_ASN1_TYPE _ %+ BORINGSSL_PREFIX %+ _d2i_ASN1_TYPE
-%xdefine _d2i_ASN1_UINTEGER _ %+ BORINGSSL_PREFIX %+ _d2i_ASN1_UINTEGER
 %xdefine _d2i_ASN1_UNIVERSALSTRING _ %+ BORINGSSL_PREFIX %+ _d2i_ASN1_UNIVERSALSTRING
 %xdefine _d2i_ASN1_UTCTIME _ %+ BORINGSSL_PREFIX %+ _d2i_ASN1_UTCTIME
 %xdefine _d2i_ASN1_UTF8STRING _ %+ BORINGSSL_PREFIX %+ _d2i_ASN1_UTF8STRING
@@ -3152,6 +3151,7 @@
 %xdefine _v3_skey_id _ %+ BORINGSSL_PREFIX %+ _v3_skey_id
 %xdefine _v3_sxnet _ %+ BORINGSSL_PREFIX %+ _v3_sxnet
 %xdefine _vpaes_cbc_encrypt _ %+ BORINGSSL_PREFIX %+ _vpaes_cbc_encrypt
+%xdefine _vpaes_ctr32_encrypt_blocks _ %+ BORINGSSL_PREFIX %+ _vpaes_ctr32_encrypt_blocks
 %xdefine _vpaes_decrypt _ %+ BORINGSSL_PREFIX %+ _vpaes_decrypt
 %xdefine _vpaes_encrypt _ %+ BORINGSSL_PREFIX %+ _vpaes_encrypt
 %xdefine _vpaes_set_decrypt_key _ %+ BORINGSSL_PREFIX %+ _vpaes_set_decrypt_key
@@ -4721,6 +4721,8 @@
 %xdefine SSL_CTX_get_info_callback BORINGSSL_PREFIX %+ _SSL_CTX_get_info_callback
 %xdefine SSL_CTX_get_keylog_callback BORINGSSL_PREFIX %+ _SSL_CTX_get_keylog_callback
 %xdefine SSL_CTX_get_max_cert_list BORINGSSL_PREFIX %+ _SSL_CTX_get_max_cert_list
+%xdefine SSL_CTX_get_max_proto_version BORINGSSL_PREFIX %+ _SSL_CTX_get_max_proto_version
+%xdefine SSL_CTX_get_min_proto_version BORINGSSL_PREFIX %+ _SSL_CTX_get_min_proto_version
 %xdefine SSL_CTX_get_mode BORINGSSL_PREFIX %+ _SSL_CTX_get_mode
 %xdefine SSL_CTX_get_options BORINGSSL_PREFIX %+ _SSL_CTX_get_options
 %xdefine SSL_CTX_get_quiet_shutdown BORINGSSL_PREFIX %+ _SSL_CTX_get_quiet_shutdown
@@ -5801,8 +5803,6 @@
 %xdefine bn_uadd_consttime BORINGSSL_PREFIX %+ _bn_uadd_consttime
 %xdefine bn_usub_consttime BORINGSSL_PREFIX %+ _bn_usub_consttime
 %xdefine bn_wexpand BORINGSSL_PREFIX %+ _bn_wexpand
-%xdefine bsaes_cbc_encrypt BORINGSSL_PREFIX %+ _bsaes_cbc_encrypt
-%xdefine bsaes_ctr32_encrypt_blocks BORINGSSL_PREFIX %+ _bsaes_ctr32_encrypt_blocks
 %xdefine c2i_ASN1_BIT_STRING BORINGSSL_PREFIX %+ _c2i_ASN1_BIT_STRING
 %xdefine c2i_ASN1_INTEGER BORINGSSL_PREFIX %+ _c2i_ASN1_INTEGER
 %xdefine c2i_ASN1_OBJECT BORINGSSL_PREFIX %+ _c2i_ASN1_OBJECT
@@ -5837,7 +5837,6 @@
 %xdefine d2i_ASN1_T61STRING BORINGSSL_PREFIX %+ _d2i_ASN1_T61STRING
 %xdefine d2i_ASN1_TIME BORINGSSL_PREFIX %+ _d2i_ASN1_TIME
 %xdefine d2i_ASN1_TYPE BORINGSSL_PREFIX %+ _d2i_ASN1_TYPE
-%xdefine d2i_ASN1_UINTEGER BORINGSSL_PREFIX %+ _d2i_ASN1_UINTEGER
 %xdefine d2i_ASN1_UNIVERSALSTRING BORINGSSL_PREFIX %+ _d2i_ASN1_UNIVERSALSTRING
 %xdefine d2i_ASN1_UTCTIME BORINGSSL_PREFIX %+ _d2i_ASN1_UTCTIME
 %xdefine d2i_ASN1_UTF8STRING BORINGSSL_PREFIX %+ _d2i_ASN1_UTF8STRING
@@ -6314,6 +6313,7 @@
 %xdefine v3_skey_id BORINGSSL_PREFIX %+ _v3_skey_id
 %xdefine v3_sxnet BORINGSSL_PREFIX %+ _v3_sxnet
 %xdefine vpaes_cbc_encrypt BORINGSSL_PREFIX %+ _vpaes_cbc_encrypt
+%xdefine vpaes_ctr32_encrypt_blocks BORINGSSL_PREFIX %+ _vpaes_ctr32_encrypt_blocks
 %xdefine vpaes_decrypt BORINGSSL_PREFIX %+ _vpaes_decrypt
 %xdefine vpaes_encrypt BORINGSSL_PREFIX %+ _vpaes_encrypt
 %xdefine vpaes_set_decrypt_key BORINGSSL_PREFIX %+ _vpaes_set_decrypt_key
