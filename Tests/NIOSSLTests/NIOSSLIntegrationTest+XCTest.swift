@@ -47,6 +47,7 @@ extension NIOSSLIntegrationTest {
                 ("testForcingVerificationFailure", testForcingVerificationFailure),
                 ("testExtractingCertificates", testExtractingCertificates),
                 ("testRepeatedClosure", testRepeatedClosure),
+                ("testClosureTimeout", testClosureTimeout),
                 ("testReceivingGibberishAfterAttemptingToClose", testReceivingGibberishAfterAttemptingToClose),
                 ("testPendingWritesFailWhenFlushedOnClose", testPendingWritesFailWhenFlushedOnClose),
                 ("testChannelInactiveAfterCloseNotify", testChannelInactiveAfterCloseNotify),

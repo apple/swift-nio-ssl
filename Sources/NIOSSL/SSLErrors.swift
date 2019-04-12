@@ -82,6 +82,9 @@ extension NIOSSLError: Equatable {
     }
 }
 
+/// Closing the TLS channel cleanly timed out, so it was closed uncleanly.
+public struct NIOSSLCloseTimedOutError: Error {}
+
 /// An enum that wraps individual BoringSSL errors directly.
 public enum BoringSSLError: Error {
     case noError

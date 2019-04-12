@@ -35,7 +35,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         case handshaking
         case active
         case unwrapping
-        case closing
+        case closing(Scheduled<Void>)
         case unwrapped
         case closed
     }
@@ -48,10 +48,12 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private var shutdownPromise: EventLoopPromise<Void>?
     private var didDeliverData: Bool = false
     private var storedContext: ChannelHandlerContext? = nil
+    private var shutdownTimeout: TimeAmount
     
-    internal init(connection: SSLConnection) {
+    internal init(connection: SSLConnection, shutdownTimeout: TimeAmount) {
         self.connection = connection
         self.bufferedWrites = MarkedCircularBuffer(initialCapacity: 96)  // 96 brings the total size of the buffer to just shy of one page
+        self.shutdownTimeout = shutdownTimeout
     }
 
     public func handlerAdded(context: ChannelHandlerContext) {
@@ -174,7 +176,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             // We've been asked to close the connection, but we were currently unwrapping.
             // We don't have to send any CLOSE_NOTIFY, but we now need to upgrade ourselves:
             // closing is a more extreme activity than unwrapping.
-            self.state = .closing
+            self.state = .closing(self.scheduleTimedOutShutdown(context: context))
             if let promise = promise, let closePromise = self.closePromise {
                 closePromise.futureResult.cascade(to: promise)
             } else if let promise = promise {
@@ -190,7 +192,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         case .active, .handshaking:
             // We need to begin processing shutdown now. We can't fire the promise for a
             // while though.
-            self.state = .closing
+            self.state = .closing(self.scheduleTimedOutShutdown(context: context))
             closePromise = promise
             doShutdownStep(context: context)
         }
@@ -254,15 +256,17 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     /// Once `state` has transitioned to `.closed`, further calls to this method will
     /// do nothing.
     private func doShutdownStep(context: ChannelHandlerContext) {
-        guard self.state != .closed else {
+        if case .closed = self.state {
             return
         }
 
         let result = connection.doShutdown()
 
+        var uncleanScheduledShutdown: Scheduled<Void>?
         let targetCompleteState: ConnectionState
         switch self.state {
-        case .closing:
+        case .closing(let scheduledShutdown):
+            uncleanScheduledShutdown = scheduledShutdown
             targetCompleteState = .closed
         case .unwrapping:
             targetCompleteState = .unwrapped
@@ -274,7 +278,8 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         case .incomplete:
             writeDataToNetwork(context: context, promise: nil)
         case .complete:
-            state = targetCompleteState
+            uncleanScheduledShutdown?.cancel()
+            self.state = targetCompleteState
             writeDataToNetwork(context: context, promise: nil)
 
             // TODO(cory): This should probably fire out of the BoringSSL info callback.
@@ -289,9 +294,19 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 preconditionFailure("Cannot be in \(targetCompleteState) at this code point")
             }
         case .failed(let err):
+            uncleanScheduledShutdown?.cancel()
             // TODO(cory): This should probably fire out of the BoringSSL info callback.
             context.fireErrorCaught(NIOSSLError.shutdownFailed(err))
             channelClose(context: context, reason: NIOSSLError.shutdownFailed(err))
+        }
+    }
+
+    /// Creates a scheduled task to perform an unclean shutdown in event of a clean shutdown timing
+    /// out. This task should be cancelled if the shutdown does not time out.
+    private func scheduleTimedOutShutdown(context: ChannelHandlerContext) -> Scheduled<Void> {
+        return context.eventLoop.scheduleTask(in: self.shutdownTimeout) {
+            self.state = .closed
+            self.channelClose(context: context, reason: NIOSSLCloseTimedOutError())
         }
     }
 
@@ -334,7 +349,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 case .idle, .closed, .unwrapped, .handshaking:
                     preconditionFailure("Should not get zeroReturn in \(self.state)")
                 case .active:
-                    self.state = .closing
+                    self.state = .closing(self.scheduleTimedOutShutdown(context: context))
                 case .unwrapping, .closing:
                     break
                 }

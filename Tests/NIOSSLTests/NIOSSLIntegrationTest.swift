@@ -1285,6 +1285,55 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertTrue(closed)
     }
 
+    func testClosureTimeout() throws {
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+
+        defer {
+            // We expect both cases to throw
+            XCTAssertThrowsError(try serverChannel.finish())
+            XCTAssertThrowsError(try clientChannel.finish())
+        }
+
+        let context = try assertNoThrowWithValue(configuredSSLContext())
+
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: context, serverHostname: nil)).wait())
+        let handshakeHandler = HandshakeCompletedHandler()
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+
+        // Connect. This should lead to a completed handshake.
+        let addr: SocketAddress = try SocketAddress(unixDomainSocketPath: "/tmp/whatever")
+        let connectFuture = clientChannel.connect(to: addr)
+        serverChannel.pipeline.fireChannelActive()
+        try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
+        try connectFuture.wait()
+        XCTAssertTrue(handshakeHandler.handshakeSucceeded)
+
+        var closed = false
+        clientChannel.close().whenComplete { _ in
+            closed = true
+        }
+
+        clientChannel.close().whenFailure { error in
+            XCTAssertTrue(error is NIOSSLCloseTimedOutError)
+        }
+
+        // Send CLOSE_NOTIFY from the client.
+        while let clientDatum = try clientChannel.readOutbound(as: IOData.self) {
+            try serverChannel.writeInbound(clientDatum)
+        }
+
+        XCTAssertFalse(closed)
+
+        // Let the shutdown timeout.
+        clientChannel.embeddedEventLoop.advanceTime(by: context.configuration.shutdownTimeout)
+        XCTAssertTrue(closed)
+
+        // Let the server shutdown.
+        try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
+    }
+
     func testReceivingGibberishAfterAttemptingToClose() throws {
         let serverChannel = EmbeddedChannel()
         let clientChannel = EmbeddedChannel()
