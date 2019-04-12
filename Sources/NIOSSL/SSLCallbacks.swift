@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import CNIOBoringSSL
+import NIO
 
 /// The result of an attempt to verify an X.509 certificate.
 public enum NIOSSLVerificationResult {
@@ -54,3 +55,52 @@ public enum NIOSSLVerificationResult {
 /// `NIOSSLCertificate` is safe to consume is to wait for a user event that shows the handshake as completed,
 /// or for channelInactive.
 public typealias NIOSSLVerificationCallback = (NIOSSLVerificationResult, NIOSSLCertificate) -> NIOSSLVerificationResult
+
+
+/// A callback that can be used to implement `SSLKEYLOGFILE` support.
+///
+/// Wireshark can decrypt packet captures that contain encrypted TLS connections if they have access to the
+/// session keys used to perform the encryption. These keys are normally stored in a file that has a specific
+/// file format. This callback is the low-level primitive that can be used to write such a file.
+///
+/// When set, this callback will be invoked once per secret. The provided `ByteBuffer` will contain the bytes
+/// that need to be written into the file, including the newline character.
+///
+/// - warning: Please be aware that enabling support for `SSLKEYLOGFILE` through this callback will put the secrecy of
+///     your connections at risk. You should only do so when you are confident that it will not be possible to
+///     extract those secrets unnecessarily.
+///
+public typealias NIOSSLKeyLogCallback = (ByteBuffer) -> Void
+
+
+/// An object that provides helpers for working with a NIOSSLKeyLogCallback
+internal struct KeyLogCallbackManager {
+    private var callback: NIOSSLKeyLogCallback
+
+    private var scratchBuffer: ByteBuffer
+}
+
+extension KeyLogCallbackManager {
+    init(callback: @escaping NIOSSLKeyLogCallback) {
+        self.callback = callback
+
+        // We need to allocate a bytebuffer into which we can write the string. Normally we wouldn't just magic
+        // a ByteBufferAllocator into existence, but here it's just worthwhile doing, not least because a SSLContext doesn't
+        // necessarily belong to only one Channel anyway. As for 512: it seemed a reasonable guess that 512 bytes was about as long as this
+        // needed to be (most secrets won't be longer than 256 bits, which is 32 bytes, so even when base64 encoded we have loads of headroom).
+        self.scratchBuffer = ByteBufferAllocator().buffer(capacity: 512)
+    }
+}
+
+extension KeyLogCallbackManager {
+    /// Called to log a string to the user.
+    mutating func log(_ stringPointer: UnsafePointer<CChar>) {
+        self.scratchBuffer.clear()
+
+        let len = strlen(stringPointer)
+        let bufferPointer = UnsafeRawBufferPointer(start: stringPointer, count: Int(len))
+        self.scratchBuffer.writeBytes(bufferPointer)
+        self.scratchBuffer.writeInteger(UInt8(ascii: "\n"))
+        self.callback(self.scratchBuffer)
+    }
+}

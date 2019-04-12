@@ -148,6 +148,9 @@ public struct TLSConfiguration {
     
     internal var encodedApplicationProtocols: [[UInt8]]
 
+    /// A callback that can be used to implement `SSLKEYLOGFILE` support.
+    public var keyLogCallback: NIOSSLKeyLogCallback?
+
     private init(cipherSuites: String,
                  minimumTLSVersion: TLSVersion,
                  maximumTLSVersion: TLSVersion?,
@@ -155,7 +158,8 @@ public struct TLSConfiguration {
                  trustRoots: NIOSSLTrustRoots,
                  certificateChain: [NIOSSLCertificateSource],
                  privateKey: NIOSSLPrivateKeySource?,
-                 applicationProtocols: [String]) {
+                 applicationProtocols: [String],
+                 keyLogCallback: NIOSSLKeyLogCallback?) {
         self.cipherSuites = cipherSuites
         self.minimumTLSVersion = minimumTLSVersion
         self.maximumTLSVersion = maximumTLSVersion
@@ -165,6 +169,7 @@ public struct TLSConfiguration {
         self.privateKey = privateKey
         self.encodedApplicationProtocols = []
         self.applicationProtocols = applicationProtocols
+        self.keyLogCallback = keyLogCallback
     }
 
     /// Create a TLS configuration for use with server-side contexts.
@@ -178,7 +183,8 @@ public struct TLSConfiguration {
                                  maximumTLSVersion: TLSVersion? = nil,
                                  certificateVerification: CertificateVerification = .none,
                                  trustRoots: NIOSSLTrustRoots = .default,
-                                 applicationProtocols: [String] = []) -> TLSConfiguration {
+                                 applicationProtocols: [String] = [],
+                                 keyLogCallback: NIOSSLKeyLogCallback? = nil) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
                                 minimumTLSVersion: minimumTLSVersion,
                                 maximumTLSVersion: maximumTLSVersion,
@@ -186,7 +192,8 @@ public struct TLSConfiguration {
                                 trustRoots: trustRoots,
                                 certificateChain: certificateChain,
                                 privateKey: privateKey,
-                                applicationProtocols: applicationProtocols)
+                                applicationProtocols: applicationProtocols,
+                                keyLogCallback: keyLogCallback)
     }
 
 
@@ -201,7 +208,8 @@ public struct TLSConfiguration {
                                  trustRoots: NIOSSLTrustRoots = .default,
                                  certificateChain: [NIOSSLCertificateSource] = [],
                                  privateKey: NIOSSLPrivateKeySource? = nil,
-                                 applicationProtocols: [String] = []) -> TLSConfiguration {
+                                 applicationProtocols: [String] = [],
+                                 keyLogCallback: NIOSSLKeyLogCallback? = nil) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
                                 minimumTLSVersion: minimumTLSVersion,
                                 maximumTLSVersion: maximumTLSVersion,
@@ -209,6 +217,7 @@ public struct TLSConfiguration {
                                 trustRoots: trustRoots,
                                 certificateChain: certificateChain,
                                 privateKey: privateKey,
-                                applicationProtocols: applicationProtocols)
+                                applicationProtocols: applicationProtocols,
+                                keyLogCallback: keyLogCallback)
     }
 }
