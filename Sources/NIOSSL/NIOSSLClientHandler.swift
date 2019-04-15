@@ -50,6 +50,6 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
             connection.setVerificationCallback(verificationCallback)
         }
 
-        super.init(connection: connection)
+        super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout)
     }
 }
