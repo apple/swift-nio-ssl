@@ -19,10 +19,12 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
     let errorCode: UInt32
 
     var errorMessage: String? {
-        if let cErrorMessage = CNIOBoringSSL_ERR_error_string(errorCode, nil) {
-            return String.init(cString: cErrorMessage)
+        // TODO(cory): This should become non-optional in the future, as it always succeeds.
+        var scratchBuffer = [CChar](repeating: 0, count: 512)
+        return scratchBuffer.withUnsafeMutableBufferPointer { pointer in
+            CNIOBoringSSL_ERR_error_string_n(self.errorCode, pointer.baseAddress!, pointer.count)
+            return String(cString: pointer.baseAddress!)
         }
-        return nil
     }
 
     public var description: String {
