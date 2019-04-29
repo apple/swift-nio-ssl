@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import CNIOBoringSSL
+import NIO
 
 /// Known and supported TLS versions.
 public enum TLSVersion {
@@ -145,8 +146,12 @@ public struct TLSConfiguration {
             self.encodedApplicationProtocols = newValue.map(encodeALPNIdentifier)
         }
     }
-    
+
     internal var encodedApplicationProtocols: [[UInt8]]
+
+    /// The amount of time to wait after initiating a shutdown before performing an unclean
+    /// shutdown. Defaults to 5 seconds.
+    public var shutdownTimeout: TimeAmount
 
     /// A callback that can be used to implement `SSLKEYLOGFILE` support.
     public var keyLogCallback: NIOSSLKeyLogCallback?
@@ -159,6 +164,7 @@ public struct TLSConfiguration {
                  certificateChain: [NIOSSLCertificateSource],
                  privateKey: NIOSSLPrivateKeySource?,
                  applicationProtocols: [String],
+                 shutdownTimeout: TimeAmount,
                  keyLogCallback: NIOSSLKeyLogCallback?) {
         self.cipherSuites = cipherSuites
         self.minimumTLSVersion = minimumTLSVersion
@@ -168,6 +174,7 @@ public struct TLSConfiguration {
         self.certificateChain = certificateChain
         self.privateKey = privateKey
         self.encodedApplicationProtocols = []
+        self.shutdownTimeout = shutdownTimeout
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
     }
@@ -184,6 +191,7 @@ public struct TLSConfiguration {
                                  certificateVerification: CertificateVerification = .none,
                                  trustRoots: NIOSSLTrustRoots = .default,
                                  applicationProtocols: [String] = [],
+                                 shutdownTimeout: TimeAmount = .seconds(5),
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
                                 minimumTLSVersion: minimumTLSVersion,
@@ -193,6 +201,7 @@ public struct TLSConfiguration {
                                 certificateChain: certificateChain,
                                 privateKey: privateKey,
                                 applicationProtocols: applicationProtocols,
+                                shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback)
     }
 
@@ -209,6 +218,7 @@ public struct TLSConfiguration {
                                  certificateChain: [NIOSSLCertificateSource] = [],
                                  privateKey: NIOSSLPrivateKeySource? = nil,
                                  applicationProtocols: [String] = [],
+                                 shutdownTimeout: TimeAmount = .seconds(5),
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
                                 minimumTLSVersion: minimumTLSVersion,
@@ -218,6 +228,7 @@ public struct TLSConfiguration {
                                 certificateChain: certificateChain,
                                 privateKey: privateKey,
                                 applicationProtocols: applicationProtocols,
+                                shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback)
     }
 }
