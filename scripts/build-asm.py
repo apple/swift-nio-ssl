@@ -36,8 +36,11 @@ OS_ARCH_COMBOS = [
 # perlasm system.
 NON_PERL_FILES = {
     ('linux', 'arm'): [
-        'crypto/curve25519/asm/x25519-asm-arm.S',
-        'crypto/poly1305/poly1305_arm_asm.S',
+        'boringssl/crypto/curve25519/asm/x25519-asm-arm.S',
+        'boringssl/crypto/poly1305/poly1305_arm_asm.S',
+    ],
+    ('linux', 'x86_64'): [
+        'boringssl/crypto/hrss/asm/poly_rq_mul.S',
     ],
 }
 
@@ -82,7 +85,7 @@ def ReadPerlAsmOperations():
   """Returns a list of all perlasm() directives found in CMake config files in
   src/."""
   perlasms = []
-  cmakefiles = FindCMakeFiles('crypto')
+  cmakefiles = FindCMakeFiles('boringssl')
 
   for cmakefile in cmakefiles:
     perlasms.extend(ExtractPerlAsmFromCMakeFile(cmakefile))
@@ -133,9 +136,9 @@ def WriteAsmFiles(perlasms):
     for perlasm in perlasms:
       filename = os.path.basename(perlasm['input'])
       output = perlasm['output']
-      if not output.startswith('crypto'):
+      if not output.startswith('boringssl/crypto'):
         raise ValueError('output missing crypto: %s' % output)
-      output = os.path.join(outDir, output[7:])
+      output = os.path.join(outDir, output[17:])
       if output.endswith('-armx.${ASM_EXT}'):
         output = output.replace('-armx',
                                 '-armx64' if arch == 'aarch64' else '-armx32')
@@ -169,7 +172,7 @@ def preprocessor_platform_for_os(osname):
 
 def asm_target(osname, arch, asm):
     components = asm.split('/')
-    new_components = ["crypto"] + components[1:-1] + [components[-1].replace('.S', '.' + osname + '.' + arch + '.S')]
+    new_components = ["boringssl/crypto"] + components[1:-1] + [components[-1].replace('.S', '.' + osname + '.' + arch + '.S')]
     return '/'.join(new_components)
 
 

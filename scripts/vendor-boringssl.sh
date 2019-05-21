@@ -108,6 +108,8 @@ echo "OBTAINING submodules"
 echo "GENERATING assembly helpers"
 (
     cd "$SRCROOT"
+    cd ..
+    mkdir -p "${SRCROOT}/crypto/third_party/sike/asm"
     python "${HERE}/scripts/build-asm.py"
 )
 
@@ -124,8 +126,12 @@ PATTERNS=(
 'crypto/*/*/*.c'
 'crypto/*/*/*.S'
 'crypto/*/*/*/*.c'
+'crypto/*/*/*/*.S'
 'third_party/fiat/*.h'
 'third_party/fiat/*.c'
+'third_party/sike/*.h'
+'third_party/sike/*.c'
+'third_party/sike/asm/*.c'
 )
 
 EXCLUDES=(
