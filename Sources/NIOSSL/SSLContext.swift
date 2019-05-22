@@ -345,7 +345,7 @@ extension NIOSSLContext {
         // If validation is turned on, set the trust roots and turn on cert validation.
         switch verification {
         case .fullVerification, .noHostnameVerification:
-            CNIOBoringSSL_SSL_CTX_set_verify(context, SSL_VERIFY_PEER, nil)
+            CNIOBoringSSL_SSL_CTX_set_verify(context, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, nil)
 
             switch trustRoots {
             case .some(.default), .none:

@@ -246,6 +246,28 @@ class TLSConfigurationTest: XCTestCase {
         try flushFuture.wait()
     }
 
+    func testMutualValidationRequiresClientCertificatePreTLS13() throws {
+        let clientConfig = TLSConfiguration.forClient(maximumTLSVersion: .tlsv12, certificateVerification: .none)
+        let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+                                                      privateKey: .privateKey(TLSConfigurationTest.key1),
+                                                      maximumTLSVersion: .tlsv12,
+                                                      certificateVerification: .noHostnameVerification,
+                                                      trustRoots: .certificates([TLSConfigurationTest.cert2]))
+
+        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["ALERT_HANDSHAKE_FAILURE"])
+    }
+
+    func testMutualValidationRequiresClientCertificatePostTLS13() throws {
+        let clientConfig = TLSConfiguration.forClient(minimumTLSVersion: .tlsv13, certificateVerification: .none)
+        let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+                                                      privateKey: .privateKey(TLSConfigurationTest.key1),
+                                                      minimumTLSVersion: .tlsv13,
+                                                      certificateVerification: .noHostnameVerification,
+                                                      trustRoots: .certificates([TLSConfigurationTest.cert2]))
+
+        try assertPostHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["CERTIFICATE_REQUIRED"])
+    }
+
     func testNonexistentFileObject() throws {
         let clientConfig = TLSConfiguration.forClient(trustRoots: .file("/thispathbetternotexist/bogus.foo"))
 
