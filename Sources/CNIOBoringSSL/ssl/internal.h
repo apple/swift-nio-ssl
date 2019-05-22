@@ -1081,7 +1081,7 @@ void dtls_clear_outgoing_messages(SSL *ssl);
 void ssl_do_info_callback(const SSL *ssl, int type, int value);
 
 // ssl_do_msg_callback calls |ssl|'s message callback, if set.
-void ssl_do_msg_callback(SSL *ssl, int is_write, int content_type,
+void ssl_do_msg_callback(const SSL *ssl, int is_write, int content_type,
                          Span<const uint8_t> in);
 
 
@@ -1798,7 +1798,7 @@ int ssl_log_secret(const SSL *ssl, const char *label, const uint8_t *secret,
 
 // ClientHello functions.
 
-bool ssl_client_hello_init(SSL *ssl, SSL_CLIENT_HELLO *out,
+bool ssl_client_hello_init(const SSL *ssl, SSL_CLIENT_HELLO *out,
                            const SSLMessage &msg);
 
 bool ssl_client_hello_get_extension(const SSL_CLIENT_HELLO *client_hello,
@@ -1958,7 +1958,7 @@ struct SSL_PROTOCOL_METHOD {
   void (*ssl_free)(SSL *ssl);
   // get_message sets |*out| to the current handshake message and returns true
   // if one has been received. It returns false if more input is needed.
-  bool (*get_message)(SSL *ssl, SSLMessage *out);
+  bool (*get_message)(const SSL *ssl, SSLMessage *out);
   // next_message is called to release the current handshake message.
   void (*next_message)(SSL *ssl);
   // Use the |ssl_open_handshake| wrapper.
@@ -2029,7 +2029,7 @@ struct SSL_X509_METHOD {
   // check_client_CA_list returns one if |names| is a good list of X.509
   // distinguished names and zero otherwise. This is used to ensure that we can
   // reject unparsable values at handshake time when using crypto/x509.
-  int (*check_client_CA_list)(STACK_OF(CRYPTO_BUFFER) *names);
+  bool (*check_client_CA_list)(STACK_OF(CRYPTO_BUFFER) *names);
 
   // cert_clear frees and NULLs all X509 certificate-related state.
   void (*cert_clear)(CERT *cert);
@@ -2046,35 +2046,35 @@ struct SSL_X509_METHOD {
 
   // session_cache_objects fills out |sess->x509_peer| and |sess->x509_chain|
   // from |sess->certs| and erases |sess->x509_chain_without_leaf|. It returns
-  // one on success or zero on error.
-  int (*session_cache_objects)(SSL_SESSION *session);
+  // true on success or false on error.
+  bool (*session_cache_objects)(SSL_SESSION *session);
   // session_dup duplicates any needed fields from |session| to |new_session|.
-  // It returns one on success or zero on error.
-  int (*session_dup)(SSL_SESSION *new_session, const SSL_SESSION *session);
+  // It returns true on success or false on error.
+  bool (*session_dup)(SSL_SESSION *new_session, const SSL_SESSION *session);
   // session_clear frees any X509-related state from |session|.
   void (*session_clear)(SSL_SESSION *session);
   // session_verify_cert_chain verifies the certificate chain in |session|,
-  // sets |session->verify_result| and returns one on success or zero on
+  // sets |session->verify_result| and returns true on success or false on
   // error.
-  int (*session_verify_cert_chain)(SSL_SESSION *session, SSL_HANDSHAKE *ssl,
-                                   uint8_t *out_alert);
+  bool (*session_verify_cert_chain)(SSL_SESSION *session, SSL_HANDSHAKE *ssl,
+                                    uint8_t *out_alert);
 
   // hs_flush_cached_ca_names drops any cached |X509_NAME|s from |hs|.
   void (*hs_flush_cached_ca_names)(SSL_HANDSHAKE *hs);
-  // ssl_new does any neccessary initialisation of |hs|. It returns one on
-  // success or zero on error.
-  int (*ssl_new)(SSL_HANDSHAKE *hs);
+  // ssl_new does any necessary initialisation of |hs|. It returns true on
+  // success or false on error.
+  bool (*ssl_new)(SSL_HANDSHAKE *hs);
   // ssl_free frees anything created by |ssl_new|.
   void (*ssl_config_free)(SSL_CONFIG *cfg);
   // ssl_flush_cached_client_CA drops any cached |X509_NAME|s from |ssl|.
   void (*ssl_flush_cached_client_CA)(SSL_CONFIG *cfg);
   // ssl_auto_chain_if_needed runs the deprecated auto-chaining logic if
   // necessary. On success, it updates |ssl|'s certificate configuration as
-  // needed and returns one. Otherwise, it returns zero.
-  int (*ssl_auto_chain_if_needed)(SSL_HANDSHAKE *hs);
-  // ssl_ctx_new does any neccessary initialisation of |ctx|. It returns one on
-  // success or zero on error.
-  int (*ssl_ctx_new)(SSL_CTX *ctx);
+  // needed and returns true. Otherwise, it returns false.
+  bool (*ssl_auto_chain_if_needed)(SSL_HANDSHAKE *hs);
+  // ssl_ctx_new does any necessary initialisation of |ctx|. It returns true on
+  // success or false on error.
+  bool (*ssl_ctx_new)(SSL_CTX *ctx);
   // ssl_ctx_free frees anything created by |ssl_ctx_new|.
   void (*ssl_ctx_free)(SSL_CTX *ctx);
   // ssl_ctx_flush_cached_client_CA drops any cached |X509_NAME|s from |ctx|.
@@ -2265,6 +2265,9 @@ struct SSL3_STATE {
   // ticket age and the server-computed value in TLS 1.3 server connections
   // which resumed a session.
   int32_t ticket_age_skew = 0;
+
+  // ssl_early_data_reason stores details on why 0-RTT was accepted or rejected.
+  enum ssl_early_data_reason_t early_data_reason = ssl_early_data_unknown;
 
   // aead_read_ctx is the current read cipher state.
   UniquePtr<SSLAEADContext> aead_read_ctx;
@@ -2674,8 +2677,9 @@ void ssl_session_renew_timeout(SSL *ssl, SSL_SESSION *session,
 
 void ssl_update_cache(SSL_HANDSHAKE *hs, int mode);
 
-int ssl_send_alert(SSL *ssl, int level, int desc);
-bool ssl3_get_message(SSL *ssl, SSLMessage *out);
+void ssl_send_alert(SSL *ssl, int level, int desc);
+int ssl_send_alert_impl(SSL *ssl, int level, int desc);
+bool ssl3_get_message(const SSL *ssl, SSLMessage *out);
 ssl_open_record_t ssl3_open_handshake(SSL *ssl, size_t *out_consumed,
                                       uint8_t *out_alert, Span<uint8_t> in);
 void ssl3_next_message(SSL *ssl);
@@ -2741,7 +2745,7 @@ unsigned int dtls1_min_mtu(void);
 bool dtls1_new(SSL *ssl);
 void dtls1_free(SSL *ssl);
 
-bool dtls1_get_message(SSL *ssl, SSLMessage *out);
+bool dtls1_get_message(const SSL *ssl, SSLMessage *out);
 ssl_open_record_t dtls1_open_handshake(SSL *ssl, size_t *out_consumed,
                                        uint8_t *out_alert, Span<uint8_t> in);
 void dtls1_next_message(SSL *ssl);

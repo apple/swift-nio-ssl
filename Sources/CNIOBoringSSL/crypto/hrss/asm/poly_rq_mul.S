@@ -1,4 +1,5 @@
 #define BORINGSSL_PREFIX CNIOBoringSSL
+#if defined(__x86_64__) && defined(__linux__)
 // Copyright (c) 2017, the HRSS authors.
 //
 // Permission to use, copy, modify, and/or distribute this software for any
@@ -8462,3 +8463,4 @@ ret
 .size poly_Rq_mul,.-poly_Rq_mul
 
 #endif
+#endif  // defined(__x86_64__) && defined(__linux__)

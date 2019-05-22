@@ -1160,7 +1160,7 @@ OPENSSL_EXPORT void *SSL_CTX_get_default_passwd_cb_userdata(const SSL_CTX *ctx);
 
 // Custom private keys.
 
-enum ssl_private_key_result_t {
+enum ssl_private_key_result_t BORINGSSL_ENUM_INT {
   ssl_private_key_success,
   ssl_private_key_retry,
   ssl_private_key_failure,
@@ -2111,7 +2111,7 @@ OPENSSL_EXPORT int SSL_CTX_set_tlsext_ticket_key_cb(
 
 // ssl_ticket_aead_result_t enumerates the possible results from decrypting a
 // ticket with an |SSL_TICKET_AEAD_METHOD|.
-enum ssl_ticket_aead_result_t {
+enum ssl_ticket_aead_result_t BORINGSSL_ENUM_INT {
   // ssl_ticket_aead_success indicates that the ticket was successfully
   // decrypted.
   ssl_ticket_aead_success,
@@ -2285,7 +2285,7 @@ OPENSSL_EXPORT void SSL_set_verify(SSL *ssl, int mode,
                                    int (*callback)(int ok,
                                                    X509_STORE_CTX *store_ctx));
 
-enum ssl_verify_result_t {
+enum ssl_verify_result_t BORINGSSL_ENUM_INT {
   ssl_verify_ok,
   ssl_verify_invalid,
   ssl_verify_retry,
@@ -3135,7 +3135,7 @@ OPENSSL_EXPORT int SSL_set1_delegated_credential(
 
 // ssl_encryption_level_t represents a specific QUIC encryption level used to
 // transmit handshake messages.
-enum ssl_encryption_level_t {
+enum ssl_encryption_level_t BORINGSSL_ENUM_INT {
   ssl_encryption_initial = 0,
   ssl_encryption_early_data,
   ssl_encryption_handshake,
@@ -3310,6 +3310,46 @@ OPENSSL_EXPORT void SSL_reset_early_data_reject(SSL *ssl);
 OPENSSL_EXPORT int SSL_export_early_keying_material(
     SSL *ssl, uint8_t *out, size_t out_len, const char *label, size_t label_len,
     const uint8_t *context, size_t context_len);
+
+// SSL_get_ticket_age_skew returns the difference, in seconds, between the
+// client-sent ticket age and the server-computed value in TLS 1.3 server
+// connections which resumed a session.
+OPENSSL_EXPORT int32_t SSL_get_ticket_age_skew(const SSL *ssl);
+
+enum ssl_early_data_reason_t BORINGSSL_ENUM_INT {
+  // The handshake has not progressed far enough for the 0-RTT status to be
+  // known.
+  ssl_early_data_unknown,
+  // 0-RTT is disabled for this connection.
+  ssl_early_data_disabled,
+  // 0-RTT was accepted.
+  ssl_early_data_accepted,
+  // The negotiated protocol version does not support 0-RTT.
+  ssl_early_data_protocol_version,
+  // The peer declined to offer or accept 0-RTT for an unknown reason.
+  ssl_early_data_peer_declined,
+  // The client did not offer a session.
+  ssl_early_data_no_session_offered,
+  // The server declined to resume the session.
+  ssl_early_data_session_not_resumed,
+  // The session does not support 0-RTT.
+  ssl_early_data_unsupported_for_session,
+  // The server sent a HelloRetryRequest.
+  ssl_early_data_hello_retry_request,
+  // The negotiated ALPN protocol did not match the session.
+  ssl_early_data_alpn_mismatch,
+  // The connection negotiated Channel ID, which is incompatible with 0-RTT.
+  ssl_early_data_channel_id,
+  // The connection negotiated token binding, which is incompatible with 0-RTT.
+  ssl_early_data_token_binding,
+  // The client and server ticket age were too far apart.
+  ssl_early_data_ticket_age_skew,
+};
+
+// SSL_get_early_data_reason returns details why 0-RTT was accepted or rejected
+// on |ssl|. This is primarily useful on the server.
+OPENSSL_EXPORT enum ssl_early_data_reason_t SSL_get_early_data_reason(
+    const SSL *ssl);
 
 
 // Alerts.
@@ -3522,7 +3562,7 @@ OPENSSL_EXPORT void SSL_CTX_set_current_time_cb(
 // such as HTTP/1.1, and not others, such as HTTP/2.
 OPENSSL_EXPORT void SSL_set_shed_handshake_config(SSL *ssl, int enable);
 
-enum ssl_renegotiate_mode_t {
+enum ssl_renegotiate_mode_t BORINGSSL_ENUM_INT {
   ssl_renegotiate_never = 0,
   ssl_renegotiate_once,
   ssl_renegotiate_freely,
@@ -3620,7 +3660,7 @@ typedef struct ssl_early_callback_ctx {
 
 // ssl_select_cert_result_t enumerates the possible results from selecting a
 // certificate with |select_certificate_cb|.
-enum ssl_select_cert_result_t {
+enum ssl_select_cert_result_t BORINGSSL_ENUM_INT {
   // ssl_select_cert_success indicates that the certificate selection was
   // successful.
   ssl_select_cert_success = 1,
@@ -3814,11 +3854,6 @@ OPENSSL_EXPORT void SSL_CTX_set_grease_enabled(SSL_CTX *ctx, int enabled);
 // SSL_max_seal_overhead returns the maximum overhead, in bytes, of sealing a
 // record with |ssl|.
 OPENSSL_EXPORT size_t SSL_max_seal_overhead(const SSL *ssl);
-
-// SSL_get_ticket_age_skew returns the difference, in seconds, between the
-// client-sent ticket age and the server-computed value in TLS 1.3 server
-// connections which resumed a session.
-OPENSSL_EXPORT int32_t SSL_get_ticket_age_skew(const SSL *ssl);
 
 // SSL_CTX_set_false_start_allowed_without_alpn configures whether connections
 // on |ctx| may use False Start (if |SSL_MODE_ENABLE_FALSE_START| is enabled)
@@ -4757,7 +4792,8 @@ OPENSSL_EXPORT bool SealRecord(SSL *ssl, Span<uint8_t> out_prefix,
 
 OPENSSL_EXPORT void SSL_CTX_set_handoff_mode(SSL_CTX *ctx, bool on);
 OPENSSL_EXPORT void SSL_set_handoff_mode(SSL *SSL, bool on);
-OPENSSL_EXPORT bool SSL_serialize_handoff(const SSL *ssl, CBB *out);
+OPENSSL_EXPORT bool SSL_serialize_handoff(const SSL *ssl, CBB *out,
+                                          SSL_CLIENT_HELLO *out_hello);
 OPENSSL_EXPORT bool SSL_decline_handoff(SSL *ssl);
 OPENSSL_EXPORT bool SSL_apply_handoff(SSL *ssl, Span<const uint8_t> handoff);
 OPENSSL_EXPORT bool SSL_serialize_handback(const SSL *ssl, CBB *out);
