@@ -28,7 +28,9 @@
 %xdefine _AES_set_decrypt_key _ %+ BORINGSSL_PREFIX %+ _AES_set_decrypt_key
 %xdefine _AES_set_encrypt_key _ %+ BORINGSSL_PREFIX %+ _AES_set_encrypt_key
 %xdefine _AES_unwrap_key _ %+ BORINGSSL_PREFIX %+ _AES_unwrap_key
+%xdefine _AES_unwrap_key_padded _ %+ BORINGSSL_PREFIX %+ _AES_unwrap_key_padded
 %xdefine _AES_wrap_key _ %+ BORINGSSL_PREFIX %+ _AES_wrap_key
+%xdefine _AES_wrap_key_padded _ %+ BORINGSSL_PREFIX %+ _AES_wrap_key_padded
 %xdefine _ASN1_ANY_it _ %+ BORINGSSL_PREFIX %+ _ASN1_ANY_it
 %xdefine _ASN1_BIT_STRING_check _ %+ BORINGSSL_PREFIX %+ _ASN1_BIT_STRING_check
 %xdefine _ASN1_BIT_STRING_free _ %+ BORINGSSL_PREFIX %+ _ASN1_BIT_STRING_free
@@ -1698,6 +1700,7 @@
 %xdefine _SSL_CTX_use_certificate_chain_file _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_use_certificate_chain_file
 %xdefine _SSL_CTX_use_certificate_file _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_use_certificate_file
 %xdefine _SSL_CTX_use_psk_identity_hint _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_use_psk_identity_hint
+%xdefine _SSL_SESSION_early_data_capable _ %+ BORINGSSL_PREFIX %+ _SSL_SESSION_early_data_capable
 %xdefine _SSL_SESSION_free _ %+ BORINGSSL_PREFIX %+ _SSL_SESSION_free
 %xdefine _SSL_SESSION_from_bytes _ %+ BORINGSSL_PREFIX %+ _SSL_SESSION_from_bytes
 %xdefine _SSL_SESSION_get0_cipher _ %+ BORINGSSL_PREFIX %+ _SSL_SESSION_get0_cipher
@@ -2799,6 +2802,7 @@
 %xdefine _ec_GFp_mont_group_init _ %+ BORINGSSL_PREFIX %+ _ec_GFp_mont_group_init
 %xdefine _ec_GFp_mont_group_set_curve _ %+ BORINGSSL_PREFIX %+ _ec_GFp_mont_group_set_curve
 %xdefine _ec_GFp_mont_mul _ %+ BORINGSSL_PREFIX %+ _ec_GFp_mont_mul
+%xdefine _ec_GFp_mont_mul_base _ %+ BORINGSSL_PREFIX %+ _ec_GFp_mont_mul_base
 %xdefine _ec_GFp_mont_mul_public _ %+ BORINGSSL_PREFIX %+ _ec_GFp_mont_mul_public
 %xdefine _ec_GFp_nistp_recode_scalar_bits _ %+ BORINGSSL_PREFIX %+ _ec_GFp_nistp_recode_scalar_bits
 %xdefine _ec_GFp_simple_cmp _ %+ BORINGSSL_PREFIX %+ _ec_GFp_simple_cmp
@@ -2832,6 +2836,7 @@
 %xdefine _ec_pkey_meth _ %+ BORINGSSL_PREFIX %+ _ec_pkey_meth
 %xdefine _ec_point_get_affine_coordinate_bytes _ %+ BORINGSSL_PREFIX %+ _ec_point_get_affine_coordinate_bytes
 %xdefine _ec_point_mul_scalar _ %+ BORINGSSL_PREFIX %+ _ec_point_mul_scalar
+%xdefine _ec_point_mul_scalar_base _ %+ BORINGSSL_PREFIX %+ _ec_point_mul_scalar_base
 %xdefine _ec_point_mul_scalar_public _ %+ BORINGSSL_PREFIX %+ _ec_point_mul_scalar_public
 %xdefine _ec_random_nonzero_scalar _ %+ BORINGSSL_PREFIX %+ _ec_random_nonzero_scalar
 %xdefine _ec_scalar_add _ %+ BORINGSSL_PREFIX %+ _ec_scalar_add
@@ -3227,7 +3232,9 @@
 %xdefine AES_set_decrypt_key BORINGSSL_PREFIX %+ _AES_set_decrypt_key
 %xdefine AES_set_encrypt_key BORINGSSL_PREFIX %+ _AES_set_encrypt_key
 %xdefine AES_unwrap_key BORINGSSL_PREFIX %+ _AES_unwrap_key
+%xdefine AES_unwrap_key_padded BORINGSSL_PREFIX %+ _AES_unwrap_key_padded
 %xdefine AES_wrap_key BORINGSSL_PREFIX %+ _AES_wrap_key
+%xdefine AES_wrap_key_padded BORINGSSL_PREFIX %+ _AES_wrap_key_padded
 %xdefine ASN1_ANY_it BORINGSSL_PREFIX %+ _ASN1_ANY_it
 %xdefine ASN1_BIT_STRING_check BORINGSSL_PREFIX %+ _ASN1_BIT_STRING_check
 %xdefine ASN1_BIT_STRING_free BORINGSSL_PREFIX %+ _ASN1_BIT_STRING_free
@@ -4897,6 +4904,7 @@
 %xdefine SSL_CTX_use_certificate_chain_file BORINGSSL_PREFIX %+ _SSL_CTX_use_certificate_chain_file
 %xdefine SSL_CTX_use_certificate_file BORINGSSL_PREFIX %+ _SSL_CTX_use_certificate_file
 %xdefine SSL_CTX_use_psk_identity_hint BORINGSSL_PREFIX %+ _SSL_CTX_use_psk_identity_hint
+%xdefine SSL_SESSION_early_data_capable BORINGSSL_PREFIX %+ _SSL_SESSION_early_data_capable
 %xdefine SSL_SESSION_free BORINGSSL_PREFIX %+ _SSL_SESSION_free
 %xdefine SSL_SESSION_from_bytes BORINGSSL_PREFIX %+ _SSL_SESSION_from_bytes
 %xdefine SSL_SESSION_get0_cipher BORINGSSL_PREFIX %+ _SSL_SESSION_get0_cipher
@@ -5998,6 +6006,7 @@
 %xdefine ec_GFp_mont_group_init BORINGSSL_PREFIX %+ _ec_GFp_mont_group_init
 %xdefine ec_GFp_mont_group_set_curve BORINGSSL_PREFIX %+ _ec_GFp_mont_group_set_curve
 %xdefine ec_GFp_mont_mul BORINGSSL_PREFIX %+ _ec_GFp_mont_mul
+%xdefine ec_GFp_mont_mul_base BORINGSSL_PREFIX %+ _ec_GFp_mont_mul_base
 %xdefine ec_GFp_mont_mul_public BORINGSSL_PREFIX %+ _ec_GFp_mont_mul_public
 %xdefine ec_GFp_nistp_recode_scalar_bits BORINGSSL_PREFIX %+ _ec_GFp_nistp_recode_scalar_bits
 %xdefine ec_GFp_simple_cmp BORINGSSL_PREFIX %+ _ec_GFp_simple_cmp
@@ -6031,6 +6040,7 @@
 %xdefine ec_pkey_meth BORINGSSL_PREFIX %+ _ec_pkey_meth
 %xdefine ec_point_get_affine_coordinate_bytes BORINGSSL_PREFIX %+ _ec_point_get_affine_coordinate_bytes
 %xdefine ec_point_mul_scalar BORINGSSL_PREFIX %+ _ec_point_mul_scalar
+%xdefine ec_point_mul_scalar_base BORINGSSL_PREFIX %+ _ec_point_mul_scalar_base
 %xdefine ec_point_mul_scalar_public BORINGSSL_PREFIX %+ _ec_point_mul_scalar_public
 %xdefine ec_random_nonzero_scalar BORINGSSL_PREFIX %+ _ec_random_nonzero_scalar
 %xdefine ec_scalar_add BORINGSSL_PREFIX %+ _ec_scalar_add

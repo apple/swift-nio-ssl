@@ -22,7 +22,7 @@ import PackageDescription
 // Sources/CNIOBoringSSL directory. The source repository is at
 // https://boringssl.googlesource.com/boringssl.
 //
-// BoringSSL Commit: ff62b38b4b5a0e7926034b5f93d0c276e55b571d
+// BoringSSL Commit: cef9d3f38d72f13412c79157c25753e22cb05f7e
 
 let package = Package(
     name: "swift-nio-ssl",
