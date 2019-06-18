@@ -27,7 +27,6 @@ OS_ARCH_COMBOS = [
     ('linux', 'aarch64', 'linux64', [], 'S'),
     ('linux', 'x86', 'elf', ['-fPIC', '-DOPENSSL_IA32_SSE2'], 'S'),
     ('linux', 'x86_64', 'elf', [], 'S'),
-    ('mac', 'x86', 'macosx', ['-fPIC', '-DOPENSSL_IA32_SSE2'], 'S'),
     ('mac', 'x86_64', 'macosx', [], 'S'),
 ]
 

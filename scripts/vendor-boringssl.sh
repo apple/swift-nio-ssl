@@ -196,6 +196,10 @@ do
 done
 namespace_inlines "$DSTROOT/include"
 
+# Removing ASM on 32 bit Apple platforms
+echo "REMOVING assembly on 32-bit Apple platforms"
+gsed -i "/#define OPENSSL_HEADER_BASE_H/a#if defined(__APPLE__) && defined(__i386__)\n#define OPENSSL_NO_ASM\n#endif" "$DSTROOT/include/openssl/base.h"
+
 echo "RENAMING header files"
 (
     cd "$DSTROOT"

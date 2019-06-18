@@ -52,6 +52,9 @@
 
 #ifndef OPENSSL_HEADER_BASE_H
 #define OPENSSL_HEADER_BASE_H
+#if defined(__APPLE__) && defined(__i386__)
+#define OPENSSL_NO_ASM
+#endif
 
 #define BORINGSSL_PREFIX CNIOBoringSSL
 
