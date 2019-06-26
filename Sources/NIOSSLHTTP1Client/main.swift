@@ -66,11 +66,25 @@ let arguments = CommandLine.arguments
 let arg1 = arguments.dropFirst().first
 
 var url: URL
+var cert: [NIOSSLCertificateSource] = []
+var key: NIOSSLPrivateKeySource?
+var trustRoot: NIOSSLTrustRoots = .default
 
 if let u = arg1 {
     url = URL(string: u)!
 } else {
     url = URL(string: "https://::1:4433/get")!
+}
+
+// These extra arguments aren't expected to be used, we use them for integration tests only.
+if let c = arguments.dropFirst(2).first {
+    cert.append(.file(c))
+}
+if let k = arguments.dropFirst(3).first {
+    key = .file(k)
+}
+if let r = arguments.dropFirst(4).first {
+    trustRoot = .file(r)
 }
 
 let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
@@ -80,7 +94,7 @@ defer {
     try! eventLoopGroup.syncShutdownGracefully()
 }
 
-let tlsConfiguration = TLSConfiguration.forClient()
+let tlsConfiguration = TLSConfiguration.forClient(trustRoots: trustRoot, certificateChain: cert, privateKey: key, renegotiationSupport: .once)
 let sslContext = try! NIOSSLContext(configuration: tlsConfiguration)
 
 let bootstrap = ClientBootstrap(group: eventLoopGroup)

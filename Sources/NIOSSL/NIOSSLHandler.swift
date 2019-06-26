@@ -145,6 +145,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         }
 
         self.doFlushReadData(context: context, receiveBuffer: receiveBuffer, readOnEmptyBuffer: true)
+        self.writeDataToNetwork(context: context, promise: nil)
     }
     
     public func write(context: ChannelHandlerContext, data: NIOAny, promise: EventLoopPromise<Void>?) {
@@ -225,7 +226,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
             state = .active
             writeDataToNetwork(context: context, promise: nil)
-            
+
             // TODO(cory): This event should probably fire out of the BoringSSL info callback.
             let negotiatedProtocol = connection.getAlpnProtocol()
             context.fireUserInboundEventTriggered(TLSUserEvent.handshakeCompleted(negotiatedProtocol: negotiatedProtocol))
@@ -417,7 +418,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     /// is intended.
     private func writeDataToNetwork(context: ChannelHandlerContext, promise: EventLoopPromise<Void>?) {
         // There may be no data to write, in which case we can just exit early.
-        guard let dataToWrite = connection.getDataForNetwork(allocator: context.channel.allocator) else {
+        guard let dataToWrite = connection.getDataForNetwork() else {
             if let promise = promise {
                 // If we have a promise, we need to enforce ordering so we issue a zero-length write that
                 // the event loop will have to handle.

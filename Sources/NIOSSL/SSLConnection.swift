@@ -66,6 +66,8 @@ internal final class SSLConnection {
         // We pass the SSL object an unowned reference to this object.
         let pointerToSelf = Unmanaged.passUnretained(self).toOpaque()
         CNIOBoringSSL_SSL_set_ex_data(self.ssl, sslConnectionExDataIndex, pointerToSelf)
+
+        self.setRenegotiationSupport(self.parentContext.configuration.renegotiationSupport)
     }
     
     deinit {
@@ -148,6 +150,22 @@ internal final class SSLConnection {
                 return 0
             }
         }
+    }
+
+    /// Sets whether renegotiation is supported.
+    func setRenegotiationSupport(_ state: NIORenegotiationSupport) {
+        var baseState: ssl_renegotiate_mode_t
+
+        switch state {
+        case .none:
+            baseState = ssl_renegotiate_never
+        case .once:
+            baseState = ssl_renegotiate_once
+        case .always:
+            baseState = ssl_renegotiate_freely
+        }
+
+        CNIOBoringSSL_SSL_set_renegotiate_mode(self.ssl, baseState)
     }
 
     /// Performs hostname validation against the peer certificate using the configured server name.
@@ -239,7 +257,7 @@ internal final class SSLConnection {
     ///
     /// Returns `nil` if there is no data to write. Otherwise, returns all of the pending
     /// data.
-    func getDataForNetwork(allocator: ByteBufferAllocator) -> ByteBuffer? {
+    func getDataForNetwork() -> ByteBuffer? {
         return self.bio!.outboundCiphertext()
     }
 

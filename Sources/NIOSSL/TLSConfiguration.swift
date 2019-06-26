@@ -62,6 +62,23 @@ public enum CertificateVerification {
     case fullVerification
 }
 
+/// Support for TLS renegotiation.
+///
+/// In general, renegotiation should not be enabled except in circumstances where it is absolutely necessary.
+/// Renegotiation is only supported in TLS 1.2 and earlier, and generally does not work very well. NIOSSL will
+/// disallow most uses of renegotiation: the only supported use-case is to perform post-connection authentication
+/// *as a client*. There is no way to initiate a TLS renegotiation in NIOSSL.
+public enum NIORenegotiationSupport {
+    /// No support for TLS renegotiation. The default and recommended setting.
+    case none
+
+    /// Allow renegotiation exactly once. If you must use renegotiation, use this setting.
+    case once
+
+    /// Allow repeated renegotiation. To be avoided.
+    case always
+}
+
 /// A secure default configuration of cipher suites for TLS 1.2 and earlier.
 ///
 /// The goal of this cipher suite string is:
@@ -156,6 +173,9 @@ public struct TLSConfiguration {
     /// A callback that can be used to implement `SSLKEYLOGFILE` support.
     public var keyLogCallback: NIOSSLKeyLogCallback?
 
+    /// Whether renegotiation is supported.
+    public var renegotiationSupport: NIORenegotiationSupport
+
     private init(cipherSuites: String,
                  minimumTLSVersion: TLSVersion,
                  maximumTLSVersion: TLSVersion?,
@@ -165,7 +185,8 @@ public struct TLSConfiguration {
                  privateKey: NIOSSLPrivateKeySource?,
                  applicationProtocols: [String],
                  shutdownTimeout: TimeAmount,
-                 keyLogCallback: NIOSSLKeyLogCallback?) {
+                 keyLogCallback: NIOSSLKeyLogCallback?,
+                 renegotiationSupport: NIORenegotiationSupport) {
         self.cipherSuites = cipherSuites
         self.minimumTLSVersion = minimumTLSVersion
         self.maximumTLSVersion = maximumTLSVersion
@@ -175,6 +196,7 @@ public struct TLSConfiguration {
         self.privateKey = privateKey
         self.encodedApplicationProtocols = []
         self.shutdownTimeout = shutdownTimeout
+        self.renegotiationSupport = renegotiationSupport
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
     }
@@ -202,7 +224,8 @@ public struct TLSConfiguration {
                                 privateKey: privateKey,
                                 applicationProtocols: applicationProtocols,
                                 shutdownTimeout: shutdownTimeout,
-                                keyLogCallback: keyLogCallback)
+                                keyLogCallback: keyLogCallback,
+                                renegotiationSupport: .none)  // Servers never support renegotiation: there's no point.
     }
 
 
@@ -229,6 +252,36 @@ public struct TLSConfiguration {
                                 privateKey: privateKey,
                                 applicationProtocols: applicationProtocols,
                                 shutdownTimeout: shutdownTimeout,
-                                keyLogCallback: keyLogCallback)
+                                keyLogCallback: keyLogCallback,
+                                renegotiationSupport: .none)  // Default value is here for backward-compatibility.
+    }
+
+
+    /// Creates a TLS configuration for use with client-side contexts.
+    ///
+    /// This provides sensible defaults, and can be used without customisation. For server-side
+    /// contexts, you should use `forServer` instead.
+    public static func forClient(cipherSuites: String = defaultCipherSuites,
+                                 minimumTLSVersion: TLSVersion = .tlsv1,
+                                 maximumTLSVersion: TLSVersion? = nil,
+                                 certificateVerification: CertificateVerification = .fullVerification,
+                                 trustRoots: NIOSSLTrustRoots = .default,
+                                 certificateChain: [NIOSSLCertificateSource] = [],
+                                 privateKey: NIOSSLPrivateKeySource? = nil,
+                                 applicationProtocols: [String] = [],
+                                 shutdownTimeout: TimeAmount = .seconds(5),
+                                 keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 renegotiationSupport: NIORenegotiationSupport) -> TLSConfiguration {
+        return TLSConfiguration(cipherSuites: cipherSuites,
+                                minimumTLSVersion: minimumTLSVersion,
+                                maximumTLSVersion: maximumTLSVersion,
+                                certificateVerification: certificateVerification,
+                                trustRoots: trustRoots,
+                                certificateChain: certificateChain,
+                                privateKey: privateKey,
+                                applicationProtocols: applicationProtocols,
+                                shutdownTimeout: shutdownTimeout,
+                                keyLogCallback: keyLogCallback,
+                                renegotiationSupport: renegotiationSupport)
     }
 }
