@@ -8,7 +8,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN echo "#!/bin/sh\nexit 0" > /usr/sbin/policy-rc.d
 
 # basic dependencies
-RUN apt-get update && apt-get install -y wget git build-essential software-properties-common pkg-config locales
+RUN apt-get update && apt-get install -y wget git build-essential software-properties-common pkg-config locales expect
 RUN apt-get update && apt-get install -y libicu-dev libblocksruntime0 libssl-dev
 
 # local
