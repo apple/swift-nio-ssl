@@ -55,7 +55,7 @@ openssl req -new -newkey rsa:4096 -days 365 -nodes -config "$tmp/openssl.cnf" -x
     -keyout "$tmp/key.pem" -out "$tmp/cert.pem"
 
 expect -c "
-          spawn openssl s_server -cert \"$tmp/cert.pem\" -key \"$tmp/key.pem\"
+          spawn openssl s_server -no_tls1_3 -cert \"$tmp/cert.pem\" -key \"$tmp/key.pem\"
           set serverspawn \$spawn_id
           expect {
               \"ACCEPT\" {
