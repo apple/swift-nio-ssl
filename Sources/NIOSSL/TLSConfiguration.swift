@@ -12,7 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if compiler(>=5.1) && compiler(<5.2)
+@_implementationOnly import CNIOBoringSSL
+#else
 import CNIOBoringSSL
+#endif
 import NIO
 
 /// Known and supported TLS versions.
