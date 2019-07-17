@@ -12,7 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if compiler(>=5.1) && compiler(<5.2)
+@_implementationOnly import CNIOBoringSSL
+#else
 import CNIOBoringSSL
+#endif
 
 /// An `NIOSSLPassphraseCallback` is a callback that will be invoked by NIOSSL when it needs to
 /// get access to a private key that is stored in encrypted form.
@@ -112,10 +116,14 @@ func globalBoringSSLPassphraseCallback(buf: UnsafeMutablePointer<CChar>?,
 /// to obtain an in-memory representation of a key from a buffer of
 /// bytes or from a file path.
 public class NIOSSLPrivateKey {
-    internal let ref: UnsafeMutablePointer<EVP_PKEY>
+    internal let _ref: UnsafeMutableRawPointer /*<EVP_PKEY>*/
+
+    internal var ref: UnsafeMutablePointer<EVP_PKEY> {
+        return self._ref.assumingMemoryBound(to: EVP_PKEY.self)
+    }
 
     private init(withReference ref: UnsafeMutablePointer<EVP_PKEY>) {
-        self.ref = ref
+        self._ref = UnsafeMutableRawPointer(ref) // erasing the type for @_implementationOnly import CNIOBoringSSL
     }
 
     /// A delegating initializer for `init(file:format:passphraseCallback)` and `init(file:format:)`.

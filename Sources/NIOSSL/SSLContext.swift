@@ -13,8 +13,13 @@
 //===----------------------------------------------------------------------===//
 
 import NIO
+#if compiler(>=5.1) && compiler(<5.2)
+@_implementationOnly import CNIOBoringSSL
+@_implementationOnly import CNIOBoringSSLShims
+#else
 import CNIOBoringSSL
 import CNIOBoringSSLShims
+#endif
 
 // This is a neat trick. Swift lazily initializes module-globals based on when they're first
 // used. This lets us defer BoringSSL intialization as late as possible and only do it if people

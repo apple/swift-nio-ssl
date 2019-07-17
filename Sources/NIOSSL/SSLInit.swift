@@ -12,7 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if compiler(>=5.1) && compiler(<5.2)
+@_implementationOnly import CNIOBoringSSL
+#else
 import CNIOBoringSSL
+#endif
 
 /// Initialize BoringSSL. Note that this function IS NOT THREAD SAFE, and so must be called inside
 /// either an explicit or implicit dispatch_once.

@@ -12,8 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if compiler(>=5.1) && compiler(<5.2)
+@_implementationOnly import CNIOBoringSSL
+@_implementationOnly import CNIOBoringSSLShims
+#else
 import CNIOBoringSSL
 import CNIOBoringSSLShims
+#endif
 import NIO
 
 /// A reference to a BoringSSL Certificate object (`X509 *`).
@@ -26,7 +31,11 @@ import NIO
 /// to obtain an in-memory representation of a TLS certificate from a buffer of
 /// bytes or from a file path.
 public class NIOSSLCertificate {
-    internal let ref: UnsafeMutablePointer<X509>
+    internal let _ref: UnsafeMutableRawPointer/*<X509>*/
+
+    internal var ref: UnsafeMutablePointer<X509> {
+        return self._ref.assumingMemoryBound(to: X509.self)
+    }
 
     internal enum AlternativeName {
         case dnsName([UInt8])
@@ -39,7 +48,7 @@ public class NIOSSLCertificate {
     }
 
     private init(withReference ref: UnsafeMutablePointer<X509>) {
-        self.ref = ref
+        self._ref = UnsafeMutableRawPointer(ref) // erasing the type for @_implementationOnly import CNIOBoringSSL
     }
 
     /// Create a NIOSSLCertificate from a file at a given path in either PEM or
@@ -102,7 +111,7 @@ public class NIOSSLCertificate {
     ///
     /// In general, however, this function should be avoided in favour of one of the convenience
     /// initializers, which ensure that the lifetime of the `X509` object is better-managed.
-    static public func fromUnsafePointer(takingOwnership pointer: UnsafeMutablePointer<X509>) -> NIOSSLCertificate {
+    static func fromUnsafePointer(takingOwnership pointer: UnsafeMutablePointer<X509>) -> NIOSSLCertificate {
         return NIOSSLCertificate(withReference: pointer)
     }
 
