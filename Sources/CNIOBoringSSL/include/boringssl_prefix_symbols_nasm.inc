@@ -352,7 +352,6 @@
 %xdefine _BN_from_montgomery _ %+ BORINGSSL_PREFIX %+ _BN_from_montgomery
 %xdefine _BN_gcd _ %+ BORINGSSL_PREFIX %+ _BN_gcd
 %xdefine _BN_generate_prime_ex _ %+ BORINGSSL_PREFIX %+ _BN_generate_prime_ex
-%xdefine _BN_get_rfc3526_prime_1536 _ %+ BORINGSSL_PREFIX %+ _BN_get_rfc3526_prime_1536
 %xdefine _BN_get_u64 _ %+ BORINGSSL_PREFIX %+ _BN_get_u64
 %xdefine _BN_get_word _ %+ BORINGSSL_PREFIX %+ _BN_get_word
 %xdefine _BN_hex2bn _ %+ BORINGSSL_PREFIX %+ _BN_hex2bn
@@ -1507,6 +1506,7 @@
 %xdefine _SIKE_decaps _ %+ BORINGSSL_PREFIX %+ _SIKE_decaps
 %xdefine _SIKE_encaps _ %+ BORINGSSL_PREFIX %+ _SIKE_encaps
 %xdefine _SIKE_keypair _ %+ BORINGSSL_PREFIX %+ _SIKE_keypair
+%xdefine _SIPHASH_24 _ %+ BORINGSSL_PREFIX %+ _SIPHASH_24
 %xdefine _SPAKE2_CTX_free _ %+ BORINGSSL_PREFIX %+ _SPAKE2_CTX_free
 %xdefine _SPAKE2_CTX_new _ %+ BORINGSSL_PREFIX %+ _SPAKE2_CTX_new
 %xdefine _SPAKE2_generate_msg _ %+ BORINGSSL_PREFIX %+ _SPAKE2_generate_msg
@@ -1754,11 +1754,13 @@
 %xdefine _SSL_clear_options _ %+ BORINGSSL_PREFIX %+ _SSL_clear_options
 %xdefine _SSL_connect _ %+ BORINGSSL_PREFIX %+ _SSL_connect
 %xdefine _SSL_cutthrough_complete _ %+ BORINGSSL_PREFIX %+ _SSL_cutthrough_complete
+%xdefine _SSL_delegated_credential_used _ %+ BORINGSSL_PREFIX %+ _SSL_delegated_credential_used
 %xdefine _SSL_do_handshake _ %+ BORINGSSL_PREFIX %+ _SSL_do_handshake
 %xdefine _SSL_dup_CA_list _ %+ BORINGSSL_PREFIX %+ _SSL_dup_CA_list
 %xdefine _SSL_early_callback_ctx_extension_get _ %+ BORINGSSL_PREFIX %+ _SSL_early_callback_ctx_extension_get
 %xdefine _SSL_early_data_accepted _ %+ BORINGSSL_PREFIX %+ _SSL_early_data_accepted
 %xdefine _SSL_enable_ocsp_stapling _ %+ BORINGSSL_PREFIX %+ _SSL_enable_ocsp_stapling
+%xdefine _SSL_enable_pq_experiment_signal _ %+ BORINGSSL_PREFIX %+ _SSL_enable_pq_experiment_signal
 %xdefine _SSL_enable_signed_cert_timestamps _ %+ BORINGSSL_PREFIX %+ _SSL_enable_signed_cert_timestamps
 %xdefine _SSL_enable_tls_channel_id _ %+ BORINGSSL_PREFIX %+ _SSL_enable_tls_channel_id
 %xdefine _SSL_export_early_keying_material _ %+ BORINGSSL_PREFIX %+ _SSL_export_early_keying_material
@@ -1866,6 +1868,7 @@
 %xdefine _SSL_num_renegotiations _ %+ BORINGSSL_PREFIX %+ _SSL_num_renegotiations
 %xdefine _SSL_peek _ %+ BORINGSSL_PREFIX %+ _SSL_peek
 %xdefine _SSL_pending _ %+ BORINGSSL_PREFIX %+ _SSL_pending
+%xdefine _SSL_pq_experiment_signal_seen _ %+ BORINGSSL_PREFIX %+ _SSL_pq_experiment_signal_seen
 %xdefine _SSL_process_quic_post_handshake _ %+ BORINGSSL_PREFIX %+ _SSL_process_quic_post_handshake
 %xdefine _SSL_provide_quic_data _ %+ BORINGSSL_PREFIX %+ _SSL_provide_quic_data
 %xdefine _SSL_quic_max_handshake_flight_len _ %+ BORINGSSL_PREFIX %+ _SSL_quic_max_handshake_flight_len
@@ -3046,7 +3049,7 @@
 %xdefine _md4_block_data_order _ %+ BORINGSSL_PREFIX %+ _md4_block_data_order
 %xdefine _md5_block_asm_data_order _ %+ BORINGSSL_PREFIX %+ _md5_block_asm_data_order
 %xdefine _o2i_ECPublicKey _ %+ BORINGSSL_PREFIX %+ _o2i_ECPublicKey
-%xdefine _p503 _ %+ BORINGSSL_PREFIX %+ _p503
+%xdefine _params _ %+ BORINGSSL_PREFIX %+ _params
 %xdefine _pkcs12_iterations_acceptable _ %+ BORINGSSL_PREFIX %+ _pkcs12_iterations_acceptable
 %xdefine _pkcs12_key_gen _ %+ BORINGSSL_PREFIX %+ _pkcs12_key_gen
 %xdefine _pkcs12_pbe_encrypt_init _ %+ BORINGSSL_PREFIX %+ _pkcs12_pbe_encrypt_init
@@ -3556,7 +3559,6 @@
 %xdefine BN_from_montgomery BORINGSSL_PREFIX %+ _BN_from_montgomery
 %xdefine BN_gcd BORINGSSL_PREFIX %+ _BN_gcd
 %xdefine BN_generate_prime_ex BORINGSSL_PREFIX %+ _BN_generate_prime_ex
-%xdefine BN_get_rfc3526_prime_1536 BORINGSSL_PREFIX %+ _BN_get_rfc3526_prime_1536
 %xdefine BN_get_u64 BORINGSSL_PREFIX %+ _BN_get_u64
 %xdefine BN_get_word BORINGSSL_PREFIX %+ _BN_get_word
 %xdefine BN_hex2bn BORINGSSL_PREFIX %+ _BN_hex2bn
@@ -4711,6 +4713,7 @@
 %xdefine SIKE_decaps BORINGSSL_PREFIX %+ _SIKE_decaps
 %xdefine SIKE_encaps BORINGSSL_PREFIX %+ _SIKE_encaps
 %xdefine SIKE_keypair BORINGSSL_PREFIX %+ _SIKE_keypair
+%xdefine SIPHASH_24 BORINGSSL_PREFIX %+ _SIPHASH_24
 %xdefine SPAKE2_CTX_free BORINGSSL_PREFIX %+ _SPAKE2_CTX_free
 %xdefine SPAKE2_CTX_new BORINGSSL_PREFIX %+ _SPAKE2_CTX_new
 %xdefine SPAKE2_generate_msg BORINGSSL_PREFIX %+ _SPAKE2_generate_msg
@@ -4958,11 +4961,13 @@
 %xdefine SSL_clear_options BORINGSSL_PREFIX %+ _SSL_clear_options
 %xdefine SSL_connect BORINGSSL_PREFIX %+ _SSL_connect
 %xdefine SSL_cutthrough_complete BORINGSSL_PREFIX %+ _SSL_cutthrough_complete
+%xdefine SSL_delegated_credential_used BORINGSSL_PREFIX %+ _SSL_delegated_credential_used
 %xdefine SSL_do_handshake BORINGSSL_PREFIX %+ _SSL_do_handshake
 %xdefine SSL_dup_CA_list BORINGSSL_PREFIX %+ _SSL_dup_CA_list
 %xdefine SSL_early_callback_ctx_extension_get BORINGSSL_PREFIX %+ _SSL_early_callback_ctx_extension_get
 %xdefine SSL_early_data_accepted BORINGSSL_PREFIX %+ _SSL_early_data_accepted
 %xdefine SSL_enable_ocsp_stapling BORINGSSL_PREFIX %+ _SSL_enable_ocsp_stapling
+%xdefine SSL_enable_pq_experiment_signal BORINGSSL_PREFIX %+ _SSL_enable_pq_experiment_signal
 %xdefine SSL_enable_signed_cert_timestamps BORINGSSL_PREFIX %+ _SSL_enable_signed_cert_timestamps
 %xdefine SSL_enable_tls_channel_id BORINGSSL_PREFIX %+ _SSL_enable_tls_channel_id
 %xdefine SSL_export_early_keying_material BORINGSSL_PREFIX %+ _SSL_export_early_keying_material
@@ -5070,6 +5075,7 @@
 %xdefine SSL_num_renegotiations BORINGSSL_PREFIX %+ _SSL_num_renegotiations
 %xdefine SSL_peek BORINGSSL_PREFIX %+ _SSL_peek
 %xdefine SSL_pending BORINGSSL_PREFIX %+ _SSL_pending
+%xdefine SSL_pq_experiment_signal_seen BORINGSSL_PREFIX %+ _SSL_pq_experiment_signal_seen
 %xdefine SSL_process_quic_post_handshake BORINGSSL_PREFIX %+ _SSL_process_quic_post_handshake
 %xdefine SSL_provide_quic_data BORINGSSL_PREFIX %+ _SSL_provide_quic_data
 %xdefine SSL_quic_max_handshake_flight_len BORINGSSL_PREFIX %+ _SSL_quic_max_handshake_flight_len
@@ -6250,7 +6256,7 @@
 %xdefine md4_block_data_order BORINGSSL_PREFIX %+ _md4_block_data_order
 %xdefine md5_block_asm_data_order BORINGSSL_PREFIX %+ _md5_block_asm_data_order
 %xdefine o2i_ECPublicKey BORINGSSL_PREFIX %+ _o2i_ECPublicKey
-%xdefine p503 BORINGSSL_PREFIX %+ _p503
+%xdefine params BORINGSSL_PREFIX %+ _params
 %xdefine pkcs12_iterations_acceptable BORINGSSL_PREFIX %+ _pkcs12_iterations_acceptable
 %xdefine pkcs12_key_gen BORINGSSL_PREFIX %+ _pkcs12_key_gen
 %xdefine pkcs12_pbe_encrypt_init BORINGSSL_PREFIX %+ _pkcs12_pbe_encrypt_init

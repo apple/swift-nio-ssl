@@ -89,6 +89,7 @@ echo "REMOVING any previously-vendored BoringSSL code"
 rm -rf $DSTROOT/include
 rm -rf $DSTROOT/ssl
 rm -rf $DSTROOT/crypto
+rm -rf $DSTROOT/third_party
 rm -rf $DSTROOT/err_data.c
 
 echo "CLONING boringssl"
