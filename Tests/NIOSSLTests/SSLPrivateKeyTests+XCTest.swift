@@ -48,6 +48,8 @@ extension SSLPrivateKeyTest {
                 ("testWildlyOverlongPassphraseRSAFromFile", testWildlyOverlongPassphraseRSAFromFile),
                 ("testWildlyOverlongPassphrasePKCS8FromFile", testWildlyOverlongPassphrasePKCS8FromFile),
                 ("testThrowingPassphraseCallback", testThrowingPassphraseCallback),
+                ("testWrongPassword", testWrongPassword),
+                ("testMissingPassword", testMissingPassword),
            ]
    }
 }
