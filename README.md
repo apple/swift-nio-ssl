@@ -19,8 +19,16 @@ For example:
 ```swift
 let configuration = TLSConfiguration.forServer(certificateChain: [.file("cert.pem")], privateKey: .file("key.pem")) 
 let sslContext = try NIOSSLContext(configuration: configuration)
-let handler = try NIOSSLServerHandler(context: sslContext)
-// Add the created handler to the pipeline.
+
+let server = ServerBootstrap(group: group)
+    .childChannelInitializer { channel in
+        // important: The handler must be initialized _inside_ the `childChannelInitializer`
+        let handler = try NIOSSLServerHandler(context: sslContext)
+
+        [...]
+        channel.pipeline.addHandler(handler)
+        [...]
+    }
 ```
 
 For clients, it is a bit simpler as there is no need to have a certificate chain or private key (though clients *may* have these things). Setup for clients may be done like this:
@@ -28,6 +36,14 @@ For clients, it is a bit simpler as there is no need to have a certificate chain
 ```swift
 let configuration = TLSConfiguration.forClient()
 let sslContext = try NIOSSLContext(configuration: configuration)
-let handler = try NIOSSLClientHandler(context: sslContext)
-// Add the created handler to the pipeline.
+
+let client = ClientBootstrap(group: group)
+    .channelInitializer { channel in}
+        // important: The handler must be initialized _inside_ the `channelInitializer`
+        let handler = try NIOSSLClientHandler(context: sslContext)
+
+        [...]
+        channel.pipeline.addHandler(handler)
+        [...]
+    }
 ```
