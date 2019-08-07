@@ -56,20 +56,20 @@
  * [including the GNU Public Licence.]
  */
 
-#include <CNIOBoringSSL/pem.h>
+#include <CNIOBoringSSL_pem.h>
 
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/buf.h>
-#include <CNIOBoringSSL/dsa.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/obj.h>
-#include <CNIOBoringSSL/rsa.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_buf.h>
+#include <CNIOBoringSSL_dsa.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_rsa.h>
+#include <CNIOBoringSSL_x509.h>
 
 #ifndef OPENSSL_NO_FP_API
 STACK_OF(X509_INFO) *PEM_X509_INFO_read(FILE *fp, STACK_OF(X509_INFO) *sk,

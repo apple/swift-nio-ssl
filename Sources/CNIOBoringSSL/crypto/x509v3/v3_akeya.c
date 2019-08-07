@@ -57,10 +57,10 @@
 
 #include <stdio.h>
 
-#include <CNIOBoringSSL/asn1.h>
-#include <CNIOBoringSSL/asn1t.h>
-#include <CNIOBoringSSL/conf.h>
-#include <CNIOBoringSSL/x509v3.h>
+#include <CNIOBoringSSL_asn1.h>
+#include <CNIOBoringSSL_asn1t.h>
+#include <CNIOBoringSSL_conf.h>
+#include <CNIOBoringSSL_x509v3.h>
 
 
 ASN1_SEQUENCE(AUTHORITY_KEYID) = {

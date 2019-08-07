@@ -54,7 +54,7 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL_obj.h>
 
 #include "../internal.h"
 

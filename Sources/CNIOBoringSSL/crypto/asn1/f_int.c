@@ -54,9 +54,9 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/asn1.h>
+#include <CNIOBoringSSL_asn1.h>
 
-#include <CNIOBoringSSL/bio.h>
+#include <CNIOBoringSSL_bio.h>
 
 int i2a_ASN1_INTEGER(BIO *bp, ASN1_INTEGER *a)
 {

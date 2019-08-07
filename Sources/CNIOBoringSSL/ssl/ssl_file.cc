@@ -108,18 +108,18 @@
  *
  */
 
-#include <CNIOBoringSSL/ssl.h>
+#include <CNIOBoringSSL_ssl.h>
 
 #include <errno.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/asn1.h>
-#include <CNIOBoringSSL/bio.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/pem.h>
-#include <CNIOBoringSSL/stack.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_asn1.h>
+#include <CNIOBoringSSL_bio.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_pem.h>
+#include <CNIOBoringSSL_stack.h>
+#include <CNIOBoringSSL_x509.h>
 
 #include "internal.h"
 

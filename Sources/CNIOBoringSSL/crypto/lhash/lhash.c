@@ -54,13 +54,13 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/lhash.h>
+#include <CNIOBoringSSL_lhash.h>
 
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "../internal.h"
 

@@ -3,17 +3,18 @@
 // This file is generated from a similarly-named Perl script in the BoringSSL
 // source tree. Do not edit by hand.
 
-#if defined(__has_feature)
+#if !defined(__has_feature)
+#define __has_feature(x) 0
+#endif
 #if __has_feature(memory_sanitizer) && !defined(OPENSSL_NO_ASM)
 #define OPENSSL_NO_ASM
-#endif
 #endif
 
 #if !defined(OPENSSL_NO_ASM)
 #if defined(BORINGSSL_PREFIX)
-#include <boringssl_prefix_symbols_asm.h>
+#include <CNIOBoringSSL_boringssl_prefix_symbols_asm.h>
 #endif
-#include <CNIOBoringSSL/arm_arch.h>
+#include <CNIOBoringSSL_arm_arch.h>
 
 .text
 

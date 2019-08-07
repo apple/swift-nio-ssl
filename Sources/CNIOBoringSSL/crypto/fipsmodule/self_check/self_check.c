@@ -12,19 +12,19 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include <CNIOBoringSSL/crypto.h>
+#include <CNIOBoringSSL_crypto.h>
 
 #include <stdio.h>
 
-#include <CNIOBoringSSL/aead.h>
-#include <CNIOBoringSSL/aes.h>
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/des.h>
-#include <CNIOBoringSSL/ecdsa.h>
-#include <CNIOBoringSSL/ec_key.h>
-#include <CNIOBoringSSL/nid.h>
-#include <CNIOBoringSSL/rsa.h>
-#include <CNIOBoringSSL/sha.h>
+#include <CNIOBoringSSL_aead.h>
+#include <CNIOBoringSSL_aes.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_des.h>
+#include <CNIOBoringSSL_ecdsa.h>
+#include <CNIOBoringSSL_ec_key.h>
+#include <CNIOBoringSSL_nid.h>
+#include <CNIOBoringSSL_rsa.h>
+#include <CNIOBoringSSL_sha.h>
 
 #include "../../internal.h"
 #include "../ec/internal.h"

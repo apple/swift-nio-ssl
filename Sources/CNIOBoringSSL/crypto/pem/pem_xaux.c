@@ -57,9 +57,9 @@
 
 #include <stdio.h>
 
-#include <CNIOBoringSSL/bio.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/pem.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_bio.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_pem.h>
+#include <CNIOBoringSSL_x509.h>
 
 IMPLEMENT_PEM_rw(X509_AUX, X509, PEM_STRING_X509_TRUSTED, X509_AUX)

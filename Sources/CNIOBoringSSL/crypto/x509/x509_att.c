@@ -55,12 +55,12 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/asn1.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/obj.h>
-#include <CNIOBoringSSL/stack.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_asn1.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_stack.h>
+#include <CNIOBoringSSL_x509.h>
 
 int X509at_get_attr_count(const STACK_OF(X509_ATTRIBUTE) *x)
 {

@@ -12,12 +12,12 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL_evp.h>
 
-#include <CNIOBoringSSL/bytestring.h>
-#include <CNIOBoringSSL/curve25519.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_bytestring.h>
+#include <CNIOBoringSSL_curve25519.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "internal.h"
 #include "../internal.h"
@@ -196,7 +196,7 @@ static int ed25519_priv_encode(CBB *out, const EVP_PKEY *pkey) {
 
 static int ed25519_size(const EVP_PKEY *pkey) { return 64; }
 
-static int ed25519_bits(const EVP_PKEY *pkey) { return 256; }
+static int ed25519_bits(const EVP_PKEY *pkey) { return 253; }
 
 const EVP_PKEY_ASN1_METHOD ed25519_asn1_meth = {
     EVP_PKEY_ED25519,

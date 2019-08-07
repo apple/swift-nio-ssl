@@ -109,13 +109,13 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/ssl.h>
+#include <CNIOBoringSSL_ssl.h>
 
 #include <assert.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/bytestring.h>
-#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL_bytestring.h>
+#include <CNIOBoringSSL_err.h>
 
 #include "internal.h"
 #include "../crypto/internal.h"

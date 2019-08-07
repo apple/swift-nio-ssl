@@ -64,15 +64,15 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include <CNIOBoringSSL/ecdh.h>
+#include <CNIOBoringSSL_ecdh.h>
 
 #include <string.h>
 
-#include <CNIOBoringSSL/ec.h>
-#include <CNIOBoringSSL/ec_key.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/sha.h>
+#include <CNIOBoringSSL_ec.h>
+#include <CNIOBoringSSL_ec_key.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_sha.h>
 
 #include "../ec/internal.h"
 

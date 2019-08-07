@@ -7,9 +7,9 @@
  * https://www.openssl.org/source/license.html
  */
 
-#include <CNIOBoringSSL/ssl.h>
+#include <CNIOBoringSSL_ssl.h>
 
-#include <CNIOBoringSSL/bio.h>
+#include <CNIOBoringSSL_bio.h>
 
 
 static SSL *get_ssl(BIO *bio) {

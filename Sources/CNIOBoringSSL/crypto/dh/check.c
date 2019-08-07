@@ -54,9 +54,9 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/dh.h>
+#include <CNIOBoringSSL_dh.h>
 
-#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL_bn.h>
 
 
 int DH_check_pub_key(const DH *dh, const BIGNUM *pub_key, int *out_flags) {

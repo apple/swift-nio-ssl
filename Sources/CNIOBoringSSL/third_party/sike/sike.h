@@ -8,7 +8,7 @@
 #define SIKE_H_
 
 #include <stdint.h>
-#include <CNIOBoringSSL/base.h>
+#include <CNIOBoringSSL_base.h>
 
 #if defined(__cplusplus)
 extern "C" {

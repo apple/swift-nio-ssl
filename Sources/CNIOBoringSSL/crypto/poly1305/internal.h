@@ -15,8 +15,8 @@
 #ifndef OPENSSL_HEADER_POLY1305_INTERNAL_H
 #define OPENSSL_HEADER_POLY1305_INTERNAL_H
 
-#include <CNIOBoringSSL/base.h>
-#include <CNIOBoringSSL/poly1305.h>
+#include <CNIOBoringSSL_base.h>
+#include <CNIOBoringSSL_poly1305.h>
 
 #if defined(__cplusplus)
 extern "C" {

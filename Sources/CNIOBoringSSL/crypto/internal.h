@@ -109,9 +109,9 @@
 #ifndef OPENSSL_HEADER_CRYPTO_INTERNAL_H
 #define OPENSSL_HEADER_CRYPTO_INTERNAL_H
 
-#include <CNIOBoringSSL/ex_data.h>
-#include <CNIOBoringSSL/stack.h>
-#include <CNIOBoringSSL/thread.h>
+#include <CNIOBoringSSL_ex_data.h>
+#include <CNIOBoringSSL_stack.h>
+#include <CNIOBoringSSL_thread.h>
 
 #include <assert.h>
 #include <string.h>

@@ -52,13 +52,13 @@
  * Hudson (tjh@cryptsoft.com). */
 
 
-#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL_bn.h>
 
 #include <assert.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "../../internal.h"
 

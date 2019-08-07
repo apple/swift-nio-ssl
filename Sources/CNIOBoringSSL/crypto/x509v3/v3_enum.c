@@ -57,9 +57,9 @@
 
 #include <stdio.h>
 
-#include <CNIOBoringSSL/buf.h>
-#include <CNIOBoringSSL/obj.h>
-#include <CNIOBoringSSL/x509v3.h>
+#include <CNIOBoringSSL_buf.h>
+#include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_x509v3.h>
 
 static const ENUMERATED_NAMES crl_reasons[] = {
     {CRL_REASON_UNSPECIFIED, "Unspecified", "unspecified"},

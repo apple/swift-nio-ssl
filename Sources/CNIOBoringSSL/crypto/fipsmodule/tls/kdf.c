@@ -52,9 +52,9 @@
 
 #include <assert.h>
 
-#include <CNIOBoringSSL/digest.h>
-#include <CNIOBoringSSL/hmac.h>
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_digest.h>
+#include <CNIOBoringSSL_hmac.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "internal.h"
 #include "../../internal.h"

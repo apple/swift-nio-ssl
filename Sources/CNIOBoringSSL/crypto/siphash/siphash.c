@@ -15,7 +15,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/siphash.h>
+#include <CNIOBoringSSL_siphash.h>
 
 
 static void siphash_round(uint64_t v[4]) {

@@ -12,7 +12,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include <CNIOBoringSSL/rand.h>
+#include <CNIOBoringSSL_rand.h>
 
 #include <assert.h>
 #include <limits.h>
@@ -22,9 +22,9 @@
 #include <unistd.h>
 #endif
 
-#include <CNIOBoringSSL/chacha.h>
-#include <CNIOBoringSSL/cpu.h>
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_chacha.h>
+#include <CNIOBoringSSL_cpu.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "internal.h"
 #include "../../internal.h"

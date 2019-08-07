@@ -57,11 +57,11 @@
 
 #include <stdio.h>
 
-#include <CNIOBoringSSL/asn1t.h>
-#include <CNIOBoringSSL/conf.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/obj.h>
-#include <CNIOBoringSSL/x509v3.h>
+#include <CNIOBoringSSL_asn1t.h>
+#include <CNIOBoringSSL_conf.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_x509v3.h>
 
 static void *v2i_POLICY_MAPPINGS(const X509V3_EXT_METHOD *method,
                                  X509V3_CTX *ctx, STACK_OF(CONF_VALUE) *nval);

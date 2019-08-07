@@ -57,10 +57,10 @@
 
 #include <stdlib.h>
 
-#include <CNIOBoringSSL/buf.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/pem.h>
-#include <CNIOBoringSSL/thread.h>
+#include <CNIOBoringSSL_buf.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_pem.h>
+#include <CNIOBoringSSL_thread.h>
 
 #ifndef OPENSSL_NO_STDIO
 

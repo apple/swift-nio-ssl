@@ -109,18 +109,18 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/ssl.h>
+#include <CNIOBoringSSL_ssl.h>
 
 #include <assert.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/bio.h>
-#include <CNIOBoringSSL/buf.h>
-#include <CNIOBoringSSL/bytestring.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/rand.h>
+#include <CNIOBoringSSL_bio.h>
+#include <CNIOBoringSSL_buf.h>
+#include <CNIOBoringSSL_bytestring.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_rand.h>
 
 #include "../crypto/internal.h"
 #include "internal.h"
@@ -256,7 +256,7 @@ int dtls1_dispatch_alert(SSL *ssl) {
   if (ret <= 0) {
     return ret;
   }
-  ssl->s3->alert_dispatch = 0;
+  ssl->s3->alert_dispatch = false;
 
   // If the alert is fatal, flush the BIO now.
   if (ssl->s3->send_alert[0] == SSL3_AL_FATAL) {

@@ -54,11 +54,11 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/sha.h>
+#include <CNIOBoringSSL_sha.h>
 
 #include <string.h>
 
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "internal.h"
 #include "../../internal.h"
@@ -114,7 +114,7 @@ uint8_t *SHA1(const uint8_t *data, size_t len, uint8_t out[SHA_DIGEST_LENGTH]) {
     (ix) = (a) = ROTATE((a), 1);       \
   } while (0)
 
-#ifndef SHA1_ASM
+#if !defined(SHA1_ASM)
 static void sha1_block_data_order(uint32_t *state, const uint8_t *data,
                                   size_t num);
 #endif

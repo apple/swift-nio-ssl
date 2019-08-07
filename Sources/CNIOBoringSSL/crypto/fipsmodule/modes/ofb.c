@@ -46,7 +46,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  * ==================================================================== */
 
-#include <CNIOBoringSSL/type_check.h>
+#include <CNIOBoringSSL_type_check.h>
 
 #include <assert.h>
 #include <string.h>

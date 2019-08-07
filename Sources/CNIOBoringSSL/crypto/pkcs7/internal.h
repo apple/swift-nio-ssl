@@ -15,7 +15,7 @@
 #ifndef OPENSSL_HEADER_PKCS7_INTERNAL_H
 #define OPENSSL_HEADER_PKCS7_INTERNAL_H
 
-#include <CNIOBoringSSL/base.h>
+#include <CNIOBoringSSL_base.h>
 
 #if defined(__cplusplus)
 extern "C" {

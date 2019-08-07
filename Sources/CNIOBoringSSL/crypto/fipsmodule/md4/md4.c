@@ -54,7 +54,7 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/md4.h>
+#include <CNIOBoringSSL_md4.h>
 
 #include <stdlib.h>
 #include <string.h>

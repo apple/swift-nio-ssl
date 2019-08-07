@@ -3,15 +3,16 @@
 // This file is generated from a similarly-named Perl script in the BoringSSL
 // source tree. Do not edit by hand.
 
-#if defined(__has_feature)
+#if !defined(__has_feature)
+#define __has_feature(x) 0
+#endif
 #if __has_feature(memory_sanitizer) && !defined(OPENSSL_NO_ASM)
 #define OPENSSL_NO_ASM
-#endif
 #endif
 
 #if !defined(OPENSSL_NO_ASM)
 #if defined(BORINGSSL_PREFIX)
-#include <boringssl_prefix_symbols_asm.h>
+#include <CNIOBoringSSL_boringssl_prefix_symbols_asm.h>
 #endif
 // Copyright 2014-2016 The OpenSSL Project Authors. All Rights Reserved.
 //
@@ -53,7 +54,7 @@
 //	and the gap is only 40-90%.
 
 #ifndef	__KERNEL__
-# include <CNIOBoringSSL/arm_arch.h>
+# include <CNIOBoringSSL_arm_arch.h>
 #endif
 
 .text
@@ -65,9 +66,12 @@
 .align	6
 _sha256_block_data_order:
 #ifndef	__KERNEL__
+#if __has_feature(hwaddress_sanitizer) && __clang_major__ >= 10
+	adrp	x16,:pg_hi21_nc:_OPENSSL_armcap_P
+#else
 	adrp	x16,_OPENSSL_armcap_P@PAGE
-	add	x16,x16,_OPENSSL_armcap_P@PAGEOFF
-	ldr	w16,[x16]
+#endif
+	ldr	w16,[x16,_OPENSSL_armcap_P@PAGEOFF]
 	tst	w16,#ARMV8_SHA256
 	b.ne	Lv8_entry
 #endif

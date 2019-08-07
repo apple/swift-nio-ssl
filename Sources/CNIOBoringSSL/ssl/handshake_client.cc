@@ -147,7 +147,7 @@
  * OTHERWISE.
  */
 
-#include <CNIOBoringSSL/ssl.h>
+#include <CNIOBoringSSL_ssl.h>
 
 #include <assert.h>
 #include <limits.h>
@@ -155,18 +155,18 @@
 
 #include <utility>
 
-#include <CNIOBoringSSL/aead.h>
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/buf.h>
-#include <CNIOBoringSSL/bytestring.h>
-#include <CNIOBoringSSL/ec_key.h>
-#include <CNIOBoringSSL/ecdsa.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/md5.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/rand.h>
-#include <CNIOBoringSSL/sha.h>
+#include <CNIOBoringSSL_aead.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_buf.h>
+#include <CNIOBoringSSL_bytestring.h>
+#include <CNIOBoringSSL_ec_key.h>
+#include <CNIOBoringSSL_ecdsa.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_md5.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_rand.h>
+#include <CNIOBoringSSL_sha.h>
 
 #include "../crypto/internal.h"
 #include "internal.h"
@@ -1071,13 +1071,8 @@ static enum ssl_hs_wait_t do_read_server_key_exchange(SSL_HANDSHAKE *hs) {
       return ssl_hs_error;
     }
 
-    bool sig_ok = ssl_public_key_verify(ssl, signature, signature_algorithm,
-                                        hs->peer_pubkey.get(), transcript_data);
-#if defined(BORINGSSL_UNSAFE_FUZZER_MODE)
-    sig_ok = true;
-    ERR_clear_error();
-#endif
-    if (!sig_ok) {
+    if (!ssl_public_key_verify(ssl, signature, signature_algorithm,
+                               hs->peer_pubkey.get(), transcript_data)) {
       // bad signature
       OPENSSL_PUT_ERROR(SSL, SSL_R_BAD_SIGNATURE);
       ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_DECRYPT_ERROR);

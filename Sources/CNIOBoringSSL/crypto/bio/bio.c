@@ -54,17 +54,17 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/bio.h>
+#include <CNIOBoringSSL_bio.h>
 
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/asn1.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/thread.h>
+#include <CNIOBoringSSL_asn1.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_thread.h>
 
 #include "../internal.h"
 

@@ -64,14 +64,14 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include <CNIOBoringSSL/ecdh.h>
+#include <CNIOBoringSSL_ecdh.h>
 
 #include <limits.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/digest.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_digest.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "../fipsmodule/ec/internal.h"
 #include "../internal.h"

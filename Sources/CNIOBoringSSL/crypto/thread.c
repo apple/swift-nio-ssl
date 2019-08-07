@@ -54,7 +54,7 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/thread.h>
+#include <CNIOBoringSSL_thread.h>
 
 
 int CRYPTO_num_locks(void) { return 1; }

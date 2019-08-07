@@ -12,17 +12,18 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include <CNIOBoringSSL/hrss.h>
+#include <CNIOBoringSSL_hrss.h>
+#include <inttypes.h>
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/cpu.h>
-#include <CNIOBoringSSL/hmac.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/sha.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_cpu.h>
+#include <CNIOBoringSSL_hmac.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_sha.h>
 
 #if defined(OPENSSL_X86) || defined(OPENSSL_X86_64)
 #include <emmintrin.h>

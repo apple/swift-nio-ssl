@@ -15,7 +15,7 @@
 #ifndef OPENSSL_HEADER_CRYPTO_ERR_INTERNAL_H
 #define OPENSSL_HEADER_CRYPTO_ERR_INTERNAL_H
 
-#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL_err.h>
 
 #if defined(__cplusplus)
 extern "C" {

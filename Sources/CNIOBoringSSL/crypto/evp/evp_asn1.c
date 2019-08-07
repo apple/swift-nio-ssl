@@ -54,15 +54,15 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL_evp.h>
 
 #include <string.h>
 
-#include <CNIOBoringSSL/bytestring.h>
-#include <CNIOBoringSSL/dsa.h>
-#include <CNIOBoringSSL/ec_key.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/rsa.h>
+#include <CNIOBoringSSL_bytestring.h>
+#include <CNIOBoringSSL_dsa.h>
+#include <CNIOBoringSSL_ec_key.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_rsa.h>
 
 #include "internal.h"
 #include "../internal.h"
@@ -73,6 +73,7 @@ static const EVP_PKEY_ASN1_METHOD *const kASN1Methods[] = {
     &ec_asn1_meth,
     &dsa_asn1_meth,
     &ed25519_asn1_meth,
+    &x25519_asn1_meth,
 };
 
 static int parse_key_type(CBS *cbs, int *out_type) {

@@ -52,9 +52,9 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL_bn.h>
 
-#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL_err.h>
 
 #include "internal.h"
 

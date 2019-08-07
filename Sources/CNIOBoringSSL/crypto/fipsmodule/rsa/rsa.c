@@ -54,21 +54,21 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/rsa.h>
+#include <CNIOBoringSSL_rsa.h>
 
 #include <limits.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/digest.h>
-#include <CNIOBoringSSL/engine.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/ex_data.h>
-#include <CNIOBoringSSL/md5.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/nid.h>
-#include <CNIOBoringSSL/sha.h>
-#include <CNIOBoringSSL/thread.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_digest.h>
+#include <CNIOBoringSSL_engine.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_ex_data.h>
+#include <CNIOBoringSSL_md5.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_nid.h>
+#include <CNIOBoringSSL_sha.h>
+#include <CNIOBoringSSL_thread.h>
 
 #include "../bn/internal.h"
 #include "../delocate.h"

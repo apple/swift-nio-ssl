@@ -55,8 +55,8 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_x509.h>
 
 #ifndef OPENSSL_NO_STDIO
 int X509_STORE_set_default_paths(X509_STORE *ctx)

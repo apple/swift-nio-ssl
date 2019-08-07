@@ -142,7 +142,7 @@
 #ifndef OPENSSL_HEADER_SSL_INTERNAL_H
 #define OPENSSL_HEADER_SSL_INTERNAL_H
 
-#include <CNIOBoringSSL/base.h>
+#include <CNIOBoringSSL_base.h>
 
 #include <stdlib.h>
 
@@ -151,13 +151,13 @@
 #include <type_traits>
 #include <utility>
 
-#include <CNIOBoringSSL/aead.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/lhash.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/span.h>
-#include <CNIOBoringSSL/ssl.h>
-#include <CNIOBoringSSL/stack.h>
+#include <CNIOBoringSSL_aead.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_lhash.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_span.h>
+#include <CNIOBoringSSL_ssl.h>
+#include <CNIOBoringSSL_stack.h>
 
 #include "../crypto/err/internal.h"
 #include "../crypto/internal.h"
@@ -464,6 +464,9 @@ BSSL_NAMESPACE_BEGIN
 #define SSL_HANDSHAKE_MAC_DEFAULT 0x1
 #define SSL_HANDSHAKE_MAC_SHA256 0x2
 #define SSL_HANDSHAKE_MAC_SHA384 0x4
+
+// SSL_MAX_MD_SIZE is size of the largest hash function used in TLS, SHA-384.
+#define SSL_MAX_MD_SIZE 48
 
 // An SSLCipherPreferenceList contains a list of SSL_CIPHERs with equal-
 // preference groups. For TLS clients, the groups are moot because the server
@@ -1452,13 +1455,13 @@ struct SSL_HANDSHAKE {
   uint16_t max_version = 0;
 
   size_t hash_len = 0;
-  uint8_t secret[EVP_MAX_MD_SIZE] = {0};
-  uint8_t early_traffic_secret[EVP_MAX_MD_SIZE] = {0};
-  uint8_t client_handshake_secret[EVP_MAX_MD_SIZE] = {0};
-  uint8_t server_handshake_secret[EVP_MAX_MD_SIZE] = {0};
-  uint8_t client_traffic_secret_0[EVP_MAX_MD_SIZE] = {0};
-  uint8_t server_traffic_secret_0[EVP_MAX_MD_SIZE] = {0};
-  uint8_t expected_client_finished[EVP_MAX_MD_SIZE] = {0};
+  uint8_t secret[SSL_MAX_MD_SIZE] = {0};
+  uint8_t early_traffic_secret[SSL_MAX_MD_SIZE] = {0};
+  uint8_t client_handshake_secret[SSL_MAX_MD_SIZE] = {0};
+  uint8_t server_handshake_secret[SSL_MAX_MD_SIZE] = {0};
+  uint8_t client_traffic_secret_0[SSL_MAX_MD_SIZE] = {0};
+  uint8_t server_traffic_secret_0[SSL_MAX_MD_SIZE] = {0};
+  uint8_t expected_client_finished[SSL_MAX_MD_SIZE] = {0};
 
   union {
     // sent is a bitset where the bits correspond to elements of kExtensions
@@ -2170,8 +2173,6 @@ struct SSL3_STATE {
   // the receive half of the connection.
   UniquePtr<ERR_SAVE_STATE> read_error;
 
-  int alert_dispatch = 0;
-
   int total_renegotiations = 0;
 
   // This holds a variable that indicates what we were doing when a 0 or -1 is
@@ -2258,6 +2259,9 @@ struct SSL3_STATE {
   // sending/echoing the post-quantum experiment signal.
   bool pq_experiment_signal_seen : 1;
 
+  // alert_dispatch is true there is an alert in |send_alert| to be sent.
+  bool alert_dispatch : 1;
+
   // hs_buf is the buffer of handshake data to process.
   UniquePtr<BUF_MEM> hs_buf;
 
@@ -2293,14 +2297,12 @@ struct SSL3_STATE {
   // one.
   UniquePtr<SSL_HANDSHAKE> hs;
 
-  uint8_t write_traffic_secret[EVP_MAX_MD_SIZE] = {0};
-  uint8_t read_traffic_secret[EVP_MAX_MD_SIZE] = {0};
-  uint8_t exporter_secret[EVP_MAX_MD_SIZE] = {0};
-  uint8_t early_exporter_secret[EVP_MAX_MD_SIZE] = {0};
+  uint8_t write_traffic_secret[SSL_MAX_MD_SIZE] = {0};
+  uint8_t read_traffic_secret[SSL_MAX_MD_SIZE] = {0};
+  uint8_t exporter_secret[SSL_MAX_MD_SIZE] = {0};
   uint8_t write_traffic_secret_len = 0;
   uint8_t read_traffic_secret_len = 0;
   uint8_t exporter_secret_len = 0;
-  uint8_t early_exporter_secret_len = 0;
 
   // Connection binding to prevent renegotiation attacks
   uint8_t previous_client_finished[12] = {0};
@@ -2588,11 +2590,6 @@ struct SSL_CONFIG {
   // jdk11_workaround is whether to disable TLS 1.3 for JDK 11 clients, as a
   // workaround for https://bugs.openjdk.java.net/browse/JDK-8211806.
   bool jdk11_workaround : 1;
-
-  // pq_experiment_signal indicates that an empty extension should be sent
-  // (for clients) or echoed (for servers) to indicate participation in an
-  // experiment of post-quantum key exchanges.
-  bool pq_experiment_signal : 1;
 };
 
 // From RFC 8446, used in determining PSK modes.
@@ -3192,6 +3189,11 @@ struct ssl_ctx_st {
 
   // If enable_early_data is true, early data can be sent and accepted.
   bool enable_early_data : 1;
+
+  // pq_experiment_signal indicates that an empty extension should be sent
+  // (for clients) or echoed (for servers) to indicate participation in an
+  // experiment of post-quantum key exchanges.
+  bool pq_experiment_signal : 1;
 
  private:
   ~ssl_ctx_st();

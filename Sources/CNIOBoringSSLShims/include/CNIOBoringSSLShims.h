@@ -14,8 +14,11 @@
 #ifndef C_NIO_BORINGSSL_SHIMS_H
 #define C_NIO_BORINGSSL_SHIMS_H
 
-#include "CNIOBoringSSL/ssl.h"
-#include "CNIOBoringSSL/x509v3.h"
+#if __has_include(<CNIOBoringSSL/CNIOBoringSSL.h>)
+#include <CNIOBoringSSL/CNIOBoringSSL.h>
+#else
+#include <CNIOBoringSSL.h>
+#endif
 
 GENERAL_NAME *CNIOBoringSSLShims_sk_GENERAL_NAME_value(const STACK_OF(GENERAL_NAME) *sk, size_t i);
 size_t CNIOBoringSSLShims_sk_GENERAL_NAME_num(const STACK_OF(GENERAL_NAME) *sk);

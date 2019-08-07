@@ -56,12 +56,12 @@
 
 #include <string.h>
 
-#include <CNIOBoringSSL/buf.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/obj.h>
-#include <CNIOBoringSSL/stack.h>
-#include <CNIOBoringSSL/x509.h>
-#include <CNIOBoringSSL/x509v3.h>
+#include <CNIOBoringSSL_buf.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_stack.h>
+#include <CNIOBoringSSL_x509.h>
+#include <CNIOBoringSSL_x509v3.h>
 
 #include "vpm_int.h"
 #include "../internal.h"

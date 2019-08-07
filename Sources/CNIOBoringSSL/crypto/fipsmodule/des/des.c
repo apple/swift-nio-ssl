@@ -54,7 +54,7 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/des.h>
+#include <CNIOBoringSSL_des.h>
 
 #include <stdlib.h>
 

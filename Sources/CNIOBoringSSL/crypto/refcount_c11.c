@@ -22,7 +22,7 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 
-#include <CNIOBoringSSL/type_check.h>
+#include <CNIOBoringSSL_type_check.h>
 
 
 // See comment above the typedef of CRYPTO_refcount_t about these tests.

@@ -9,7 +9,7 @@
 #if defined(__arm__) && !defined(OPENSSL_NO_ASM) && !defined(__APPLE__)
 
 #if defined(BORINGSSL_PREFIX)
-#include <boringssl_prefix_symbols_asm.h>
+#include <CNIOBoringSSL_boringssl_prefix_symbols_asm.h>
 #endif
 
 # This implementation was taken from the public domain, neon2 version in

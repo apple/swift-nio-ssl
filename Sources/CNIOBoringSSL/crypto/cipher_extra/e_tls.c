@@ -16,14 +16,14 @@
 #include <limits.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/aead.h>
-#include <CNIOBoringSSL/cipher.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/hmac.h>
-#include <CNIOBoringSSL/md5.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/sha.h>
-#include <CNIOBoringSSL/type_check.h>
+#include <CNIOBoringSSL_aead.h>
+#include <CNIOBoringSSL_cipher.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_hmac.h>
+#include <CNIOBoringSSL_md5.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_sha.h>
+#include <CNIOBoringSSL_type_check.h>
 
 #include "../fipsmodule/cipher/internal.h"
 #include "../internal.h"

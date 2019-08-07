@@ -54,13 +54,13 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/base64.h>
+#include <CNIOBoringSSL_base64.h>
 
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/type_check.h>
+#include <CNIOBoringSSL_type_check.h>
 
 #include "../internal.h"
 

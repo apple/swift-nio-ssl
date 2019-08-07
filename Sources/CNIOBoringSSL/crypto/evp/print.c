@@ -50,15 +50,15 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL_evp.h>
 
-#include <CNIOBoringSSL/bio.h>
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/dsa.h>
-#include <CNIOBoringSSL/ec.h>
-#include <CNIOBoringSSL/ec_key.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/rsa.h>
+#include <CNIOBoringSSL_bio.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_dsa.h>
+#include <CNIOBoringSSL_ec.h>
+#include <CNIOBoringSSL_ec_key.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_rsa.h>
 
 #include "../internal.h"
 #include "../fipsmodule/rsa/internal.h"

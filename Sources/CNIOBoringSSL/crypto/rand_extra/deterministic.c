@@ -12,13 +12,13 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include <CNIOBoringSSL/rand.h>
+#include <CNIOBoringSSL_rand.h>
 
 #if defined(BORINGSSL_UNSAFE_DETERMINISTIC_MODE)
 
 #include <string.h>
 
-#include <CNIOBoringSSL/chacha.h>
+#include <CNIOBoringSSL_chacha.h>
 
 #include "../internal.h"
 #include "../fipsmodule/rand/internal.h"

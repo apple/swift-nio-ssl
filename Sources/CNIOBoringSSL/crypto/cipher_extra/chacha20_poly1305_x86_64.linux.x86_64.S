@@ -11,7 +11,7 @@
 
 #if defined(__x86_64__) && !defined(OPENSSL_NO_ASM)
 #if defined(BORINGSSL_PREFIX)
-#include <boringssl_prefix_symbols_asm.h>
+#include <CNIOBoringSSL_boringssl_prefix_symbols_asm.h>
 #endif
 .text	
 .extern	OPENSSL_ia32cap_P

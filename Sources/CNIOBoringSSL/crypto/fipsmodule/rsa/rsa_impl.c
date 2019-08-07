@@ -54,17 +54,17 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/rsa.h>
+#include <CNIOBoringSSL_rsa.h>
 
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/thread.h>
-#include <CNIOBoringSSL/type_check.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_thread.h>
+#include <CNIOBoringSSL_type_check.h>
 
 #include "internal.h"
 #include "../bn/internal.h"
@@ -554,7 +554,7 @@ int rsa_default_decrypt(RSA *rsa, size_t *out_len, uint8_t *out, size_t max_out,
   if (!ret) {
     OPENSSL_PUT_ERROR(RSA, RSA_R_PADDING_CHECK_FAILED);
   } else {
-    CONSTTIME_DECLASSIFY(out, out_len);
+    CONSTTIME_DECLASSIFY(out, *out_len);
   }
 
 err:

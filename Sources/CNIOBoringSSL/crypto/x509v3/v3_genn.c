@@ -57,10 +57,10 @@
 
 #include <stdio.h>
 
-#include <CNIOBoringSSL/asn1t.h>
-#include <CNIOBoringSSL/conf.h>
-#include <CNIOBoringSSL/obj.h>
-#include <CNIOBoringSSL/x509v3.h>
+#include <CNIOBoringSSL_asn1t.h>
+#include <CNIOBoringSSL_conf.h>
+#include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_x509v3.h>
 
 
 ASN1_SEQUENCE(OTHERNAME) = {

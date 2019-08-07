@@ -14,12 +14,12 @@
 
 // Adapted from the public domain, estream code by D. Bernstein.
 
-#include <CNIOBoringSSL/chacha.h>
+#include <CNIOBoringSSL_chacha.h>
 
 #include <assert.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/cpu.h>
+#include <CNIOBoringSSL_cpu.h>
 
 #include "../internal.h"
 #include "internal.h"

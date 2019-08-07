@@ -7,7 +7,7 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
-#include <CNIOBoringSSL/base.h>
+#include <CNIOBoringSSL_base.h>
 
 #include "../crypto/internal.h"
 #include "sike.h"

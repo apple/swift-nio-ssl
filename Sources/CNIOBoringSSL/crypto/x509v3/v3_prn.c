@@ -59,10 +59,10 @@
 
 #include <stdio.h>
 
-#include <CNIOBoringSSL/bio.h>
-#include <CNIOBoringSSL/conf.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/x509v3.h>
+#include <CNIOBoringSSL_bio.h>
+#include <CNIOBoringSSL_conf.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_x509v3.h>
 
 /* Extension printing routines */
 

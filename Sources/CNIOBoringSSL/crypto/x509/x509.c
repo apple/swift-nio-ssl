@@ -54,11 +54,11 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_x509.h>
 
-#include <CNIOBoringSSL/bio.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_bio.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_mem.h>
 
 
 /* |X509_R_UNSUPPORTED_ALGORITHM| is no longer emitted, but continue to define
