@@ -25,9 +25,11 @@ class SSLPrivateKeyTest: XCTestCase {
     static var dynamicallyGeneratedKey: NIOSSLPrivateKey! = nil
 
     override class func setUp() {
-        SSLPrivateKeyTest.pemKeyFilePath = try! dumpToFile(text: samplePemKey)
+        SSLPrivateKeyTest.pemKeyFilePath = try! dumpToFile(text: samplePemKey,
+                                                           fileExtension: ".pem")
         SSLPrivateKeyTest.derKeyFilePath = try! dumpToFile(data: sampleDerKey)
-        SSLPrivateKeyTest.passwordPemKeyFilePath = try! dumpToFile(text: samplePemRSAEncryptedKey)
+        SSLPrivateKeyTest.passwordPemKeyFilePath = try! dumpToFile(text: samplePemRSAEncryptedKey,
+                                                                   fileExtension: ".pem")
         SSLPrivateKeyTest.passwordPKCS8PemKeyFilePath = try! dumpToFile(text: samplePKCS8PemPrivateKey)
 
         let (_, key) = generateSelfSignedCert()
@@ -271,6 +273,23 @@ class SSLPrivateKeyTest: XCTestCase {
             // ok
         } catch {
             XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testWrongPassword() {
+        XCTAssertThrowsError(try NIOSSLPrivateKey(buffer: [Int8](samplePemRSAEncryptedKey.utf8CString), format: .pem) {
+            closure in closure("incorrect password".utf8)
+        }) { error in
+            XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
+        }
+    }
+
+    func testMissingPassword() {
+        let configuration = TLSConfiguration.forServer(certificateChain: [],
+                                                       privateKey: .file(SSLPrivateKeyTest.passwordPemKeyFilePath))
+
+        XCTAssertThrowsError(try NIOSSLContext(configuration: configuration)) { error in
+            XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }
 }

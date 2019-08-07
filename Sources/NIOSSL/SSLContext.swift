@@ -190,7 +190,7 @@ public final class NIOSSLContext {
         if let pkey = configuration.privateKey {
             switch pkey {
             case .file(let p):
-                NIOSSLContext.usePrivateKeyFile(p, context: context)
+                try NIOSSLContext.usePrivateKeyFile(p, context: context)
             case .privateKey(let key):
                 try NIOSSLContext.setPrivateKey(key, context: context)
             }
@@ -297,7 +297,7 @@ extension NIOSSLContext {
         }
     }
 
-    private static func usePrivateKeyFile(_ path: String, context: OpaquePointer) {
+    private static func usePrivateKeyFile(_ path: String, context: OpaquePointer) throws {
         let pathExtension = path.split(separator: ".").last
         let fileType: Int32
         
@@ -315,8 +315,9 @@ extension NIOSSLContext {
             return CNIOBoringSSL_SSL_CTX_use_PrivateKey_file(context, pointer, fileType)
         }
         
-        // TODO(cory): again, some error handling would be good.
-        precondition(result == 1)
+        guard result == 1 else {
+            throw NIOSSLError.failedToLoadPrivateKey
+        }
     }
     
 
