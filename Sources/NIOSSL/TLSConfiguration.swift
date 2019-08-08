@@ -29,6 +29,7 @@ public enum TLSVersion {
 
 /// Places NIOSSL can obtain certificates from.
 public enum NIOSSLCertificateSource {
+    @available(*, deprecated, message: "Use 'NIOSSLCertificate.fromPEMFile(_:)' to load the certificate(s) and use the '.certificate(NIOSSLCertificate)' case to provide them as a source")
     case file(String)
     case certificate(NIOSSLCertificate)
 }

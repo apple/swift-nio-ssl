@@ -186,3 +186,24 @@ public enum NIOTLSUnwrappingError: Error {
     /// This write was failed because the channel was unwrapped before it was flushed.
     case unflushedWriteOnUnwrap
 }
+
+// MARK: Error unpacking utilities
+
+// The functions below are defined as preprocessor macros in `CNIOBoringSSL_err.h`, we
+// need them in Swift too.
+
+/// Get the library number of a packed error.
+///
+/// - Parameter packedError: A packed error.
+/// - Returns: The library number of the packed error.
+internal func BoringSSL_ERR_GET_LIB(_ packedError: UInt32) -> Int {
+    return Int((packedError >> 24) & 0xff)
+}
+
+/// Get the reason code of a packed error.
+///
+/// - Parameter packedError: A packed error.
+/// - Returns: The reason code of the packed error.
+internal func BoringSSL_ERR_GET_REASON(_ packedError: UInt32) -> Int {
+    return Int(packedError & 0xfff)
+}

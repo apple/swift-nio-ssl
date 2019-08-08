@@ -136,11 +136,13 @@ internal extension Data {
 
 class SSLCertificateTest: XCTestCase {
     static var pemCertFilePath: String! = nil
+    static var pemCertsFilePath: String! = nil
     static var derCertFilePath: String! = nil
     static var dynamicallyGeneratedCert: NIOSSLCertificate! = nil
 
     override class func setUp() {
         SSLCertificateTest.pemCertFilePath = try! dumpToFile(text: samplePemCert)
+        SSLCertificateTest.pemCertsFilePath = try! dumpToFile(text: samplePemCerts)
         SSLCertificateTest.derCertFilePath = try! dumpToFile(data: sampleDerCert)
 
         let (cert, _) = generateSelfSignedCert()
@@ -149,6 +151,9 @@ class SSLCertificateTest: XCTestCase {
 
     override class func tearDown() {
         _ = SSLCertificateTest.pemCertFilePath.withCString {
+            unlink($0)
+        }
+        _ = SSLCertificateTest.pemCertsFilePath.withCString {
             unlink($0)
         }
         _ = SSLCertificateTest.derCertFilePath.withCString {
@@ -186,6 +191,29 @@ class SSLCertificateTest: XCTestCase {
         XCTAssertEqual(cert1, cert2)
     }
 
+    func testPemLoadingMechanismsAreIdentical() throws {
+        let cert11 = try NIOSSLCertificate.fromPEMBuffer([Int8](samplePemCert.utf8CString))
+        let cert12 = try NIOSSLCertificate(buffer: [Int8](samplePemCert.utf8CString), format: .pem)
+
+        XCTAssertEqual(cert11, [cert12])
+    }
+
+    func testLoadingPemCertsFromMemory() throws {
+        let certs1 = try NIOSSLCertificate.fromPEMBuffer([Int8](samplePemCerts.utf8CString))
+        let certs2 = try NIOSSLCertificate.fromPEMBuffer([Int8](samplePemCerts.utf8CString))
+
+        XCTAssertEqual(certs1.count, 2)
+        XCTAssertEqual(certs1, certs2)
+    }
+
+    func testLoadingPemCertsFromFile() throws {
+        let certs1 = try NIOSSLCertificate.fromPEMFile(SSLCertificateTest.pemCertsFilePath)
+        let certs2 = try NIOSSLCertificate.fromPEMFile(SSLCertificateTest.pemCertsFilePath)
+
+        XCTAssertEqual(certs1.count, 2)
+        XCTAssertEqual(certs1, certs2)
+    }
+
     func testLoadingDerCertFromMemory() throws {
         let certBuffer = sampleDerCert.asArray()
         let cert1 = try NIOSSLCertificate(buffer: certBuffer, format: .der)
@@ -199,6 +227,17 @@ class SSLCertificateTest: XCTestCase {
 
         do {
             _ = try NIOSSLCertificate(buffer: keyBuffer, format: .pem)
+            XCTFail("Gibberish successfully loaded")
+        } catch NIOSSLError.failedToLoadCertificate {
+            // Do nothing.
+        }
+    }
+
+    func testLoadingGibberishFromPEMBufferFails() throws {
+        let keyBuffer: [Int8] = [1, 2, 3]
+
+        do {
+            _ = try NIOSSLCertificate.fromPEMBuffer(keyBuffer)
             XCTFail("Gibberish successfully loaded")
         } catch NIOSSLError.failedToLoadCertificate {
             // Do nothing.
@@ -230,6 +269,20 @@ class SSLCertificateTest: XCTestCase {
         }
     }
 
+    func testLoadingGibberishFromPEMFileFails() throws {
+        let tempFile = try dumpToFile(text: "hello")
+        defer {
+            _ = tempFile.withCString { unlink($0) }
+        }
+
+        do {
+            _ = try NIOSSLCertificate.fromPEMFile(tempFile)
+            XCTFail("Gibberish successfully loaded")
+        } catch NIOSSLError.failedToLoadCertificate {
+            // Do nothing.
+        }
+    }
+
     func testLoadingGibberishFromFileAsDerFails() throws {
         let tempFile = try dumpToFile(text: "hello")
         defer {
@@ -252,6 +305,15 @@ class SSLCertificateTest: XCTestCase {
             XCTAssertEqual(error.errnoCode, ENOENT)
         } catch {
             XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testLoadingNonexistentPEMFile() throws {
+        do {
+            _ = try NIOSSLCertificate.fromPEMFile("/nonexistent/path")
+            XCTFail("Did not throw")
+        } catch NIOSSLError.failedToLoadCertificate {
+            // Do nothing.
         }
     }
 

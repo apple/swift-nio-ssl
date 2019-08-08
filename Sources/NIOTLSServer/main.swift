@@ -28,7 +28,8 @@ private final class EchoHandler: ChannelInboundHandler {
     }
 }
 
-let sslContext = try! NIOSSLContext(configuration: TLSConfiguration.forServer(certificateChain: [.file("cert.pem")], privateKey: .file("key.pem")))
+let certificateChain = try NIOSSLCertificate.fromPEMFile("cert.pem")
+let sslContext = try! NIOSSLContext(configuration: TLSConfiguration.forServer(certificateChain: certificateChain.map { .certificate($0) }, privateKey: .file("key.pem")))
 
 
 let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
