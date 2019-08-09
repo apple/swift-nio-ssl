@@ -78,7 +78,7 @@ if let u = arg1 {
 
 // These extra arguments aren't expected to be used, we use them for integration tests only.
 if let c = arguments.dropFirst(2).first {
-    cert.append(.file(c))
+    cert.append(contentsOf: try NIOSSLCertificate.fromPEMFile(c).map { .certificate($0) })
 }
 if let k = arguments.dropFirst(3).first {
     key = .file(k)

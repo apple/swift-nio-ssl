@@ -30,3 +30,11 @@ void *CNIOBoringSSLShims_SSL_CTX_get_app_data(const SSL_CTX *ctx) {
 int CNIOBoringSSLShims_SSL_CTX_set_app_data(SSL_CTX *ctx, void *data) {
     return SSL_CTX_set_app_data(ctx, data);
 }
+
+int CNIOBoringSSLShims_ERR_GET_LIB(uint32_t err) {
+  return ERR_GET_LIB(err);
+}
+
+int CNIOBoringSSLShims_ERR_GET_REASON(uint32_t err) {
+  return ERR_GET_REASON(err);
+}

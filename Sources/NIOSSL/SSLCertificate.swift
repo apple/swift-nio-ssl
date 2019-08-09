@@ -55,7 +55,7 @@ public class NIOSSLCertificate {
     /// DER format.
     ///
     /// Note that this method will only ever load the first certificate from a given file.
-    public convenience init (file: String, format: NIOSSLSerializationFormats) throws {
+    public convenience init(file: String, format: NIOSSLSerializationFormats) throws {
         let fileObject = try Posix.fopen(file: file, mode: "rb")
         defer {
             fclose(fileObject)
@@ -78,7 +78,7 @@ public class NIOSSLCertificate {
 
     /// Create a NIOSSLCertificate from a buffer of bytes in either PEM or
     /// DER format.
-    public convenience init (buffer: [Int8], format: NIOSSLSerializationFormats) throws  {
+    public convenience init(buffer: [Int8], format: NIOSSLSerializationFormats) throws  {
         let ref = buffer.withUnsafeBytes { (ptr) -> UnsafeMutablePointer<X509>? in
             let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), Int32(ptr.count))!
 
@@ -188,6 +188,74 @@ extension NIOSSLCertificate {
         }
 
         return NIOSSLPublicKey.fromInternalPointer(takingOwnership: key)
+    }
+
+    /// Create an array of `NIOSSLCertificate`s from a buffer of bytes in PEM format.
+    ///
+    /// - Parameter buffer: The PEM buffer to read certificates from.
+    /// - Throws: If an error is encountered while reading certificates.
+    public class func fromPEMBuffer(_ buffer: [Int8]) throws -> [NIOSSLCertificate] {
+        CNIOBoringSSL_ERR_clear_error()
+        defer {
+            CNIOBoringSSL_ERR_clear_error()
+        }
+
+        return try buffer.withUnsafeBytes { (ptr) -> [NIOSSLCertificate] in
+            let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), Int32(ptr.count))!
+            defer {
+                CNIOBoringSSL_BIO_free(bio)
+            }
+
+            return try readCertificatesFromBIO(bio)
+        }
+    }
+
+    /// Create an array of `NIOSSLCertificate`s from a file at a given path in PEM format.
+    ///
+    /// - Parameter file: The PEM file to read certificates from.
+    /// - Throws: If an error is encountered while reading certificates.
+    public class func fromPEMFile(_ path: String) throws -> [NIOSSLCertificate] {
+        CNIOBoringSSL_ERR_clear_error()
+        defer {
+            CNIOBoringSSL_ERR_clear_error()
+        }
+
+        guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_file()) else {
+            throw NIOSSLError.unableToAllocateBoringSSLObject
+        }
+        defer {
+            CNIOBoringSSL_BIO_free(bio)
+        }
+
+        guard CNIOBoringSSL_BIO_read_filename(bio, path) > 0 else {
+            throw NIOSSLError.failedToLoadCertificate
+        }
+
+        return try readCertificatesFromBIO(bio)
+    }
+
+    /// Reads `NIOSSLCertificate`s from the given BIO.
+    private class func readCertificatesFromBIO(_ bio: UnsafeMutablePointer<BIO>) throws -> [NIOSSLCertificate] {
+        guard let x509 = CNIOBoringSSL_PEM_read_bio_X509_AUX(bio, nil, nil, nil) else {
+            throw NIOSSLError.failedToLoadCertificate
+        }
+
+        var certificates = [NIOSSLCertificate(withReference: x509)]
+
+        while let x = CNIOBoringSSL_PEM_read_bio_X509(bio, nil, nil, nil) {
+            certificates.append(.init(withReference: x))
+        }
+
+        let err = CNIOBoringSSL_ERR_peek_error()
+
+        // If we hit the end of the file then it's not a real error, we just read as much as we could.
+        if CNIOBoringSSLShims_ERR_GET_LIB(err) == ERR_LIB_PEM && CNIOBoringSSLShims_ERR_GET_REASON(err) == PEM_R_NO_START_LINE {
+            CNIOBoringSSL_ERR_clear_error()
+        } else {
+            throw NIOSSLError.failedToLoadCertificate
+        }
+
+        return certificates
     }
 }
 
