@@ -62,7 +62,7 @@
 
 #include <time.h>
 
-#include <CNIOBoringSSL/asn1.h>
+#include <CNIOBoringSSL_asn1.h>
 
 #if defined(__cplusplus)
 extern "C" {

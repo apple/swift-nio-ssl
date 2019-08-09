@@ -146,17 +146,17 @@
  * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
  * OTHERWISE. */
 
-#include <CNIOBoringSSL/ssl.h>
+#include <CNIOBoringSSL_ssl.h>
 
 #include <assert.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/buf.h>
-#include <CNIOBoringSSL/digest.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/md5.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/nid.h>
+#include <CNIOBoringSSL_buf.h>
+#include <CNIOBoringSSL_digest.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_md5.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_nid.h>
 
 #include "../crypto/internal.h"
 #include "internal.h"
@@ -180,7 +180,8 @@ SSL3_STATE::SSL3_STATE()
       early_data_accepted(false),
       tls13_downgrade(false),
       token_binding_negotiated(false),
-      pq_experiment_signal_seen(false) {}
+      pq_experiment_signal_seen(false),
+      alert_dispatch(false) {}
 
 SSL3_STATE::~SSL3_STATE() {}
 

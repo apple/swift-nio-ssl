@@ -46,13 +46,13 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  * ==================================================================== */
 
-#include <CNIOBoringSSL/aes.h>
+#include <CNIOBoringSSL_aes.h>
 
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "../../internal.h"
 

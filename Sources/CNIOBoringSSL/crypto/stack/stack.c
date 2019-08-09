@@ -54,12 +54,12 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/stack.h>
+#include <CNIOBoringSSL_stack.h>
 
 #include <assert.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "../internal.h"
 

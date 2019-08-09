@@ -15,8 +15,8 @@
 #undef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200112L
 
-#include <CNIOBoringSSL/bio.h>
-#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL_bio.h>
+#include <CNIOBoringSSL_err.h>
 
 #if !defined(OPENSSL_TRUSTY)
 

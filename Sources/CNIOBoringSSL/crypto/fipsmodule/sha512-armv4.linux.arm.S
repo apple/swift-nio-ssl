@@ -3,16 +3,17 @@
 // This file is generated from a similarly-named Perl script in the BoringSSL
 // source tree. Do not edit by hand.
 
-#if defined(__has_feature)
+#if !defined(__has_feature)
+#define __has_feature(x) 0
+#endif
 #if __has_feature(memory_sanitizer) && !defined(OPENSSL_NO_ASM)
 #define OPENSSL_NO_ASM
-#endif
 #endif
 
 #if !defined(OPENSSL_NO_ASM)
 #if defined(__arm__)
 #if defined(BORINGSSL_PREFIX)
-#include <boringssl_prefix_symbols_asm.h>
+#include <CNIOBoringSSL_boringssl_prefix_symbols_asm.h>
 #endif
 @ Copyright 2007-2016 The OpenSSL Project Authors. All Rights Reserved.
 @
@@ -69,7 +70,7 @@
 @ was reflected in below two parameters as 0 and 4. Now caller is
 @ expected to maintain native byte order for whole 64-bit values.
 #ifndef __KERNEL__
-# include <CNIOBoringSSL/arm_arch.h>
+# include <CNIOBoringSSL_arm_arch.h>
 # define VFP_ABI_PUSH	vstmdb	sp!,{d8-d15}
 # define VFP_ABI_POP	vldmia	sp!,{d8-d15}
 #else

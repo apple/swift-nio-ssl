@@ -12,19 +12,19 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include <CNIOBoringSSL/ssl.h>
+#include <CNIOBoringSSL_ssl.h>
 
 #include <assert.h>
 #include <string.h>
 
 #include <utility>
 
-#include <CNIOBoringSSL/aead.h>
-#include <CNIOBoringSSL/bytestring.h>
-#include <CNIOBoringSSL/digest.h>
-#include <CNIOBoringSSL/hkdf.h>
-#include <CNIOBoringSSL/hmac.h>
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_aead.h>
+#include <CNIOBoringSSL_bytestring.h>
+#include <CNIOBoringSSL_digest.h>
+#include <CNIOBoringSSL_hkdf.h>
+#include <CNIOBoringSSL_hmac.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "../crypto/internal.h"
 #include "internal.h"
@@ -38,6 +38,7 @@ static bool init_key_schedule(SSL_HANDSHAKE *hs, uint16_t version,
     return false;
   }
 
+  assert(hs->transcript.DigestLen() <= SSL_MAX_MD_SIZE);
   hs->hash_len = hs->transcript.DigestLen();
 
   // Initialize the secret to the zero key.
@@ -215,7 +216,6 @@ bool tls13_set_traffic_key(SSL *ssl, enum ssl_encryption_level_t level,
 
 
 static const char kTLS13LabelExporter[] = "exp master";
-static const char kTLS13LabelEarlyExporter[] = "e exp master";
 
 static const char kTLS13LabelClientEarlyTraffic[] = "c e traffic";
 static const char kTLS13LabelClientHandshakeTraffic[] = "c hs traffic";
@@ -229,13 +229,9 @@ bool tls13_derive_early_secrets(SSL_HANDSHAKE *hs) {
                      kTLS13LabelClientEarlyTraffic,
                      strlen(kTLS13LabelClientEarlyTraffic)) ||
       !ssl_log_secret(ssl, "CLIENT_EARLY_TRAFFIC_SECRET",
-                      hs->early_traffic_secret, hs->hash_len) ||
-      !derive_secret(hs, ssl->s3->early_exporter_secret, hs->hash_len,
-                     kTLS13LabelEarlyExporter,
-                     strlen(kTLS13LabelEarlyExporter))) {
+                      hs->early_traffic_secret, hs->hash_len)) {
     return false;
   }
-  ssl->s3->early_exporter_secret_len = hs->hash_len;
 
   if (ssl->quic_method != nullptr) {
     if (ssl->server) {

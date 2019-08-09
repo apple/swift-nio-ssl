@@ -15,7 +15,7 @@
 // This implementation was taken from the public domain, neon2 version in
 // SUPERCOP by D. J. Bernstein and Peter Schwabe.
 
-#include <CNIOBoringSSL/poly1305.h>
+#include <CNIOBoringSSL_poly1305.h>
 
 #include <string.h>
 

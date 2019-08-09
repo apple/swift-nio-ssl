@@ -54,11 +54,11 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/asn1.h>
-#include <CNIOBoringSSL/cipher.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/obj.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_asn1.h>
+#include <CNIOBoringSSL_cipher.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_x509.h>
 
 int X509_set_version(X509 *x, long version)
 {

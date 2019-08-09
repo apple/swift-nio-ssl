@@ -56,9 +56,9 @@
 
 #include <stdio.h>
 
-#include <CNIOBoringSSL/asn1t.h>
-#include <CNIOBoringSSL/thread.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_asn1t.h>
+#include <CNIOBoringSSL_thread.h>
+#include <CNIOBoringSSL_x509.h>
 
 /*
  * X509_REQ_INFO is handled in an unusual way to get round invalid encodings.

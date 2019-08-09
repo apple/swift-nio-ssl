@@ -16,7 +16,7 @@
 
 #if defined(RSAZ_ENABLED)
 
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "internal.h"
 #include "../../internal.h"

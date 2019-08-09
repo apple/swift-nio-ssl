@@ -56,12 +56,12 @@
 
 #include <string.h>
 
-#include <CNIOBoringSSL/asn1.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/obj.h>
-#include <CNIOBoringSSL/stack.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_asn1.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_stack.h>
+#include <CNIOBoringSSL_x509.h>
 
 #include "../internal.h"
 

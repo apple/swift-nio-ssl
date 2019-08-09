@@ -17,12 +17,12 @@
 // Inspired by Daniel J. Bernstein's public domain nistp224 implementation
 // and Adam Langley's public domain 64-bit C implementation of curve25519.
 
-#include <CNIOBoringSSL/base.h>
+#include <CNIOBoringSSL_base.h>
 
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/ec.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_ec.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include <string.h>
 

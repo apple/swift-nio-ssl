@@ -138,17 +138,17 @@
  * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
  * OTHERWISE. */
 
-#include <CNIOBoringSSL/ssl.h>
+#include <CNIOBoringSSL_ssl.h>
 
 #include <assert.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/buf.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/md5.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/sha.h>
-#include <CNIOBoringSSL/stack.h>
+#include <CNIOBoringSSL_buf.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_md5.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_sha.h>
+#include <CNIOBoringSSL_stack.h>
 
 #include "internal.h"
 #include "../crypto/internal.h"

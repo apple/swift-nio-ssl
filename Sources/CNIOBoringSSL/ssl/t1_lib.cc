@@ -106,7 +106,7 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include <CNIOBoringSSL/ssl.h>
+#include <CNIOBoringSSL_ssl.h>
 
 #include <assert.h>
 #include <limits.h>
@@ -115,15 +115,15 @@
 
 #include <utility>
 
-#include <CNIOBoringSSL/bytestring.h>
-#include <CNIOBoringSSL/chacha.h>
-#include <CNIOBoringSSL/digest.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/hmac.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/nid.h>
-#include <CNIOBoringSSL/rand.h>
+#include <CNIOBoringSSL_bytestring.h>
+#include <CNIOBoringSSL_chacha.h>
+#include <CNIOBoringSSL_digest.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_hmac.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_nid.h>
+#include <CNIOBoringSSL_rand.h>
 
 #include "internal.h"
 #include "../crypto/internal.h"
@@ -633,45 +633,7 @@ static bool ext_sni_parse_serverhello(SSL_HANDSHAKE *hs, uint8_t *out_alert,
 
 static bool ext_sni_parse_clienthello(SSL_HANDSHAKE *hs, uint8_t *out_alert,
                                       CBS *contents) {
-  SSL *const ssl = hs->ssl;
-  if (contents == NULL) {
-    return true;
-  }
-
-  CBS server_name_list, host_name;
-  uint8_t name_type;
-  if (!CBS_get_u16_length_prefixed(contents, &server_name_list) ||
-      !CBS_get_u8(&server_name_list, &name_type) ||
-      // Although the server_name extension was intended to be extensible to
-      // new name types and multiple names, OpenSSL 1.0.x had a bug which meant
-      // different name types will cause an error. Further, RFC 4366 originally
-      // defined syntax inextensibly. RFC 6066 corrected this mistake, but
-      // adding new name types is no longer feasible.
-      //
-      // Act as if the extensibility does not exist to simplify parsing.
-      !CBS_get_u16_length_prefixed(&server_name_list, &host_name) ||
-      CBS_len(&server_name_list) != 0 ||
-      CBS_len(contents) != 0) {
-    return false;
-  }
-
-  if (name_type != TLSEXT_NAMETYPE_host_name ||
-      CBS_len(&host_name) == 0 ||
-      CBS_len(&host_name) > TLSEXT_MAXLEN_host_name ||
-      CBS_contains_zero_byte(&host_name)) {
-    *out_alert = SSL_AD_UNRECOGNIZED_NAME;
-    return false;
-  }
-
-  // Copy the hostname as a string.
-  char *raw = nullptr;
-  if (!CBS_strdup(&host_name, &raw)) {
-    *out_alert = SSL_AD_INTERNAL_ERROR;
-    return false;
-  }
-  ssl->s3->hostname.reset(raw);
-
-  hs->should_ack_sni = true;
+  // SNI has already been parsed earlier in the handshake. See |extract_sni|.
   return true;
 }
 
@@ -2894,7 +2856,7 @@ static bool cert_compression_add_serverhello(SSL_HANDSHAKE *hs, CBB *out) {
 
 static bool ext_pq_experiment_signal_add_clienthello(SSL_HANDSHAKE *hs,
                                                      CBB *out) {
-  if (hs->config->pq_experiment_signal &&
+  if (hs->ssl->ctx->pq_experiment_signal &&
       (!CBB_add_u16(out, TLSEXT_TYPE_pq_experiment_signal) ||
        !CBB_add_u16(out, 0))) {
     return false;
@@ -2910,7 +2872,7 @@ static bool ext_pq_experiment_signal_parse_serverhello(SSL_HANDSHAKE *hs,
     return true;
   }
 
-  if (!hs->config->pq_experiment_signal || CBS_len(contents) != 0) {
+  if (!hs->ssl->ctx->pq_experiment_signal || CBS_len(contents) != 0) {
     return false;
   }
 
@@ -2929,7 +2891,7 @@ static bool ext_pq_experiment_signal_parse_clienthello(SSL_HANDSHAKE *hs,
     return false;
   }
 
-  if (hs->ssl->config->pq_experiment_signal) {
+  if (hs->ssl->ctx->pq_experiment_signal) {
     hs->ssl->s3->pq_experiment_signal_seen = true;
   }
 

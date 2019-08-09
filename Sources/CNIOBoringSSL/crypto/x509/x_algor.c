@@ -54,12 +54,12 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_x509.h>
 
-#include <CNIOBoringSSL/asn1.h>
-#include <CNIOBoringSSL/asn1t.h>
-#include <CNIOBoringSSL/digest.h>
-#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL_asn1.h>
+#include <CNIOBoringSSL_asn1t.h>
+#include <CNIOBoringSSL_digest.h>
+#include <CNIOBoringSSL_obj.h>
 
 
 ASN1_SEQUENCE(X509_ALGOR) = {

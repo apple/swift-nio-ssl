@@ -15,8 +15,8 @@
 #ifndef OPENSSL_HEADER_BN_RSAZ_EXP_H
 #define OPENSSL_HEADER_BN_RSAZ_EXP_H
 
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/cpu.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_cpu.h>
 
 #include "internal.h"
 

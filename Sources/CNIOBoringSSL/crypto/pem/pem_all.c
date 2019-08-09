@@ -108,14 +108,14 @@
 
 #include <stdio.h>
 
-#include <CNIOBoringSSL/bio.h>
-#include <CNIOBoringSSL/dh.h>
-#include <CNIOBoringSSL/dsa.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/pem.h>
-#include <CNIOBoringSSL/pkcs7.h>
-#include <CNIOBoringSSL/rsa.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_bio.h>
+#include <CNIOBoringSSL_dh.h>
+#include <CNIOBoringSSL_dsa.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_pem.h>
+#include <CNIOBoringSSL_pkcs7.h>
+#include <CNIOBoringSSL_rsa.h>
+#include <CNIOBoringSSL_x509.h>
 
 static RSA *pkey_get_rsa(EVP_PKEY *key, RSA **rsa);
 static DSA *pkey_get_dsa(EVP_PKEY *key, DSA **dsa);

@@ -58,10 +58,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/digest.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/obj.h>
-#include <CNIOBoringSSL/x509v3.h>
+#include <CNIOBoringSSL_digest.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_x509v3.h>
 
 #include "internal.h"
 

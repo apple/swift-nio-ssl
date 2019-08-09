@@ -57,10 +57,10 @@
 #ifndef OPENSSL_HEADER_CIPHER_INTERNAL_H
 #define OPENSSL_HEADER_CIPHER_INTERNAL_H
 
-#include <CNIOBoringSSL/base.h>
+#include <CNIOBoringSSL_base.h>
 
-#include <CNIOBoringSSL/aead.h>
-#include <CNIOBoringSSL/aes.h>
+#include <CNIOBoringSSL_aead.h>
+#include <CNIOBoringSSL_aes.h>
 
 #include "../../internal.h"
 #include "../modes/internal.h"

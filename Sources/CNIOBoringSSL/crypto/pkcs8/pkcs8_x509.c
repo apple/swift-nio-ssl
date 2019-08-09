@@ -53,22 +53,22 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include <CNIOBoringSSL/pkcs8.h>
+#include <CNIOBoringSSL_pkcs8.h>
 
 #include <limits.h>
 
-#include <CNIOBoringSSL/asn1t.h>
-#include <CNIOBoringSSL/asn1.h>
-#include <CNIOBoringSSL/bio.h>
-#include <CNIOBoringSSL/buf.h>
-#include <CNIOBoringSSL/bytestring.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/digest.h>
-#include <CNIOBoringSSL/hmac.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/rand.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_asn1t.h>
+#include <CNIOBoringSSL_asn1.h>
+#include <CNIOBoringSSL_bio.h>
+#include <CNIOBoringSSL_buf.h>
+#include <CNIOBoringSSL_bytestring.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_digest.h>
+#include <CNIOBoringSSL_hmac.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_rand.h>
+#include <CNIOBoringSSL_x509.h>
 
 #include "internal.h"
 #include "../bytestring/internal.h"

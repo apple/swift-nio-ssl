@@ -15,7 +15,7 @@
 #ifndef OPENSSL_HEADER_FIPSMODULE_DELOCATE_H
 #define OPENSSL_HEADER_FIPSMODULE_DELOCATE_H
 
-#include <CNIOBoringSSL/base.h>
+#include <CNIOBoringSSL_base.h>
 
 #include "../internal.h"
 

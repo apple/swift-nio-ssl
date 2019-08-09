@@ -12,18 +12,18 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include <CNIOBoringSSL/pkcs7.h>
+#include <CNIOBoringSSL_pkcs7.h>
 
 #include <assert.h>
 #include <limits.h>
 
-#include <CNIOBoringSSL/bytestring.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/pem.h>
-#include <CNIOBoringSSL/pool.h>
-#include <CNIOBoringSSL/stack.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_bytestring.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_pem.h>
+#include <CNIOBoringSSL_pool.h>
+#include <CNIOBoringSSL_stack.h>
+#include <CNIOBoringSSL_x509.h>
 
 #include "internal.h"
 #include "../internal.h"

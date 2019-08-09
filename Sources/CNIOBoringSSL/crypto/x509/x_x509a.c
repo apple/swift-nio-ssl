@@ -56,10 +56,10 @@
 
 #include <stdio.h>
 
-#include <CNIOBoringSSL/asn1t.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/obj.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_asn1t.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_x509.h>
 
 /*
  * X509_CERT_AUX routines. These are used to encode additional user

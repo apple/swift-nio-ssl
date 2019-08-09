@@ -110,13 +110,13 @@
  * ECC cipher suite support in OpenSSL originally developed by
  * SUN MICROSYSTEMS, INC., and contributed to the OpenSSL project. */
 
-#include <CNIOBoringSSL/ssl.h>
+#include <CNIOBoringSSL_ssl.h>
 
 #include <assert.h>
 
 #include <utility>
 
-#include <CNIOBoringSSL/rand.h>
+#include <CNIOBoringSSL_rand.h>
 
 #include "../crypto/internal.h"
 #include "internal.h"

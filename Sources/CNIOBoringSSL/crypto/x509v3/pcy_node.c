@@ -55,11 +55,11 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include <CNIOBoringSSL/asn1.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/obj.h>
-#include <CNIOBoringSSL/x509.h>
-#include <CNIOBoringSSL/x509v3.h>
+#include <CNIOBoringSSL_asn1.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_x509.h>
+#include <CNIOBoringSSL_x509v3.h>
 
 #include "pcy_int.h"
 

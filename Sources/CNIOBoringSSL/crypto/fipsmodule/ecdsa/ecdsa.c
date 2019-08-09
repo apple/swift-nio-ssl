@@ -50,16 +50,16 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include <CNIOBoringSSL/ecdsa.h>
+#include <CNIOBoringSSL_ecdsa.h>
 
 #include <assert.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/sha.h>
-#include <CNIOBoringSSL/type_check.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_sha.h>
+#include <CNIOBoringSSL_type_check.h>
 
 #include "../bn/internal.h"
 #include "../ec/internal.h"

@@ -54,10 +54,10 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/asn1.h>
+#include <CNIOBoringSSL_asn1.h>
 
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_mem.h>
 
 /*
  * ASN1_ITEM version of dup: this follows the model above except we don't

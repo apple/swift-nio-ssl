@@ -16,11 +16,11 @@
 // (https://github.com/floodyberry/poly1305-donna) and released as public
 // domain.
 
-#include <CNIOBoringSSL/poly1305.h>
+#include <CNIOBoringSSL_poly1305.h>
 
 #include <string.h>
 
-#include <CNIOBoringSSL/cpu.h>
+#include <CNIOBoringSSL_cpu.h>
 
 #include "internal.h"
 #include "../internal.h"

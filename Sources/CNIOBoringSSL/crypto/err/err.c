@@ -106,7 +106,7 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL_err.h>
 
 #include <assert.h>
 #include <errno.h>
@@ -119,8 +119,8 @@ OPENSSL_MSVC_PRAGMA(warning(push, 3))
 OPENSSL_MSVC_PRAGMA(warning(pop))
 #endif
 
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/thread.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_thread.h>
 
 #include "../internal.h"
 #include "./internal.h"

@@ -49,7 +49,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/type_check.h>
+#include <CNIOBoringSSL_type_check.h>
 
 #include "internal.h"
 

@@ -27,16 +27,16 @@
 //
 // The field functions are shared by Ed25519 and X25519 where possible.
 
-#include <CNIOBoringSSL/curve25519.h>
+#include <CNIOBoringSSL_curve25519.h>
 
 #include <assert.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/cpu.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/rand.h>
-#include <CNIOBoringSSL/sha.h>
-#include <CNIOBoringSSL/type_check.h>
+#include <CNIOBoringSSL_cpu.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_rand.h>
+#include <CNIOBoringSSL_sha.h>
+#include <CNIOBoringSSL_type_check.h>
 
 #include "internal.h"
 #include "../../crypto/internal.h"

@@ -54,13 +54,13 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/digest.h>
+#include <CNIOBoringSSL_digest.h>
 
 #include <string.h>
 
-#include <CNIOBoringSSL/asn1.h>
-#include <CNIOBoringSSL/bytestring.h>
-#include <CNIOBoringSSL/nid.h>
+#include <CNIOBoringSSL_asn1.h>
+#include <CNIOBoringSSL_bytestring.h>
+#include <CNIOBoringSSL_nid.h>
 
 #include "../internal.h"
 

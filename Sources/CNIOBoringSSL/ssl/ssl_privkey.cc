@@ -54,16 +54,16 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/ssl.h>
+#include <CNIOBoringSSL_ssl.h>
 
 #include <assert.h>
 #include <limits.h>
 
-#include <CNIOBoringSSL/ec.h>
-#include <CNIOBoringSSL/ec_key.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_ec.h>
+#include <CNIOBoringSSL_ec_key.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "internal.h"
 #include "../crypto/internal.h"
@@ -236,9 +236,16 @@ bool ssl_public_key_verify(SSL *ssl, Span<const uint8_t> signature,
                            uint16_t sigalg, EVP_PKEY *pkey,
                            Span<const uint8_t> in) {
   ScopedEVP_MD_CTX ctx;
-  return setup_ctx(ssl, ctx.get(), pkey, sigalg, true /* verify */) &&
-         EVP_DigestVerify(ctx.get(), signature.data(), signature.size(),
-                          in.data(), in.size());
+  if (!setup_ctx(ssl, ctx.get(), pkey, sigalg, true /* verify */)) {
+    return false;
+  }
+  bool ok = EVP_DigestVerify(ctx.get(), signature.data(), signature.size(),
+                             in.data(), in.size());
+#if defined(BORINGSSL_UNSAFE_FUZZER_MODE)
+  ok = true;
+  ERR_clear_error();
+#endif
+  return ok;
 }
 
 enum ssl_private_key_result_t ssl_private_key_decrypt(SSL_HANDSHAKE *hs,

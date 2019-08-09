@@ -68,12 +68,12 @@
 #ifndef OPENSSL_HEADER_EC_INTERNAL_H
 #define OPENSSL_HEADER_EC_INTERNAL_H
 
-#include <CNIOBoringSSL/base.h>
+#include <CNIOBoringSSL_base.h>
 
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/ex_data.h>
-#include <CNIOBoringSSL/thread.h>
-#include <CNIOBoringSSL/type_check.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_ex_data.h>
+#include <CNIOBoringSSL_thread.h>
+#include <CNIOBoringSSL_type_check.h>
 
 #include "../bn/internal.h"
 

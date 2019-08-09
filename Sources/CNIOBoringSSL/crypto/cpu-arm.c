@@ -12,12 +12,12 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include <CNIOBoringSSL/cpu.h>
+#include <CNIOBoringSSL_cpu.h>
 
 #if (defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)) && \
     !defined(OPENSSL_STATIC_ARMCAP)
 
-#include <CNIOBoringSSL/arm_arch.h>
+#include <CNIOBoringSSL_arm_arch.h>
 
 
 extern uint32_t OPENSSL_armcap_P;

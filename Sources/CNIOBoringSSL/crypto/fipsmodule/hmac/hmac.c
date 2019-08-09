@@ -54,13 +54,13 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/hmac.h>
+#include <CNIOBoringSSL_hmac.h>
 
 #include <assert.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/digest.h>
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_digest.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "../../internal.h"
 

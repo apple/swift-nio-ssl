@@ -5,7 +5,7 @@
 
 #if defined(__i386__)
 #if defined(BORINGSSL_PREFIX)
-#include <boringssl_prefix_symbols_asm.h>
+#include <CNIOBoringSSL_boringssl_prefix_symbols_asm.h>
 #endif
 .text
 .globl	md5_block_asm_data_order

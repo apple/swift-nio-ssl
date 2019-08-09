@@ -57,20 +57,20 @@
  * The DSS routines are based on patches supplied by
  * Steven Schoch <schoch@sheba.arc.nasa.gov>. */
 
-#include <CNIOBoringSSL/dsa.h>
+#include <CNIOBoringSSL_dsa.h>
 
 #include <string.h>
 
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/dh.h>
-#include <CNIOBoringSSL/digest.h>
-#include <CNIOBoringSSL/engine.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/ex_data.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/rand.h>
-#include <CNIOBoringSSL/sha.h>
-#include <CNIOBoringSSL/thread.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_dh.h>
+#include <CNIOBoringSSL_digest.h>
+#include <CNIOBoringSSL_engine.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_ex_data.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_rand.h>
+#include <CNIOBoringSSL_sha.h>
+#include <CNIOBoringSSL_thread.h>
 
 #include "../fipsmodule/bn/internal.h"
 #include "../internal.h"

@@ -65,17 +65,17 @@
  * Sheueling Chang Shantz and Douglas Stebila of Sun Microsystems
  * Laboratories. */
 
-#include <CNIOBoringSSL/ec_key.h>
+#include <CNIOBoringSSL_ec_key.h>
 
 #include <string.h>
 
-#include <CNIOBoringSSL/ec.h>
-#include <CNIOBoringSSL/ecdsa.h>
-#include <CNIOBoringSSL/engine.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/ex_data.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/thread.h>
+#include <CNIOBoringSSL_ec.h>
+#include <CNIOBoringSSL_ecdsa.h>
+#include <CNIOBoringSSL_engine.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_ex_data.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_thread.h>
 
 #include "internal.h"
 #include "../delocate.h"

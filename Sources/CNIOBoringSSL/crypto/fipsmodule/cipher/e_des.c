@@ -54,9 +54,9 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/cipher.h>
-#include <CNIOBoringSSL/des.h>
-#include <CNIOBoringSSL/nid.h>
+#include <CNIOBoringSSL_cipher.h>
+#include <CNIOBoringSSL_des.h>
+#include <CNIOBoringSSL_nid.h>
 
 #include "internal.h"
 #include "../delocate.h"

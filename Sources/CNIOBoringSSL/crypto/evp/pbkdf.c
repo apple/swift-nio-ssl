@@ -53,11 +53,11 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL_evp.h>
 
 #include <string.h>
 
-#include <CNIOBoringSSL/hmac.h>
+#include <CNIOBoringSSL_hmac.h>
 
 #include "../internal.h"
 

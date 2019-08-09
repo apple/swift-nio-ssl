@@ -112,7 +112,7 @@
  * ECC cipher suite support in OpenSSL originally developed by
  * SUN MICROSYSTEMS, INC., and contributed to the OpenSSL project. */
 
-#include <CNIOBoringSSL/ssl.h>
+#include <CNIOBoringSSL_ssl.h>
 
 #include <assert.h>
 #include <limits.h>
@@ -120,14 +120,14 @@
 
 #include <utility>
 
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/buf.h>
-#include <CNIOBoringSSL/bytestring.h>
-#include <CNIOBoringSSL/ec_key.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/sha.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_buf.h>
+#include <CNIOBoringSSL_bytestring.h>
+#include <CNIOBoringSSL_ec_key.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_sha.h>
+#include <CNIOBoringSSL_x509.h>
 
 #include "../crypto/internal.h"
 #include "internal.h"

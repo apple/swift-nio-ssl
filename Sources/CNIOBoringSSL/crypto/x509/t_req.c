@@ -56,12 +56,12 @@
 
 #include <stdio.h>
 
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/buffer.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/objects.h>
-#include <CNIOBoringSSL/x509.h>
-#include <CNIOBoringSSL/x509v3.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_buffer.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_objects.h>
+#include <CNIOBoringSSL_x509.h>
+#include <CNIOBoringSSL_x509v3.h>
 
 
 int X509_REQ_print_fp(FILE *fp, X509_REQ *x) {

@@ -54,9 +54,9 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/asn1.h>
+#include <CNIOBoringSSL_asn1.h>
 
-#include <CNIOBoringSSL/asn1t.h>
+#include <CNIOBoringSSL_asn1t.h>
 
 /* Declarations for string types */
 

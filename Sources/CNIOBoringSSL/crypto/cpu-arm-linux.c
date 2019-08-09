@@ -12,7 +12,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include <CNIOBoringSSL/cpu.h>
+#include <CNIOBoringSSL_cpu.h>
 
 #if defined(OPENSSL_ARM) && !defined(OPENSSL_STATIC_ARMCAP)
 #include <errno.h>
@@ -20,9 +20,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <CNIOBoringSSL/arm_arch.h>
-#include <CNIOBoringSSL/buf.h>
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_arm_arch.h>
+#include <CNIOBoringSSL_buf.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "cpu-arm-linux.h"
 

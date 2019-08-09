@@ -16,7 +16,7 @@
 #define _GNU_SOURCE  // needed for syscall() on Linux.
 #endif
 
-#include <CNIOBoringSSL/rand.h>
+#include <CNIOBoringSSL_rand.h>
 
 #if !defined(OPENSSL_WINDOWS) && !defined(OPENSSL_FUCHSIA) && \
     !defined(BORINGSSL_UNSAFE_DETERMINISTIC_MODE) && !defined(OPENSSL_TRUSTY)
@@ -53,8 +53,8 @@
 #endif
 #endif  // OPENSSL_LINUX
 
-#include <CNIOBoringSSL/thread.h>
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_thread.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "internal.h"
 #include "../delocate.h"

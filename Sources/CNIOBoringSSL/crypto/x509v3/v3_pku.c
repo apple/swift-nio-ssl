@@ -57,11 +57,11 @@
 
 #include <stdio.h>
 
-#include <CNIOBoringSSL/asn1.h>
-#include <CNIOBoringSSL/asn1t.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/obj.h>
-#include <CNIOBoringSSL/x509v3.h>
+#include <CNIOBoringSSL_asn1.h>
+#include <CNIOBoringSSL_asn1t.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_x509v3.h>
 
 static int i2r_PKEY_USAGE_PERIOD(X509V3_EXT_METHOD *method,
                                  PKEY_USAGE_PERIOD *usage, BIO *out,

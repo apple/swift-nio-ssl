@@ -54,11 +54,11 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/sha.h>
+#include <CNIOBoringSSL_sha.h>
 
 #include <string.h>
 
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "internal.h"
 #include "../../internal.h"

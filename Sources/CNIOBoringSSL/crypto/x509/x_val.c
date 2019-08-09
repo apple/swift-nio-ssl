@@ -57,8 +57,8 @@
 
 #include <stdio.h>
 
-#include <CNIOBoringSSL/asn1t.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_asn1t.h>
+#include <CNIOBoringSSL_x509.h>
 
 
 ASN1_SEQUENCE(X509_VAL) = {

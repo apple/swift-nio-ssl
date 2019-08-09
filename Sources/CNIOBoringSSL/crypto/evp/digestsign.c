@@ -53,9 +53,9 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include <CNIOBoringSSL/evp.h>
+#include <CNIOBoringSSL_evp.h>
 
-#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL_err.h>
 
 #include "internal.h"
 #include "../fipsmodule/digest/internal.h"

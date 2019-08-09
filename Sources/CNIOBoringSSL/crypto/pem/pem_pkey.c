@@ -54,20 +54,20 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/pem.h>
+#include <CNIOBoringSSL_pem.h>
 
 #include <stdio.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/buf.h>
-#include <CNIOBoringSSL/dh.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/obj.h>
-#include <CNIOBoringSSL/pkcs8.h>
-#include <CNIOBoringSSL/rand.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_buf.h>
+#include <CNIOBoringSSL_dh.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_pkcs8.h>
+#include <CNIOBoringSSL_rand.h>
+#include <CNIOBoringSSL_x509.h>
 
 EVP_PKEY *PEM_read_bio_PrivateKey(BIO *bp, EVP_PKEY **x, pem_password_cb *cb,
                                   void *u)

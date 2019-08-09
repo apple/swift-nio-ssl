@@ -106,14 +106,14 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include <CNIOBoringSSL/bn.h>
+#include <CNIOBoringSSL_bn.h>
 
 #include <limits.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/rand.h>
-#include <CNIOBoringSSL/type_check.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_rand.h>
+#include <CNIOBoringSSL_type_check.h>
 
 #include "internal.h"
 #include "../../internal.h"

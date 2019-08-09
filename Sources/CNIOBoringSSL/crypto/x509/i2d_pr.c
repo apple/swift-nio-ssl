@@ -55,12 +55,12 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/asn1.h>
-#include <CNIOBoringSSL/ec_key.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/rsa.h>
-#include <CNIOBoringSSL/dsa.h>
+#include <CNIOBoringSSL_asn1.h>
+#include <CNIOBoringSSL_ec_key.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_rsa.h>
+#include <CNIOBoringSSL_dsa.h>
 
 
 int i2d_PrivateKey(const EVP_PKEY *a, uint8_t **pp)

@@ -58,10 +58,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/conf.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/obj.h>
-#include <CNIOBoringSSL/x509v3.h>
+#include <CNIOBoringSSL_conf.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_x509v3.h>
 
 static const BIT_STRING_BITNAME ns_cert_type_table[] = {
     {0, "SSL Client", "client"},

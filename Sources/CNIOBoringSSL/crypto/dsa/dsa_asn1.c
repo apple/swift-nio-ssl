@@ -52,14 +52,14 @@
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
 
-#include <CNIOBoringSSL/dsa.h>
+#include <CNIOBoringSSL_dsa.h>
 
 #include <assert.h>
 
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/bytestring.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/mem.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_bytestring.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_mem.h>
 
 #include "../bytestring/internal.h"
 

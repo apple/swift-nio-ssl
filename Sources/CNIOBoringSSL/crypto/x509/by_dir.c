@@ -59,11 +59,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <CNIOBoringSSL/buf.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/thread.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_buf.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_thread.h>
+#include <CNIOBoringSSL_x509.h>
 
 #if !defined(OPENSSL_TRUSTY)
 

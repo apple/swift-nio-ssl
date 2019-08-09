@@ -57,9 +57,9 @@
 #include <assert.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/cipher.h>
-#include <CNIOBoringSSL/nid.h>
-#include <CNIOBoringSSL/rc4.h>
+#include <CNIOBoringSSL_cipher.h>
+#include <CNIOBoringSSL_nid.h>
+#include <CNIOBoringSSL_rc4.h>
 
 
 static int rc4_init_key(EVP_CIPHER_CTX *ctx, const uint8_t *key,

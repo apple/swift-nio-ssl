@@ -54,10 +54,10 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/asn1.h>
-#include <CNIOBoringSSL/asn1t.h>
-#include <CNIOBoringSSL/x509.h>
-#include <CNIOBoringSSL/obj.h>
+#include <CNIOBoringSSL_asn1.h>
+#include <CNIOBoringSSL_asn1t.h>
+#include <CNIOBoringSSL_x509.h>
+#include <CNIOBoringSSL_obj.h>
 
 /*
  * X509_ATTRIBUTE: this has the following form: typedef struct

@@ -16,18 +16,18 @@
  *                          256 Bit Primes"
  */
 
-#include <CNIOBoringSSL/ec.h>
+#include <CNIOBoringSSL_ec.h>
 
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/cpu.h>
-#include <CNIOBoringSSL/crypto.h>
-#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_cpu.h>
+#include <CNIOBoringSSL_crypto.h>
+#include <CNIOBoringSSL_err.h>
 
-#include <CNIOBoringSSL/cpu.h>
+#include <CNIOBoringSSL_cpu.h>
 
 #include "../bn/internal.h"
 #include "../delocate.h"

@@ -111,17 +111,17 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/ssl.h>
+#include <CNIOBoringSSL_ssl.h>
 
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/buf.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/mem.h>
-#include <CNIOBoringSSL/rand.h>
+#include <CNIOBoringSSL_buf.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_rand.h>
 
 #include "../crypto/internal.h"
 #include "internal.h"

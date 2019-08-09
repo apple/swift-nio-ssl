@@ -53,9 +53,9 @@
 #include <assert.h>
 #include <string.h>
 
-#include <CNIOBoringSSL/digest.h>
-#include <CNIOBoringSSL/nid.h>
-#include <CNIOBoringSSL/sha.h>
+#include <CNIOBoringSSL_digest.h>
+#include <CNIOBoringSSL_nid.h>
+#include <CNIOBoringSSL_sha.h>
 
 #include "../internal.h"
 #include "internal.h"

@@ -12,14 +12,14 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
-#include <CNIOBoringSSL/aead.h>
+#include <CNIOBoringSSL_aead.h>
 
 #include <assert.h>
 
-#include <CNIOBoringSSL/cipher.h>
-#include <CNIOBoringSSL/cpu.h>
-#include <CNIOBoringSSL/crypto.h>
-#include <CNIOBoringSSL/err.h>
+#include <CNIOBoringSSL_cipher.h>
+#include <CNIOBoringSSL_cpu.h>
+#include <CNIOBoringSSL_crypto.h>
+#include <CNIOBoringSSL_err.h>
 
 #include "../fipsmodule/cipher/internal.h"
 

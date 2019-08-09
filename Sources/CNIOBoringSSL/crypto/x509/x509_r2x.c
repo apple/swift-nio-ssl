@@ -54,14 +54,14 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL/asn1.h>
-#include <CNIOBoringSSL/bn.h>
-#include <CNIOBoringSSL/buf.h>
-#include <CNIOBoringSSL/digest.h>
-#include <CNIOBoringSSL/err.h>
-#include <CNIOBoringSSL/evp.h>
-#include <CNIOBoringSSL/obj.h>
-#include <CNIOBoringSSL/x509.h>
+#include <CNIOBoringSSL_asn1.h>
+#include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_buf.h>
+#include <CNIOBoringSSL_digest.h>
+#include <CNIOBoringSSL_err.h>
+#include <CNIOBoringSSL_evp.h>
+#include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_x509.h>
 
 X509 *X509_REQ_to_X509(X509_REQ *r, int days, EVP_PKEY *pkey)
 {
