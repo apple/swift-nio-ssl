@@ -28,4 +28,7 @@ size_t CNIOBoringSSLShims_sk_GENERAL_NAME_num(const STACK_OF(GENERAL_NAME) *sk);
 void *CNIOBoringSSLShims_SSL_CTX_get_app_data(const SSL_CTX *ctx);
 int CNIOBoringSSLShims_SSL_CTX_set_app_data(SSL_CTX *ctx, void *data);
 
+int CNIOBoringSSLShims_ERR_GET_LIB(uint32_t err);
+int CNIOBoringSSLShims_ERR_GET_REASON(uint32_t err);
+
 #endif  // C_NIO_BORINGSSL_SHIMS_H

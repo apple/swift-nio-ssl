@@ -227,10 +227,8 @@ extension NIOSSLCertificate {
             CNIOBoringSSL_BIO_free(bio)
         }
 
-        try path.utf8CString.withUnsafeBufferPointer {
-            guard let baseAddress = $0.baseAddress, CNIOBoringSSL_BIO_read_filename(bio, baseAddress) > 0 else {
-                throw NIOSSLError.failedToLoadCertificate
-            }
+        guard CNIOBoringSSL_BIO_read_filename(bio, path) > 0 else {
+            throw NIOSSLError.failedToLoadCertificate
         }
 
         return try readCertificatesFromBIO(bio)
@@ -251,7 +249,7 @@ extension NIOSSLCertificate {
         let err = CNIOBoringSSL_ERR_peek_error()
 
         // If we hit the end of the file then it's not a real error, we just read as much as we could.
-        if BoringSSL_ERR_GET_LIB(err) == ERR_LIB_PEM && BoringSSL_ERR_GET_REASON(err) == PEM_R_NO_START_LINE {
+        if CNIOBoringSSLShims_ERR_GET_LIB(err) == ERR_LIB_PEM && CNIOBoringSSLShims_ERR_GET_REASON(err) == PEM_R_NO_START_LINE {
             CNIOBoringSSL_ERR_clear_error()
         } else {
             throw NIOSSLError.failedToLoadCertificate
