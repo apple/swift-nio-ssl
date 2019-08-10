@@ -21,7 +21,6 @@ import CNIOBoringSSL
 import NIO
 @testable import NIOSSL
 import NIOTLS
-import class Foundation.Process
 
 public func assertNoThrowWithValue<T>(_ body: @autoclosure () throws -> T, defaultValue: T? = nil, file: StaticString = #file, line: UInt = #line) throws -> T {
     do {

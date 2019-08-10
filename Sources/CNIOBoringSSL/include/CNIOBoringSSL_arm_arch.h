@@ -49,7 +49,7 @@
  * This product includes cryptographic software written by Eric Young
  * (eay@cryptsoft.com).  This product includes software written by Tim
  * Hudson (tjh@cryptsoft.com). */
-#if __arm__
+#if __arm__ || __arm64__
 #ifndef OPENSSL_HEADER_ARM_ARCH_H
 #define OPENSSL_HEADER_ARM_ARCH_H
 
@@ -119,4 +119,4 @@
 
 
 #endif  // OPENSSL_HEADER_ARM_ARCH_H
-#endif  // __arm__
+#endif  // __arm__ || __arm64__
