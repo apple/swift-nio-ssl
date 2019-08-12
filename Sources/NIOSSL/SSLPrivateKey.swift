@@ -164,8 +164,8 @@ public class NIOSSLPrivateKey {
     }
 
     /// A delegating initializer for `init(buffer:format:passphraseCallback)` and `init(buffer:format:)`.
-    private convenience init(buffer: [Int8], format: NIOSSLSerializationFormats, callbackManager: CallbackManagerProtocol?) throws {
-        let ref = buffer.withUnsafeBytes { (ptr) -> UnsafeMutablePointer<EVP_PKEY>? in
+    private convenience init(bytes: [UInt8], format: NIOSSLSerializationFormats, callbackManager: CallbackManagerProtocol?) throws {
+        let ref = bytes.withUnsafeBytes { (ptr) -> UnsafeMutablePointer<EVP_PKEY>? in
             let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), Int32(ptr.count))!
             defer {
                 CNIOBoringSSL_BIO_free(bio)
@@ -223,8 +223,20 @@ public class NIOSSLPrivateKey {
     /// - parameters:
     ///     - buffer: The key bytes.
     ///     - format: The format of the key to load, either DER or PEM.
+    /// - SeeAlso: `NIOSSLPrivateKey.init(bytes:format:)`
+    @available(*, deprecated, renamed: "NIOSSLPrivateKey.init(bytes:format:)")
     public convenience init(buffer: [Int8], format: NIOSSLSerializationFormats) throws {
-        try self.init(buffer: buffer, format: format, callbackManager: nil)
+        try self.init(bytes: buffer.map(UInt8.init), format: format)
+    }
+
+    /// Create an NIOSSLPrivateKey from a buffer of bytes in either PEM or
+    /// DER format.
+    ///
+    /// - parameters:
+    ///     - bytes: The key bytes.
+    ///     - format: The format of the key to load, either DER or PEM.
+    public convenience init(bytes: [UInt8], format: NIOSSLSerializationFormats) throws {
+        try self.init(bytes: bytes, format: format, callbackManager: nil)
     }
 
     /// Create an NIOSSLPrivateKey from a buffer of bytes in either PEM or
@@ -237,9 +249,25 @@ public class NIOSSLPrivateKey {
     ///         encrypted keys. If not provided, or set to `nil`, the default BoringSSL
     ///         behaviour will be used, which prints a prompt and requests the passphrase from
     ///         stdin.
+    /// - SeeAlso: `NIOSSLPrivateKey.init(bytes:format:passphraseCallback:)`
+    @available(*, deprecated, renamed: "NIOSSLPrivateKey.init(bytes:format:passphraseCallback:)")
     public convenience init<T: Collection>(buffer: [Int8], format: NIOSSLSerializationFormats, passphraseCallback: @escaping NIOSSLPassphraseCallback<T>) throws where T.Element == UInt8  {
+        try self.init(bytes: buffer.map(UInt8.init), format: format, passphraseCallback: passphraseCallback)
+    }
+
+    /// Create an NIOSSLPrivateKey from a buffer of bytes in either PEM or
+    /// DER format.
+    ///
+    /// - parameters:
+    ///     - bytes: The key bytes.
+    ///     - format: The format of the key to load, either DER or PEM.
+    ///     - passphraseCallback: Optionally a callback to invoke to obtain the passphrase for
+    ///         encrypted keys. If not provided, or set to `nil`, the default BoringSSL
+    ///         behaviour will be used, which prints a prompt and requests the passphrase from
+    ///         stdin.
+    public convenience init<T: Collection>(bytes: [UInt8], format: NIOSSLSerializationFormats, passphraseCallback: @escaping NIOSSLPassphraseCallback<T>) throws where T.Element == UInt8  {
         let manager = BoringSSLPassphraseCallbackManager(userCallback: passphraseCallback)
-        try self.init(buffer: buffer, format: format, callbackManager: manager)
+        try self.init(bytes: bytes, format: format, callbackManager: manager)
     }
 
     /// Create an NIOSSLPrivateKey wrapping a pointer into BoringSSL.
