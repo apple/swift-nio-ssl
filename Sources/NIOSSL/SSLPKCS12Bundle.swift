@@ -94,7 +94,7 @@ public struct NIOSSLPKCS12Bundle {
         guard boringSSLIsInitialized else { fatalError("Failed to initialize BoringSSL") }
         
         let p12 = buffer.withUnsafeBytes { pointer -> OpaquePointer? in
-            let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: pointer.baseAddress), CInt(pointer.count))!
+            let bio = CNIOBoringSSL_BIO_new_mem_buf(pointer.baseAddress, CInt(pointer.count))!
             defer {
                 CNIOBoringSSL_BIO_free(bio)
             }
