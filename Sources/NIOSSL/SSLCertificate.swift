@@ -89,7 +89,7 @@ public class NIOSSLCertificate {
     /// DER format.
     public convenience init(bytes: [UInt8], format: NIOSSLSerializationFormats) throws {
         let ref = bytes.withUnsafeBytes { (ptr) -> UnsafeMutablePointer<X509>? in
-            let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), CInt(ptr.count))!
+            let bio = CNIOBoringSSL_BIO_new_mem_buf(ptr.baseAddress, CInt(ptr.count))!
 
             defer {
                 CNIOBoringSSL_BIO_free(bio)
@@ -220,7 +220,7 @@ extension NIOSSLCertificate {
         }
 
         return try bytes.withUnsafeBytes { (ptr) -> [NIOSSLCertificate] in
-            let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), CInt(ptr.count))!
+            let bio = CNIOBoringSSL_BIO_new_mem_buf(ptr.baseAddress, CInt(ptr.count))!
             defer {
                 CNIOBoringSSL_BIO_free(bio)
             }
