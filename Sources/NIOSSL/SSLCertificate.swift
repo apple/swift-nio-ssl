@@ -89,7 +89,7 @@ public class NIOSSLCertificate {
     /// DER format.
     public convenience init(bytes: [UInt8], format: NIOSSLSerializationFormats) throws {
         let ref = bytes.withUnsafeBytes { (ptr) -> UnsafeMutablePointer<X509>? in
-            let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), Int32(ptr.count))!
+            let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), CInt(ptr.count))!
 
             defer {
                 CNIOBoringSSL_BIO_free(bio)
@@ -145,8 +145,8 @@ public class NIOSSLCertificate {
 
         // Per the man page, to find the first entry we set lastIndex to -1. When there are no
         // more entries, -1 is returned as the index of the next entry.
-        var lastIndex: Int32 = -1
-        var nextIndex: Int32 = -1
+        var lastIndex: CInt = -1
+        var nextIndex: CInt = -1
         repeat {
             lastIndex = nextIndex
             nextIndex = CNIOBoringSSL_X509_NAME_get_index_by_NID(subjectName, NID_commonName, lastIndex)
@@ -220,7 +220,7 @@ extension NIOSSLCertificate {
         }
 
         return try bytes.withUnsafeBytes { (ptr) -> [NIOSSLCertificate] in
-            let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), Int32(ptr.count))!
+            let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), CInt(ptr.count))!
             defer {
                 CNIOBoringSSL_BIO_free(bio)
             }

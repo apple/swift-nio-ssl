@@ -86,7 +86,7 @@ private func alpnCallback(ssl: OpaquePointer?,
                           outlen: UnsafeMutablePointer<UInt8>?,
                           in: UnsafePointer<UInt8>?,
                           inlen: UInt32,
-                          appData: UnsafeMutableRawPointer?) -> Int32 {
+                          appData: UnsafeMutableRawPointer?) -> CInt {
     // Perform some sanity checks. We don't want NULL pointers around here.
     guard let ssl = ssl, let out = out, let outlen = outlen, let `in` = `in` else {
         return SSL_TLSEXT_ERR_NOACK
@@ -125,7 +125,7 @@ public final class NIOSSLContext {
         guard boringSSLIsInitialized else { fatalError("Failed to initialize BoringSSL") }
         guard let context = CNIOBoringSSL_SSL_CTX_new(CNIOBoringSSL_TLS_method()) else { throw NIOSSLError.unableToAllocateBoringSSLObject }
 
-        let minTLSVersion: Int32
+        let minTLSVersion: CInt
         switch configuration.minimumTLSVersion {
         case .tlsv13:
             minTLSVersion = TLS1_3_VERSION
@@ -139,7 +139,7 @@ public final class NIOSSLContext {
         var returnCode = CNIOBoringSSL_SSL_CTX_set_min_proto_version(context, UInt16(minTLSVersion))
         precondition(1 == returnCode)
 
-        let maxTLSVersion: Int32
+        let maxTLSVersion: CInt
 
         switch configuration.maximumTLSVersion {
         case .some(.tlsv1):
@@ -270,7 +270,7 @@ extension NIOSSLContext {
     private static func useCertificateChainFile(_ path: String, context: OpaquePointer) {
         // TODO(cory): This shouldn't be an assert but should instead be actual error handling.
         // assert(path.isFileURL)
-        let result = path.withCString { (pointer) -> Int32 in
+        let result = path.withCString { (pointer) -> CInt in
             return CNIOBoringSSL_SSL_CTX_use_certificate_chain_file(context, pointer)
         }
         
@@ -299,7 +299,7 @@ extension NIOSSLContext {
 
     private static func usePrivateKeyFile(_ path: String, context: OpaquePointer) throws {
         let pathExtension = path.split(separator: ".").last
-        let fileType: Int32
+        let fileType: CInt
         
         switch pathExtension?.lowercased() {
         case .some("pem"):
@@ -311,7 +311,7 @@ extension NIOSSLContext {
             fatalError("Unknown private key file type.")
         }
         
-        let result = path.withCString { (pointer) -> Int32 in
+        let result = path.withCString { (pointer) -> CInt in
             return CNIOBoringSSL_SSL_CTX_use_PrivateKey_file(context, pointer, fileType)
         }
         
@@ -325,7 +325,7 @@ extension NIOSSLContext {
         // This copy should be done infrequently, so we don't worry too much about it.
         let protoBuf = protocols.reduce([UInt8](), +)
         let rc = protoBuf.withUnsafeBufferPointer {
-            CNIOBoringSSL_SSL_CTX_set_alpn_protos(context, $0.baseAddress!, UInt32($0.count))
+            CNIOBoringSSL_SSL_CTX_set_alpn_protos(context, $0.baseAddress!, CUnsignedInt($0.count))
         }
 
         // Annoyingly this function reverses the error convention: 0 is success, non-zero is failure.
@@ -377,7 +377,7 @@ extension NIOSSLContext {
             throw NIOSSLError.noSuchFilesystemObject
         }
 
-        let result = path.withCString { (pointer) -> Int32 in
+        let result = path.withCString { (pointer) -> CInt in
             let file = !isDirectory ? pointer : nil
             let directory = isDirectory ? pointer: nil
             return CNIOBoringSSL_SSL_CTX_load_verify_locations(context, file, directory)

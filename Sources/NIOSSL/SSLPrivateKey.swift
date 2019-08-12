@@ -166,7 +166,7 @@ public class NIOSSLPrivateKey {
     /// A delegating initializer for `init(buffer:format:passphraseCallback)` and `init(buffer:format:)`.
     private convenience init(bytes: [UInt8], format: NIOSSLSerializationFormats, callbackManager: CallbackManagerProtocol?) throws {
         let ref = bytes.withUnsafeBytes { (ptr) -> UnsafeMutablePointer<EVP_PKEY>? in
-            let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), Int32(ptr.count))!
+            let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), CInt(ptr.count))!
             defer {
                 CNIOBoringSSL_BIO_free(bio)
             }

@@ -292,7 +292,7 @@ func generateRSAPrivateKey() -> UnsafeMutablePointer<EVP_PKEY> {
     return pkey
 }
 
-func addExtension(x509: UnsafeMutablePointer<X509>, nid: Int32, value: String) {
+func addExtension(x509: UnsafeMutablePointer<X509>, nid: CInt, value: String) {
     var extensionContext = X509V3_CTX()
     
     CNIOBoringSSL_X509V3_set_ctx(&extensionContext, x509, x509, nil, nil, 0)
@@ -335,7 +335,7 @@ func generateSelfSignedCert() -> (NIOSSLCertificate, NIOSSLPrivateKey) {
                                                      NID_commonName,
                                                      MBSTRING_UTF8,
                                                      UnsafeMutablePointer(mutating: pointer),
-                                                     Int32(commonName.lengthOfBytes(using: .utf8)),
+                                                     CInt(commonName.lengthOfBytes(using: .utf8)),
                                                      -1,
                                                      0)
         }
