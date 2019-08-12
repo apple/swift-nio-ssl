@@ -17,7 +17,8 @@ To secure a server connection, you will need a X.509 certificate chain in a file
 For example:
 
 ```swift
-let configuration = TLSConfiguration.forServer(certificateChain: [.file("cert.pem")], privateKey: .file("key.pem")) 
+let configuration = TLSConfiguration.forServer(certificateChain: try NIOSSLCertificate.fromPEMFile("cert.pem").map { .certificate($0) },
+                                               privateKey: .file("key.pem"))
 let sslContext = try NIOSSLContext(configuration: configuration)
 
 let server = ServerBootstrap(group: group)
