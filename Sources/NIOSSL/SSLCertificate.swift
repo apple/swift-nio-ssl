@@ -78,8 +78,17 @@ public class NIOSSLCertificate {
 
     /// Create a NIOSSLCertificate from a buffer of bytes in either PEM or
     /// DER format.
+    ///
+    /// - SeeAlso: `NIOSSLCertificate.init(bytes:format:)`
+    @available(*, deprecated, renamed: "NIOSSLCertificate.init(bytes:format:)")
     public convenience init(buffer: [Int8], format: NIOSSLSerializationFormats) throws  {
-        let ref = buffer.withUnsafeBytes { (ptr) -> UnsafeMutablePointer<X509>? in
+        try self.init(bytes: buffer.map(UInt8.init), format: format)
+    }
+
+    /// Create a NIOSSLCertificate from a buffer of bytes in either PEM or
+    /// DER format.
+    public convenience init(bytes: [UInt8], format: NIOSSLSerializationFormats) throws {
+        let ref = bytes.withUnsafeBytes { (ptr) -> UnsafeMutablePointer<X509>? in
             let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), Int32(ptr.count))!
 
             defer {
@@ -194,13 +203,23 @@ extension NIOSSLCertificate {
     ///
     /// - Parameter buffer: The PEM buffer to read certificates from.
     /// - Throws: If an error is encountered while reading certificates.
+    /// - SeeAlso: `NIOSSLCertificate.fromPEMBytes(_:)`
+    @available(*, deprecated, renamed: "NIOSSLCertificate.fromPEMBytes(_:)")
     public class func fromPEMBuffer(_ buffer: [Int8]) throws -> [NIOSSLCertificate] {
+        return try fromPEMBytes(buffer.map(UInt8.init))
+    }
+
+    /// Create an array of `NIOSSLCertificate`s from a buffer of bytes in PEM format.
+    ///
+    /// - Parameter bytes: The PEM buffer to read certificates from.
+    /// - Throws: If an error is encountered while reading certificates.
+    public class func fromPEMBytes(_ bytes: [UInt8]) throws -> [NIOSSLCertificate] {
         CNIOBoringSSL_ERR_clear_error()
         defer {
             CNIOBoringSSL_ERR_clear_error()
         }
 
-        return try buffer.withUnsafeBytes { (ptr) -> [NIOSSLCertificate] in
+        return try bytes.withUnsafeBytes { (ptr) -> [NIOSSLCertificate] in
             let bio = CNIOBoringSSL_BIO_new_mem_buf(UnsafeMutableRawPointer(mutating: ptr.baseAddress!), Int32(ptr.count))!
             defer {
                 CNIOBoringSSL_BIO_free(bio)

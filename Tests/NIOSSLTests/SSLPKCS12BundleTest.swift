@@ -434,8 +434,8 @@ class SSLPKCS12BundleTest: XCTestCase {
 
     func testDecodingSimpleP12FromMemory() throws {
         let p12Bundle = try NIOSSLPKCS12Bundle(buffer: simpleP12, passphrase: "thisisagreatpassword".utf8)
-        let expectedKey = try NIOSSLPrivateKey(buffer: Array(samplePemKey.utf8CString), format: .pem)
-        let expectedCert = try NIOSSLCertificate(buffer: Array(samplePemCert.utf8CString), format: .pem)
+        let expectedKey = try NIOSSLPrivateKey(bytes: Array(samplePemKey.utf8), format: .pem)
+        let expectedCert = try NIOSSLCertificate(bytes: Array(samplePemCert.utf8), format: .pem)
 
         XCTAssertEqual(p12Bundle.privateKey, expectedKey)
         XCTAssertEqual(p12Bundle.certificateChain, [expectedCert])
@@ -443,12 +443,12 @@ class SSLPKCS12BundleTest: XCTestCase {
 
     func testDecodingComplexP12FromMemory() throws {
         let p12Bundle = try NIOSSLPKCS12Bundle(buffer: complexP12, passphrase: "thisisagreatpassword".utf8)
-        let expectedKey = try NIOSSLPrivateKey(buffer: Array(samplePemKey.utf8CString), format: .pem)
-        let expectedCert = try NIOSSLCertificate(buffer: Array(samplePemCert.utf8CString), format: .pem)
-        let caOne = try NIOSSLCertificate(buffer: Array(multiSanCert.utf8CString), format: .pem)
-        let caTwo = try NIOSSLCertificate(buffer: Array(multiCNCert.utf8CString), format: .pem)
-        let caThree = try NIOSSLCertificate(buffer: Array(noCNCert.utf8CString), format: .pem)
-        let caFour = try NIOSSLCertificate(buffer: Array(unicodeCNCert.utf8CString), format: .pem)
+        let expectedKey = try NIOSSLPrivateKey(bytes: Array(samplePemKey.utf8), format: .pem)
+        let expectedCert = try NIOSSLCertificate(bytes: Array(samplePemCert.utf8), format: .pem)
+        let caOne = try NIOSSLCertificate(bytes: Array(multiSanCert.utf8), format: .pem)
+        let caTwo = try NIOSSLCertificate(bytes: Array(multiCNCert.utf8), format: .pem)
+        let caThree = try NIOSSLCertificate(bytes: Array(noCNCert.utf8), format: .pem)
+        let caFour = try NIOSSLCertificate(bytes: Array(unicodeCNCert.utf8), format: .pem)
 
         XCTAssertEqual(p12Bundle.privateKey, expectedKey)
         XCTAssertEqual(p12Bundle.certificateChain, [expectedCert, caOne, caTwo, caThree, caFour])
@@ -456,8 +456,8 @@ class SSLPKCS12BundleTest: XCTestCase {
 
     func testDecodingSimpleP12FromMemoryWithoutPassphrase() throws {
         let p12Bundle = try NIOSSLPKCS12Bundle(buffer: noPassP12)
-        let expectedKey = try NIOSSLPrivateKey(buffer: Array(samplePemKey.utf8CString), format: .pem)
-        let expectedCert = try NIOSSLCertificate(buffer: Array(samplePemCert.utf8CString), format: .pem)
+        let expectedKey = try NIOSSLPrivateKey(bytes: Array(samplePemKey.utf8), format: .pem)
+        let expectedCert = try NIOSSLCertificate(bytes: Array(samplePemCert.utf8), format: .pem)
 
         XCTAssertEqual(p12Bundle.privateKey, expectedKey)
         XCTAssertEqual(p12Bundle.certificateChain, [expectedCert])
@@ -465,8 +465,8 @@ class SSLPKCS12BundleTest: XCTestCase {
 
     func testDecodingSimpleP12FromFile() throws {
         let p12Bundle = try NIOSSLPKCS12Bundle(file: SSLPKCS12BundleTest.simpleFilePath, passphrase: "thisisagreatpassword".utf8)
-        let expectedKey = try NIOSSLPrivateKey(buffer: Array(samplePemKey.utf8CString), format: .pem)
-        let expectedCert = try NIOSSLCertificate(buffer: Array(samplePemCert.utf8CString), format: .pem)
+        let expectedKey = try NIOSSLPrivateKey(bytes: .init(samplePemKey.utf8), format: .pem)
+        let expectedCert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
 
         XCTAssertEqual(p12Bundle.privateKey, expectedKey)
         XCTAssertEqual(p12Bundle.certificateChain, [expectedCert])
@@ -474,12 +474,12 @@ class SSLPKCS12BundleTest: XCTestCase {
 
     func testDecodingComplexP12FromFile() throws {
         let p12Bundle = try NIOSSLPKCS12Bundle(file: SSLPKCS12BundleTest.complexFilePath, passphrase: "thisisagreatpassword".utf8)
-        let expectedKey = try NIOSSLPrivateKey(buffer: Array(samplePemKey.utf8CString), format: .pem)
-        let expectedCert = try NIOSSLCertificate(buffer: Array(samplePemCert.utf8CString), format: .pem)
-        let caOne = try NIOSSLCertificate(buffer: Array(multiSanCert.utf8CString), format: .pem)
-        let caTwo = try NIOSSLCertificate(buffer: Array(multiCNCert.utf8CString), format: .pem)
-        let caThree = try NIOSSLCertificate(buffer: Array(noCNCert.utf8CString), format: .pem)
-        let caFour = try NIOSSLCertificate(buffer: Array(unicodeCNCert.utf8CString), format: .pem)
+        let expectedKey = try NIOSSLPrivateKey(bytes: .init(samplePemKey.utf8), format: .pem)
+        let expectedCert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
+        let caOne = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
+        let caTwo = try NIOSSLCertificate(bytes: .init(multiCNCert.utf8), format: .pem)
+        let caThree = try NIOSSLCertificate(bytes: .init(noCNCert.utf8), format: .pem)
+        let caFour = try NIOSSLCertificate(bytes: .init(unicodeCNCert.utf8), format: .pem)
 
         XCTAssertEqual(p12Bundle.privateKey, expectedKey)
         XCTAssertEqual(p12Bundle.certificateChain, [expectedCert, caOne, caTwo, caThree, caFour])
@@ -487,8 +487,8 @@ class SSLPKCS12BundleTest: XCTestCase {
 
     func testDecodingSimpleP12FromFileWithoutPassphrase() throws {
         let p12Bundle = try NIOSSLPKCS12Bundle(file: SSLPKCS12BundleTest.noPassFilePath)
-        let expectedKey = try NIOSSLPrivateKey(buffer: Array(samplePemKey.utf8CString), format: .pem)
-        let expectedCert = try NIOSSLCertificate(buffer: Array(samplePemCert.utf8CString), format: .pem)
+        let expectedKey = try NIOSSLPrivateKey(bytes: .init(samplePemKey.utf8), format: .pem)
+        let expectedCert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
 
         XCTAssertEqual(p12Bundle.privateKey, expectedKey)
         XCTAssertEqual(p12Bundle.certificateChain, [expectedCert])
