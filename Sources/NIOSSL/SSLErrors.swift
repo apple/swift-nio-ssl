@@ -131,7 +131,7 @@ public func ==(lhs: BoringSSLError, rhs: BoringSSLError) -> Bool {
 }
 
 internal extension BoringSSLError {
-    static func fromSSLGetErrorResult(_ result: Int32) -> BoringSSLError? {
+    static func fromSSLGetErrorResult(_ result: CInt) -> BoringSSLError? {
         switch result {
         case SSL_ERROR_NONE:
             return .noError

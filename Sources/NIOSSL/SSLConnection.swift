@@ -193,7 +193,7 @@ internal final class SSLConnection {
     /// `getDataForNetwork` after this method is called. This method also consumes
     /// data from internal buffers: call `consumeDataFromNetwork` before calling this
     /// method.
-    func doHandshake() -> AsyncOperationResult<Int32> {
+    func doHandshake() -> AsyncOperationResult<CInt> {
         CNIOBoringSSL_ERR_clear_error()
         let rc = CNIOBoringSSL_SSL_do_handshake(ssl)
         
@@ -219,7 +219,7 @@ internal final class SSLConnection {
     /// `getDataForNetwork` after this method is called. This method also consumes
     /// data from internal buffers: call `consumeDataFromNetwork` before calling this
     /// method.
-    func doShutdown() -> AsyncOperationResult<Int32> {
+    func doShutdown() -> AsyncOperationResult<CInt> {
         CNIOBoringSSL_ERR_clear_error()
         let rc = CNIOBoringSSL_SSL_shutdown(ssl)
         
@@ -275,16 +275,16 @@ internal final class SSLConnection {
         // safely return any of the error values that SSL_read might provide here because writeWithUnsafeMutableBytes
         // will try to use that as the number of bytes written and blow up. If we could prevent it doing that (which
         // we can with reading) that would be grand, but we can't, so instead we need to use a temp variable. Not ideal.
-        var bytesRead: Int32 = 0
+        var bytesRead: CInt = 0
         let rc = outputBuffer.writeWithUnsafeMutableBytes { (pointer) -> Int in
-            bytesRead = CNIOBoringSSL_SSL_read(self.ssl, pointer.baseAddress, Int32(pointer.count))
+            bytesRead = CNIOBoringSSL_SSL_read(self.ssl, pointer.baseAddress, CInt(pointer.count))
             return bytesRead >= 0 ? Int(bytesRead) : 0
         }
         
         if bytesRead > 0 {
             return .complete(rc)
         } else {
-            let result = CNIOBoringSSL_SSL_get_error(ssl, Int32(bytesRead))
+            let result = CNIOBoringSSL_SSL_get_error(ssl, CInt(bytesRead))
             let error = BoringSSLError.fromSSLGetErrorResult(result)!
             
             switch error {
@@ -301,15 +301,15 @@ internal final class SSLConnection {
     ///
     /// This call will only write the data into BoringSSL's internal buffers. It needs to be obtained
     /// by calling `getDataForNetwork` after this call completes.
-    func writeDataToNetwork(_ data: inout ByteBuffer) -> AsyncOperationResult<Int32> {
+    func writeDataToNetwork(_ data: inout ByteBuffer) -> AsyncOperationResult<CInt> {
         // BoringSSL does not allow calling SSL_write with zero-length buffers. Zero-length
         // writes always succeed.
         guard data.readableBytes > 0 else {
             return .complete(0)
         }
 
-        let writtenBytes = data.withUnsafeReadableBytes { (pointer) -> Int32 in
-            return CNIOBoringSSL_SSL_write(ssl, pointer.baseAddress, Int32(pointer.count))
+        let writtenBytes = data.withUnsafeReadableBytes { (pointer) -> CInt in
+            return CNIOBoringSSL_SSL_write(ssl, pointer.baseAddress, CInt(pointer.count))
         }
         
         if writtenBytes > 0 {
@@ -337,7 +337,7 @@ internal final class SSLConnection {
     /// was negotiated.
     func getAlpnProtocol() -> String? {
         var protoName = UnsafePointer<UInt8>(bitPattern: 0)
-        var protoLen: UInt32 = 0
+        var protoLen: CUnsignedInt = 0
 
         CNIOBoringSSL_SSL_get0_alpn_selected(ssl, &protoName, &protoLen)
         guard protoLen > 0 else {
