@@ -1,1 +1,1 @@
-This directory is derived from BoringSSL cloned from https://boringssl.googlesource.com/boringssl at revision bc2a2013e03754a89a701739a7b58c422391efa2
+This directory is derived from BoringSSL cloned from https://boringssl.googlesource.com/boringssl at revision 9806ae005b3085683a2fcf2953e4170893e0973d

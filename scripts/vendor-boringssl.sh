@@ -49,22 +49,22 @@ SRCROOT="${TMPDIR}/src/boringssl.googlesource.com/boringssl"
 # and BoringSSL.
 function namespace_inlines {
     # Pull out all STACK_OF functions.
-    STACKS=$(grep --no-filename -rE "DEFINE_(SPECIAL_)?STACK_OF\([A-Z_0-9a-z]+\)" "$1/"* | grep -v '//' | grep -v '#' | gsed 's/DEFINE_\(SPECIAL_\)\?STACK_OF(\(.*\))/\2/')
+    STACKS=$(grep --no-filename -rE -e "DEFINE_(SPECIAL_)?STACK_OF\([A-Z_0-9a-z]+\)" -e "DEFINE_NAMED_STACK_OF\([A-Z_0-9a-z]+, +[A-Z_0-9a-z:]+\)" "$1/"* | grep -v '//' | grep -v '#' | gsed -e 's/DEFINE_\(SPECIAL_\)\?STACK_OF(\(.*\))/\2/' -e 's/DEFINE_NAMED_STACK_OF(\(.*\), .*)/\1/')
     STACK_FUNCTIONS=("call_free_func" "call_copy_func" "call_cmp_func" "new" "new_null" "num" "zero" "value" "set" "free" "pop_free" "insert" "delete" "delete_ptr" "find" "shift" "push" "pop" "dup" "sort" "is_sorted" "set_cmp_func" "deep_copy")
 
     for s in $STACKS; do
         for f in "${STACK_FUNCTIONS[@]}"; do
-            echo "#define sk_${s}_${f} BORINGSSL_ADD_PREFIX(BORINGSSL_PREFIX, sk_${s}_${f})" >> "$1/boringssl_prefix_symbols.h"
+            echo "#define sk_${s}_${f} BORINGSSL_ADD_PREFIX(BORINGSSL_PREFIX, sk_${s}_${f})" >> "$1/include/openssl/boringssl_prefix_symbols.h"
         done
     done
 
     # Now pull out all LHASH_OF functions.
-    LHASHES=$(grep --no-filename -rE "DECLARE_LHASH_OF\([A-Z_0-9a-z]+\)" "$1/"* | grep -v '//' | grep -v '#' | grep -v '\\$' | gsed 's/DECLARE_LHASH_OF(\(.*\))/\1/')
+    LHASHES=$(grep --no-filename -rE "DEFINE_LHASH_OF\([A-Z_0-9a-z]+\)" "$1/"* | grep -v '//' | grep -v '#' | grep -v '\\$' | gsed 's/DEFINE_LHASH_OF(\(.*\))/\1/')
     LHASH_FUNCTIONS=("call_cmp_func" "call_hash_func" "new" "free" "num_items" "retrieve" "call_cmp_key" "retrieve_key" "insert" "delete" "call_doall" "call_doall_arg" "doall" "doall_arg")
 
     for l in $LHASHES; do
         for f in "${LHASH_FUNCTIONS[@]}"; do
-            echo "#define lh_${l}_${f} BORINGSSL_ADD_PREFIX(BORINGSSL_PREFIX, lh_${l}_${f})" >> "$1/boringssl_prefix_symbols.h"
+            echo "#define lh_${l}_${f} BORINGSSL_ADD_PREFIX(BORINGSSL_PREFIX, lh_${l}_${f})" >> "$1/include/openssl/boringssl_prefix_symbols.h"
         done
     done
 }
@@ -195,7 +195,7 @@ for assembly_file in $(find "$DSTROOT" -name "*.S")
 do
     $sed -i '1 i #define BORINGSSL_PREFIX CNIOBoringSSL' "$assembly_file"
 done
-namespace_inlines "$DSTROOT/include/openssl"
+namespace_inlines "$DSTROOT"
 
 # Removing ASM on 32 bit Apple platforms
 echo "REMOVING assembly on 32-bit Apple platforms"
