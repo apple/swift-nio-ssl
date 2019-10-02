@@ -3973,3 +3973,7 @@ sha256_block_data_order_avx:
 .size	sha256_block_data_order_avx,.-sha256_block_data_order_avx
 #endif
 #endif  // defined(__x86_64__) && defined(__linux__)
+#if defined(__linux__) && defined(__ELF__)
+.section .note.GNU-stack,"",%progbits
+#endif
+

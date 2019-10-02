@@ -1248,30 +1248,34 @@ bool ssl_on_certificate_selected(SSL_HANDSHAKE *hs);
 // tls13_init_key_schedule initializes the handshake hash and key derivation
 // state, and incorporates the PSK. The cipher suite and PRF hash must have been
 // selected at this point. It returns true on success and false on error.
-bool tls13_init_key_schedule(SSL_HANDSHAKE *hs, const uint8_t *psk,
-                             size_t psk_len);
+bool tls13_init_key_schedule(SSL_HANDSHAKE *hs, Span<const uint8_t> psk);
 
 // tls13_init_early_key_schedule initializes the handshake hash and key
 // derivation state from the resumption secret and incorporates the PSK to
 // derive the early secrets. It returns one on success and zero on error.
-bool tls13_init_early_key_schedule(SSL_HANDSHAKE *hs, const uint8_t *psk,
-                                   size_t psk_len);
+bool tls13_init_early_key_schedule(SSL_HANDSHAKE *hs, Span<const uint8_t> psk);
 
 // tls13_advance_key_schedule incorporates |in| into the key schedule with
 // HKDF-Extract. It returns true on success and false on error.
-bool tls13_advance_key_schedule(SSL_HANDSHAKE *hs, const uint8_t *in,
-                               size_t len);
+bool tls13_advance_key_schedule(SSL_HANDSHAKE *hs, Span<const uint8_t> in);
 
 // tls13_set_traffic_key sets the read or write traffic keys to
 // |traffic_secret|. It returns true on success and false on error.
 bool tls13_set_traffic_key(SSL *ssl, enum ssl_encryption_level_t level,
                            enum evp_aead_direction_t direction,
-                           const uint8_t *traffic_secret,
-                           size_t traffic_secret_len);
+                           Span<const uint8_t> traffic_secret);
 
-// tls13_derive_early_secrets derives the early traffic secret. It returns true
-// on success and false on error.
-bool tls13_derive_early_secrets(SSL_HANDSHAKE *hs);
+// tls13_derive_early_secret derives the early traffic secret. It returns true
+// on success and false on error. Unlike with other traffic secrets, this
+// function does not pass the keys to QUIC. Call
+// |tls13_set_early_secret_for_quic| to do so. This is done to due to an
+// ordering complication around resolving HelloRetryRequest on the server.
+bool tls13_derive_early_secret(SSL_HANDSHAKE *hs);
+
+// tls13_set_early_secret_for_quic passes the early traffic secrets, as
+// derived by |tls13_derive_early_secret|, to QUIC. It returns true on success
+// and false on error.
+bool tls13_set_early_secret_for_quic(SSL_HANDSHAKE *hs);
 
 // tls13_derive_handshake_secrets derives the handshake traffic secret. It
 // returns true on success and false on error.
@@ -1456,14 +1460,38 @@ struct SSL_HANDSHAKE {
   // |SSL_OP_NO_*| and |SSL_CTX_set_max_proto_version| APIs.
   uint16_t max_version = 0;
 
-  size_t hash_len = 0;
-  uint8_t secret[SSL_MAX_MD_SIZE] = {0};
-  uint8_t early_traffic_secret[SSL_MAX_MD_SIZE] = {0};
-  uint8_t client_handshake_secret[SSL_MAX_MD_SIZE] = {0};
-  uint8_t server_handshake_secret[SSL_MAX_MD_SIZE] = {0};
-  uint8_t client_traffic_secret_0[SSL_MAX_MD_SIZE] = {0};
-  uint8_t server_traffic_secret_0[SSL_MAX_MD_SIZE] = {0};
-  uint8_t expected_client_finished[SSL_MAX_MD_SIZE] = {0};
+ private:
+  size_t hash_len_ = 0;
+  uint8_t secret_[SSL_MAX_MD_SIZE] = {0};
+  uint8_t early_traffic_secret_[SSL_MAX_MD_SIZE] = {0};
+  uint8_t client_handshake_secret_[SSL_MAX_MD_SIZE] = {0};
+  uint8_t server_handshake_secret_[SSL_MAX_MD_SIZE] = {0};
+  uint8_t client_traffic_secret_0_[SSL_MAX_MD_SIZE] = {0};
+  uint8_t server_traffic_secret_0_[SSL_MAX_MD_SIZE] = {0};
+  uint8_t expected_client_finished_[SSL_MAX_MD_SIZE] = {0};
+
+ public:
+  void ResizeSecrets(size_t hash_len);
+
+  Span<uint8_t> secret() { return MakeSpan(secret_, hash_len_); }
+  Span<uint8_t> early_traffic_secret() {
+    return MakeSpan(early_traffic_secret_, hash_len_);
+  }
+  Span<uint8_t> client_handshake_secret() {
+    return MakeSpan(client_handshake_secret_, hash_len_);
+  }
+  Span<uint8_t> server_handshake_secret() {
+    return MakeSpan(server_handshake_secret_, hash_len_);
+  }
+  Span<uint8_t> client_traffic_secret_0() {
+    return MakeSpan(client_traffic_secret_0_, hash_len_);
+  }
+  Span<uint8_t> server_traffic_secret_0() {
+    return MakeSpan(server_traffic_secret_0_, hash_len_);
+  }
+  Span<uint8_t> expected_client_finished() {
+    return MakeSpan(expected_client_finished_, hash_len_);
+  }
 
   union {
     // sent is a bitset where the bits correspond to elements of kExtensions
@@ -1643,7 +1671,8 @@ struct SSL_HANDSHAKE {
 
   // handback indicates that a server should pause the handshake after
   // finishing operations that require private key material, in such a way that
-  // |SSL_get_error| returns |SSL_HANDBACK|.  It is set by |SSL_apply_handoff|.
+  // |SSL_get_error| returns |SSL_ERROR_HANDBACK|.  It is set by
+  // |SSL_apply_handoff|.
   bool handback : 1;
 
   // cert_compression_negotiated is true iff |cert_compression_alg_id| is valid.
@@ -1803,9 +1832,9 @@ bool ssl_output_cert_chain(SSL_HANDSHAKE *hs);
 // SSLKEYLOGFILE functions.
 
 // ssl_log_secret logs |secret| with label |label|, if logging is enabled for
-// |ssl|. It returns one on success and zero on failure.
-int ssl_log_secret(const SSL *ssl, const char *label, const uint8_t *secret,
-                   size_t secret_len);
+// |ssl|. It returns true on success and false on failure.
+bool ssl_log_secret(const SSL *ssl, const char *label,
+                    Span<const uint8_t> secret);
 
 
 // ClientHello functions.
@@ -2181,7 +2210,7 @@ struct SSL3_STATE {
   // This holds a variable that indicates what we were doing when a 0 or -1 is
   // returned.  This is needed for non-blocking IO so we know what request
   // needs re-doing when in SSL_accept or SSL_connect
-  int rwstate = SSL_NOTHING;
+  int rwstate = SSL_ERROR_NONE;
 
   enum ssl_encryption_level_t read_level = ssl_encryption_initial;
   enum ssl_encryption_level_t write_level = ssl_encryption_initial;
@@ -2578,7 +2607,7 @@ struct SSL_CONFIG {
 
   // handoff indicates that a server should stop after receiving the
   // ClientHello and pause the handshake in such a way that |SSL_get_error|
-  // returns |SSL_HANDOFF|. This is copied in |SSL_new| from the |SSL_CTX|
+  // returns |SSL_ERROR_HANDOFF|. This is copied in |SSL_new| from the |SSL_CTX|
   // element of the same name and may be cleared if the handoff is declined.
   bool handoff : 1;
 
@@ -3187,7 +3216,7 @@ struct ssl_ctx_st {
 
   // handoff indicates that a server should stop after receiving the
   // ClientHello and pause the handshake in such a way that |SSL_get_error|
-  // returns |SSL_HANDOFF|.
+  // returns |SSL_ERROR_HANDOFF|.
   bool handoff : 1;
 
   // If enable_early_data is true, early data can be sent and accepted.

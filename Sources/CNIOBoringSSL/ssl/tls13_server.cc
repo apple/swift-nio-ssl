@@ -87,7 +87,7 @@ static int resolve_ecdhe_secret(SSL_HANDSHAKE *hs, bool *out_need_retry,
     return 0;
   }
 
-  return tls13_advance_key_schedule(hs, dhe_secret.data(), dhe_secret.size());
+  return tls13_advance_key_schedule(hs, dhe_secret);
 }
 
 static int ssl_ext_supported_versions_add_serverhello(SSL_HANDSHAKE *hs,
@@ -146,7 +146,10 @@ static bool add_new_session_tickets(SSL_HANDSHAKE *hs, bool *out_sent_tickets) {
     }
     session->ticket_age_add_valid = true;
     if (ssl->enable_early_data) {
-      session->ticket_max_early_data = kMaxEarlyDataAccepted;
+      // QUIC does not use the max_early_data_size parameter and always sets it
+      // to a fixed value. See draft-ietf-quic-tls-22, section 4.5.
+      session->ticket_max_early_data =
+          ssl->quic_method != nullptr ? 0xffffffff : kMaxEarlyDataAccepted;
     }
 
     static_assert(kNumTickets < 256, "Too many tickets");
@@ -428,11 +431,12 @@ static enum ssl_hs_wait_t do_select_session(SSL_HANDSHAKE *hs) {
 
   // Set up the key schedule and incorporate the PSK into the running secret.
   if (ssl->s3->session_reused) {
-    if (!tls13_init_key_schedule(hs, hs->new_session->master_key,
-                                    hs->new_session->master_key_length)) {
+    if (!tls13_init_key_schedule(
+            hs, MakeConstSpan(hs->new_session->master_key,
+                              hs->new_session->master_key_length))) {
       return ssl_hs_error;
     }
-  } else if (!tls13_init_key_schedule(hs, kZeroes, hash_len)) {
+  } else if (!tls13_init_key_schedule(hs, MakeConstSpan(kZeroes, hash_len))) {
     return ssl_hs_error;
   }
 
@@ -441,7 +445,7 @@ static enum ssl_hs_wait_t do_select_session(SSL_HANDSHAKE *hs) {
   }
 
   if (ssl->s3->early_data_accepted) {
-    if (!tls13_derive_early_secrets(hs)) {
+    if (!tls13_derive_early_secret(hs)) {
       return ssl_hs_error;
     }
   } else if (hs->early_data_offered) {
@@ -464,6 +468,15 @@ static enum ssl_hs_wait_t do_select_session(SSL_HANDSHAKE *hs) {
       hs->tls13_state = state_send_hello_retry_request;
       return ssl_hs_ok;
     }
+    return ssl_hs_error;
+  }
+
+  // Note we defer releasing the early traffic secret to QUIC until after ECDHE
+  // is resolved. The early traffic secret should be derived before the key
+  // schedule incorporates ECDHE, but doing so may reject 0-RTT. To avoid
+  // confusing the caller, we split derivation and releasing the secret to QUIC.
+  if (ssl->s3->early_data_accepted &&
+      !tls13_set_early_secret_for_quic(hs)) {
     return ssl_hs_error;
   }
 
@@ -607,7 +620,7 @@ static enum ssl_hs_wait_t do_send_server_hello(SSL_HANDSHAKE *hs) {
   // Derive and enable the handshake traffic secrets.
   if (!tls13_derive_handshake_secrets(hs) ||
       !tls13_set_traffic_key(ssl, ssl_encryption_handshake, evp_aead_seal,
-                             hs->server_handshake_secret, hs->hash_len)) {
+                             hs->server_handshake_secret())) {
     return ssl_hs_error;
   }
 
@@ -715,10 +728,11 @@ static enum ssl_hs_wait_t do_send_server_finished(SSL_HANDSHAKE *hs) {
   SSL *const ssl = hs->ssl;
   if (!tls13_add_finished(hs) ||
       // Update the secret to the master secret and derive traffic keys.
-      !tls13_advance_key_schedule(hs, kZeroes, hs->hash_len) ||
+      !tls13_advance_key_schedule(
+          hs, MakeConstSpan(kZeroes, hs->transcript.DigestLen())) ||
       !tls13_derive_application_secrets(hs) ||
       !tls13_set_traffic_key(ssl, ssl_encryption_application, evp_aead_seal,
-                             hs->server_traffic_secret_0, hs->hash_len)) {
+                             hs->server_traffic_secret_0())) {
     return ssl_hs_error;
   }
 
@@ -729,18 +743,19 @@ static enum ssl_hs_wait_t do_send_server_finished(SSL_HANDSHAKE *hs) {
     // Finished early. See RFC 8446, section 4.6.1.
     static const uint8_t kEndOfEarlyData[4] = {SSL3_MT_END_OF_EARLY_DATA, 0,
                                                0, 0};
-    if (!hs->transcript.Update(kEndOfEarlyData)) {
+    if (ssl->quic_method == nullptr &&
+        !hs->transcript.Update(kEndOfEarlyData)) {
       OPENSSL_PUT_ERROR(SSL, ERR_R_INTERNAL_ERROR);
       return ssl_hs_error;
     }
 
     size_t finished_len;
-    if (!tls13_finished_mac(hs, hs->expected_client_finished, &finished_len,
-                            false /* client */)) {
+    if (!tls13_finished_mac(hs, hs->expected_client_finished().data(),
+                            &finished_len, false /* client */)) {
       return ssl_hs_error;
     }
 
-    if (finished_len != hs->hash_len) {
+    if (finished_len != hs->expected_client_finished().size()) {
       OPENSSL_PUT_ERROR(SSL, ERR_R_INTERNAL_ERROR);
       return ssl_hs_error;
     }
@@ -750,13 +765,13 @@ static enum ssl_hs_wait_t do_send_server_finished(SSL_HANDSHAKE *hs) {
     //
     // TODO(davidben): This will need to be updated for DTLS 1.3.
     assert(!SSL_is_dtls(hs->ssl));
-    assert(hs->hash_len <= 0xff);
-    uint8_t header[4] = {SSL3_MT_FINISHED, 0, 0,
-                         static_cast<uint8_t>(hs->hash_len)};
+    assert(hs->expected_client_finished().size() <= 0xff);
+    uint8_t header[4] = {
+        SSL3_MT_FINISHED, 0, 0,
+        static_cast<uint8_t>(hs->expected_client_finished().size())};
     bool unused_sent_tickets;
     if (!hs->transcript.Update(header) ||
-        !hs->transcript.Update(
-            MakeConstSpan(hs->expected_client_finished, hs->hash_len)) ||
+        !hs->transcript.Update(hs->expected_client_finished()) ||
         !tls13_derive_resumption_secret(hs) ||
         !add_new_session_tickets(hs, &unused_sent_tickets)) {
       return ssl_hs_error;
@@ -770,14 +785,29 @@ static enum ssl_hs_wait_t do_send_server_finished(SSL_HANDSHAKE *hs) {
 static enum ssl_hs_wait_t do_read_second_client_flight(SSL_HANDSHAKE *hs) {
   SSL *const ssl = hs->ssl;
   if (ssl->s3->early_data_accepted) {
-    if (!tls13_set_traffic_key(ssl, ssl_encryption_early_data, evp_aead_open,
-                               hs->early_traffic_secret, hs->hash_len)) {
+    // QUIC never receives handshake messages under 0-RTT keys.
+    if (ssl->quic_method == nullptr &&
+        !tls13_set_traffic_key(ssl, ssl_encryption_early_data, evp_aead_open,
+                               hs->early_traffic_secret())) {
       return ssl_hs_error;
     }
     hs->can_early_write = true;
     hs->can_early_read = true;
     hs->in_early_data = true;
   }
+
+  // QUIC doesn't use an EndOfEarlyData message (draft-ietf-quic-tls-22,
+  // section 8.3), so we switch to client_handshake_secret before the early
+  // return.
+  if (ssl->quic_method != nullptr) {
+    if (!tls13_set_traffic_key(ssl, ssl_encryption_handshake, evp_aead_open,
+                               hs->client_handshake_secret())) {
+      return ssl_hs_error;
+    }
+    hs->tls13_state = state_read_client_certificate;
+    return ssl->s3->early_data_accepted ? ssl_hs_early_return : ssl_hs_ok;
+  }
+
   hs->tls13_state = state_process_end_of_early_data;
   return ssl->s3->early_data_accepted ? ssl_hs_read_end_of_early_data
                                       : ssl_hs_ok;
@@ -785,42 +815,42 @@ static enum ssl_hs_wait_t do_read_second_client_flight(SSL_HANDSHAKE *hs) {
 
 static enum ssl_hs_wait_t do_process_end_of_early_data(SSL_HANDSHAKE *hs) {
   SSL *const ssl = hs->ssl;
-  if (hs->early_data_offered) {
-    // If early data was not accepted, the EndOfEarlyData and ChangeCipherSpec
-    // message will be in the discarded early data.
-    if (hs->ssl->s3->early_data_accepted) {
-      SSLMessage msg;
-      if (!ssl->method->get_message(ssl, &msg)) {
-        return ssl_hs_read_message;
-      }
-
-      if (!ssl_check_message_type(ssl, msg, SSL3_MT_END_OF_EARLY_DATA)) {
-        return ssl_hs_error;
-      }
-      if (CBS_len(&msg.body) != 0) {
-        ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_DECODE_ERROR);
-        OPENSSL_PUT_ERROR(SSL, SSL_R_DECODE_ERROR);
-        return ssl_hs_error;
-      }
-      ssl->method->next_message(ssl);
+  // If early data was not accepted, the EndOfEarlyData will be in the discarded
+  // early data.
+  if (hs->ssl->s3->early_data_accepted) {
+    SSLMessage msg;
+    if (!ssl->method->get_message(ssl, &msg)) {
+      return ssl_hs_read_message;
     }
+    if (!ssl_check_message_type(ssl, msg, SSL3_MT_END_OF_EARLY_DATA)) {
+      return ssl_hs_error;
+    }
+    if (CBS_len(&msg.body) != 0) {
+      ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_DECODE_ERROR);
+      OPENSSL_PUT_ERROR(SSL, SSL_R_DECODE_ERROR);
+      return ssl_hs_error;
+    }
+    ssl->method->next_message(ssl);
   }
   if (!tls13_set_traffic_key(ssl, ssl_encryption_handshake, evp_aead_open,
-                             hs->client_handshake_secret, hs->hash_len)) {
+                             hs->client_handshake_secret())) {
     return ssl_hs_error;
   }
-  hs->tls13_state = ssl->s3->early_data_accepted
-                        ? state_read_client_finished
-                        : state_read_client_certificate;
+  hs->tls13_state = state_read_client_certificate;
   return ssl_hs_ok;
 }
 
 static enum ssl_hs_wait_t do_read_client_certificate(SSL_HANDSHAKE *hs) {
   SSL *const ssl = hs->ssl;
   if (!hs->cert_request) {
-    // OpenSSL returns X509_V_OK when no certificates are requested. This is
-    // classed by them as a bug, but it's assumed by at least NGINX.
-    hs->new_session->verify_result = X509_V_OK;
+    if (!ssl->s3->session_reused) {
+      // OpenSSL returns X509_V_OK when no certificates are requested. This is
+      // classed by them as a bug, but it's assumed by at least NGINX. (Only do
+      // this in full handshakes as resumptions should carry over the previous
+      // |verify_result|, though this is a no-op because servers do not
+      // implement the client's odd soft-fail mode.)
+      hs->new_session->verify_result = X509_V_OK;
+    }
 
     // Skip this state.
     hs->tls13_state = state_read_channel_id;
@@ -913,7 +943,7 @@ static enum ssl_hs_wait_t do_read_client_finished(SSL_HANDSHAKE *hs) {
       !tls13_process_finished(hs, msg, ssl->s3->early_data_accepted) ||
       // evp_aead_seal keys have already been switched.
       !tls13_set_traffic_key(ssl, ssl_encryption_application, evp_aead_open,
-                             hs->client_traffic_secret_0, hs->hash_len)) {
+                             hs->client_traffic_secret_0())) {
     return ssl_hs_error;
   }
 

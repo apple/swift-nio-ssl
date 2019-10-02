@@ -975,3 +975,7 @@ ChaCha20_ssse3:
 .byte	114,103,62,0
 #endif
 #endif  // defined(__i386__) && defined(__linux__)
+#if defined(__linux__) && defined(__ELF__)
+.section .note.GNU-stack,"",%progbits
+#endif
+

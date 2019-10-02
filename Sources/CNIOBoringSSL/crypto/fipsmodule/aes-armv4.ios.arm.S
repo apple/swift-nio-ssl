@@ -1234,3 +1234,7 @@ Ldec_loop:
 .align	2
 #endif  // !OPENSSL_NO_ASM
 #endif  // defined(__arm__) && defined(__APPLE__)
+#if defined(__linux__) && defined(__ELF__)
+.section .note.GNU-stack,"",%progbits
+#endif
+

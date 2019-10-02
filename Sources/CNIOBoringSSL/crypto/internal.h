@@ -187,6 +187,15 @@ typedef __uint128_t uint128_t;
 #define OPENSSL_FALLTHROUGH [[gnu::fallthrough]]
 #elif defined(__GNUC__) && __GNUC__ >= 7 // gcc 7
 #define OPENSSL_FALLTHROUGH __attribute__ ((fallthrough))
+#elif defined(__clang__)
+#if __has_attribute(fallthrough) && __clang_major__ >= 5
+// Clang 3.5, at least, complains about "error: declaration does not declare
+// anything", possibily because we put a semicolon after this macro in
+// practice. Thus limit it to >= Clang 5, which does work.
+#define OPENSSL_FALLTHROUGH __attribute__ ((fallthrough))
+#else // clang versions that do not support fallthrough.
+#define OPENSSL_FALLTHROUGH
+#endif
 #else // C++11 on gcc 6, and all other cases
 #define OPENSSL_FALLTHROUGH
 #endif
@@ -788,6 +797,15 @@ static inline void *OPENSSL_memset(void *dst, int c, size_t n) {
 // process.
 void BORINGSSL_FIPS_abort(void) __attribute__((noreturn));
 #endif
+
+// boringssl_fips_self_test runs the FIPS KAT-based self tests. It returns one
+// on success and zero on error. The argument is the integrity hash of the FIPS
+// module and may be used to check and write flag files to suppress duplicate
+// self-tests. If |module_hash_len| is zero then no flag file will be checked
+// nor written and tests will always be run.
+int boringssl_fips_self_test(const uint8_t *module_hash,
+                             size_t module_hash_len);
+
 
 #if defined(__cplusplus)
 }  // extern C

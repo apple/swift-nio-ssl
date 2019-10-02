@@ -2133,3 +2133,7 @@ bx lr
 
 #endif  /* !OPENSSL_NO_ASM && __arm__ && !__APPLE__ */
 #endif  // defined(__arm__) && defined(__linux__)
+#if defined(__linux__) && defined(__ELF__)
+.section .note.GNU-stack,"",%progbits
+#endif
+
