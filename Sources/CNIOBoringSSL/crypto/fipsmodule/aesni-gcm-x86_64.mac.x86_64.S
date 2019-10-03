@@ -558,11 +558,9 @@ L$handle_ctr32_2:
 .p2align	5
 _aesni_gcm_encrypt:
 
-#ifndef NDEBUG
-#ifndef BORINGSSL_FIPS
+#ifdef BORINGSSL_DISPATCH_TEST
 
 	movb	$1,_BORINGSSL_function_hit+2(%rip)
-#endif
 #endif
 	xorq	%r10,%r10
 
@@ -853,3 +851,7 @@ L$one_lsb:
 .p2align	6
 #endif
 #endif  // defined(__x86_64__) && defined(__APPLE__)
+#if defined(__linux__) && defined(__ELF__)
+.section .note.GNU-stack,"",%progbits
+#endif
+

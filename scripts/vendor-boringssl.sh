@@ -229,6 +229,13 @@ echo "PATCHING BoringSSL"
 git apply "${HERE}/scripts/patch-1-inttypes.patch"
 git apply "${HERE}/scripts/patch-2-arm-arch.patch"
 
+# We need to avoid having the stack be executable. BoringSSL does this in its build system, but we can't.
+echo "PROTECTING against executable stacks"
+(
+    cd "$DSTROOT"
+    find . -name "*.S" | xargs $sed -i '$ a #if defined(__linux__) && defined(__ELF__)\n.section .note.GNU-stack,"",%progbits\n#endif\n'
+)
+
 # We need BoringSSL to be modularised
 echo "MODULARISING BoringSSL"
 cat << EOF > "$DSTROOT/include/CNIOBoringSSL.h"

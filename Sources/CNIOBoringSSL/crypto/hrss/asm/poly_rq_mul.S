@@ -8464,3 +8464,7 @@ ret
 
 #endif
 #endif  // defined(__x86_64__) && defined(__linux__)
+#if defined(__linux__) && defined(__ELF__)
+.section .note.GNU-stack,"",%progbits
+#endif
+

@@ -999,3 +999,7 @@ sike_mpdblsubx2_asm:
 #endif
 #endif  // !OPENSSL_NO_ASM
 #endif  // defined(__aarch64__) && defined(__linux__)
+#if defined(__linux__) && defined(__ELF__)
+.section .note.GNU-stack,"",%progbits
+#endif
+

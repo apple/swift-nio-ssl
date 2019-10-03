@@ -365,11 +365,12 @@ static enum ssl_hs_wait_t do_read_server_hello(SSL_HANDSHAKE *hs) {
 
   // Set up the key schedule and incorporate the PSK into the running secret.
   if (ssl->s3->session_reused) {
-    if (!tls13_init_key_schedule(hs, hs->new_session->master_key,
-                                 hs->new_session->master_key_length)) {
+    if (!tls13_init_key_schedule(
+            hs, MakeConstSpan(hs->new_session->master_key,
+                              hs->new_session->master_key_length))) {
       return ssl_hs_error;
     }
-  } else if (!tls13_init_key_schedule(hs, kZeroes, hash_len)) {
+  } else if (!tls13_init_key_schedule(hs, MakeConstSpan(kZeroes, hash_len))) {
     return ssl_hs_error;
   }
 
@@ -389,10 +390,11 @@ static enum ssl_hs_wait_t do_read_server_hello(SSL_HANDSHAKE *hs) {
     return ssl_hs_error;
   }
 
-  if (!tls13_advance_key_schedule(hs, dhe_secret.data(), dhe_secret.size()) ||
-      !ssl_hash_message(hs, msg) || !tls13_derive_handshake_secrets(hs) ||
+  if (!tls13_advance_key_schedule(hs, dhe_secret) ||
+      !ssl_hash_message(hs, msg) ||
+      !tls13_derive_handshake_secrets(hs) ||
       !tls13_set_traffic_key(ssl, ssl_encryption_handshake, evp_aead_open,
-                             hs->server_handshake_secret, hs->hash_len)) {
+                             hs->server_handshake_secret())) {
     return ssl_hs_error;
   }
 
@@ -400,7 +402,7 @@ static enum ssl_hs_wait_t do_read_server_hello(SSL_HANDSHAKE *hs) {
     // If not sending early data, set client traffic keys now so that alerts are
     // encrypted.
     if (!tls13_set_traffic_key(ssl, ssl_encryption_handshake, evp_aead_seal,
-                               hs->client_handshake_secret, hs->hash_len)) {
+                               hs->client_handshake_secret())) {
       return ssl_hs_error;
     }
   }
@@ -615,7 +617,8 @@ static enum ssl_hs_wait_t do_read_server_finished(SSL_HANDSHAKE *hs) {
       !tls13_process_finished(hs, msg, false /* don't use saved value */) ||
       !ssl_hash_message(hs, msg) ||
       // Update the secret to the master secret and derive traffic keys.
-      !tls13_advance_key_schedule(hs, kZeroes, hs->hash_len) ||
+      !tls13_advance_key_schedule(
+          hs, MakeConstSpan(kZeroes, hs->transcript.DigestLen())) ||
       !tls13_derive_application_secrets(hs)) {
     return ssl_hs_error;
   }
@@ -630,18 +633,22 @@ static enum ssl_hs_wait_t do_send_end_of_early_data(SSL_HANDSHAKE *hs) {
 
   if (ssl->s3->early_data_accepted) {
     hs->can_early_write = false;
-    ScopedCBB cbb;
-    CBB body;
-    if (!ssl->method->init_message(ssl, cbb.get(), &body,
-                                   SSL3_MT_END_OF_EARLY_DATA) ||
-        !ssl_add_message_cbb(ssl, cbb.get())) {
-      return ssl_hs_error;
+    // QUIC omits the EndOfEarlyData message. See draft-ietf-quic-tls-22,
+    // section 8.3.
+    if (ssl->quic_method == nullptr) {
+      ScopedCBB cbb;
+      CBB body;
+      if (!ssl->method->init_message(ssl, cbb.get(), &body,
+                                     SSL3_MT_END_OF_EARLY_DATA) ||
+          !ssl_add_message_cbb(ssl, cbb.get())) {
+        return ssl_hs_error;
+      }
     }
   }
 
   if (hs->early_data_offered) {
     if (!tls13_set_traffic_key(ssl, ssl_encryption_handshake, evp_aead_seal,
-                               hs->client_handshake_secret, hs->hash_len)) {
+                               hs->client_handshake_secret())) {
       return ssl_hs_error;
     }
   }
@@ -736,9 +743,9 @@ static enum ssl_hs_wait_t do_complete_second_flight(SSL_HANDSHAKE *hs) {
 
   // Derive the final keys and enable them.
   if (!tls13_set_traffic_key(ssl, ssl_encryption_application, evp_aead_open,
-                             hs->server_traffic_secret_0, hs->hash_len) ||
+                             hs->server_traffic_secret_0()) ||
       !tls13_set_traffic_key(ssl, ssl_encryption_application, evp_aead_seal,
-                             hs->client_traffic_secret_0, hs->hash_len) ||
+                             hs->client_traffic_secret_0()) ||
       !tls13_derive_resumption_secret(hs)) {
     return ssl_hs_error;
   }
@@ -905,6 +912,15 @@ bool tls13_process_new_session_ticket(SSL *ssl, const SSLMessage &msg) {
     if (!CBS_get_u32(&early_data_info, &session->ticket_max_early_data) ||
         CBS_len(&early_data_info) != 0) {
       ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_DECODE_ERROR);
+      OPENSSL_PUT_ERROR(SSL, SSL_R_DECODE_ERROR);
+      return false;
+    }
+
+    // QUIC does not use the max_early_data_size parameter and always sets it to
+    // a fixed value. See draft-ietf-quic-tls-22, section 4.5.
+    if (ssl->quic_method != nullptr &&
+        session->ticket_max_early_data != 0xffffffff) {
+      ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_ILLEGAL_PARAMETER);
       OPENSSL_PUT_ERROR(SSL, SSL_R_DECODE_ERROR);
       return false;
     }

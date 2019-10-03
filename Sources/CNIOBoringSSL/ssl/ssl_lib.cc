@@ -201,7 +201,7 @@ bool CBBFinishArray(CBB *cbb, Array<uint8_t> *out) {
 void ssl_reset_error_state(SSL *ssl) {
   // Functions which use |SSL_get_error| must reset I/O and error state on
   // entry.
-  ssl->s3->rwstate = SSL_NOTHING;
+  ssl->s3->rwstate = SSL_ERROR_NONE;
   ERR_clear_error();
   ERR_clear_system_error();
 }
@@ -323,46 +323,45 @@ void ssl_update_cache(SSL_HANDSHAKE *hs, int mode) {
   }
 }
 
-static int cbb_add_hex(CBB *cbb, const uint8_t *in, size_t in_len) {
+static bool cbb_add_hex(CBB *cbb, Span<const uint8_t> in) {
   static const char hextable[] = "0123456789abcdef";
   uint8_t *out;
 
-  if (!CBB_add_space(cbb, &out, in_len * 2)) {
-    return 0;
+  if (!CBB_add_space(cbb, &out, in.size() * 2)) {
+    return false;
   }
 
-  for (size_t i = 0; i < in_len; i++) {
-    *(out++) = (uint8_t)hextable[in[i] >> 4];
-    *(out++) = (uint8_t)hextable[in[i] & 0xf];
+  for (uint8_t b : in) {
+    *(out++) = (uint8_t)hextable[b >> 4];
+    *(out++) = (uint8_t)hextable[b & 0xf];
   }
 
-  return 1;
+  return true;
 }
 
-int ssl_log_secret(const SSL *ssl, const char *label, const uint8_t *secret,
-                   size_t secret_len) {
+bool ssl_log_secret(const SSL *ssl, const char *label,
+                    Span<const uint8_t> secret) {
   if (ssl->ctx->keylog_callback == NULL) {
-    return 1;
+    return true;
   }
 
   ScopedCBB cbb;
-  uint8_t *out;
-  size_t out_len;
+  Array<uint8_t> line;
   if (!CBB_init(cbb.get(), strlen(label) + 1 + SSL3_RANDOM_SIZE * 2 + 1 +
-                          secret_len * 2 + 1) ||
-      !CBB_add_bytes(cbb.get(), (const uint8_t *)label, strlen(label)) ||
-      !CBB_add_bytes(cbb.get(), (const uint8_t *)" ", 1) ||
-      !cbb_add_hex(cbb.get(), ssl->s3->client_random, SSL3_RANDOM_SIZE) ||
-      !CBB_add_bytes(cbb.get(), (const uint8_t *)" ", 1) ||
-      !cbb_add_hex(cbb.get(), secret, secret_len) ||
+                               secret.size() * 2 + 1) ||
+      !CBB_add_bytes(cbb.get(), reinterpret_cast<const uint8_t *>(label),
+                     strlen(label)) ||
+      !CBB_add_u8(cbb.get(), ' ') ||
+      !cbb_add_hex(cbb.get(), ssl->s3->client_random) ||
+      !CBB_add_u8(cbb.get(), ' ') ||
+      !cbb_add_hex(cbb.get(), secret) ||
       !CBB_add_u8(cbb.get(), 0 /* NUL */) ||
-      !CBB_finish(cbb.get(), &out, &out_len)) {
-    return 0;
+      !CBBFinishArray(cbb.get(), &line)) {
+    return false;
   }
 
-  ssl->ctx->keylog_callback(ssl, (const char *)out);
-  OPENSSL_free(out);
-  return 1;
+  ssl->ctx->keylog_callback(ssl, reinterpret_cast<const char *>(line.data()));
+  return true;
 }
 
 void ssl_do_info_callback(const SSL *ssl, int type, int value) {
@@ -1344,19 +1343,19 @@ int SSL_get_error(const SSL *ssl, int ret_code) {
   }
 
   switch (ssl->s3->rwstate) {
-    case SSL_PENDING_SESSION:
-      return SSL_ERROR_PENDING_SESSION;
+    case SSL_ERROR_PENDING_SESSION:
+    case SSL_ERROR_PENDING_CERTIFICATE:
+    case SSL_ERROR_HANDOFF:
+    case SSL_ERROR_HANDBACK:
+    case SSL_ERROR_WANT_X509_LOOKUP:
+    case SSL_ERROR_WANT_CHANNEL_ID_LOOKUP:
+    case SSL_ERROR_WANT_PRIVATE_KEY_OPERATION:
+    case SSL_ERROR_PENDING_TICKET:
+    case SSL_ERROR_EARLY_DATA_REJECTED:
+    case SSL_ERROR_WANT_CERTIFICATE_VERIFY:
+      return ssl->s3->rwstate;
 
-    case SSL_CERTIFICATE_SELECTION_PENDING:
-      return SSL_ERROR_PENDING_CERTIFICATE;
-
-    case SSL_HANDOFF:
-      return SSL_ERROR_HANDOFF;
-
-    case SSL_HANDBACK:
-      return SSL_ERROR_HANDBACK;
-
-    case SSL_READING: {
+    case SSL_ERROR_WANT_READ: {
       if (ssl->quic_method) {
         return SSL_ERROR_WANT_READ;
       }
@@ -1378,7 +1377,7 @@ int SSL_get_error(const SSL *ssl, int ret_code) {
       break;
     }
 
-    case SSL_WRITING: {
+    case SSL_ERROR_WANT_WRITE: {
       BIO *bio = SSL_get_wbio(ssl);
       if (BIO_should_write(bio)) {
         return SSL_ERROR_WANT_WRITE;
@@ -1396,27 +1395,52 @@ int SSL_get_error(const SSL *ssl, int ret_code) {
 
       break;
     }
-
-    case SSL_X509_LOOKUP:
-      return SSL_ERROR_WANT_X509_LOOKUP;
-
-    case SSL_CHANNEL_ID_LOOKUP:
-      return SSL_ERROR_WANT_CHANNEL_ID_LOOKUP;
-
-    case SSL_PRIVATE_KEY_OPERATION:
-      return SSL_ERROR_WANT_PRIVATE_KEY_OPERATION;
-
-    case SSL_PENDING_TICKET:
-      return SSL_ERROR_PENDING_TICKET;
-
-    case SSL_EARLY_DATA_REJECTED:
-      return SSL_ERROR_EARLY_DATA_REJECTED;
-
-    case SSL_CERTIFICATE_VERIFY:
-      return SSL_ERROR_WANT_CERTIFICATE_VERIFY;
   }
 
   return SSL_ERROR_SYSCALL;
+}
+
+const char *SSL_error_description(int err) {
+  switch (err) {
+    case SSL_ERROR_NONE:
+      return "NONE";
+    case SSL_ERROR_SSL:
+      return "SSL";
+    case SSL_ERROR_WANT_READ:
+      return "WANT_READ";
+    case SSL_ERROR_WANT_WRITE:
+      return "WANT_WRITE";
+    case SSL_ERROR_WANT_X509_LOOKUP:
+      return "WANT_X509_LOOKUP";
+    case SSL_ERROR_SYSCALL:
+      return "SYSCALL";
+    case SSL_ERROR_ZERO_RETURN:
+      return "ZERO_RETURN";
+    case SSL_ERROR_WANT_CONNECT:
+      return "WANT_CONNECT";
+    case SSL_ERROR_WANT_ACCEPT:
+      return "WANT_ACCEPT";
+    case SSL_ERROR_WANT_CHANNEL_ID_LOOKUP:
+      return "WANT_CHANNEL_ID_LOOKUP";
+    case SSL_ERROR_PENDING_SESSION:
+      return "PENDING_SESSION";
+    case SSL_ERROR_PENDING_CERTIFICATE:
+      return "PENDING_CERTIFICATE";
+    case SSL_ERROR_WANT_PRIVATE_KEY_OPERATION:
+      return "WANT_PRIVATE_KEY_OPERATION";
+    case SSL_ERROR_PENDING_TICKET:
+      return "PENDING_TICKET";
+    case SSL_ERROR_EARLY_DATA_REJECTED:
+      return "EARLY_DATA_REJECTED";
+    case SSL_ERROR_WANT_CERTIFICATE_VERIFY:
+      return "WANT_CERTIFICATE_VERIFY";
+    case SSL_ERROR_HANDOFF:
+      return "HANDOFF";
+    case SSL_ERROR_HANDBACK:
+      return "HANDBACK";
+    default:
+      return nullptr;
+  }
 }
 
 uint32_t SSL_CTX_set_options(SSL_CTX *ctx, uint32_t options) {

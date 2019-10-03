@@ -1544,3 +1544,7 @@ bn_sub_part_words:
 .size	bn_sub_part_words,.-.L_bn_sub_part_words_begin
 #endif
 #endif  // defined(__i386__) && defined(__linux__)
+#if defined(__linux__) && defined(__ELF__)
+.section .note.GNU-stack,"",%progbits
+#endif
+

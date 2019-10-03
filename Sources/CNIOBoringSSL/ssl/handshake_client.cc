@@ -456,11 +456,16 @@ static enum ssl_hs_wait_t do_enter_early_data(SSL_HANDSHAKE *hs) {
     return ssl_hs_error;
   }
 
-  if (!tls13_init_early_key_schedule(hs, ssl->session->master_key,
-                                     ssl->session->master_key_length) ||
-      !tls13_derive_early_secrets(hs) ||
+  if (!tls13_init_early_key_schedule(
+          hs, MakeConstSpan(ssl->session->master_key,
+                            ssl->session->master_key_length)) ||
+      !tls13_derive_early_secret(hs) ||
+      !tls13_set_early_secret_for_quic(hs)) {
+    return ssl_hs_error;
+  }
+  if (ssl->quic_method == nullptr &&
       !tls13_set_traffic_key(ssl, ssl_encryption_early_data, evp_aead_seal,
-                             hs->early_traffic_secret, hs->hash_len)) {
+                             hs->early_traffic_secret())) {
     return ssl_hs_error;
   }
 

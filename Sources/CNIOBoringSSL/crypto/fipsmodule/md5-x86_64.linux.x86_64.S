@@ -702,3 +702,7 @@ md5_block_asm_data_order:
 .size	md5_block_asm_data_order,.-md5_block_asm_data_order
 #endif
 #endif  // defined(__x86_64__) && defined(__linux__)
+#if defined(__linux__) && defined(__ELF__)
+.section .note.GNU-stack,"",%progbits
+#endif
+

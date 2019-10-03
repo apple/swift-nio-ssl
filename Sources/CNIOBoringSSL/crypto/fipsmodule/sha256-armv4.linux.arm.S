@@ -2839,3 +2839,7 @@ sha256_block_data_order_armv8:
 #endif
 #endif  // !OPENSSL_NO_ASM
 #endif  // defined(__arm__) && defined(__linux__)
+#if defined(__linux__) && defined(__ELF__)
+.section .note.GNU-stack,"",%progbits
+#endif
+
