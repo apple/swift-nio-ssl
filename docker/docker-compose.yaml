@@ -34,3 +34,9 @@ services:
   test:
     <<: *common
     command: /bin/bash -cl "swift test -Xswiftc -warnings-as-errors && ./scripts/integration_tests.sh"
+
+  # util
+
+  shell:
+    <<: *common
+    entrypoint: /bin/bash
