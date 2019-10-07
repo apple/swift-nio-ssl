@@ -17,3 +17,6 @@ services:
 
   test:
     image: swift-nio-ssl:16.04-5.1
+
+  shell:
+    image: swift-nio-ssl:16.04-5.1
