@@ -700,6 +700,7 @@ md5_block_asm_data_order:
 	.byte	0xf3,0xc3
 .cfi_endproc	
 .size	md5_block_asm_data_order,.-md5_block_asm_data_order
+.section	.note.GNU-stack,"",@progbits
 #endif
 #endif  // defined(__x86_64__) && defined(__linux__)
 #if defined(__linux__) && defined(__ELF__)

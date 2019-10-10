@@ -5565,6 +5565,7 @@ sha256_block_data_order:
 	popl	%ebp
 	ret
 .size	sha256_block_data_order,.-.L_sha256_block_data_order_begin
+.section	.note.GNU-stack,"",@progbits
 #endif
 #endif  // defined(__i386__) && defined(__linux__)
 #if defined(__linux__) && defined(__ELF__)

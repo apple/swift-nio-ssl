@@ -482,6 +482,7 @@ bn_mul_mont:
 .byte	54,44,32,67,82,89,80,84,79,71,65,77,83,32,98,121
 .byte	32,60,97,112,112,114,111,64,111,112,101,110,115,115,108,46
 .byte	111,114,103,62,0
+.section	.note.GNU-stack,"",@progbits
 #endif
 #endif  // defined(__i386__) && defined(__linux__)
 #if defined(__linux__) && defined(__ELF__)

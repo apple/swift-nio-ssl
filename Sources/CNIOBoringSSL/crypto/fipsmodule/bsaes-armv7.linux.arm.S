@@ -1526,6 +1526,7 @@ bsaes_ctr32_encrypt_blocks:
 	@ out to retain a constant-time implementation.
 .size	bsaes_ctr32_encrypt_blocks,.-bsaes_ctr32_encrypt_blocks
 #endif
+.section	.note.GNU-stack,"",%progbits
 #endif
 #endif  // !OPENSSL_NO_ASM
 #endif  // defined(__arm__) && defined(__linux__)
