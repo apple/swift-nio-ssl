@@ -292,6 +292,7 @@ gcm_ghash_ssse3:
 .align	16
 .Llow4_mask:
 .long	252645135,252645135,252645135,252645135
+.section	.note.GNU-stack,"",@progbits
 #endif
 #endif  // defined(__i386__) && defined(__linux__)
 #if defined(__linux__) && defined(__ELF__)

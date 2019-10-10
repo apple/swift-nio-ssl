@@ -686,6 +686,7 @@ md5_block_asm_data_order:
 	popl	%esi
 	ret
 .size	md5_block_asm_data_order,.-.L_md5_block_asm_data_order_begin
+.section	.note.GNU-stack,"",@progbits
 #endif
 #endif  // defined(__i386__) && defined(__linux__)
 #if defined(__linux__) && defined(__ELF__)

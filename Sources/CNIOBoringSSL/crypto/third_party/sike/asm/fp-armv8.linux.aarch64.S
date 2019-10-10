@@ -996,6 +996,7 @@ sike_mpdblsubx2_asm:
 
 	ldp	x29, x30, [sp],#16
 	ret
+.section	.note.GNU-stack,"",%progbits
 #endif
 #endif  // !OPENSSL_NO_ASM
 #endif  // defined(__aarch64__) && defined(__linux__)

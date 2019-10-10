@@ -1073,6 +1073,7 @@ gcm_ghash_clmul:
 .byte	82,89,80,84,79,71,65,77,83,32,98,121,32,60,97,112
 .byte	112,114,111,64,111,112,101,110,115,115,108,46,111,114,103,62
 .byte	0
+.section	.note.GNU-stack,"",@progbits
 #endif
 #endif  // defined(__i386__) && defined(__linux__)
 #if defined(__linux__) && defined(__ELF__)

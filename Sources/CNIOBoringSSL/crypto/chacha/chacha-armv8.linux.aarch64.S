@@ -1982,6 +1982,7 @@ ChaCha20_512_neon:
 	ldp	x29,x30,[sp],#96
 	ret
 .size	ChaCha20_512_neon,.-ChaCha20_512_neon
+.section	.note.GNU-stack,"",%progbits
 #endif
 #endif  // !OPENSSL_NO_ASM
 #endif  // defined(__aarch64__) && defined(__linux__)

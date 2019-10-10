@@ -1490,6 +1490,7 @@ ChaCha20_neon:
 .size	ChaCha20_neon,.-ChaCha20_neon
 .comm	OPENSSL_armcap_P,4,4
 #endif
+.section	.note.GNU-stack,"",%progbits
 #endif
 #endif  // !OPENSSL_NO_ASM
 #endif  // defined(__arm__) && defined(__linux__)
