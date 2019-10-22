@@ -171,14 +171,10 @@ extension Collection where Element == UInt8 {
     func withSecureCString<T>(_ block: (UnsafePointer<Int8>) throws -> T) throws -> T {
         // We need to allocate some memory and prevent it being swapped to disk while we use it.
         // For that reason we use mlock.
-        // Note that here we use UnsafePointer and UnsafeBufferPointer. Ideally we'd just use
-        // the buffer pointer, but 4.0 doesn't have the APIs we want: specifically, .allocate
-        // and .withMemoryRebound(to:) are only added to the buffer pointers in 4.1.
         let bufferSize = Int(self.count) + 1
-        let ptr = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
-        let bufferPtr = UnsafeMutableBufferPointer(start: ptr, count: bufferSize)
+        let bufferPtr = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: bufferSize)
         defer {
-            ptr.deallocate()
+            bufferPtr.deallocate()
         }
 
         try Posix.mlock(addr: bufferPtr.baseAddress!, len: bufferPtr.count)
@@ -191,7 +187,7 @@ extension Collection where Element == UInt8 {
         assert(nextIndex == (bufferPtr.endIndex - 1))
 
         // Add a null terminator.
-        bufferPtr.baseAddress!.advanced(by: Int(self.count)).initialize(to: 0)
+        bufferPtr[nextIndex] = 0
 
         defer {
             // We use OpenSSL_cleanse here because the compiler can't optimize this away.
@@ -199,12 +195,12 @@ extension Collection where Element == UInt8 {
             // is deprecated, memset_s is not well supported cross-platform, and memset-to-zero
             // is famously easily optimised away. This is our best bet.
             CNIOBoringSSL_OPENSSL_cleanse(bufferPtr.baseAddress!, bufferPtr.count)
-            ptr.deinitialize(count: bufferPtr.count)
+            bufferPtr.baseAddress!.deinitialize(count: bufferPtr.count)
         }
 
         // Ok, the memory is ready for use. Call the user.
-        return try ptr.withMemoryRebound(to: Int8.self, capacity: bufferSize) {
-            try block($0)
+        return try bufferPtr.withMemoryRebound(to: Int8.self) {
+            try block($0.baseAddress!)
         }
     }
 }
