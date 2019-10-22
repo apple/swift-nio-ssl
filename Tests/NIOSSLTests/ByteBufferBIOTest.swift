@@ -292,9 +292,10 @@ final class ByteBufferBIOTest: XCTestCase {
         buffer.writeStaticString("Hello, world!")
         swiftBIO.receiveFromNetwork(buffer: buffer)
 
-        buffer.withUnsafeMutableReadableBytes { pointer in
-            let myPointer = pointer.baseAddress!.bindMemory(to: Int8.self, capacity: pointer.count)
-            let rc = CNIOBoringSSL_BIO_gets(cBIO, myPointer, CInt(pointer.count))
+        var output = Array<CChar>(repeating: 0, count: 1024)
+
+        output.withUnsafeMutableBufferPointer { pointer in
+            let rc = CNIOBoringSSL_BIO_gets(cBIO, pointer.baseAddress, CInt(pointer.count))
             XCTAssertEqual(rc, -2)
             XCTAssertTrue(CNIOBoringSSL_BIO_should_retry(cBIO) == 0)
         }
