@@ -337,13 +337,8 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             
             switch result {
             case .complete:
-                // Good read. We need to check how many bytes are still writable and, if it's
-                // too few, move them along. As a general heuristic we want room to write 1kB
-                // of data, though this number is utterly arbitrary. In practice this will
-                // always double the storage if it has to.
-                if receiveBuffer.writableBytes < 1024 {
-                    receiveBuffer.reserveCapacity(receiveBuffer.capacity + 1024)
-                }
+                // Good read. Keep going
+                continue readLoop
 
             case .incomplete:
                 self.plaintextReadBuffer = receiveBuffer

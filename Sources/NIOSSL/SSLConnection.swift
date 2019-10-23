@@ -275,8 +275,10 @@ internal final class SSLConnection {
         // safely return any of the error values that SSL_read might provide here because writeWithUnsafeMutableBytes
         // will try to use that as the number of bytes written and blow up. If we could prevent it doing that (which
         // we can with reading) that would be grand, but we can't, so instead we need to use a temp variable. Not ideal.
+        //
+        // We require that there is space to write at least one TLS record.
         var bytesRead: CInt = 0
-        let rc = outputBuffer.writeWithUnsafeMutableBytes { (pointer) -> Int in
+        let rc = outputBuffer.writeWithUnsafeMutableBytes(minimumWritableBytes: SSL_MAX_RECORD_SIZE) { (pointer) -> Int in
             bytesRead = CNIOBoringSSL_SSL_read(self.ssl, pointer.baseAddress, CInt(pointer.count))
             return bytesRead >= 0 ? Int(bytesRead) : 0
         }

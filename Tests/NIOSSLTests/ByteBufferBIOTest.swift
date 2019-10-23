@@ -107,7 +107,7 @@ final class ByteBufferBIOTest: XCTestCase {
         swiftBIO.receiveFromNetwork(buffer: inboundBytes)
 
         var receivedBytes = ByteBufferAllocator().buffer(capacity: 1024)
-        let rc = receivedBytes.writeWithUnsafeMutableBytes { pointer in
+        let rc = receivedBytes.writeWithUnsafeMutableBytes(minimumWritableBytes: 1024) { pointer in
             let innerRC = CNIOBoringSSL_BIO_read(cBIO, pointer.baseAddress!, CInt(pointer.count))
             XCTAssertTrue(innerRC > 0)
             return innerRC > 0 ? Int(innerRC) : 0
@@ -137,7 +137,7 @@ final class ByteBufferBIOTest: XCTestCase {
 
         var receivedBytes = ByteBufferAllocator().buffer(capacity: 1024)
         for _ in 0..<5 {
-            let rc = receivedBytes.writeWithUnsafeMutableBytes { pointer in
+            let rc = receivedBytes.writeWithUnsafeMutableBytes(minimumWritableBytes: 1024) { pointer in
                 let innerRC = CNIOBoringSSL_BIO_read(cBIO, pointer.baseAddress!, 1)
                 XCTAssertTrue(innerRC > 0)
                 return innerRC > 0 ? Int(innerRC) : 0
