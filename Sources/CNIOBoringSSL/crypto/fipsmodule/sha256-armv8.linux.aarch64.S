@@ -1210,9 +1210,9 @@ sha256_block_armv8:
 .comm	OPENSSL_armcap_P,4,4
 .hidden	OPENSSL_armcap_P
 #endif
-.section	.note.GNU-stack,"",%progbits
 #endif
 #endif  // !OPENSSL_NO_ASM
+.section	.note.GNU-stack,"",%progbits
 #endif  // defined(__aarch64__) && defined(__linux__)
 #if defined(__linux__) && defined(__ELF__)
 .section .note.GNU-stack,"",%progbits

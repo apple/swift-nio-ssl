@@ -706,8 +706,8 @@ vpaes_cbc_encrypt:
 	popl	%ebp
 	ret
 .size	vpaes_cbc_encrypt,.-.L_vpaes_cbc_encrypt_begin
-.section	.note.GNU-stack,"",@progbits
 #endif
+.section	.note.GNU-stack,"",@progbits
 #endif  // defined(__i386__) && defined(__linux__)
 #if defined(__linux__) && defined(__ELF__)
 .section .note.GNU-stack,"",%progbits

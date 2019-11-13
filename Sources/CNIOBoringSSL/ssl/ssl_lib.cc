@@ -699,7 +699,7 @@ SSL *SSL_new(SSL_CTX *ctx) {
 
   if (ctx->psk_identity_hint) {
     ssl->config->psk_identity_hint.reset(
-        BUF_strdup(ctx->psk_identity_hint.get()));
+        OPENSSL_strdup(ctx->psk_identity_hint.get()));
     if (ssl->config->psk_identity_hint == nullptr) {
       return nullptr;
     }
@@ -2129,7 +2129,7 @@ int SSL_set_tlsext_host_name(SSL *ssl, const char *name) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_SSL3_EXT_INVALID_SERVERNAME);
     return 0;
   }
-  ssl->hostname.reset(BUF_strdup(name));
+  ssl->hostname.reset(OPENSSL_strdup(name));
   if (ssl->hostname == nullptr) {
     OPENSSL_PUT_ERROR(SSL, ERR_R_MALLOC_FAILURE);
     return 0;
@@ -2496,6 +2496,11 @@ char *SSL_get_shared_ciphers(const SSL *ssl, char *buf, int len) {
   return buf;
 }
 
+int SSL_get_shared_sigalgs(SSL *ssl, int idx, int *psign, int *phash,
+                           int *psignandhash, uint8_t *rsig, uint8_t *rhash) {
+  return 0;
+}
+
 int SSL_CTX_set_quic_method(SSL_CTX *ctx, const SSL_QUIC_METHOD *quic_method) {
   if (ctx->method->is_dtls) {
     return 0;
@@ -2580,7 +2585,7 @@ static int use_psk_identity_hint(UniquePtr<char> *out,
   // ECDHE_PSK can only spell empty hint. Having different capabilities is odd,
   // so we interpret empty and missing as identical.
   if (identity_hint != NULL && identity_hint[0] != '\0') {
-    out->reset(BUF_strdup(identity_hint));
+    out->reset(OPENSSL_strdup(identity_hint));
     if (*out == nullptr) {
       return 0;
     }
@@ -2853,6 +2858,10 @@ void SSL_CTX_set_false_start_allowed_without_alpn(SSL_CTX *ctx, int allowed) {
 }
 
 int SSL_is_tls13_downgrade(const SSL *ssl) { return ssl->s3->tls13_downgrade; }
+
+int SSL_used_hello_retry_request(const SSL *ssl) {
+  return ssl->s3->used_hello_retry_request;
+}
 
 void SSL_CTX_set_ignore_tls13_downgrade(SSL_CTX *ctx, int ignore) {
   ctx->ignore_tls13_downgrade = !!ignore;

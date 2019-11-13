@@ -778,9 +778,9 @@ aes_hw_ctr32_encrypt_blocks:
 	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,pc}
 .size	aes_hw_ctr32_encrypt_blocks,.-aes_hw_ctr32_encrypt_blocks
 #endif
-.section	.note.GNU-stack,"",%progbits
 #endif
 #endif  // !OPENSSL_NO_ASM
+.section	.note.GNU-stack,"",%progbits
 #endif  // defined(__arm__) && defined(__linux__)
 #if defined(__linux__) && defined(__ELF__)
 .section .note.GNU-stack,"",%progbits

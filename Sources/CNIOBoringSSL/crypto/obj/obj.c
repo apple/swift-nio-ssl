@@ -61,7 +61,6 @@
 #include <string.h>
 
 #include <CNIOBoringSSL_asn1.h>
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_bytestring.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_lhash.h>
@@ -424,7 +423,7 @@ ASN1_OBJECT *OBJ_txt2obj(const char *s, int dont_search_names) {
 }
 
 static int strlcpy_int(char *dst, const char *src, int dst_size) {
-  size_t ret = BUF_strlcpy(dst, src, dst_size < 0 ? 0 : (size_t)dst_size);
+  size_t ret = OPENSSL_strlcpy(dst, src, dst_size < 0 ? 0 : (size_t)dst_size);
   if (ret > INT_MAX) {
     OPENSSL_PUT_ERROR(OBJ, ERR_R_OVERFLOW);
     return -1;

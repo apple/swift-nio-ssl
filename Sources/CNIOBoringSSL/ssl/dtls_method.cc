@@ -59,7 +59,6 @@
 #include <assert.h>
 #include <string.h>
 
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_err.h>
 
 #include "../crypto/internal.h"

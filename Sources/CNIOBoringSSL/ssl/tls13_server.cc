@@ -171,10 +171,10 @@ static bool add_new_session_tickets(SSL_HANDSHAKE *hs, bool *out_sent_tickets) {
     }
 
     if (ssl->enable_early_data) {
-      CBB early_data_info;
+      CBB early_data;
       if (!CBB_add_u16(&extensions, TLSEXT_TYPE_early_data) ||
-          !CBB_add_u16_length_prefixed(&extensions, &early_data_info) ||
-          !CBB_add_u32(&early_data_info, session->ticket_max_early_data) ||
+          !CBB_add_u16_length_prefixed(&extensions, &early_data) ||
+          !CBB_add_u32(&early_data, session->ticket_max_early_data) ||
           !CBB_flush(&extensions)) {
         return false;
       }
@@ -515,7 +515,7 @@ static enum ssl_hs_wait_t do_send_hello_retry_request(SSL_HANDSHAKE *hs) {
     return ssl_hs_error;
   }
 
-  hs->sent_hello_retry_request = true;
+  ssl->s3->used_hello_retry_request = true;
   hs->tls13_state = state_read_second_client_hello;
   return ssl_hs_flush;
 }
@@ -612,7 +612,7 @@ static enum ssl_hs_wait_t do_send_server_hello(SSL_HANDSHAKE *hs) {
     return ssl_hs_error;
   }
 
-  if (!hs->sent_hello_retry_request &&
+  if (!ssl->s3->used_hello_retry_request &&
       !ssl->method->add_change_cipher_spec(ssl)) {
     return ssl_hs_error;
   }

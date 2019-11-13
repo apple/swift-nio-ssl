@@ -8985,8 +8985,8 @@ seal_avx2_short_tail:
 	vzeroupper
 	jmp	seal_sse_tail_16
 .cfi_endproc	
-.section	.note.GNU-stack,"",@progbits
 #endif
+.section	.note.GNU-stack,"",@progbits
 #endif  // defined(__x86_64__) && defined(__linux__)
 #if defined(__linux__) && defined(__ELF__)
 .section .note.GNU-stack,"",%progbits

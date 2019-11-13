@@ -1747,8 +1747,8 @@ rsaz_1024_gather5_avx2:
 .long	2,2,2,2, 3,3,3,3
 .long	4,4,4,4, 4,4,4,4
 .align	64
-.section	.note.GNU-stack,"",@progbits
 #endif
+.section	.note.GNU-stack,"",@progbits
 #endif  // defined(__x86_64__) && defined(__linux__)
 #if defined(__linux__) && defined(__ELF__)
 .section .note.GNU-stack,"",%progbits

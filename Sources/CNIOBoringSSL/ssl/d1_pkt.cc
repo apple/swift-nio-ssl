@@ -115,7 +115,6 @@
 #include <string.h>
 
 #include <CNIOBoringSSL_bio.h>
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_bytestring.h>
 #include <CNIOBoringSSL_mem.h>
 #include <CNIOBoringSSL_evp.h>

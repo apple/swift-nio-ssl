@@ -1631,8 +1631,8 @@ ChaCha20_8x:
 	.byte	0xf3,0xc3
 .cfi_endproc	
 .size	ChaCha20_8x,.-ChaCha20_8x
-.section	.note.GNU-stack,"",@progbits
 #endif
+.section	.note.GNU-stack,"",@progbits
 #endif  // defined(__x86_64__) && defined(__linux__)
 #if defined(__linux__) && defined(__ELF__)
 .section .note.GNU-stack,"",%progbits

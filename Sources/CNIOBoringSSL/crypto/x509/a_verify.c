@@ -61,7 +61,6 @@
 #include <sys/types.h>
 
 #include <CNIOBoringSSL_bn.h>
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_digest.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_evp.h>

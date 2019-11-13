@@ -87,7 +87,6 @@
 
 #include <utility>
 
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_bytestring.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_mem.h>
@@ -758,7 +757,7 @@ int SSL_SESSION_to_bytes(const SSL_SESSION *in, uint8_t **out_data,
     static const char kNotResumableSession[] = "NOT RESUMABLE";
 
     *out_len = strlen(kNotResumableSession);
-    *out_data = (uint8_t *)BUF_memdup(kNotResumableSession, *out_len);
+    *out_data = (uint8_t *)OPENSSL_memdup(kNotResumableSession, *out_len);
     if (*out_data == NULL) {
       return 0;
     }

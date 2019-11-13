@@ -59,7 +59,6 @@
 #include <string.h>
 
 #include <CNIOBoringSSL_bn.h>
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_ex_data.h>
 #include <CNIOBoringSSL_mem.h>
@@ -476,7 +475,7 @@ static int int_dh_param_copy(DH *to, const DH *from, int is_x942) {
   to->seedlen = 0;
 
   if (from->seed) {
-    to->seed = BUF_memdup(from->seed, from->seedlen);
+    to->seed = OPENSSL_memdup(from->seed, from->seedlen);
     if (!to->seed) {
       return 0;
     }

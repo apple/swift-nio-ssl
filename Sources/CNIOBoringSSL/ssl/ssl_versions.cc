@@ -150,7 +150,7 @@ static bool set_max_version(const SSL_PROTOCOL_METHOD *method, uint16_t *out,
                             uint16_t version) {
   // Zero is interpreted as the default maximum version.
   if (version == 0) {
-    *out = method->is_dtls ? DTLS1_2_VERSION : TLS1_2_VERSION;
+    *out = method->is_dtls ? DTLS1_2_VERSION : TLS1_3_VERSION;
     return true;
   }
 
@@ -335,11 +335,11 @@ int SSL_CTX_set_max_proto_version(SSL_CTX *ctx, uint16_t version) {
   return set_max_version(ctx->method, &ctx->conf_max_version, version);
 }
 
-uint16_t SSL_CTX_get_min_proto_version(SSL_CTX *ctx) {
+uint16_t SSL_CTX_get_min_proto_version(const SSL_CTX *ctx) {
   return ctx->conf_min_version;
 }
 
-uint16_t SSL_CTX_get_max_proto_version(SSL_CTX *ctx) {
+uint16_t SSL_CTX_get_max_proto_version(const SSL_CTX *ctx) {
   return ctx->conf_max_version;
 }
 
@@ -355,6 +355,20 @@ int SSL_set_max_proto_version(SSL *ssl, uint16_t version) {
     return 0;
   }
   return set_max_version(ssl->method, &ssl->config->conf_max_version, version);
+}
+
+uint16_t SSL_get_min_proto_version(const SSL *ssl) {
+  if (!ssl->config) {
+    return 0;
+  }
+  return ssl->config->conf_min_version;
+}
+
+uint16_t SSL_get_max_proto_version(const SSL *ssl) {
+  if (!ssl->config) {
+    return 0;
+  }
+  return ssl->config->conf_max_version;
 }
 
 int SSL_version(const SSL *ssl) {

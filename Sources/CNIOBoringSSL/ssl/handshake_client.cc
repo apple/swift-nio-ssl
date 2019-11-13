@@ -157,7 +157,6 @@
 
 #include <CNIOBoringSSL_aead.h>
 #include <CNIOBoringSSL_bn.h>
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_bytestring.h>
 #include <CNIOBoringSSL_ec_key.h>
 #include <CNIOBoringSSL_ecdsa.h>
@@ -1291,7 +1290,7 @@ static enum ssl_hs_wait_t do_send_client_key_exchange(SSL_HANDSHAKE *hs) {
     }
     assert(psk_len <= PSK_MAX_PSK_LEN);
 
-    hs->new_session->psk_identity.reset(BUF_strdup(identity));
+    hs->new_session->psk_identity.reset(OPENSSL_strdup(identity));
     if (hs->new_session->psk_identity == nullptr) {
       OPENSSL_PUT_ERROR(SSL, ERR_R_MALLOC_FAILURE);
       return ssl_hs_error;
