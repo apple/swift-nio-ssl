@@ -44,6 +44,8 @@ HERE=$(pwd)
 DSTROOT=Sources/CNIOBoringSSL
 TMPDIR=$(mktemp -d /tmp/.workingXXXXXX)
 SRCROOT="${TMPDIR}/src/boringssl.googlesource.com/boringssl"
+CROSS_COMPILE_TARGET_LOCATION="/Library/Developer/Destinations"
+CROSS_COMPILE_VERSION="5.1.1"
 
 # This function namespaces the awkward inline functions declared in OpenSSL
 # and BoringSSL.
@@ -67,6 +69,67 @@ function namespace_inlines {
             echo "#define lh_${l}_${f} BORINGSSL_ADD_PREFIX(BORINGSSL_PREFIX, lh_${l}_${f})" >> "$1/include/openssl/boringssl_prefix_symbols.h"
         done
     done
+}
+
+
+# This function handles mangling the symbols in BoringSSL.
+function mangle_symbols {
+    echo "GENERATING mangled symbol list"
+    (
+        # We need a .a: may as well get SwiftPM to give it to us.
+        # Temporarily enable the product we need.
+        $sed -i -e 's/MANGLE_START/MANGLE_START*\//' -e 's/MANGLE_END/\/*MANGLE_END/' "${HERE}/Package.swift"
+
+        export GOPATH="${TMPDIR}"
+
+        # Begin by building for macOS.
+        swift build --product CNIOBoringSSL
+        go run "${SRCROOT}/util/read_symbols.go" -out "${TMPDIR}/symbols-macOS.txt" "${HERE}/.build/x86_64-apple-macosx/debug/libCNIOBoringSSL.a"
+
+        # Now build for iOS. We use xcodebuild for this because SwiftPM doesn't
+        # meaningfully support it. Unfortunately we must archive ourselves.
+        xcodebuild -sdk iphoneos -scheme CNIOBoringSSL -derivedDataPath "${TMPDIR}/iphoneos-deriveddata"
+        lipo -extract armv7 -output "${TMPDIR}/CNIOBoringSSL-iosarmv7.o" "${TMPDIR}/iphoneos-deriveddata/Build/Products/Debug-iphoneos/CNIOBoringSSL.o"
+        lipo -extract arm64 -output "${TMPDIR}/CNIOBoringSSL-iosarm64.o" "${TMPDIR}/iphoneos-deriveddata/Build/Products/Debug-iphoneos/CNIOBoringSSL.o"
+        ar -r "${TMPDIR}/libCNIOBoringSSL-iosarmv7.a" "${TMPDIR}/CNIOBoringSSL-iosarmv7.o"
+        ar -r "${TMPDIR}/libCNIOBoringSSL-iosarm64.a" "${TMPDIR}/CNIOBoringSSL-iosarm64.o"
+        go run "${SRCROOT}/util/read_symbols.go" -out "${TMPDIR}/symbols-iOS.txt" "${TMPDIR}/libCNIOBoringSSL-iosarmv7.a" "${TMPDIR}/libCNIOBoringSSL-iosarm64.a"
+
+        # Now cross compile for our targets.
+        # If you have trouble with the script around this point, consider
+        # https://github.com/CSCIX65G/SwiftCrossCompilers to obtain cross
+        # compilers for the architectures we care about.
+        for cc_target in "${CROSS_COMPILE_TARGET_LOCATION}"/*"${CROSS_COMPILE_VERSION}"*.json; do
+            echo "Cross compiling for ${cc_target}"
+            swift build --product CNIOBoringSSL --destination "${cc_target}"
+        done;
+
+        # Now we need to generate symbol mangles for Linux. We can do this in
+        # one go for all of them.
+        go run "${SRCROOT}/util/read_symbols.go" -obj-file-format elf -out "${TMPDIR}/symbols-linux-all.txt" "${HERE}"/.build/*-unknown-linux/debug/libCNIOBoringSSL.a
+
+        # Now we concatenate all the symbols together and uniquify it.
+        cat "${TMPDIR}"/symbols-*.txt | sort | uniq > "${TMPDIR}/symbols.txt"
+
+        # Use this as the input to the mangle.
+        go run "${SRCROOT}/util/make_prefix_headers.go" -out "${HERE}/${DSTROOT}/include/openssl" "${TMPDIR}/symbols.txt"
+
+        # Remove the product, as we no longer need it.
+        $sed -i -e 's/MANGLE_START\*\//MANGLE_START/' -e 's/\/\*MANGLE_END/MANGLE_END/' "${HERE}/Package.swift"
+    )
+
+    # Now remove any weird symbols that got in and would emit warnings.
+    $sed -i -e '/#define .*\..*/d' "${DSTROOT}"/include/openssl/boringssl_prefix_symbols*.h
+
+    # Now edit the headers again to add the symbol mangling.
+    echo "ADDING symbol mangling"
+    perl -pi -e '$_ .= qq(\n#define BORINGSSL_PREFIX CNIOBoringSSL\n) if /#define OPENSSL_HEADER_BASE_H/' "$DSTROOT/include/openssl/base.h"
+
+    for assembly_file in $(find "$DSTROOT" -name "*.S")
+    do
+        $sed -i '1 i #define BORINGSSL_PREFIX CNIOBoringSSL' "$assembly_file"
+    done
+    namespace_inlines "$DSTROOT"
 }
 
 case "$(uname -s)" in
@@ -168,30 +231,7 @@ rm -f $DSTROOT/crypto/fipsmodule/bcm.c
 echo "FIXING missing include"
 perl -pi -e '$_ .= qq(\n#include <openssl/cpu.h>\n) if /#include <openssl\/err.h>/' "$DSTROOT/crypto/fipsmodule/ec/p256-x86_64.c"
 
-
-echo "GENERATING mangled symbol list"
-(
-    # We need a .a: may as well get SwiftPM to give it to us.
-    # Temporarily enable the product we need.
-    $sed -i -e 's/MANGLE_START/MANGLE_START*\//' -e 's/MANGLE_END/\/*MANGLE_END/' "${HERE}/Package.swift"
-    swift build --product CNIOBoringSSL
-    export GOPATH="${TMPDIR}"
-    go run "${SRCROOT}/util/read_symbols.go" -out "${TMPDIR}/symbols.txt" "${HERE}/.build/debug/libCNIOBoringSSL.a"
-    go run "${SRCROOT}/util/make_prefix_headers.go" -out "${HERE}/${DSTROOT}/include/openssl" "${TMPDIR}/symbols.txt"
-
-    # Remove the product, as we no longer need it.
-    $sed -i -e 's/MANGLE_START\*\//MANGLE_START/' -e 's/\/\*MANGLE_END/MANGLE_END/' "${HERE}/Package.swift"
-)
-
-# Now edit the headers again to add the symbol mangling.
-echo "ADDING symbol mangling"
-perl -pi -e '$_ .= qq(\n#define BORINGSSL_PREFIX CNIOBoringSSL\n) if /#define OPENSSL_HEADER_BASE_H/' "$DSTROOT/include/openssl/base.h"
-
-for assembly_file in $(find "$DSTROOT" -name "*.S")
-do
-    $sed -i '1 i #define BORINGSSL_PREFIX CNIOBoringSSL' "$assembly_file"
-done
-namespace_inlines "$DSTROOT"
+mangle_symbols
 
 # Removing ASM on 32 bit Apple platforms
 echo "REMOVING assembly on 32-bit Apple platforms"
