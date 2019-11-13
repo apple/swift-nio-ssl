@@ -62,7 +62,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_dsa.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_evp.h>

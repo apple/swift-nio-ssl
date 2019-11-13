@@ -127,12 +127,8 @@ PATTERNS=(
 'crypto/*/*/*.c'
 'crypto/*/*/*.S'
 'crypto/*/*/*/*.c'
-'crypto/*/*/*/*.S'
 'third_party/fiat/*.h'
 'third_party/fiat/*.c'
-'third_party/sike/*.h'
-'third_party/sike/*.c'
-'third_party/sike/asm/*.c'
 )
 
 EXCLUDES=(

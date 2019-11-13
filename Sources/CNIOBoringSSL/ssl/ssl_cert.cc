@@ -121,7 +121,6 @@
 #include <utility>
 
 #include <CNIOBoringSSL_bn.h>
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_bytestring.h>
 #include <CNIOBoringSSL_ec_key.h>
 #include <CNIOBoringSSL_err.h>

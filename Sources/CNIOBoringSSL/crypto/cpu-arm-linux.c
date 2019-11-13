@@ -21,7 +21,6 @@
 #include <unistd.h>
 
 #include <CNIOBoringSSL_arm_arch.h>
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_mem.h>
 
 #include "cpu-arm-linux.h"

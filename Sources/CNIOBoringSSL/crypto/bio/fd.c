@@ -70,7 +70,6 @@ OPENSSL_MSVC_PRAGMA(warning(push, 3))
 OPENSSL_MSVC_PRAGMA(warning(pop))
 #endif
 
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_mem.h>
 

@@ -2835,8 +2835,8 @@ sha512_block_data_order:
 .byte	67,82,89,80,84,79,71,65,77,83,32,98,121,32,60,97
 .byte	112,112,114,111,64,111,112,101,110,115,115,108,46,111,114,103
 .byte	62,0
-.section	.note.GNU-stack,"",@progbits
 #endif
+.section	.note.GNU-stack,"",@progbits
 #endif  // defined(__i386__) && defined(__linux__)
 #if defined(__linux__) && defined(__ELF__)
 .section .note.GNU-stack,"",%progbits

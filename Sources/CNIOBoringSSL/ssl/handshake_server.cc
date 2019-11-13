@@ -152,7 +152,6 @@
 #include <string.h>
 
 #include <CNIOBoringSSL_bn.h>
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_bytestring.h>
 #include <CNIOBoringSSL_cipher.h>
 #include <CNIOBoringSSL_ec.h>

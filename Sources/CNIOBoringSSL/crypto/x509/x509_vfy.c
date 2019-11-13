@@ -59,7 +59,6 @@
 #include <time.h>
 
 #include <CNIOBoringSSL_asn1.h>
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_evp.h>
 #include <CNIOBoringSSL_mem.h>

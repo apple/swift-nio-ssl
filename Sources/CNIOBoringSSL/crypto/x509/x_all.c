@@ -59,7 +59,6 @@
 #include <limits.h>
 
 #include <CNIOBoringSSL_asn1.h>
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_digest.h>
 #include <CNIOBoringSSL_dsa.h>
 #include <CNIOBoringSSL_evp.h>

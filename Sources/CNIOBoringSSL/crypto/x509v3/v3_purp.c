@@ -59,7 +59,6 @@
 
 #include <string.h>
 
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_digest.h>
 #include <CNIOBoringSSL_mem.h>
@@ -237,8 +236,8 @@ int X509_PURPOSE_add(int id, int trust, int flags,
         ptmp = X509_PURPOSE_get0(idx);
 
     /* Duplicate the supplied names. */
-    name_dup = BUF_strdup(name);
-    sname_dup = BUF_strdup(sname);
+    name_dup = OPENSSL_strdup(name);
+    sname_dup = OPENSSL_strdup(sname);
     if (name_dup == NULL || sname_dup == NULL) {
         OPENSSL_PUT_ERROR(X509V3, ERR_R_MALLOC_FAILURE);
         if (name_dup != NULL)

@@ -143,7 +143,6 @@
 #include <assert.h>
 #include <string.h>
 
-#include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_md5.h>
 #include <CNIOBoringSSL_mem.h>

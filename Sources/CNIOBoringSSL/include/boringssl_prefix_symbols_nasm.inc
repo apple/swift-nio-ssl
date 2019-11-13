@@ -737,6 +737,7 @@
 %xdefine _EC_GROUP_set_point_conversion_form _ %+ BORINGSSL_PREFIX %+ _EC_GROUP_set_point_conversion_form
 %xdefine _EC_KEY_check_fips _ %+ BORINGSSL_PREFIX %+ _EC_KEY_check_fips
 %xdefine _EC_KEY_check_key _ %+ BORINGSSL_PREFIX %+ _EC_KEY_check_key
+%xdefine _EC_KEY_derive_from_secret _ %+ BORINGSSL_PREFIX %+ _EC_KEY_derive_from_secret
 %xdefine _EC_KEY_dup _ %+ BORINGSSL_PREFIX %+ _EC_KEY_dup
 %xdefine _EC_KEY_free _ %+ BORINGSSL_PREFIX %+ _EC_KEY_free
 %xdefine _EC_KEY_generate_key _ %+ BORINGSSL_PREFIX %+ _EC_KEY_generate_key
@@ -965,6 +966,9 @@
 %xdefine _EVP_PKEY_CTX_set_rsa_mgf1_md _ %+ BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_rsa_mgf1_md
 %xdefine _EVP_PKEY_CTX_set_rsa_oaep_md _ %+ BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_rsa_oaep_md
 %xdefine _EVP_PKEY_CTX_set_rsa_padding _ %+ BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_rsa_padding
+%xdefine _EVP_PKEY_CTX_set_rsa_pss_keygen_md _ %+ BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_rsa_pss_keygen_md
+%xdefine _EVP_PKEY_CTX_set_rsa_pss_keygen_mgf1_md _ %+ BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_rsa_pss_keygen_mgf1_md
+%xdefine _EVP_PKEY_CTX_set_rsa_pss_keygen_saltlen _ %+ BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_rsa_pss_keygen_saltlen
 %xdefine _EVP_PKEY_CTX_set_rsa_pss_saltlen _ %+ BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_rsa_pss_saltlen
 %xdefine _EVP_PKEY_CTX_set_signature_md _ %+ BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_signature_md
 %xdefine _EVP_PKEY_assign _ %+ BORINGSSL_PREFIX %+ _EVP_PKEY_assign
@@ -1230,11 +1234,15 @@
 %xdefine _OPENSSL_load_builtin_modules _ %+ BORINGSSL_PREFIX %+ _OPENSSL_load_builtin_modules
 %xdefine _OPENSSL_malloc _ %+ BORINGSSL_PREFIX %+ _OPENSSL_malloc
 %xdefine _OPENSSL_malloc_init _ %+ BORINGSSL_PREFIX %+ _OPENSSL_malloc_init
+%xdefine _OPENSSL_memdup _ %+ BORINGSSL_PREFIX %+ _OPENSSL_memdup
 %xdefine _OPENSSL_no_config _ %+ BORINGSSL_PREFIX %+ _OPENSSL_no_config
 %xdefine _OPENSSL_realloc _ %+ BORINGSSL_PREFIX %+ _OPENSSL_realloc
 %xdefine _OPENSSL_strcasecmp _ %+ BORINGSSL_PREFIX %+ _OPENSSL_strcasecmp
 %xdefine _OPENSSL_strdup _ %+ BORINGSSL_PREFIX %+ _OPENSSL_strdup
+%xdefine _OPENSSL_strlcat _ %+ BORINGSSL_PREFIX %+ _OPENSSL_strlcat
+%xdefine _OPENSSL_strlcpy _ %+ BORINGSSL_PREFIX %+ _OPENSSL_strlcpy
 %xdefine _OPENSSL_strncasecmp _ %+ BORINGSSL_PREFIX %+ _OPENSSL_strncasecmp
+%xdefine _OPENSSL_strndup _ %+ BORINGSSL_PREFIX %+ _OPENSSL_strndup
 %xdefine _OPENSSL_strnlen _ %+ BORINGSSL_PREFIX %+ _OPENSSL_strnlen
 %xdefine _OPENSSL_tolower _ %+ BORINGSSL_PREFIX %+ _OPENSSL_tolower
 %xdefine _OTHERNAME_cmp _ %+ BORINGSSL_PREFIX %+ _OTHERNAME_cmp
@@ -1504,9 +1512,6 @@
 %xdefine _SHA512_Init _ %+ BORINGSSL_PREFIX %+ _SHA512_Init
 %xdefine _SHA512_Transform _ %+ BORINGSSL_PREFIX %+ _SHA512_Transform
 %xdefine _SHA512_Update _ %+ BORINGSSL_PREFIX %+ _SHA512_Update
-%xdefine _SIKE_decaps _ %+ BORINGSSL_PREFIX %+ _SIKE_decaps
-%xdefine _SIKE_encaps _ %+ BORINGSSL_PREFIX %+ _SIKE_encaps
-%xdefine _SIKE_keypair _ %+ BORINGSSL_PREFIX %+ _SIKE_keypair
 %xdefine _SIPHASH_24 _ %+ BORINGSSL_PREFIX %+ _SIPHASH_24
 %xdefine _SPAKE2_CTX_free _ %+ BORINGSSL_PREFIX %+ _SPAKE2_CTX_free
 %xdefine _SPAKE2_CTX_new _ %+ BORINGSSL_PREFIX %+ _SPAKE2_CTX_new
@@ -1806,6 +1811,8 @@
 %xdefine _SSL_get_ivs _ %+ BORINGSSL_PREFIX %+ _SSL_get_ivs
 %xdefine _SSL_get_key_block_len _ %+ BORINGSSL_PREFIX %+ _SSL_get_key_block_len
 %xdefine _SSL_get_max_cert_list _ %+ BORINGSSL_PREFIX %+ _SSL_get_max_cert_list
+%xdefine _SSL_get_max_proto_version _ %+ BORINGSSL_PREFIX %+ _SSL_get_max_proto_version
+%xdefine _SSL_get_min_proto_version _ %+ BORINGSSL_PREFIX %+ _SSL_get_min_proto_version
 %xdefine _SSL_get_mode _ %+ BORINGSSL_PREFIX %+ _SSL_get_mode
 %xdefine _SSL_get_negotiated_token_binding_param _ %+ BORINGSSL_PREFIX %+ _SSL_get_negotiated_token_binding_param
 %xdefine _SSL_get_options _ %+ BORINGSSL_PREFIX %+ _SSL_get_options
@@ -1832,6 +1839,7 @@
 %xdefine _SSL_get_servername_type _ %+ BORINGSSL_PREFIX %+ _SSL_get_servername_type
 %xdefine _SSL_get_session _ %+ BORINGSSL_PREFIX %+ _SSL_get_session
 %xdefine _SSL_get_shared_ciphers _ %+ BORINGSSL_PREFIX %+ _SSL_get_shared_ciphers
+%xdefine _SSL_get_shared_sigalgs _ %+ BORINGSSL_PREFIX %+ _SSL_get_shared_sigalgs
 %xdefine _SSL_get_shutdown _ %+ BORINGSSL_PREFIX %+ _SSL_get_shutdown
 %xdefine _SSL_get_signature_algorithm_digest _ %+ BORINGSSL_PREFIX %+ _SSL_get_signature_algorithm_digest
 %xdefine _SSL_get_signature_algorithm_key_type _ %+ BORINGSSL_PREFIX %+ _SSL_get_signature_algorithm_key_type
@@ -1975,6 +1983,7 @@
 %xdefine _SSL_use_certificate_ASN1 _ %+ BORINGSSL_PREFIX %+ _SSL_use_certificate_ASN1
 %xdefine _SSL_use_certificate_file _ %+ BORINGSSL_PREFIX %+ _SSL_use_certificate_file
 %xdefine _SSL_use_psk_identity_hint _ %+ BORINGSSL_PREFIX %+ _SSL_use_psk_identity_hint
+%xdefine _SSL_used_hello_retry_request _ %+ BORINGSSL_PREFIX %+ _SSL_used_hello_retry_request
 %xdefine _SSL_version _ %+ BORINGSSL_PREFIX %+ _SSL_version
 %xdefine _SSL_want _ %+ BORINGSSL_PREFIX %+ _SSL_want
 %xdefine _SSL_write _ %+ BORINGSSL_PREFIX %+ _SSL_write
@@ -2606,6 +2615,8 @@
 %xdefine _bn_lcm_consttime _ %+ BORINGSSL_PREFIX %+ _bn_lcm_consttime
 %xdefine _bn_less_than_montgomery_R _ %+ BORINGSSL_PREFIX %+ _bn_less_than_montgomery_R
 %xdefine _bn_less_than_words _ %+ BORINGSSL_PREFIX %+ _bn_less_than_words
+%xdefine _bn_miller_rabin_init _ %+ BORINGSSL_PREFIX %+ _bn_miller_rabin_init
+%xdefine _bn_miller_rabin_iteration _ %+ BORINGSSL_PREFIX %+ _bn_miller_rabin_iteration
 %xdefine _bn_minimal_width _ %+ BORINGSSL_PREFIX %+ _bn_minimal_width
 %xdefine _bn_mod_add_consttime _ %+ BORINGSSL_PREFIX %+ _bn_mod_add_consttime
 %xdefine _bn_mod_add_words _ %+ BORINGSSL_PREFIX %+ _bn_mod_add_words
@@ -2868,17 +2879,17 @@
 %xdefine _ecp_nistz256_sqr_mont _ %+ BORINGSSL_PREFIX %+ _ecp_nistz256_sqr_mont
 %xdefine _ed25519_asn1_meth _ %+ BORINGSSL_PREFIX %+ _ed25519_asn1_meth
 %xdefine _ed25519_pkey_meth _ %+ BORINGSSL_PREFIX %+ _ed25519_pkey_meth
-%xdefine _gcm_ghash_4bit _ %+ BORINGSSL_PREFIX %+ _gcm_ghash_4bit
 %xdefine _gcm_ghash_avx _ %+ BORINGSSL_PREFIX %+ _gcm_ghash_avx
 %xdefine _gcm_ghash_clmul _ %+ BORINGSSL_PREFIX %+ _gcm_ghash_clmul
+%xdefine _gcm_ghash_nohw _ %+ BORINGSSL_PREFIX %+ _gcm_ghash_nohw
 %xdefine _gcm_ghash_ssse3 _ %+ BORINGSSL_PREFIX %+ _gcm_ghash_ssse3
-%xdefine _gcm_gmult_4bit _ %+ BORINGSSL_PREFIX %+ _gcm_gmult_4bit
 %xdefine _gcm_gmult_avx _ %+ BORINGSSL_PREFIX %+ _gcm_gmult_avx
 %xdefine _gcm_gmult_clmul _ %+ BORINGSSL_PREFIX %+ _gcm_gmult_clmul
+%xdefine _gcm_gmult_nohw _ %+ BORINGSSL_PREFIX %+ _gcm_gmult_nohw
 %xdefine _gcm_gmult_ssse3 _ %+ BORINGSSL_PREFIX %+ _gcm_gmult_ssse3
-%xdefine _gcm_init_4bit _ %+ BORINGSSL_PREFIX %+ _gcm_init_4bit
 %xdefine _gcm_init_avx _ %+ BORINGSSL_PREFIX %+ _gcm_init_avx
 %xdefine _gcm_init_clmul _ %+ BORINGSSL_PREFIX %+ _gcm_init_clmul
+%xdefine _gcm_init_nohw _ %+ BORINGSSL_PREFIX %+ _gcm_init_nohw
 %xdefine _gcm_init_ssse3 _ %+ BORINGSSL_PREFIX %+ _gcm_init_ssse3
 %xdefine _i2a_ACCESS_DESCRIPTION _ %+ BORINGSSL_PREFIX %+ _i2a_ACCESS_DESCRIPTION
 %xdefine _i2a_ASN1_ENUMERATED _ %+ BORINGSSL_PREFIX %+ _i2a_ASN1_ENUMERATED
@@ -3079,35 +3090,6 @@
 %xdefine _sha1_block_data_order _ %+ BORINGSSL_PREFIX %+ _sha1_block_data_order
 %xdefine _sha256_block_data_order _ %+ BORINGSSL_PREFIX %+ _sha256_block_data_order
 %xdefine _sha512_block_data_order _ %+ BORINGSSL_PREFIX %+ _sha512_block_data_order
-%xdefine _sike_cswap_asm _ %+ BORINGSSL_PREFIX %+ _sike_cswap_asm
-%xdefine _sike_eval_3_isog _ %+ BORINGSSL_PREFIX %+ _sike_eval_3_isog
-%xdefine _sike_eval_4_isog _ %+ BORINGSSL_PREFIX %+ _sike_eval_4_isog
-%xdefine _sike_fp2inv_mont _ %+ BORINGSSL_PREFIX %+ _sike_fp2inv_mont
-%xdefine _sike_fp2mul_mont _ %+ BORINGSSL_PREFIX %+ _sike_fp2mul_mont
-%xdefine _sike_fp2sqr_mont _ %+ BORINGSSL_PREFIX %+ _sike_fp2sqr_mont
-%xdefine _sike_fpadd _ %+ BORINGSSL_PREFIX %+ _sike_fpadd
-%xdefine _sike_fpcopy _ %+ BORINGSSL_PREFIX %+ _sike_fpcopy
-%xdefine _sike_fpcorrection _ %+ BORINGSSL_PREFIX %+ _sike_fpcorrection
-%xdefine _sike_fpdiv2 _ %+ BORINGSSL_PREFIX %+ _sike_fpdiv2
-%xdefine _sike_fpmul_mont _ %+ BORINGSSL_PREFIX %+ _sike_fpmul_mont
-%xdefine _sike_fpneg _ %+ BORINGSSL_PREFIX %+ _sike_fpneg
-%xdefine _sike_fprdc _ %+ BORINGSSL_PREFIX %+ _sike_fprdc
-%xdefine _sike_fpsub _ %+ BORINGSSL_PREFIX %+ _sike_fpsub
-%xdefine _sike_from_mont _ %+ BORINGSSL_PREFIX %+ _sike_from_mont
-%xdefine _sike_get_3_isog _ %+ BORINGSSL_PREFIX %+ _sike_get_3_isog
-%xdefine _sike_get_4_isog _ %+ BORINGSSL_PREFIX %+ _sike_get_4_isog
-%xdefine _sike_get_A _ %+ BORINGSSL_PREFIX %+ _sike_get_A
-%xdefine _sike_inv_3_way _ %+ BORINGSSL_PREFIX %+ _sike_inv_3_way
-%xdefine _sike_j_inv _ %+ BORINGSSL_PREFIX %+ _sike_j_inv
-%xdefine _sike_mpadd_asm _ %+ BORINGSSL_PREFIX %+ _sike_mpadd_asm
-%xdefine _sike_mpdblsubx2_asm _ %+ BORINGSSL_PREFIX %+ _sike_mpdblsubx2_asm
-%xdefine _sike_mpmul _ %+ BORINGSSL_PREFIX %+ _sike_mpmul
-%xdefine _sike_mpsubx2_asm _ %+ BORINGSSL_PREFIX %+ _sike_mpsubx2_asm
-%xdefine _sike_params _ %+ BORINGSSL_PREFIX %+ _sike_params
-%xdefine _sike_xDBLADD _ %+ BORINGSSL_PREFIX %+ _sike_xDBLADD
-%xdefine _sike_xDBLe _ %+ BORINGSSL_PREFIX %+ _sike_xDBLe
-%xdefine _sike_xTPL _ %+ BORINGSSL_PREFIX %+ _sike_xTPL
-%xdefine _sike_xTPLe _ %+ BORINGSSL_PREFIX %+ _sike_xTPLe
 %xdefine _sk_CRYPTO_BUFFER_call_copy_func _ %+ BORINGSSL_PREFIX %+ _sk_CRYPTO_BUFFER_call_copy_func
 %xdefine _sk_CRYPTO_BUFFER_call_free_func _ %+ BORINGSSL_PREFIX %+ _sk_CRYPTO_BUFFER_call_free_func
 %xdefine _sk_CRYPTO_BUFFER_deep_copy _ %+ BORINGSSL_PREFIX %+ _sk_CRYPTO_BUFFER_deep_copy
@@ -3950,6 +3932,7 @@
 %xdefine EC_GROUP_set_point_conversion_form BORINGSSL_PREFIX %+ _EC_GROUP_set_point_conversion_form
 %xdefine EC_KEY_check_fips BORINGSSL_PREFIX %+ _EC_KEY_check_fips
 %xdefine EC_KEY_check_key BORINGSSL_PREFIX %+ _EC_KEY_check_key
+%xdefine EC_KEY_derive_from_secret BORINGSSL_PREFIX %+ _EC_KEY_derive_from_secret
 %xdefine EC_KEY_dup BORINGSSL_PREFIX %+ _EC_KEY_dup
 %xdefine EC_KEY_free BORINGSSL_PREFIX %+ _EC_KEY_free
 %xdefine EC_KEY_generate_key BORINGSSL_PREFIX %+ _EC_KEY_generate_key
@@ -4178,6 +4161,9 @@
 %xdefine EVP_PKEY_CTX_set_rsa_mgf1_md BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_rsa_mgf1_md
 %xdefine EVP_PKEY_CTX_set_rsa_oaep_md BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_rsa_oaep_md
 %xdefine EVP_PKEY_CTX_set_rsa_padding BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_rsa_padding
+%xdefine EVP_PKEY_CTX_set_rsa_pss_keygen_md BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_rsa_pss_keygen_md
+%xdefine EVP_PKEY_CTX_set_rsa_pss_keygen_mgf1_md BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_rsa_pss_keygen_mgf1_md
+%xdefine EVP_PKEY_CTX_set_rsa_pss_keygen_saltlen BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_rsa_pss_keygen_saltlen
 %xdefine EVP_PKEY_CTX_set_rsa_pss_saltlen BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_rsa_pss_saltlen
 %xdefine EVP_PKEY_CTX_set_signature_md BORINGSSL_PREFIX %+ _EVP_PKEY_CTX_set_signature_md
 %xdefine EVP_PKEY_assign BORINGSSL_PREFIX %+ _EVP_PKEY_assign
@@ -4443,11 +4429,15 @@
 %xdefine OPENSSL_load_builtin_modules BORINGSSL_PREFIX %+ _OPENSSL_load_builtin_modules
 %xdefine OPENSSL_malloc BORINGSSL_PREFIX %+ _OPENSSL_malloc
 %xdefine OPENSSL_malloc_init BORINGSSL_PREFIX %+ _OPENSSL_malloc_init
+%xdefine OPENSSL_memdup BORINGSSL_PREFIX %+ _OPENSSL_memdup
 %xdefine OPENSSL_no_config BORINGSSL_PREFIX %+ _OPENSSL_no_config
 %xdefine OPENSSL_realloc BORINGSSL_PREFIX %+ _OPENSSL_realloc
 %xdefine OPENSSL_strcasecmp BORINGSSL_PREFIX %+ _OPENSSL_strcasecmp
 %xdefine OPENSSL_strdup BORINGSSL_PREFIX %+ _OPENSSL_strdup
+%xdefine OPENSSL_strlcat BORINGSSL_PREFIX %+ _OPENSSL_strlcat
+%xdefine OPENSSL_strlcpy BORINGSSL_PREFIX %+ _OPENSSL_strlcpy
 %xdefine OPENSSL_strncasecmp BORINGSSL_PREFIX %+ _OPENSSL_strncasecmp
+%xdefine OPENSSL_strndup BORINGSSL_PREFIX %+ _OPENSSL_strndup
 %xdefine OPENSSL_strnlen BORINGSSL_PREFIX %+ _OPENSSL_strnlen
 %xdefine OPENSSL_tolower BORINGSSL_PREFIX %+ _OPENSSL_tolower
 %xdefine OTHERNAME_cmp BORINGSSL_PREFIX %+ _OTHERNAME_cmp
@@ -4717,9 +4707,6 @@
 %xdefine SHA512_Init BORINGSSL_PREFIX %+ _SHA512_Init
 %xdefine SHA512_Transform BORINGSSL_PREFIX %+ _SHA512_Transform
 %xdefine SHA512_Update BORINGSSL_PREFIX %+ _SHA512_Update
-%xdefine SIKE_decaps BORINGSSL_PREFIX %+ _SIKE_decaps
-%xdefine SIKE_encaps BORINGSSL_PREFIX %+ _SIKE_encaps
-%xdefine SIKE_keypair BORINGSSL_PREFIX %+ _SIKE_keypair
 %xdefine SIPHASH_24 BORINGSSL_PREFIX %+ _SIPHASH_24
 %xdefine SPAKE2_CTX_free BORINGSSL_PREFIX %+ _SPAKE2_CTX_free
 %xdefine SPAKE2_CTX_new BORINGSSL_PREFIX %+ _SPAKE2_CTX_new
@@ -5019,6 +5006,8 @@
 %xdefine SSL_get_ivs BORINGSSL_PREFIX %+ _SSL_get_ivs
 %xdefine SSL_get_key_block_len BORINGSSL_PREFIX %+ _SSL_get_key_block_len
 %xdefine SSL_get_max_cert_list BORINGSSL_PREFIX %+ _SSL_get_max_cert_list
+%xdefine SSL_get_max_proto_version BORINGSSL_PREFIX %+ _SSL_get_max_proto_version
+%xdefine SSL_get_min_proto_version BORINGSSL_PREFIX %+ _SSL_get_min_proto_version
 %xdefine SSL_get_mode BORINGSSL_PREFIX %+ _SSL_get_mode
 %xdefine SSL_get_negotiated_token_binding_param BORINGSSL_PREFIX %+ _SSL_get_negotiated_token_binding_param
 %xdefine SSL_get_options BORINGSSL_PREFIX %+ _SSL_get_options
@@ -5045,6 +5034,7 @@
 %xdefine SSL_get_servername_type BORINGSSL_PREFIX %+ _SSL_get_servername_type
 %xdefine SSL_get_session BORINGSSL_PREFIX %+ _SSL_get_session
 %xdefine SSL_get_shared_ciphers BORINGSSL_PREFIX %+ _SSL_get_shared_ciphers
+%xdefine SSL_get_shared_sigalgs BORINGSSL_PREFIX %+ _SSL_get_shared_sigalgs
 %xdefine SSL_get_shutdown BORINGSSL_PREFIX %+ _SSL_get_shutdown
 %xdefine SSL_get_signature_algorithm_digest BORINGSSL_PREFIX %+ _SSL_get_signature_algorithm_digest
 %xdefine SSL_get_signature_algorithm_key_type BORINGSSL_PREFIX %+ _SSL_get_signature_algorithm_key_type
@@ -5188,6 +5178,7 @@
 %xdefine SSL_use_certificate_ASN1 BORINGSSL_PREFIX %+ _SSL_use_certificate_ASN1
 %xdefine SSL_use_certificate_file BORINGSSL_PREFIX %+ _SSL_use_certificate_file
 %xdefine SSL_use_psk_identity_hint BORINGSSL_PREFIX %+ _SSL_use_psk_identity_hint
+%xdefine SSL_used_hello_retry_request BORINGSSL_PREFIX %+ _SSL_used_hello_retry_request
 %xdefine SSL_version BORINGSSL_PREFIX %+ _SSL_version
 %xdefine SSL_want BORINGSSL_PREFIX %+ _SSL_want
 %xdefine SSL_write BORINGSSL_PREFIX %+ _SSL_write
@@ -5819,6 +5810,8 @@
 %xdefine bn_lcm_consttime BORINGSSL_PREFIX %+ _bn_lcm_consttime
 %xdefine bn_less_than_montgomery_R BORINGSSL_PREFIX %+ _bn_less_than_montgomery_R
 %xdefine bn_less_than_words BORINGSSL_PREFIX %+ _bn_less_than_words
+%xdefine bn_miller_rabin_init BORINGSSL_PREFIX %+ _bn_miller_rabin_init
+%xdefine bn_miller_rabin_iteration BORINGSSL_PREFIX %+ _bn_miller_rabin_iteration
 %xdefine bn_minimal_width BORINGSSL_PREFIX %+ _bn_minimal_width
 %xdefine bn_mod_add_consttime BORINGSSL_PREFIX %+ _bn_mod_add_consttime
 %xdefine bn_mod_add_words BORINGSSL_PREFIX %+ _bn_mod_add_words
@@ -6081,17 +6074,17 @@
 %xdefine ecp_nistz256_sqr_mont BORINGSSL_PREFIX %+ _ecp_nistz256_sqr_mont
 %xdefine ed25519_asn1_meth BORINGSSL_PREFIX %+ _ed25519_asn1_meth
 %xdefine ed25519_pkey_meth BORINGSSL_PREFIX %+ _ed25519_pkey_meth
-%xdefine gcm_ghash_4bit BORINGSSL_PREFIX %+ _gcm_ghash_4bit
 %xdefine gcm_ghash_avx BORINGSSL_PREFIX %+ _gcm_ghash_avx
 %xdefine gcm_ghash_clmul BORINGSSL_PREFIX %+ _gcm_ghash_clmul
+%xdefine gcm_ghash_nohw BORINGSSL_PREFIX %+ _gcm_ghash_nohw
 %xdefine gcm_ghash_ssse3 BORINGSSL_PREFIX %+ _gcm_ghash_ssse3
-%xdefine gcm_gmult_4bit BORINGSSL_PREFIX %+ _gcm_gmult_4bit
 %xdefine gcm_gmult_avx BORINGSSL_PREFIX %+ _gcm_gmult_avx
 %xdefine gcm_gmult_clmul BORINGSSL_PREFIX %+ _gcm_gmult_clmul
+%xdefine gcm_gmult_nohw BORINGSSL_PREFIX %+ _gcm_gmult_nohw
 %xdefine gcm_gmult_ssse3 BORINGSSL_PREFIX %+ _gcm_gmult_ssse3
-%xdefine gcm_init_4bit BORINGSSL_PREFIX %+ _gcm_init_4bit
 %xdefine gcm_init_avx BORINGSSL_PREFIX %+ _gcm_init_avx
 %xdefine gcm_init_clmul BORINGSSL_PREFIX %+ _gcm_init_clmul
+%xdefine gcm_init_nohw BORINGSSL_PREFIX %+ _gcm_init_nohw
 %xdefine gcm_init_ssse3 BORINGSSL_PREFIX %+ _gcm_init_ssse3
 %xdefine i2a_ACCESS_DESCRIPTION BORINGSSL_PREFIX %+ _i2a_ACCESS_DESCRIPTION
 %xdefine i2a_ASN1_ENUMERATED BORINGSSL_PREFIX %+ _i2a_ASN1_ENUMERATED
@@ -6292,35 +6285,6 @@
 %xdefine sha1_block_data_order BORINGSSL_PREFIX %+ _sha1_block_data_order
 %xdefine sha256_block_data_order BORINGSSL_PREFIX %+ _sha256_block_data_order
 %xdefine sha512_block_data_order BORINGSSL_PREFIX %+ _sha512_block_data_order
-%xdefine sike_cswap_asm BORINGSSL_PREFIX %+ _sike_cswap_asm
-%xdefine sike_eval_3_isog BORINGSSL_PREFIX %+ _sike_eval_3_isog
-%xdefine sike_eval_4_isog BORINGSSL_PREFIX %+ _sike_eval_4_isog
-%xdefine sike_fp2inv_mont BORINGSSL_PREFIX %+ _sike_fp2inv_mont
-%xdefine sike_fp2mul_mont BORINGSSL_PREFIX %+ _sike_fp2mul_mont
-%xdefine sike_fp2sqr_mont BORINGSSL_PREFIX %+ _sike_fp2sqr_mont
-%xdefine sike_fpadd BORINGSSL_PREFIX %+ _sike_fpadd
-%xdefine sike_fpcopy BORINGSSL_PREFIX %+ _sike_fpcopy
-%xdefine sike_fpcorrection BORINGSSL_PREFIX %+ _sike_fpcorrection
-%xdefine sike_fpdiv2 BORINGSSL_PREFIX %+ _sike_fpdiv2
-%xdefine sike_fpmul_mont BORINGSSL_PREFIX %+ _sike_fpmul_mont
-%xdefine sike_fpneg BORINGSSL_PREFIX %+ _sike_fpneg
-%xdefine sike_fprdc BORINGSSL_PREFIX %+ _sike_fprdc
-%xdefine sike_fpsub BORINGSSL_PREFIX %+ _sike_fpsub
-%xdefine sike_from_mont BORINGSSL_PREFIX %+ _sike_from_mont
-%xdefine sike_get_3_isog BORINGSSL_PREFIX %+ _sike_get_3_isog
-%xdefine sike_get_4_isog BORINGSSL_PREFIX %+ _sike_get_4_isog
-%xdefine sike_get_A BORINGSSL_PREFIX %+ _sike_get_A
-%xdefine sike_inv_3_way BORINGSSL_PREFIX %+ _sike_inv_3_way
-%xdefine sike_j_inv BORINGSSL_PREFIX %+ _sike_j_inv
-%xdefine sike_mpadd_asm BORINGSSL_PREFIX %+ _sike_mpadd_asm
-%xdefine sike_mpdblsubx2_asm BORINGSSL_PREFIX %+ _sike_mpdblsubx2_asm
-%xdefine sike_mpmul BORINGSSL_PREFIX %+ _sike_mpmul
-%xdefine sike_mpsubx2_asm BORINGSSL_PREFIX %+ _sike_mpsubx2_asm
-%xdefine sike_params BORINGSSL_PREFIX %+ _sike_params
-%xdefine sike_xDBLADD BORINGSSL_PREFIX %+ _sike_xDBLADD
-%xdefine sike_xDBLe BORINGSSL_PREFIX %+ _sike_xDBLe
-%xdefine sike_xTPL BORINGSSL_PREFIX %+ _sike_xTPL
-%xdefine sike_xTPLe BORINGSSL_PREFIX %+ _sike_xTPLe
 %xdefine sk_CRYPTO_BUFFER_call_copy_func BORINGSSL_PREFIX %+ _sk_CRYPTO_BUFFER_call_copy_func
 %xdefine sk_CRYPTO_BUFFER_call_free_func BORINGSSL_PREFIX %+ _sk_CRYPTO_BUFFER_call_free_func
 %xdefine sk_CRYPTO_BUFFER_deep_copy BORINGSSL_PREFIX %+ _sk_CRYPTO_BUFFER_deep_copy
