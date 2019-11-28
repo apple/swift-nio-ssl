@@ -581,42 +581,22 @@ extension NIOSSLHandler {
         var promises: [EventLoopPromise<Void>] = []
         var didWrite = false
 
-        /// Given a byte buffer to encode, passes it to BoringSSL and handles the result.
-        func encodeWrite(buf: inout ByteBuffer, promise: EventLoopPromise<Void>?) throws -> Bool {
-            let result = connection.writeDataToNetwork(&buf)
-
-            switch result {
-            case .complete:
-                didWrite = true
-                if let promise = promise { promises.append(promise) }
-                return true
-            case .incomplete:
-                // Ok, we can't write. Let's stop.
-                return false
-            case .failed(let err):
-                // Once a write fails, all writes must fail. This includes prior writes
-                // that successfully made it through BoringSSL.
-                throw err
-            }
-        }
-
-        func flushWrites() {
-            let ourPromise: EventLoopPromise<Void> = context.eventLoop.makePromise()
-            promises.forEach { ourPromise.futureResult.cascade(to: $0) }
-            writeDataToNetwork(context: context, promise: ourPromise)
-            promises = []
-        }
-
         do {
             try bufferedWrites.forEachElementUntilMark { element in
                 var data = element.data
-                return try encodeWrite(buf: &data, promise: element.promise)
+                let writeSuccessful = try self._encodeSingleWrite(buf: &data)
+                if writeSuccessful {
+                    didWrite = true
+                    if let promise = element.promise { promises.append(promise) }
+                }
+                return writeSuccessful
             }
 
             // If we got this far and did a write, we should shove the data out to the
             // network.
             if didWrite {
-                flushWrites()
+                let ourPromise: EventLoopPromise<Void>? = promises.flattenPromises(on: context.eventLoop)
+                self.writeDataToNetwork(context: context, promise: ourPromise)
             }
         } catch {
             // We encountered an error, it's cleanup time. Close ourselves down.
@@ -627,10 +607,31 @@ extension NIOSSLHandler {
             self.discardBufferedWrites(reason: error)
         }
     }
+
+    /// Given a ByteBuffer to encode, passes it to BoringSSL and handles the result.
+    private func _encodeSingleWrite(buf: inout ByteBuffer) throws -> Bool {
+        let result = self.connection.writeDataToNetwork(&buf)
+
+        switch result {
+        case .complete:
+            return true
+        case .incomplete:
+            // Ok, we can't write. Let's stop.
+            return false
+        case .failed(let err):
+            // Once a write fails, all writes must fail. This includes prior writes
+            // that successfully made it through BoringSSL.
+            throw err
+        }
+    }
 }
 
 fileprivate extension MarkedCircularBuffer {
     mutating func forEachElementUntilMark(callback: (Element) throws -> Bool) rethrows {
+        // This function generates quite a lot of ARC traffic, as it needs to pass a copy of .first
+        // into the closure. Sadly, MarkedCircularBuffer won't let us put something in _front_ of the
+        // marked index, so we cannot ensure that everything has only one owner here. Until we can
+        // do something about that, we just have to live with this.
         while try self.hasMark && callback(self.first!) {
             _ = self.removeFirst()
         }
@@ -640,6 +641,33 @@ fileprivate extension MarkedCircularBuffer {
         while self.count > 0 {
             callback(self.removeFirst())
         }
+    }
+}
+
+
+fileprivate extension Array where Element == EventLoopPromise<Void> {
+    /// Given an array of promises, flattens it out to a single promise.
+    /// If the array is empty, returns nil.
+    func flattenPromises(on loop: EventLoop) -> EventLoopPromise<Void>? {
+        guard self.count > 0 else {
+            return nil
+        }
+
+        let ourPromise = loop.makePromise(of: Void.self)
+
+        // We don't use cascade here because cascade has to create one closure per
+        // promise. We can do better by creating only a single closure that dispatches
+        // the result to all promises.
+        ourPromise.futureResult.whenComplete { result in
+            switch result {
+            case .success:
+                self.forEach { $0.succeed(()) }
+            case .failure(let error):
+                self.forEach { $0.fail(error) }
+            }
+        }
+
+        return ourPromise
     }
 }
 
