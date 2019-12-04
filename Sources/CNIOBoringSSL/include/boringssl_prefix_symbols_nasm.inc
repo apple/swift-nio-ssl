@@ -1560,7 +1560,6 @@
 %xdefine _SSL_CTX_clear_mode _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_clear_mode
 %xdefine _SSL_CTX_clear_options _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_clear_options
 %xdefine _SSL_CTX_enable_ocsp_stapling _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_enable_ocsp_stapling
-%xdefine _SSL_CTX_enable_pq_experiment_signal _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_enable_pq_experiment_signal
 %xdefine _SSL_CTX_enable_signed_cert_timestamps _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_enable_signed_cert_timestamps
 %xdefine _SSL_CTX_enable_tls_channel_id _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_enable_tls_channel_id
 %xdefine _SSL_CTX_flush_sessions _ %+ BORINGSSL_PREFIX %+ _SSL_CTX_flush_sessions
@@ -1884,7 +1883,6 @@
 %xdefine _SSL_num_renegotiations _ %+ BORINGSSL_PREFIX %+ _SSL_num_renegotiations
 %xdefine _SSL_peek _ %+ BORINGSSL_PREFIX %+ _SSL_peek
 %xdefine _SSL_pending _ %+ BORINGSSL_PREFIX %+ _SSL_pending
-%xdefine _SSL_pq_experiment_signal_seen _ %+ BORINGSSL_PREFIX %+ _SSL_pq_experiment_signal_seen
 %xdefine _SSL_process_quic_post_handshake _ %+ BORINGSSL_PREFIX %+ _SSL_process_quic_post_handshake
 %xdefine _SSL_provide_quic_data _ %+ BORINGSSL_PREFIX %+ _SSL_provide_quic_data
 %xdefine _SSL_quic_max_handshake_flight_len _ %+ BORINGSSL_PREFIX %+ _SSL_quic_max_handshake_flight_len
@@ -4768,7 +4766,6 @@
 %xdefine SSL_CTX_clear_mode BORINGSSL_PREFIX %+ _SSL_CTX_clear_mode
 %xdefine SSL_CTX_clear_options BORINGSSL_PREFIX %+ _SSL_CTX_clear_options
 %xdefine SSL_CTX_enable_ocsp_stapling BORINGSSL_PREFIX %+ _SSL_CTX_enable_ocsp_stapling
-%xdefine SSL_CTX_enable_pq_experiment_signal BORINGSSL_PREFIX %+ _SSL_CTX_enable_pq_experiment_signal
 %xdefine SSL_CTX_enable_signed_cert_timestamps BORINGSSL_PREFIX %+ _SSL_CTX_enable_signed_cert_timestamps
 %xdefine SSL_CTX_enable_tls_channel_id BORINGSSL_PREFIX %+ _SSL_CTX_enable_tls_channel_id
 %xdefine SSL_CTX_flush_sessions BORINGSSL_PREFIX %+ _SSL_CTX_flush_sessions
@@ -5092,7 +5089,6 @@
 %xdefine SSL_num_renegotiations BORINGSSL_PREFIX %+ _SSL_num_renegotiations
 %xdefine SSL_peek BORINGSSL_PREFIX %+ _SSL_peek
 %xdefine SSL_pending BORINGSSL_PREFIX %+ _SSL_pending
-%xdefine SSL_pq_experiment_signal_seen BORINGSSL_PREFIX %+ _SSL_pq_experiment_signal_seen
 %xdefine SSL_process_quic_post_handshake BORINGSSL_PREFIX %+ _SSL_process_quic_post_handshake
 %xdefine SSL_provide_quic_data BORINGSSL_PREFIX %+ _SSL_provide_quic_data
 %xdefine SSL_quic_max_handshake_flight_len BORINGSSL_PREFIX %+ _SSL_quic_max_handshake_flight_len
