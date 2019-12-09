@@ -52,6 +52,7 @@ extension NIOSSLIntegrationTest {
                 ("testPendingWritesFailWhenFlushedOnClose", testPendingWritesFailWhenFlushedOnClose),
                 ("testChannelInactiveAfterCloseNotify", testChannelInactiveAfterCloseNotify),
                 ("testKeyLoggingClientAndServer", testKeyLoggingClientAndServer),
+                ("testLoadsOfCloses", testLoadsOfCloses),
            ]
    }
 }

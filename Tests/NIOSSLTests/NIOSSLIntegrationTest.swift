@@ -1566,4 +1566,29 @@ class NIOSSLIntegrationTest: XCTestCase {
         clientChannel.close(promise: nil)
         try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
     }
+
+    func testLoadsOfCloses() throws {
+        let context = try configuredSSLContext()
+
+        // 3 threads so server, client, and accepted all have their own thread.
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 3)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let serverChannel: Channel = try serverTLSChannel(context: context, handlers: [], group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let clientChannel = try clientTLSChannel(context: context,
+                                                 preHandlers: [],
+                                                 postHandlers: [],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!)
+        let closeFutures = (0..<20).map { _ in
+            clientChannel.close()
+        }
+        XCTAssertNoThrow(try EventLoopFuture<Void>.andAllComplete(closeFutures, on: clientChannel.eventLoop).wait())
+    }
 }
