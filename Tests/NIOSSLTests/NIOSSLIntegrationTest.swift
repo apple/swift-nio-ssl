@@ -577,7 +577,6 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
 
-        let recorderHandler = EventRecorderHandler<TLSUserEvent>()
         let serverChannel = try serverTLSChannel(context: context, handlers: [SimpleEchoServer()], group: group)
         defer {
             XCTAssertNoThrow(try serverChannel.close().wait())
@@ -624,7 +623,6 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
 
-        let recorderHandler = EventRecorderHandler<TLSUserEvent>()
         let serverChannel = try serverTLSChannel(context: context, handlers: [SimpleEchoServer()], group: group)
         defer {
             XCTAssertNoThrow(try serverChannel.close().wait())
