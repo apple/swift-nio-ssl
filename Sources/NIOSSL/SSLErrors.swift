@@ -77,6 +77,8 @@ extension NIOSSLError: Equatable {
              (.cannotMatchULabel, .cannotMatchULabel),
              (.noCertificateToValidate, .noCertificateToValidate),
              (.unableToValidateCertificate, .unableToValidateCertificate),
+             (.cannotFindPeerIP, .cannotFindPeerIP),
+             (.readInInvalidTLSState, .readInInvalidTLSState),
              (.uncleanShutdown, .uncleanShutdown):
             return true
         case (.handshakeFailed(let err1), .handshakeFailed(let err2)),
@@ -118,12 +120,14 @@ public func ==(lhs: BoringSSLError, rhs: BoringSSLError) -> Bool {
          (.wantWrite, .wantWrite),
          (.wantConnect, .wantConnect),
          (.wantAccept, .wantAccept),
-         (.wantCertificateVerify, .wantCertificateVerify),
          (.wantX509Lookup, .wantX509Lookup),
+         (.wantCertificateVerify, .wantCertificateVerify),
          (.syscallError, .syscallError):
         return true
     case (.sslError(let e1), .sslError(let e2)),
-         (.unknownError(let e1), .unknownError(let e2)):
+         (.unknownError(let e1), .unknownError(let e2)),
+         (.invalidSNIName(let e1), .invalidSNIName(let e2)),
+         (.failedToSetALPN(let e1), .failedToSetALPN(let e2)):
         return e1 == e2
     default:
         return false
