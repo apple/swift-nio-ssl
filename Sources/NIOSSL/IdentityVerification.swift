@@ -21,15 +21,10 @@ private let ASCII_CAPITAL_A: UInt8 = 65
 private let ASCII_CAPITAL_Z: UInt8 = 90
 private let ASCII_CASE_DISTANCE: UInt8 = 32
 
-#if swift(>=4.1)
-typealias SliceType = Slice
-#else
-typealias SliceType = RandomAccessSlice
-#endif
 
 /// We need these extra methods defining equality.
-private extension SliceType where Base == UnsafeBufferPointer<UInt8> {
-    static func ==(lhs: SliceType<Base>, rhs: SliceType<Base>) -> Bool {
+private extension Slice where Base == UnsafeBufferPointer<UInt8> {
+    static func ==(lhs: Slice<Base>, rhs: Slice<Base>) -> Bool {
         guard lhs.count == rhs.count else {
             return false
         }
@@ -39,13 +34,13 @@ private extension SliceType where Base == UnsafeBufferPointer<UInt8> {
                       lhs.count) == 0
     }
 
-    static func ==(lhs: SliceType<Base>, rhs: [UInt8]) -> Bool {
+    static func ==(lhs: Slice<Base>, rhs: [UInt8]) -> Bool {
         return rhs.withUnsafeBufferPointer {
             return lhs == $0[...]
         }
     }
 
-    static func !=(lhs: SliceType<Base>, rhs: [UInt8]) -> Bool {
+    static func !=(lhs: Slice<Base>, rhs: [UInt8]) -> Bool {
         return !(lhs == rhs)
     }
 }
@@ -89,15 +84,6 @@ private extension String {
 /// defines the common algorithm used for validating that an X.509 certificate
 /// is valid for a given service
 ///
-/// This is extremely dangerous code: logic errors in this function or any function
-/// that it calls potentially allow for us to accept X.509 certificates that we
-/// should reject. Even having this code in the codebase is a massive liability, and
-/// as soon as it is practically possible we should aim to remove it and rely on a
-/// more trustworthy implementation.
-///
-/// As we're now using BoringSSL, we can rely on having this supported by the stack
-/// unconditionally, so we should aim to do that in the near future.
-///
 /// The algorithm we're implementing is specified in RFC 6125 Section 6 if you want to
 /// follow along at home.
 internal func validIdentityForService(serverHostname: String?,
@@ -106,8 +92,8 @@ internal func validIdentityForService(serverHostname: String?,
     if let serverHostname = serverHostname {
         return try serverHostname.withLowercaseASCIIBuffer {
             try validIdentityForService(serverHostname: $0,
-                                               socketAddress: socketAddress,
-                                               leafCertificate: leafCertificate)
+                                        socketAddress: socketAddress,
+                                        leafCertificate: leafCertificate)
         }
     } else {
         return try validIdentityForService(serverHostname: nil as UnsafeBufferPointer<UInt8>?,
@@ -255,8 +241,8 @@ private func matchIpAddress(socketAddress: SocketAddress, certificateIP: NIOSSLC
     }
 }
 
-private func wildcardLabelMatch(wildcard: SliceType<UnsafeBufferPointer<UInt8>>,
-                                target: SliceType<UnsafeBufferPointer<UInt8>>) -> Bool {
+private func wildcardLabelMatch(wildcard: Slice<UnsafeBufferPointer<UInt8>>,
+                                target: Slice<UnsafeBufferPointer<UInt8>>) -> Bool {
     // The wildcard can appear more-or-less anywhere in the first label. The wildcard
     // character itself can match any number of characters, though it must match at least
     // one.

@@ -743,7 +743,7 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
 
-        let errorHandler = ErrorCatcher<NIOSSLError>()
+        let errorHandler = ErrorCatcher<NIOSSLExtraError>()
         let clientChannel = try clientTLSChannel(context: clientCtx,
                                                  preHandlers: [],
                                                  postHandlers: [errorHandler],
@@ -753,7 +753,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
         originalBuffer.writeString("Hello")
         let writeFuture = clientChannel.writeAndFlush(originalBuffer)
-        let errorsFuture: EventLoopFuture<[NIOSSLError]> = writeFuture.recover { (_: Error) in
+        let errorsFuture: EventLoopFuture<[NIOSSLExtraError]> = writeFuture.recover { (_: Error) in
             // We're swallowing errors here, on purpose, because we'll definitely
             // hit them.
             return ()
@@ -764,9 +764,10 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         // This write will have failed, but that's fine: we just want it as a signal that
         // the handshake is done so we can make our assertions.
-        let expectedErrors: [NIOSSLError] = [NIOSSLError.unableToValidateCertificate]
+        let expectedErrors: [NIOSSLExtraError] = [NIOSSLExtraError.failedToValidateHostname]
 
         XCTAssertEqual(expectedErrors, actualErrors)
+        XCTAssertEqual(actualErrors.first.map { String(describing: $0) }, "NIOSSLExtraError.failedToValidateHostname: Couldn't find <none> in certificate from peer")
     }
 
     func testValidatesHostnameOnConnectionSucceeds() throws {
