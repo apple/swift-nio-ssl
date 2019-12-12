@@ -182,7 +182,7 @@ internal final class SSLConnection {
         guard try validIdentityForService(serverHostname: self.expectedHostname,
                                           socketAddress: address,
                                           leafCertificate: peerCert) else {
-            throw NIOSSLError.unableToValidateCertificate
+            throw NIOSSLExtraError.failedToValidateHostname(expectedName: self.expectedHostname ?? "<none>")
         }
     }
 

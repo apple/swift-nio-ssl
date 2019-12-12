@@ -190,3 +190,49 @@ public enum NIOTLSUnwrappingError: Error {
     /// This write was failed because the channel was unwrapped before it was flushed.
     case unflushedWriteOnUnwrap
 }
+
+
+/// This structure contains errors added to NIOSSL after the original `NIOSSLError` enum was
+/// shipped. This is an extensible error object that allows us to evolve it going forward.
+public struct NIOSSLExtraError: Error {
+    private var baseError: NIOSSLExtraError.BaseError
+
+    private var _description: String?
+
+    private init(baseError: NIOSSLExtraError.BaseError, description: String?) {
+        self.baseError = baseError
+        self._description = description
+    }
+}
+
+
+extension NIOSSLExtraError {
+    private enum BaseError: Equatable {
+        case failedToValidateHostname
+    }
+}
+
+
+extension NIOSSLExtraError {
+    /// NIOSSL was unable to validate the hostname presented by the remote peer.
+    public static let failedToValidateHostname = NIOSSLExtraError(baseError: .failedToValidateHostname, description: nil)
+
+    internal static func failedToValidateHostname(expectedName: String) -> NIOSSLExtraError {
+        let description = "Couldn't find \(expectedName) in certificate from peer"
+        return NIOSSLExtraError(baseError: .failedToValidateHostname, description: description)
+    }
+}
+
+
+extension NIOSSLExtraError: CustomStringConvertible {
+    public var description: String {
+        let formattedDescription = self._description.map { ": " + $0 } ?? ""
+        return "NIOSSLExtraError.\(String(describing: self.baseError))\(formattedDescription)"
+    }
+}
+
+extension NIOSSLExtraError: Equatable {
+    public static func ==(lhs: NIOSSLExtraError, rhs: NIOSSLExtraError) -> Bool {
+        return lhs.baseError == rhs.baseError
+    }
+}
