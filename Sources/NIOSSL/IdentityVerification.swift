@@ -14,39 +14,18 @@
 
 import NIO
 
-private let ASCII_PERIOD: UInt8 = ".".utf8.first!
-private let ASCII_ASTERISK: UInt8 = "*".utf8.first!
-private let ASCII_IDN_A_IDENTIFIER: [UInt8] = Array("xn--".utf8)
-private let ASCII_CAPITAL_A: UInt8 = 65
-private let ASCII_CAPITAL_Z: UInt8 = 90
-private let ASCII_CASE_DISTANCE: UInt8 = 32
+
+private let asciiIDNAIdentifier: ArraySlice<UInt8> = Array("xn--".utf8)[...]
+private let asciiCapitals: ClosedRange<UInt8> = (UInt8(ascii: "A")...UInt8(ascii: "Z"))
+private let asciiLowercase: ClosedRange<UInt8> = (UInt8(ascii: "a")...UInt8(ascii: "z"))
+private let asciiNumbers: ClosedRange<UInt8> = (UInt8(ascii: "0")...UInt8(ascii: "9"))
+private let asciiHyphen: UInt8 = UInt8(ascii: "-")
+private let asciiPeriod: UInt8 = UInt8(ascii: ".")
+private let asciiAsterisk: UInt8 = UInt8(ascii: "*")
 
 
-/// We need these extra methods defining equality.
-private extension Slice where Base == UnsafeBufferPointer<UInt8> {
-    static func ==(lhs: Slice<Base>, rhs: Slice<Base>) -> Bool {
-        guard lhs.count == rhs.count else {
-            return false
-        }
-
-        return memcmp(lhs.base.baseAddress!.advanced(by: lhs.startIndex),
-                      rhs.base.baseAddress!.advanced(by: rhs.startIndex),
-                      lhs.count) == 0
-    }
-
-    static func ==(lhs: Slice<Base>, rhs: [UInt8]) -> Bool {
-        return rhs.withUnsafeBufferPointer {
-            return lhs == $0[...]
-        }
-    }
-
-    static func !=(lhs: Slice<Base>, rhs: [UInt8]) -> Bool {
-        return !(lhs == rhs)
-    }
-}
-
-private extension String {
-    /// Calls `fn` with an `UnsafeBufferPointer<UInt8>` pointing to a
+extension String {
+    /// Calls `fn` with an `Array<UInt8>` pointing to a
     /// non-NULL-terminated sequence of ASCII bytes. If the string this method
     /// is called on contains non-ACSII code points, this method throws.
     ///
@@ -54,28 +33,48 @@ private extension String {
     /// In a naive implementation we'd loop at least three times: once to lowercase
     /// the string, once to get a buffer pointer to a contiguous buffer, and once
     /// to confirm the string is ASCII. Here we can do that all in one loop.
-    func withLowercaseASCIIBuffer<T>(_ fn: (UnsafeBufferPointer<UInt8>) throws -> T) throws -> T {
-        let asciiCapitals = ASCII_CAPITAL_A...ASCII_CAPITAL_Z
-        var buffer = [UInt8]()
-        buffer.reserveCapacity(self.utf8.count)
-
-        for codeUnit in self.utf8 {
-            guard codeUnit < 128 else {
-                throw NIOSSLError.cannotMatchULabel
+    fileprivate func withLowercaseASCIIBuffer<T>(_ fn: (Array<UInt8>) throws -> T) throws -> T {
+        let buffer: [UInt8] = try self.utf8.map { codeUnit in
+            guard codeUnit.isValidDNSCharacter else {
+                throw NIOSSLExtraError.serverHostnameImpossibleToMatch(hostname: self)
             }
 
-            if asciiCapitals.contains(codeUnit) {
-                buffer.append(codeUnit + ASCII_CASE_DISTANCE)
-            } else {
-                buffer.append(codeUnit)
-            }
+            // We know we have only ASCII printables, we can safely unconditionally set the 6 bit to 1 to lowercase.
+            return codeUnit | (0x20)
         }
 
-        return try buffer.withUnsafeBufferPointer {
-            try fn($0)
+        return try fn(buffer)
+    }
+}
+
+
+extension Collection {
+    /// Splits a collection in two around a given index. This index may be nil, in which case the split
+    /// will occur around the end.
+    fileprivate func splitAroundIndex(_ index: Index?) -> (SubSequence, SubSequence) {
+        guard let index = index else {
+            return (self[...], self[self.endIndex...])
+        }
+
+        let subsequentIndex = self.index(after: index)
+        return (self[..<index], self[subsequentIndex...])
+    }
+}
+
+
+extension UInt8 {
+    /// Whether this character is a valid DNS character, which is the ASCII
+    /// letters, digits, the hypen, and the period.
+    fileprivate var isValidDNSCharacter: Bool {
+        switch self {
+        case asciiCapitals, asciiLowercase, asciiNumbers, asciiHyphen, asciiPeriod:
+            return true
+        default:
+            return false
         }
     }
 }
+
 
 /// Validates that a given leaf certificate is valid for a service.
 ///
@@ -96,18 +95,32 @@ internal func validIdentityForService(serverHostname: String?,
                                         leafCertificate: leafCertificate)
         }
     } else {
-        return try validIdentityForService(serverHostname: nil as UnsafeBufferPointer<UInt8>?,
+        return try validIdentityForService(serverHostname: nil as Array<UInt8>?,
                                            socketAddress: socketAddress,
                                            leafCertificate: leafCertificate)
     }
 }
 
-private func validIdentityForService(serverHostname: UnsafeBufferPointer<UInt8>?,
+private func validIdentityForService(serverHostname: Array<UInt8>?,
                                      socketAddress: SocketAddress,
                                      leafCertificate: NIOSSLCertificate) throws -> Bool {
-    // Step 1 is to ensure that the user's domain name has any IDN U-labels transformed
-    // into IDN A-labels.
+    // Before we begin, we want to locate the first period in our own domain name. We need to do
+    // this because we may need to match a wildcard label.
+    var serverHostnameSlice: ArraySlice<UInt8>? = nil
+    var firstPeriodIndex: ArraySlice<UInt8>.Index? = nil
 
+    if let serverHostname = serverHostname {
+        var tempServerHostnameSlice = serverHostname[...]
+
+
+        // Strip trailing period
+        if tempServerHostnameSlice.last == .some(asciiPeriod) {
+            tempServerHostnameSlice = tempServerHostnameSlice.dropLast()
+        }
+
+        firstPeriodIndex = tempServerHostnameSlice.firstIndex(of: asciiPeriod)
+        serverHostnameSlice = tempServerHostnameSlice
+    }
 
     // We want to begin by checking the subjectAlternativeName fields. If there are any fields
     // in there that we could validate against (either IP or hostname) we will validate against
@@ -120,10 +133,7 @@ private func validIdentityForService(serverHostname: UnsafeBufferPointer<UInt8>?
 
             switch name {
             case .dnsName(let dnsName):
-                let matchedHostname = dnsName.withUnsafeBufferPointer {
-                    matchHostname(serverHostname: serverHostname, dnsName: $0)
-                }
-                if matchedHostname {
+                if matchHostname(ourHostname: serverHostnameSlice, firstPeriodIndex: firstPeriodIndex, dnsName: dnsName) {
                     return true
                 }
             case .ipAddress(let ip):
@@ -149,82 +159,25 @@ private func validIdentityForService(serverHostname: UnsafeBufferPointer<UInt8>?
 
     // We have a common name. Let's check it against the provided hostname. We never check
     // the common name against the IP address.
-    return commonName.withUnsafeBufferPointer {
-        matchHostname(serverHostname: serverHostname, dnsName: $0)
-    }
+    return matchHostname(ourHostname: serverHostnameSlice, firstPeriodIndex: firstPeriodIndex, dnsName: commonName)
 }
 
-private func matchHostname(serverHostname: UnsafeBufferPointer<UInt8>?, dnsName: UnsafeBufferPointer<UInt8>) -> Bool {
-    guard let serverHostname = serverHostname else {
+
+private func matchHostname(ourHostname: ArraySlice<UInt8>?, firstPeriodIndex: ArraySlice<UInt8>.Index?, dnsName: Array<UInt8>) -> Bool {
+    guard let ourHostname = ourHostname else {
         // No server hostname was provided, so we cannot match.
         return false
     }
-    var ourHostname = serverHostname[...]
-    var certHostname = dnsName[...]
 
-    // A quick sanity check before we begin: both names need to be entirely-ASCII.
-    // If the one provided by the server isn't entirely-ASCII, then
-    // we should refuse to match it. Additionally, the server-provided name must not contain embedded NULL
-    // bytes. Our own hostname will have passed through our own code to be lowercased, so we just have
-    // an assertion here to catch programming errors in debug code.
-    assert(ourHostname.lazy.filter { (c: UInt8) -> Bool in c > 127 }.count == 0)
-    if (certHostname.lazy.filter { (c: UInt8) -> Bool in (c > 127) || (c == 0) }.count) > 0 {
-        return false  // No match
-    }
-
-    // First, strip trailing dots from the hostnames.
-    if ourHostname.last == .some(ASCII_PERIOD) {
-        ourHostname = ourHostname.dropLast()
-    }
-    if certHostname.last == .some(ASCII_PERIOD) {
-        certHostname = certHostname.dropLast()
-    }
-
-    // Next, check if there is a wildcard, and how many there are.
-    let wildcardCount = certHostname.lazy.filter { $0 == ASCII_ASTERISK }.count
-    switch wildcardCount {
-    case 0:
-        // No wildcard means these are just a direct case-insensitive string match.
-        return ourHostname == certHostname
-    case 1:
-        // One wildcard is ok.
-        break
-    default:
-        // More than one wildcard is invalid, we should refuse to match.
+    // Now we validate the cert hostname.
+    var dnsName = ArraySlice(dnsName)
+    guard let validatedHostname = AnalysedCertificateHostname(baseName: &dnsName) else {
+        // This is a hostname we can't match, return false.
         return false
     }
-
-    // Some sanity checking now. The wildcard must be in the left-most label in
-    // the name. That name must not be part of an IDN A-label. The name must contain
-    // at least two labels. We want to validate that all of this is correct.
-    let certComponents = certHostname.split(separator: ASCII_PERIOD, maxSplits: 1, omittingEmptySubsequences: false)
-    guard certComponents.count == 2 else {
-        // Insufficiently many labels.
-        return false
-    }
-    guard certComponents[0].contains(ASCII_ASTERISK) else {
-        // The wildcard is in a middle portion, we don't accept that.
-        return false
-    }
-    guard certComponents[0].prefix(4) != ASCII_IDN_A_IDENTIFIER else {
-        // This is an IDN A-label, it may not have a wildcard.
-        return false
-    }
-
-    // Ok, better. We know what's happening now. We need both hostnames split into components.
-    let hostnameComponents = ourHostname.split(separator: ASCII_PERIOD, maxSplits: 1, omittingEmptySubsequences: false)
-    guard hostnameComponents.count == 2 else {
-        // Different numbers of labels, these cannot match.
-        return false
-    }
-
-    guard wildcardLabelMatch(wildcard: certComponents[0], target: hostnameComponents[0]) else {
-        return false
-    }
-
-    // Cool, the wildcard is ok. The rest should just be a straightforward match.
-    return certComponents[1] == hostnameComponents[1]
+    return validatedHostname.validMatchForName(ourHostname, firstPeriodIndexForName: firstPeriodIndex)
 }
+
 
 private func matchIpAddress(socketAddress: SocketAddress, certificateIP: NIOSSLCertificate.IPAddress) -> Bool {
     // These match if the two underlying IP address structures match.
@@ -241,23 +194,121 @@ private func matchIpAddress(socketAddress: SocketAddress, certificateIP: NIOSSLC
     }
 }
 
-private func wildcardLabelMatch(wildcard: Slice<UnsafeBufferPointer<UInt8>>,
-                                target: Slice<UnsafeBufferPointer<UInt8>>) -> Bool {
-    // The wildcard can appear more-or-less anywhere in the first label. The wildcard
-    // character itself can match any number of characters, though it must match at least
-    // one.
-    // The algorithm for this is simple: first we check that target is at least the same
-    // size as wildcard. Then we split wildcard on the wildcard character and confirm that
-    // the characters *before* the wildcard are the prefix of target, and that the
-    // characters *after* the wildcard are the suffix of target. This works well because
-    // the empty string is a prefix and suffix of all strings.
-    guard target.count >= wildcard.count else {
-        // The target label cannot possibly match the wildcard.
-        return false
+
+/// This structure contains a certificate hostname that has been analysed and prepared for matching.
+///
+/// A certificate hostname that is valid for matching meets the following criteria:
+///
+/// 1. Contains only valid DNS characters, plus the ASCII asterisk.
+/// 2. Contains zero or one ASCII asterisks.
+/// 3. Any ASCII asterisk present must be in the first DNS label (i.e. before the first period).
+/// 4. If the first label contains an ASCII asterisk, it must not also be an IDN A label.
+///
+/// Answering these questions potentially relies on multiple searches through the hostname. That's not
+/// ideal: it'd be better to do a single search that both validates the domain name meets the criteria
+/// and that also records information needed to validate that the name matches the one we're searching for.
+/// That's what this structure does.
+fileprivate struct AnalysedCertificateHostname {
+    /// The type we use to store the base name. The other types on this object are chosen relative to that.
+    fileprivate typealias BaseNameType = ArraySlice<UInt8>
+
+    private var name: NameType
+
+    fileprivate init?(baseName: inout BaseNameType) {
+        // First, strip a trailing period from this name.
+        if baseName.last == .some(asciiPeriod) {
+            baseName = baseName.dropLast()
+        }
+
+        // Ok, start looping.
+        var index = baseName.startIndex
+        var firstPeriodIndex: Optional<BaseNameType.Index> = nil
+        var asteriskIndex: Optional<BaseNameType.Index> = nil
+
+        while index < baseName.endIndex {
+            switch baseName[index] {
+            case asciiPeriod where firstPeriodIndex == nil:
+                // This is the first period we've seen, great. Future
+                // periods will be ignored.
+                firstPeriodIndex = index
+
+            case asciiCapitals, asciiLowercase, asciiNumbers, asciiHyphen, asciiPeriod:
+                // Valid character, no notes.
+                break
+
+            case asciiAsterisk where asteriskIndex == nil && firstPeriodIndex == nil:
+                // Found an asterisk, it's the first one, and it precedes any periods.
+                asteriskIndex = index
+
+            case asciiAsterisk:
+                // An extra asterisk, or an asterisk after a period, is unacceptable.
+                return nil
+
+            default:
+                // Unacceptable character in the name.
+                return nil
+            }
+
+            baseName.formIndex(after: &index)
+        }
+
+        // Now we can finally initialize ourself.
+        if let asteriskIndex = asteriskIndex {
+            // One final check: if we found a wildcard, we need to confirm that the first label isn't an IDNA A label.
+            guard baseName.prefix(4) != asciiIDNAIdentifier else {
+                return nil
+            }
+
+            self.name = .wildcard(baseName, asteriskIndex: asteriskIndex, firstPeriodIndex: firstPeriodIndex)
+        } else {
+            self.name = .singleName(baseName)
+        }
     }
 
-    let components = wildcard.split(separator: ASCII_ASTERISK, maxSplits: 1, omittingEmptySubsequences: false)
-    precondition(components.count == 2)
-    return target.prefix(components[0].count) == components[0] && target.suffix(components[1].count) == components[1]
+    /// Whether this parsed name is a valid match for the one passed in.
+    fileprivate func validMatchForName(_ target: BaseNameType, firstPeriodIndexForName: BaseNameType.Index?) -> Bool {
+        switch self.name {
+        case .singleName(let baseName):
+            // For non-wildcard names, we just do a straightforward string comparison.
+            return baseName == target
+
+        case .wildcard(let baseName, asteriskIndex: let asteriskIndex, firstPeriodIndex: let firstPeriodIndex):
+            // The wildcard can appear more-or-less anywhere in the first label. The wildcard
+            // character itself can match any number of characters, though it must match at least
+            // one.
+            // The algorithm for this is simple: first, we split the two names on their first period to get their
+            // first label and their subsequent components. Second, we check that the subcomponents match a straightforward
+            // bytewise comparison: if that fails, we can avoid the expensive wildcard checking operation.
+            // Third, we split the wildcard label on the wildcard character, and and confirm that
+            // the characters *before* the wildcard are the prefix of the target first label, and that the
+            // characters *after* the wildcard are the suffix of the target first label. This works well because
+            // the empty string is a prefix and suffix of all strings.
+            let (wildcardLabel, remainingComponents) = baseName.splitAroundIndex(firstPeriodIndex)
+            let (targetFirstLabel, targetRemainingComponents) = target.splitAroundIndex(firstPeriodIndexForName)
+
+            guard remainingComponents == targetRemainingComponents else {
+                // Wildcard is irrelevant, the remaining components don't match.
+                return false
+            }
+
+            guard targetFirstLabel.count >= wildcardLabel.count else {
+                // The target label cannot possibly match the wildcard.
+                return false
+            }
+
+            let (wildcardLabelPrefix, wildcardLabelSuffix) = wildcardLabel.splitAroundIndex(asteriskIndex)
+
+            return (targetFirstLabel.prefix(wildcardLabelPrefix.count) == wildcardLabelPrefix &&
+                    targetFirstLabel.suffix(wildcardLabelSuffix.count) == wildcardLabelSuffix)
+        }
+    }
+}
+
+
+extension AnalysedCertificateHostname {
+    private enum NameType {
+        case wildcard(BaseNameType, asteriskIndex: BaseNameType.Index, firstPeriodIndex: Optional<BaseNameType.Index>)
+        case singleName(BaseNameType)
+    }
 }
 

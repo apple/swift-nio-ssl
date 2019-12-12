@@ -209,6 +209,7 @@ public struct NIOSSLExtraError: Error {
 extension NIOSSLExtraError {
     private enum BaseError: Equatable {
         case failedToValidateHostname
+        case serverHostnameImpossibleToMatch
     }
 }
 
@@ -217,9 +218,17 @@ extension NIOSSLExtraError {
     /// NIOSSL was unable to validate the hostname presented by the remote peer.
     public static let failedToValidateHostname = NIOSSLExtraError(baseError: .failedToValidateHostname, description: nil)
 
+    /// The server hostname provided by the user cannot match any names in the certificate due to containing invalid characters.
+    public static let serverHostnameImpossibleToMatch = NIOSSLExtraError(baseError: .serverHostnameImpossibleToMatch, description: nil)
+
     internal static func failedToValidateHostname(expectedName: String) -> NIOSSLExtraError {
         let description = "Couldn't find \(expectedName) in certificate from peer"
         return NIOSSLExtraError(baseError: .failedToValidateHostname, description: description)
+    }
+
+    internal static func serverHostnameImpossibleToMatch(hostname: String) -> NIOSSLExtraError {
+        let description = "The server hostname \(hostname) cannot be matched due to containing non-DNS characters"
+        return NIOSSLExtraError(baseError: .serverHostnameImpossibleToMatch, description: description)
     }
 }
 
