@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>NIOSSLTrustRoots Enumeration Reference</title>
+    <title>NIOSSLExtraError Structure Reference</title>
     <link rel="stylesheet" type="text/css" href="../css/jazzy.css" />
     <link rel="stylesheet" type="text/css" href="../css/highlight.css" />
     <meta charset="utf-8">
@@ -14,9 +14,9 @@
   </head>
   <body>
 
-    <a name="//apple_ref/swift/Enum/NIOSSLTrustRoots" class="dashAnchor"></a>
+    <a name="//apple_ref/swift/Struct/NIOSSLExtraError" class="dashAnchor"></a>
 
-    <a title="NIOSSLTrustRoots Enumeration Reference"></a>
+    <a title="NIOSSLExtraError Structure Reference"></a>
 
     <header class="header">
       <p class="header-col header-col--primary">
@@ -50,7 +50,7 @@
     <p class="breadcrumbs">
       <a class="breadcrumb" href="../index.html">NIOSSL Reference</a>
       <img class="carat" src="../img/carat.png" />
-      NIOSSLTrustRoots Enumeration Reference
+      NIOSSLExtraError Structure Reference
     </p>
 
     <div class="content-wrapper">
@@ -182,14 +182,15 @@
 
         <section class="section">
           <div class="section-content">
-            <h1>NIOSSLTrustRoots</h1>
+            <h1>NIOSSLExtraError</h1>
               <div class="declaration">
                 <div class="language">
-                  <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">enum</span> <span class="kt">NIOSSLTrustRoots</span></code></pre>
+                  <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">struct</span> <span class="kt">NIOSSLExtraError</span> <span class="p">:</span> <span class="kt">Error</span></code></pre>
 
                 </div>
               </div>
-            <p>Places NIOSSL can obtain a trust store from.</p>
+            <p>This structure contains errors added to NIOSSL after the original <code><a href="../Enums/NIOSSLError.html">NIOSSLError</a></code> enum was
+shipped. This is an extensible error object that allows us to evolve it going forward.</p>
 
           </div>
         </section>
@@ -201,9 +202,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:6NIOSSL16NIOSSLTrustRootsO4fileyACSScACmF"></a>
-                    <a name="//apple_ref/swift/Element/file(_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:6NIOSSL16NIOSSLTrustRootsO4fileyACSScACmF">file(_:)</a>
+                    <a name="/s:6NIOSSL16NIOSSLExtraErrorV24failedToValidateHostnameACvpZ"></a>
+                    <a name="//apple_ref/swift/Variable/failedToValidateHostname" class="dashAnchor"></a>
+                    <a class="token" href="#/s:6NIOSSL16NIOSSLExtraErrorV24failedToValidateHostnameACvpZ">failedToValidateHostname</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -211,14 +212,14 @@
                     <section class="section">
                       <div class="pointer"></div>
                       <div class="abstract">
-                        <p>Undocumented</p>
+                        <p>NIOSSL was unable to validate the hostname presented by the remote peer.</p>
 
                       </div>
                       <div class="declaration">
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">file</span><span class="p">(</span><span class="kt">String</span><span class="p">)</span></code></pre>
+                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">static</span> <span class="k">let</span> <span class="nv">failedToValidateHostname</span><span class="p">:</span> <span class="kt">NIOSSLExtraError</span></code></pre>
 
                         </div>
                       </div>
@@ -228,9 +229,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:6NIOSSL16NIOSSLTrustRootsO12certificatesyACSayAA17NIOSSLCertificateCGcACmF"></a>
-                    <a name="//apple_ref/swift/Element/certificates(_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:6NIOSSL16NIOSSLTrustRootsO12certificatesyACSayAA17NIOSSLCertificateCGcACmF">certificates(_:)</a>
+                    <a name="/s:6NIOSSL16NIOSSLExtraErrorV31serverHostnameImpossibleToMatchACvpZ"></a>
+                    <a name="//apple_ref/swift/Variable/serverHostnameImpossibleToMatch" class="dashAnchor"></a>
+                    <a class="token" href="#/s:6NIOSSL16NIOSSLExtraErrorV31serverHostnameImpossibleToMatchACvpZ">serverHostnameImpossibleToMatch</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -238,26 +239,30 @@
                     <section class="section">
                       <div class="pointer"></div>
                       <div class="abstract">
-                        <p>Undocumented</p>
+                        <p>The server hostname provided by the user cannot match any names in the certificate due to containing invalid characters.</p>
 
                       </div>
                       <div class="declaration">
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">certificates</span><span class="p">([</span><span class="kt"><a href="../Classes/NIOSSLCertificate.html">NIOSSLCertificate</a></span><span class="p">])</span></code></pre>
+                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">static</span> <span class="k">let</span> <span class="nv">serverHostnameImpossibleToMatch</span><span class="p">:</span> <span class="kt">NIOSSLExtraError</span></code></pre>
 
                         </div>
                       </div>
                     </section>
                   </div>
                 </li>
+              </ul>
+            </div>
+            <div class="task-group">
+              <ul class="item-container">
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:6NIOSSL16NIOSSLTrustRootsO7defaultyA2CmF"></a>
-                    <a name="//apple_ref/swift/Element/default" class="dashAnchor"></a>
-                    <a class="token" href="#/s:6NIOSSL16NIOSSLTrustRootsO7defaultyA2CmF">default</a>
+                    <a name="/s:s23CustomStringConvertibleP11descriptionSSvp"></a>
+                    <a name="//apple_ref/swift/Property/description" class="dashAnchor"></a>
+                    <a class="token" href="#/s:s23CustomStringConvertibleP11descriptionSSvp">description</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -265,14 +270,43 @@
                     <section class="section">
                       <div class="pointer"></div>
                       <div class="abstract">
-                        <p>Undocumented</p>
-
+                        
                       </div>
                       <div class="declaration">
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="p">`</span><span class="nv">default</span><span class="p">`</span></code></pre>
+                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="k">var</span> <span class="nv">description</span><span class="p">:</span> <span class="kt">String</span> <span class="p">{</span> <span class="k">get</span> <span class="p">}</span></code></pre>
+
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <div class="task-group">
+              <ul class="item-container">
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:SQ2eeoiySbx_xtFZ"></a>
+                    <a name="//apple_ref/swift/Method/==(_:_:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:SQ2eeoiySbx_xtFZ">==(_:_:)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">static</span> <span class="kd">func</span> <span class="o">==</span> <span class="p">(</span><span class="nv">lhs</span><span class="p">:</span> <span class="kt">NIOSSLExtraError</span><span class="p">,</span> <span class="nv">rhs</span><span class="p">:</span> <span class="kt">NIOSSLExtraError</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">Bool</span></code></pre>
 
                         </div>
                       </div>
