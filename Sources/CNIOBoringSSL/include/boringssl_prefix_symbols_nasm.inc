@@ -445,6 +445,7 @@
 %xdefine _BUF_strnlen _ %+ BORINGSSL_PREFIX %+ _BUF_strnlen
 %xdefine _CBB_add_asn1 _ %+ BORINGSSL_PREFIX %+ _CBB_add_asn1
 %xdefine _CBB_add_asn1_bool _ %+ BORINGSSL_PREFIX %+ _CBB_add_asn1_bool
+%xdefine _CBB_add_asn1_int64 _ %+ BORINGSSL_PREFIX %+ _CBB_add_asn1_int64
 %xdefine _CBB_add_asn1_octet_string _ %+ BORINGSSL_PREFIX %+ _CBB_add_asn1_octet_string
 %xdefine _CBB_add_asn1_oid_from_text _ %+ BORINGSSL_PREFIX %+ _CBB_add_asn1_oid_from_text
 %xdefine _CBB_add_asn1_uint64 _ %+ BORINGSSL_PREFIX %+ _CBB_add_asn1_uint64
@@ -484,6 +485,7 @@
 %xdefine _CBS_get_asn1_bool _ %+ BORINGSSL_PREFIX %+ _CBS_get_asn1_bool
 %xdefine _CBS_get_asn1_element _ %+ BORINGSSL_PREFIX %+ _CBS_get_asn1_element
 %xdefine _CBS_get_asn1_implicit_string _ %+ BORINGSSL_PREFIX %+ _CBS_get_asn1_implicit_string
+%xdefine _CBS_get_asn1_int64 _ %+ BORINGSSL_PREFIX %+ _CBS_get_asn1_int64
 %xdefine _CBS_get_asn1_uint64 _ %+ BORINGSSL_PREFIX %+ _CBS_get_asn1_uint64
 %xdefine _CBS_get_bytes _ %+ BORINGSSL_PREFIX %+ _CBS_get_bytes
 %xdefine _CBS_get_last_u8 _ %+ BORINGSSL_PREFIX %+ _CBS_get_last_u8
@@ -1158,7 +1160,6 @@
 %xdefine _HRSS_generate_key _ %+ BORINGSSL_PREFIX %+ _HRSS_generate_key
 %xdefine _HRSS_marshal_public_key _ %+ BORINGSSL_PREFIX %+ _HRSS_marshal_public_key
 %xdefine _HRSS_parse_public_key _ %+ BORINGSSL_PREFIX %+ _HRSS_parse_public_key
-%xdefine _HRSS_poly2_rotr_consttime _ %+ BORINGSSL_PREFIX %+ _HRSS_poly2_rotr_consttime
 %xdefine _HRSS_poly3_invert _ %+ BORINGSSL_PREFIX %+ _HRSS_poly3_invert
 %xdefine _HRSS_poly3_mul _ %+ BORINGSSL_PREFIX %+ _HRSS_poly3_mul
 %xdefine _ISSUING_DIST_POINT_free _ %+ BORINGSSL_PREFIX %+ _ISSUING_DIST_POINT_free
@@ -3651,6 +3652,7 @@
 %xdefine BUF_strnlen BORINGSSL_PREFIX %+ _BUF_strnlen
 %xdefine CBB_add_asn1 BORINGSSL_PREFIX %+ _CBB_add_asn1
 %xdefine CBB_add_asn1_bool BORINGSSL_PREFIX %+ _CBB_add_asn1_bool
+%xdefine CBB_add_asn1_int64 BORINGSSL_PREFIX %+ _CBB_add_asn1_int64
 %xdefine CBB_add_asn1_octet_string BORINGSSL_PREFIX %+ _CBB_add_asn1_octet_string
 %xdefine CBB_add_asn1_oid_from_text BORINGSSL_PREFIX %+ _CBB_add_asn1_oid_from_text
 %xdefine CBB_add_asn1_uint64 BORINGSSL_PREFIX %+ _CBB_add_asn1_uint64
@@ -3690,6 +3692,7 @@
 %xdefine CBS_get_asn1_bool BORINGSSL_PREFIX %+ _CBS_get_asn1_bool
 %xdefine CBS_get_asn1_element BORINGSSL_PREFIX %+ _CBS_get_asn1_element
 %xdefine CBS_get_asn1_implicit_string BORINGSSL_PREFIX %+ _CBS_get_asn1_implicit_string
+%xdefine CBS_get_asn1_int64 BORINGSSL_PREFIX %+ _CBS_get_asn1_int64
 %xdefine CBS_get_asn1_uint64 BORINGSSL_PREFIX %+ _CBS_get_asn1_uint64
 %xdefine CBS_get_bytes BORINGSSL_PREFIX %+ _CBS_get_bytes
 %xdefine CBS_get_last_u8 BORINGSSL_PREFIX %+ _CBS_get_last_u8
@@ -4364,7 +4367,6 @@
 %xdefine HRSS_generate_key BORINGSSL_PREFIX %+ _HRSS_generate_key
 %xdefine HRSS_marshal_public_key BORINGSSL_PREFIX %+ _HRSS_marshal_public_key
 %xdefine HRSS_parse_public_key BORINGSSL_PREFIX %+ _HRSS_parse_public_key
-%xdefine HRSS_poly2_rotr_consttime BORINGSSL_PREFIX %+ _HRSS_poly2_rotr_consttime
 %xdefine HRSS_poly3_invert BORINGSSL_PREFIX %+ _HRSS_poly3_invert
 %xdefine HRSS_poly3_mul BORINGSSL_PREFIX %+ _HRSS_poly3_mul
 %xdefine ISSUING_DIST_POINT_free BORINGSSL_PREFIX %+ _ISSUING_DIST_POINT_free
