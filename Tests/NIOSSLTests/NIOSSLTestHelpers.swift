@@ -112,6 +112,14 @@ h33H/Kz4yji7jPN6Uk9wMyG7XGqpjYAuKCd6V3HEHUiGJZzho/VBgb3TVnw=
 -----END RSA PRIVATE KEY-----
 """
 
+let sampleECPemKey = """
+-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIMJZj2Qw9NGv83izxbgRr5xRvb0RHymOfl5hDJ/RPI2GoAoGCCqGSM49
+AwEHoUQDQgAEc5zHoemKB93GfO9MA/vLYEiYMtV3UWDIV88M/TP59R0dKIuPS2Dw
+EeAoz1vgyHNpgE73eYX8NII6U11Xv8Lmgg==
+-----END EC PRIVATE KEY-----
+"""
+
 let samplePemRSAEncryptedKey = """
 -----BEGIN RSA PRIVATE KEY-----
 Proc-Type: 4,ENCRYPTED
@@ -209,6 +217,7 @@ let sampleDerCertSPKI = Array(Data(base64Encoded: """
 let samplePemCerts = "\(samplePemCert)\n\(samplePemCert)"
 let sampleDerCert = pemToDer(samplePemCert)
 let sampleDerKey = pemToDer(samplePemKey)
+let sampleECDerKey = pemToDer(sampleECPemKey)
 // No DER version of the private key becuase encrypted DERs aren't real.
 
 func pemToDer(_ pem: String) -> Data {
