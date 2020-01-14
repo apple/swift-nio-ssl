@@ -199,6 +199,35 @@ extension NIOSSLCertificate {
         return NIOSSLPublicKey.fromInternalPointer(takingOwnership: key)
     }
 
+    /// Extracts the bytes of this certificate in DER format.
+    ///
+    /// - returns: The DER-encoded bytes for this certificate.
+    /// - throws: If an error occurred while serializing the certificate.
+    public func toDERBytes() throws -> [UInt8] {
+        guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_mem()) else {
+            throw NIOSSLError.unableToAllocateBoringSSLObject
+        }
+
+        defer {
+            CNIOBoringSSL_BIO_free(bio)
+        }
+
+        let rc = CNIOBoringSSL_i2d_X509_bio(bio, self.ref)
+        guard rc == 1 else {
+            let errorStack = BoringSSLError.buildErrorStack()
+            throw BoringSSLError.unknownError(errorStack)
+        }
+
+        var dataPtr: UnsafeMutablePointer<CChar>? = nil
+        let length = CNIOBoringSSL_BIO_get_mem_data(bio, &dataPtr)
+
+        guard let bytes = dataPtr.map({ UnsafeMutableRawBufferPointer(start: $0, count: length) }) else {
+            throw NIOSSLError.unableToAllocateBoringSSLObject
+        }
+
+        return Array(bytes)
+    }
+
     /// Create an array of `NIOSSLCertificate`s from a buffer of bytes in PEM format.
     ///
     /// - Parameter buffer: The PEM buffer to read certificates from.
