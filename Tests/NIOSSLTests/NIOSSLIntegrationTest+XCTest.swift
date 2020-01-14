@@ -24,6 +24,7 @@ import XCTest
 
 extension NIOSSLIntegrationTest {
 
+   @available(*, deprecated, message: "not actually deprecated. Just deprecated to allow deprecated tests (which test deprecated functionality) without warnings")
    static var allTests : [(String, (NIOSSLIntegrationTest) -> () throws -> Void)] {
       return [
                 ("testSimpleEcho", testSimpleEcho),

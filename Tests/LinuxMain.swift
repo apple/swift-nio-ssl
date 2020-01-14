@@ -25,17 +25,28 @@ import XCTest
 #if os(Linux) || os(FreeBSD)
    @testable import NIOSSLTests
 
-   XCTMain([
-         testCase(ByteBufferBIOTest.allTests),
-         testCase(CertificateVerificationTests.allTests),
-         testCase(ClientSNITests.allTests),
-         testCase(IdentityVerificationTest.allTests),
-         testCase(NIOSSLALPNTest.allTests),
-         testCase(NIOSSLIntegrationTest.allTests),
-         testCase(SSLCertificateTest.allTests),
-         testCase(SSLPKCS12BundleTest.allTests),
-         testCase(SSLPrivateKeyTest.allTests),
-         testCase(TLSConfigurationTest.allTests),
-         testCase(UnwrappingTests.allTests),
-    ])
+// This protocol is necessary to we can call the 'run' method (on an existential of this protocol)
+// without the compiler noticing that we're calling a deprecated function.
+// This hack exists so we can deprecate individual tests which test deprecated functionality without
+// getting a compiler warning...
+protocol LinuxMainRunner { func run() }
+class LinuxMainRunnerImpl: LinuxMainRunner {
+   @available(*, deprecated, message: "not actually deprecated. Just deprecated to allow deprecated tests (which test deprecated functionality) without warnings")
+   func run() {
+       XCTMain([
+             testCase(ByteBufferBIOTest.allTests),
+             testCase(CertificateVerificationTests.allTests),
+             testCase(ClientSNITests.allTests),
+             testCase(IdentityVerificationTest.allTests),
+             testCase(NIOSSLALPNTest.allTests),
+             testCase(NIOSSLIntegrationTest.allTests),
+             testCase(SSLCertificateTest.allTests),
+             testCase(SSLPKCS12BundleTest.allTests),
+             testCase(SSLPrivateKeyTest.allTests),
+             testCase(TLSConfigurationTest.allTests),
+             testCase(UnwrappingTests.allTests),
+        ])
+    }
+}
+(LinuxMainRunnerImpl() as LinuxMainRunner).run()
 #endif

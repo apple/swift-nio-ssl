@@ -24,6 +24,7 @@ import XCTest
 
 extension ClientSNITests {
 
+   @available(*, deprecated, message: "not actually deprecated. Just deprecated to allow deprecated tests (which test deprecated functionality) without warnings")
    static var allTests : [(String, (ClientSNITests) -> () throws -> Void)] {
       return [
                 ("testSNIIsTransmitted", testSNIIsTransmitted),

@@ -24,6 +24,7 @@ import XCTest
 
 extension CertificateVerificationTests {
 
+   @available(*, deprecated, message: "not actually deprecated. Just deprecated to allow deprecated tests (which test deprecated functionality) without warnings")
    static var allTests : [(String, (CertificateVerificationTests) -> () throws -> Void)] {
       return [
                 ("testCanFindCAFileOnLinux", testCanFindCAFileOnLinux),
