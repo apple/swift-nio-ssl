@@ -48,12 +48,14 @@ internal final class SSLConnection {
     private let ssl: OpaquePointer
     private let parentContext: NIOSSLContext
     private var bio: ByteBufferBIO?
-    private var verificationCallback: NIOSSLVerificationCallback?
-    internal var platformVerificationState: PlatformVerificationState = PlatformVerificationState()
     internal var expectedHostname: String?
     internal var role: ConnectionRole?
     internal var parentHandler: NIOSSLHandler?
     internal var eventLoop: EventLoop?
+
+    /// Deprecated in favour of customVerificationManager
+    private var verificationCallback: NIOSSLVerificationCallback?
+    internal var customVerificationManager: CustomVerifyManager?
 
     /// Whether certificate hostnames should be validated.
     var validateHostnames: Bool {
@@ -116,7 +118,9 @@ internal final class SSLConnection {
         self.expectedHostname = name
     }
 
-    /// Sets the BoringSSL verification callback.
+    /// Sets the BoringSSL old-style verification callback.
+    ///
+    /// This is deprecated in favour of the new-style verification callback in SSLContext.
     func setVerificationCallback(_ callback: @escaping NIOSSLVerificationCallback) {
         // Store the verification callback. We need to do this to keep it alive throughout the connection.
         // We'll drop this when we're told that it's no longer needed to ensure we break the reference cycles
@@ -153,6 +157,33 @@ internal final class SSLConnection {
             case .failed:
                 return 0
             }
+        }
+    }
+
+    func setCustomVerificationCallback(_ callbackManager: CustomVerifyManager) {
+        // Store the verification callback. We need to do this to keep it alive throughout the connection.
+        // We'll drop this when we're told that it's no longer needed to ensure we break the reference cycles
+        // that this callback inevitably produces.
+        assert(self.customVerificationManager == nil)
+        self.customVerificationManager = callbackManager
+
+        // We need to know what the current mode is.
+        let currentMode = CNIOBoringSSL_SSL_get_verify_mode(self.ssl)
+        CNIOBoringSSL_SSL_set_custom_verify(self.ssl, currentMode) { ssl, outAlert in
+            guard let unwrappedSSL = ssl else {
+                preconditionFailure("Unexpected null pointer in custom verification callback. ssl: \(String(describing: ssl))")
+            }
+
+            // Ok, this call may be a resumption of a previous negotiation. We need to check if our connection object has a pre-existing verifiation state.
+            guard let connectionPointer = CNIOBoringSSL_SSL_get_ex_data(unwrappedSSL, sslConnectionExDataIndex) else {
+                // Uh-ok, our application state is gone. Don't let this error silently pass, go bang.
+                preconditionFailure("Unable to find application data from SSL * \(unwrappedSSL), index \(sslConnectionExDataIndex)")
+            }
+
+            let connection = Unmanaged<SSLConnection>.fromOpaque(connectionPointer).takeUnretainedValue()
+
+            // We force unwrap the custom verification manager because for it to not be set is a programmer error.
+            return connection.customVerificationManager!.process(on: connection)
         }
     }
 
@@ -364,9 +395,10 @@ internal final class SSLConnection {
     /// Must only be called when the connection is no longer needed. The rest of this object
     /// preconditions on that being true, so we'll find out quickly when that's not the case.
     func close() {
-        /// Drop the verification callback. This breaks any reference cycles that are inevitably
-        /// created by this callback.
+        /// Drop the verification callbacks. This breaks any reference cycles that are inevitably
+        /// created by these callbacks.
         self.verificationCallback = nil
+        self.customVerificationManager = nil
 
         // Also drop the reference to the parent channel handler, which is a trivial reference cycle.
         self.parentHandler = nil
@@ -421,6 +453,17 @@ extension SSLConnection {
         }
 
         return try body(PeerCertificateChainBuffers(basePointer: stackPointer))
+    }
+
+    /// The certificate chain presented by the peer.
+    func peerCertificateChain() throws -> [NIOSSLCertificate] {
+        return try self.withPeerCertificateChainBuffers { buffers in
+            guard let buffers = buffers else {
+                return []
+            }
+
+            return try buffers.map { try NIOSSLCertificate(bytes: $0, format: .der) }
+        }
     }
 }
 

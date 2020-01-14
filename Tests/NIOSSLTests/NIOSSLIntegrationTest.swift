@@ -18,6 +18,7 @@ import XCTest
 #else
 import CNIOBoringSSL
 #endif
+import NIOConcurrencyHelpers
 import NIO
 @testable import NIOSSL
 import NIOTLS
@@ -292,21 +293,70 @@ internal func clientTLSChannel(context: NIOSSLContext,
                                group: EventLoopGroup,
                                connectingTo: SocketAddress,
                                serverHostname: String? = nil,
-                               verificationCallback: NIOSSLVerificationCallback? = nil,
                                file: StaticString = #file,
                                line: UInt = #line) throws -> Channel {
+    func handlerFactory() throws -> NIOSSLClientHandler {
+        return try NIOSSLClientHandler(context: context, serverHostname: serverHostname)
+    }
+
+    return try _clientTLSChannel(context: context, preHandlers: preHandlers, postHandlers: postHandlers, group: group, connectingTo: connectingTo, handlerFactory: handlerFactory)
+}
+
+
+@available(*, deprecated, renamed: "clientTLSChannel(context:preHandlers:postHandlers:group:connectingTo:serverHostname:customVerificationCallback:file:line:)")
+internal func clientTLSChannel(context: NIOSSLContext,
+                               preHandlers: [ChannelHandler],
+                               postHandlers: [ChannelHandler],
+                               group: EventLoopGroup,
+                               connectingTo: SocketAddress,
+                               serverHostname: String? = nil,
+                               verificationCallback: @escaping NIOSSLVerificationCallback,
+                               file: StaticString = #file,
+                               line: UInt = #line) throws -> Channel {
+    func handlerFactory() throws -> NIOSSLClientHandler {
+        return try NIOSSLClientHandler(context: context, serverHostname: serverHostname, verificationCallback: verificationCallback)
+    }
+
+    return try _clientTLSChannel(context: context, preHandlers: preHandlers, postHandlers: postHandlers, group: group, connectingTo: connectingTo, handlerFactory: handlerFactory)
+}
+
+
+internal func clientTLSChannel(context: NIOSSLContext,
+                               preHandlers: [ChannelHandler],
+                               postHandlers: [ChannelHandler],
+                               group: EventLoopGroup,
+                               connectingTo: SocketAddress,
+                               serverHostname: String? = nil,
+                               customVerificationCallback: @escaping NIOSSLCustomVerificationCallback,
+                               file: StaticString = #file,
+                               line: UInt = #line) throws -> Channel {
+    func handlerFactory() throws -> NIOSSLClientHandler {
+        return try NIOSSLClientHandler(context: context, serverHostname: serverHostname, customVerificationCallback: customVerificationCallback)
+    }
+
+    return try _clientTLSChannel(context: context, preHandlers: preHandlers, postHandlers: postHandlers, group: group, connectingTo: connectingTo, handlerFactory: handlerFactory)
+}
+
+fileprivate func _clientTLSChannel(context: NIOSSLContext,
+                                   preHandlers: [ChannelHandler],
+                                   postHandlers: [ChannelHandler],
+                                   group: EventLoopGroup,
+                                   connectingTo: SocketAddress,
+                                   handlerFactory: @escaping () throws -> NIOSSLClientHandler,
+                                   file: StaticString = #file,
+                                   line: UInt = #line) throws -> Channel {
     return try assertNoThrowWithValue(ClientBootstrap(group: group)
         .channelInitializer { channel in
             let results = preHandlers.map { channel.pipeline.addHandler($0) }
             return EventLoopFuture<Void>.andAllSucceed(results, on: results.first?.eventLoop ?? group.next()).flatMapThrowing {
-                try NIOSSLClientHandler(context: context, serverHostname: serverHostname, verificationCallback: verificationCallback)
-                }.flatMap {
-                    channel.pipeline.addHandler($0)
-                }.flatMap {
-                    let results = postHandlers.map { channel.pipeline.addHandler($0) }
-                return EventLoopFuture<Void>.andAllSucceed(results, on: results.first?.eventLoop ?? group.next())
-            }
-        }.connect(to: connectingTo).wait(), file: file, line: line)
+                try handlerFactory()
+            }.flatMap {
+                channel.pipeline.addHandler($0)
+            }.flatMap {
+                let results = postHandlers.map { channel.pipeline.addHandler($0) }
+            return EventLoopFuture<Void>.andAllSucceed(results, on: results.first?.eventLoop ?? group.next())
+        }
+    }.connect(to: connectingTo).wait(), file: file, line: line)
 }
 
 class NIOSSLIntegrationTest: XCTestCase {
@@ -1161,6 +1211,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertEqual(readData.readString(length: readData.readableBytes)!, "Hello")
     }
 
+    @available(*, deprecated, message: "Testing deprecated API surface")
     func testForcingVerificationFailure() throws {
         let context = try configuredSSLContext()
 
@@ -1209,6 +1260,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
     }
 
+    @available(*, deprecated, message: "Testing deprecated API surface")
     func testExtractingCertificates() throws {
         let context = try configuredSSLContext()
 
@@ -1247,6 +1299,206 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertEqual(newBuffer, originalBuffer)
 
         XCTAssertEqual(certificates.count, 1)
+    }
+
+    func testForcingVerificationFailureNewCallback() throws {
+        let context = try configuredSSLContext()
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let serverChannel: Channel = try serverTLSChannel(context: context, handlers: [], group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let errorHandler = ErrorCatcher<NIOSSLError>()
+        let clientChannel = try clientTLSChannel(context: try configuredClientContext(),
+                                                 preHandlers: [],
+                                                 postHandlers: [errorHandler],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!,
+                                                 customVerificationCallback: { _, promise in
+                                                    promise.succeed(.failed)
+        })
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        let writeFuture = clientChannel.writeAndFlush(originalBuffer)
+        let errorsFuture: EventLoopFuture<[NIOSSLError]> = writeFuture.recover { (_: Error) in
+            // We're swallowing errors here, on purpose, because we'll definitely
+            // hit them.
+            return ()
+        }.map {
+            return errorHandler.errors
+        }
+        let actualErrors = try errorsFuture.wait()
+
+        // This write will have failed, but that's fine: we just want it as a signal that
+        // the handshake is done so we can make our assertions.
+        XCTAssertEqual(actualErrors.count, 1)
+        switch actualErrors.first! {
+        case .handshakeFailed:
+            // expected
+            break
+        case let error:
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testErroringNewVerificationCallback() throws {
+        enum LocalError: Error {
+            case kaboom
+        }
+
+        let context = try configuredSSLContext()
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let serverChannel: Channel = try serverTLSChannel(context: context, handlers: [], group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let errorHandler = ErrorCatcher<NIOSSLError>()
+        let clientChannel = try clientTLSChannel(context: try configuredClientContext(),
+                                                 preHandlers: [],
+                                                 postHandlers: [errorHandler],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!,
+                                                 customVerificationCallback: { _, promise in
+                                                    promise.fail(LocalError.kaboom)
+        })
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        let writeFuture = clientChannel.writeAndFlush(originalBuffer)
+        let errorsFuture: EventLoopFuture<[NIOSSLError]> = writeFuture.recover { (_: Error) in
+            // We're swallowing errors here, on purpose, because we'll definitely
+            // hit them.
+            return ()
+        }.map {
+            return errorHandler.errors
+        }
+        let actualErrors = try errorsFuture.wait()
+
+        // This write will have failed, but that's fine: we just want it as a signal that
+        // the handshake is done so we can make our assertions.
+        XCTAssertEqual(actualErrors.count, 1)
+        switch actualErrors.first! {
+        case .handshakeFailed:
+            // expected
+            break
+        case let error:
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testNewCallbackCanDelayHandshake() throws {
+        let context = try configuredSSLContext()
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+
+        var completionPromiseFired: Bool = false
+        let completionPromiseFiredLock = Lock()
+
+        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
+        completionPromise.futureResult.whenComplete { _ in
+            completionPromiseFiredLock.withLock {
+                completionPromiseFired = true
+            }
+        }
+
+
+        let serverChannel: Channel = try serverTLSChannel(context: context, handlers: [SimpleEchoServer()], group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        var handshakeCompletePromise: EventLoopPromise<NIOSSLVerificationResult>? = nil
+        let handshakeFiredPromise: EventLoopPromise<Void> = group.next().makePromise()
+
+        let clientChannel = try clientTLSChannel(context: configuredClientContext(),
+                                                 preHandlers: [],
+                                                 postHandlers: [PromiseOnReadHandler(promise: completionPromise)],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!,
+                                                 serverHostname: "localhost",
+                                                 customVerificationCallback: { innerCertificates, promise in
+                                                    handshakeCompletePromise = promise
+                                                    handshakeFiredPromise.succeed(())
+        })
+        defer {
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        clientChannel.writeAndFlush(originalBuffer, promise: nil)
+
+        // This has driven the handshake to begin, so we can wait for that.
+        XCTAssertNoThrow(try handshakeFiredPromise.futureResult.wait())
+
+        // We can now check whether the completion promise has fired: it should not have.
+        completionPromiseFiredLock.withLock {
+            XCTAssertFalse(completionPromiseFired)
+        }
+
+        // Ok, allow the handshake to run.
+        handshakeCompletePromise!.succeed(.certificateVerified)
+
+        let newBuffer = try completionPromise.futureResult.wait()
+        XCTAssertTrue(completionPromiseFired)
+        XCTAssertEqual(newBuffer, originalBuffer)
+    }
+
+    func testExtractingCertificatesNewCallback() throws {
+        let context = try configuredSSLContext()
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
+
+        let serverChannel: Channel = try serverTLSChannel(context: context, handlers: [SimpleEchoServer()], group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        var certificates = [NIOSSLCertificate]()
+        let clientChannel = try clientTLSChannel(context: configuredClientContext(),
+                                                 preHandlers: [],
+                                                 postHandlers: [PromiseOnReadHandler(promise: completionPromise)],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!,
+                                                 serverHostname: "localhost",
+                                                 customVerificationCallback: { innerCertificates, promise in
+                                                    certificates = innerCertificates
+                                                    promise.succeed(.certificateVerified)
+        })
+        defer {
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        XCTAssertNoThrow(try clientChannel.writeAndFlush(originalBuffer).wait())
+
+        let newBuffer = try completionPromise.futureResult.wait()
+        XCTAssertEqual(newBuffer, originalBuffer)
+
+        XCTAssertEqual(certificates, [NIOSSLIntegrationTest.cert])
     }
 
     func testRepeatedClosure() throws {

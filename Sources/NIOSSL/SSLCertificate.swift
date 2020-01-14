@@ -47,7 +47,7 @@ public class NIOSSLCertificate {
         case ipv6(in6_addr)
     }
 
-    private init(withReference ref: UnsafeMutablePointer<X509>) {
+    private init(withOwnedReference ref: UnsafeMutablePointer<X509>) {
         self._ref = UnsafeMutableRawPointer(ref) // erasing the type for @_implementationOnly import CNIOBoringSSL
     }
 
@@ -73,7 +73,7 @@ public class NIOSSLCertificate {
             throw NIOSSLError.failedToLoadCertificate
         }
 
-        self.init(withReference: x509!)
+        self.init(withOwnedReference: x509!)
     }
 
     /// Create a NIOSSLCertificate from a buffer of bytes in either PEM or
@@ -107,7 +107,36 @@ public class NIOSSLCertificate {
             throw NIOSSLError.failedToLoadCertificate
         }
 
-        self.init(withReference: ref!)
+        self.init(withOwnedReference: ref!)
+    }
+
+    /// Create a NIOSSLCertificate from a buffer of bytes in either PEM or DER format.
+    internal convenience init(bytes ptr: UnsafeRawBufferPointer, format: NIOSSLSerializationFormats) throws {
+        // TODO(cory):
+        // The body of this method is exactly identical to the initializer above, except for the "withUnsafeBytes" call.
+        // ContiguousBytes would have been the lowest effort way to reduce this duplication, but we can't use it without
+        // bringing Foundation in. Probably we should use Sequence where Element == UInt8 and the withUnsafeContiguousBytesIfAvailable
+        // method, but that's a much more substantial refactor. Let's do it later.
+        let bio = CNIOBoringSSL_BIO_new_mem_buf(ptr.baseAddress, CInt(ptr.count))!
+
+        defer {
+            CNIOBoringSSL_BIO_free(bio)
+        }
+
+        let ref: UnsafeMutablePointer<X509>?
+
+        switch format {
+        case .pem:
+            ref = CNIOBoringSSL_PEM_read_bio_X509(bio, nil, nil, nil)
+        case .der:
+            ref = CNIOBoringSSL_d2i_X509_bio(bio, nil)
+        }
+
+        if ref == nil {
+            throw NIOSSLError.failedToLoadCertificate
+        }
+
+        self.init(withOwnedReference: ref!)
     }
 
     /// Create a NIOSSLCertificate wrapping a pointer into BoringSSL.
@@ -121,7 +150,7 @@ public class NIOSSLCertificate {
     /// In general, however, this function should be avoided in favour of one of the convenience
     /// initializers, which ensure that the lifetime of the `X509` object is better-managed.
     static func fromUnsafePointer(takingOwnership pointer: UnsafeMutablePointer<X509>) -> NIOSSLCertificate {
-        return NIOSSLCertificate(withReference: pointer)
+        return NIOSSLCertificate(withOwnedReference: pointer)
     }
 
     /// Get a sequence of the alternative names in the certificate.
@@ -267,10 +296,10 @@ extension NIOSSLCertificate {
             throw NIOSSLError.failedToLoadCertificate
         }
 
-        var certificates = [NIOSSLCertificate(withReference: x509)]
+        var certificates = [NIOSSLCertificate(withOwnedReference: x509)]
 
         while let x = CNIOBoringSSL_PEM_read_bio_X509(bio, nil, nil, nil) {
-            certificates.append(.init(withReference: x))
+            certificates.append(.init(withOwnedReference: x))
         }
 
         let err = CNIOBoringSSL_ERR_peek_error()
