@@ -52,6 +52,8 @@ extension SSLCertificateTest {
                 ("testNoCommonName", testNoCommonName),
                 ("testUnicodeCommonName", testUnicodeCommonName),
                 ("testExtractingPublicKey", testExtractingPublicKey),
+                ("testDumpingPEMCert", testDumpingPEMCert),
+                ("testDumpingDERCert", testDumpingDERCert),
            ]
    }
 }

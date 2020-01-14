@@ -386,4 +386,20 @@ class SSLCertificateTest: XCTestCase {
 
         XCTAssertEqual(spkiBytes, sampleDerCertSPKI)
     }
+
+    func testDumpingPEMCert() throws {
+        let expectedCertBytes = [UInt8](sampleDerCert)
+        let cert = try assertNoThrowWithValue(NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem))
+        let certBytes = try assertNoThrowWithValue(cert.toDERBytes())
+
+        XCTAssertEqual(certBytes, expectedCertBytes)
+    }
+
+    func testDumpingDERCert() throws {
+        let expectedCertBytes = [UInt8](sampleDerCert)
+        let cert = try assertNoThrowWithValue(NIOSSLCertificate(bytes: expectedCertBytes, format: .der))
+        let certBytes = try assertNoThrowWithValue(cert.toDERBytes())
+
+        XCTAssertEqual(certBytes, expectedCertBytes)
+    }
 }
