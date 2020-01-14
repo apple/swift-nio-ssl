@@ -24,6 +24,7 @@ import XCTest
 
 extension SSLPKCS12BundleTest {
 
+   @available(*, deprecated, message: "not actually deprecated. Just deprecated to allow deprecated tests (which test deprecated functionality) without warnings")
    static var allTests : [(String, (SSLPKCS12BundleTest) -> () throws -> Void)] {
       return [
                 ("testDecodingSimpleP12FromMemory", testDecodingSimpleP12FromMemory),

@@ -24,6 +24,7 @@ import XCTest
 
 extension IdentityVerificationTest {
 
+   @available(*, deprecated, message: "not actually deprecated. Just deprecated to allow deprecated tests (which test deprecated functionality) without warnings")
    static var allTests : [(String, (IdentityVerificationTest) -> () throws -> Void)] {
       return [
                 ("testCanValidateHostnameInFirstSan", testCanValidateHostnameInFirstSan),
