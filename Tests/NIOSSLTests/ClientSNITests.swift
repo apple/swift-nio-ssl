@@ -83,7 +83,7 @@ class ClientSNITests: XCTestCase {
         do {
             _ = try NIOSSLClientHandler(context: context, serverHostname: "192.168.0.1")
             XCTFail("Created client handler with invalid SNI name")
-        } catch BoringSSLError.invalidSNIName {
+        } catch let err as NIOSSLExtraError where err == NIOSSLExtraError.cannotUseIPAddressInSNI {
             // All fine.
         }
     }
@@ -94,7 +94,7 @@ class ClientSNITests: XCTestCase {
         do {
             _ = try NIOSSLClientHandler(context: context, serverHostname: "fe80::200:f8ff:fe21:67cf")
             XCTFail("Created client handler with invalid SNI name")
-        } catch BoringSSLError.invalidSNIName {
+        } catch let err as NIOSSLExtraError where err == NIOSSLExtraError.cannotUseIPAddressInSNI {
             // All fine.
         }
     }

@@ -210,6 +210,7 @@ extension NIOSSLExtraError {
     private enum BaseError: Equatable {
         case failedToValidateHostname
         case serverHostnameImpossibleToMatch
+        case cannotUseIPAddressInSNI
     }
 }
 
@@ -221,14 +222,25 @@ extension NIOSSLExtraError {
     /// The server hostname provided by the user cannot match any names in the certificate due to containing invalid characters.
     public static let serverHostnameImpossibleToMatch = NIOSSLExtraError(baseError: .serverHostnameImpossibleToMatch, description: nil)
 
+    /// IP addresses may not be used in SNI.
+    public static let cannotUseIPAddressInSNI = NIOSSLExtraError(baseError: .cannotUseIPAddressInSNI, description: nil)
+
+    @inline(never)
     internal static func failedToValidateHostname(expectedName: String) -> NIOSSLExtraError {
         let description = "Couldn't find \(expectedName) in certificate from peer"
         return NIOSSLExtraError(baseError: .failedToValidateHostname, description: description)
     }
 
+    @inline(never)
     internal static func serverHostnameImpossibleToMatch(hostname: String) -> NIOSSLExtraError {
         let description = "The server hostname \(hostname) cannot be matched due to containing non-DNS characters"
         return NIOSSLExtraError(baseError: .serverHostnameImpossibleToMatch, description: description)
+    }
+
+    @inline(never)
+    internal static func cannotUseIPAddressInSNI(ipAddress: String) -> NIOSSLExtraError {
+        let description = "IP addresses cannot validly be used for Server Name Indication, got \(ipAddress)"
+        return NIOSSLExtraError(baseError: .cannotUseIPAddressInSNI, description: description)
     }
 }
 
