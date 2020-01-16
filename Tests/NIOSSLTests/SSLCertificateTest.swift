@@ -158,7 +158,9 @@ class SSLCertificateTest: XCTestCase {
         let cert2 = try NIOSSLCertificate(file: SSLCertificateTest.pemCertFilePath, format: .pem)
 
         XCTAssertEqual(cert1, cert2)
+        XCTAssertEqual(cert1.hashValue, cert2.hashValue)
         XCTAssertNotEqual(cert1, SSLCertificateTest.dynamicallyGeneratedCert)
+        XCTAssertNotEqual(cert1.hashValue, SSLCertificateTest.dynamicallyGeneratedCert.hashValue)
     }
 
     func testLoadingDerCertFromFile() throws {
@@ -166,7 +168,9 @@ class SSLCertificateTest: XCTestCase {
         let cert2 = try NIOSSLCertificate(file: SSLCertificateTest.derCertFilePath, format: .der)
 
         XCTAssertEqual(cert1, cert2)
+        XCTAssertEqual(cert1.hashValue, cert2.hashValue)
         XCTAssertNotEqual(cert1, SSLCertificateTest.dynamicallyGeneratedCert)
+        XCTAssertNotEqual(cert1.hashValue, SSLCertificateTest.dynamicallyGeneratedCert.hashValue)
     }
 
     func testDerAndPemAreIdentical() throws {
@@ -174,6 +178,7 @@ class SSLCertificateTest: XCTestCase {
         let cert2 = try NIOSSLCertificate(file: SSLCertificateTest.derCertFilePath, format: .der)
 
         XCTAssertEqual(cert1, cert2)
+        XCTAssertEqual(cert1.hashValue, cert2.hashValue)
     }
 
     func testLoadingPemCertFromMemory() throws {
@@ -181,6 +186,7 @@ class SSLCertificateTest: XCTestCase {
         let cert2 = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
 
         XCTAssertEqual(cert1, cert2)
+        XCTAssertEqual(cert1.hashValue, cert2.hashValue)
     }
 
     func testPemLoadingMechanismsAreIdentical() throws {
@@ -188,6 +194,7 @@ class SSLCertificateTest: XCTestCase {
         let cert12 = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
 
         XCTAssertEqual(cert11, [cert12])
+        XCTAssertEqual(cert11.map { $0.hashValue }, [cert12.hashValue])
     }
 
     func testLoadingPemCertsFromMemory() throws {
@@ -196,6 +203,7 @@ class SSLCertificateTest: XCTestCase {
 
         XCTAssertEqual(certs1.count, 2)
         XCTAssertEqual(certs1, certs2)
+        XCTAssertEqual(certs1.map { $0.hashValue }, certs2.map { $0.hashValue })
     }
 
     func testLoadingPemCertsFromFile() throws {
@@ -204,6 +212,7 @@ class SSLCertificateTest: XCTestCase {
 
         XCTAssertEqual(certs1.count, 2)
         XCTAssertEqual(certs1, certs2)
+        XCTAssertEqual(certs1.map { $0.hashValue }, certs2.map { $0.hashValue })
     }
 
     func testLoadingDerCertFromMemory() throws {
@@ -212,6 +221,7 @@ class SSLCertificateTest: XCTestCase {
         let cert2 = try NIOSSLCertificate(bytes: certBytes, format: .der)
 
         XCTAssertEqual(cert1, cert2)
+        XCTAssertEqual(cert1.hashValue, cert2.hashValue)
     }
 
     func testLoadingGibberishFromMemoryAsPemFails() throws {

@@ -51,6 +51,8 @@ extension SSLPrivateKeyTest {
                 ("testThrowingPassphraseCallback", testThrowingPassphraseCallback),
                 ("testWrongPassword", testWrongPassword),
                 ("testMissingPassword", testMissingPassword),
+                ("testECKeysWorkProperly", testECKeysWorkProperly),
+                ("testECKeysArentEqualToRSAKeys", testECKeysArentEqualToRSAKeys),
            ]
    }
 }
