@@ -167,7 +167,7 @@ public final class NIOSSLContext {
         // If we were given a certificate chain to use, load it and its associated private key. Before
         // we do, set up a passphrase callback if we need to.
         if let callbackManager = callbackManager {
-            CNIOBoringSSL_SSL_CTX_set_default_passwd_cb(context, globalBoringSSLPassphraseCallback(buf:size:rwflag:u:))
+            CNIOBoringSSL_SSL_CTX_set_default_passwd_cb(context, { globalBoringSSLPassphraseCallback(buf: $0, size: $1, rwflag: $2, u: $3) })
             CNIOBoringSSL_SSL_CTX_set_default_passwd_cb_userdata(context, Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
         }
 
@@ -253,7 +253,7 @@ public final class NIOSSLContext {
         #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
         switch self.configuration.trustRoots {
         case .some(.default), .none:
-            conn.setCustomVerificationCallback(CustomVerifyManager(callback: conn.performSecurityFrameworkValidation(promise:)))
+            conn.setCustomVerificationCallback(CustomVerifyManager(callback: { conn.performSecurityFrameworkValidation(promise: $0) }))
         case .some(.certificates), .some(.file):
             break
         }
@@ -451,7 +451,7 @@ extension Optional where Wrapped == String {
     internal func withCString<Result>(_ body: (UnsafePointer<CChar>?) throws -> Result) rethrows -> Result {
         switch self {
         case .some(let s):
-            return try s.withCString(body)
+            return try s.withCString({ try body($0 ) })
         case .none:
             return try body(nil)
         }
