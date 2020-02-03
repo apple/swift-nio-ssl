@@ -209,7 +209,7 @@ extension Collection where Element == UInt8 {
 internal extension Optional where Wrapped: Collection, Wrapped.Element == UInt8 {
     func withSecureCString<T>(_ block: (UnsafePointer<Int8>?) throws -> T) throws -> T {
         if let `self` = self {
-            return try self.withSecureCString(block)
+            return try self.withSecureCString({ try block($0) })
         } else {
             return try block(nil)
         }

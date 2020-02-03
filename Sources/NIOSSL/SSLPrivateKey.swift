@@ -147,7 +147,7 @@ public class NIOSSLPrivateKey {
                 // This annoying conditional binding is used to work around the fact that I cannot pass
                 // a variable to a function pointer argument.
                 if let callbackManager = callbackManager {
-                    return CNIOBoringSSL_PEM_read_PrivateKey(fileObject, nil, globalBoringSSLPassphraseCallback(buf:size:rwflag:u:), Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
+                    return CNIOBoringSSL_PEM_read_PrivateKey(fileObject, nil, { globalBoringSSLPassphraseCallback(buf: $0, size: $1, rwflag: $2, u: $3) }, Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
                 } else {
                     return CNIOBoringSSL_PEM_read_PrivateKey(fileObject, nil, nil, nil)
                 }
@@ -177,7 +177,7 @@ public class NIOSSLPrivateKey {
                     if let callbackManager = callbackManager {
                         // This annoying conditional binding is used to work around the fact that I cannot pass
                         // a variable to a function pointer argument.
-                        return CNIOBoringSSL_PEM_read_bio_PrivateKey(bio, nil, globalBoringSSLPassphraseCallback(buf:size:rwflag:u:), Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
+                        return CNIOBoringSSL_PEM_read_bio_PrivateKey(bio, nil, { globalBoringSSLPassphraseCallback(buf: $0, size: $1, rwflag: $2, u: $3) }, Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
                     } else {
                         return CNIOBoringSSL_PEM_read_bio_PrivateKey(bio, nil, nil, nil)
                     }
