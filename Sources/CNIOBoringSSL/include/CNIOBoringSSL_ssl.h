@@ -2518,26 +2518,21 @@ OPENSSL_EXPORT int SSL_set0_verify_cert_store(SSL *ssl, X509_STORE *store);
 // reference to |store| will be taken.
 OPENSSL_EXPORT int SSL_set1_verify_cert_store(SSL *ssl, X509_STORE *store);
 
-// SSL_CTX_set_ed25519_enabled configures whether |ctx| advertises support for
-// the Ed25519 signature algorithm when using the default preference list. It is
-// disabled by default and may be enabled if the certificate verifier supports
-// Ed25519.
-OPENSSL_EXPORT void SSL_CTX_set_ed25519_enabled(SSL_CTX *ctx, int enabled);
-
-// SSL_CTX_set_rsa_pss_rsae_certs_enabled configures whether |ctx| advertises
-// support for rsa_pss_rsae_* signatures within the certificate chain. It is
-// enabled by default but should be disabled if using a custom certificate
-// verifier which does not support RSA-PSS signatures.
-OPENSSL_EXPORT void SSL_CTX_set_rsa_pss_rsae_certs_enabled(SSL_CTX *ctx,
-                                                           int enabled);
-
 // SSL_CTX_set_verify_algorithm_prefs configures |ctx| to use |prefs| as the
-// preference list when verifying signature's from the peer's long-term key. It
+// preference list when verifying signatures from the peer's long-term key. It
 // returns one on zero on error. |prefs| should not include the internal-only
 // value |SSL_SIGN_RSA_PKCS1_MD5_SHA1|.
 OPENSSL_EXPORT int SSL_CTX_set_verify_algorithm_prefs(SSL_CTX *ctx,
                                                       const uint16_t *prefs,
                                                       size_t num_prefs);
+
+// SSL_set_verify_algorithm_prefs configures |ssl| to use |prefs| as the
+// preference list when verifying signatures from the peer's long-term key. It
+// returns one on zero on error. |prefs| should not include the internal-only
+// value |SSL_SIGN_RSA_PKCS1_MD5_SHA1|.
+OPENSSL_EXPORT int SSL_set_verify_algorithm_prefs(SSL *ssl,
+                                                  const uint16_t *prefs,
+                                                  size_t num_prefs);
 
 
 // Client certificate CA list.
@@ -3443,6 +3438,7 @@ OPENSSL_EXPORT enum ssl_early_data_reason_t SSL_get_early_data_reason(
 #define SSL_AD_BAD_CERTIFICATE_HASH_VALUE TLS1_AD_BAD_CERTIFICATE_HASH_VALUE
 #define SSL_AD_UNKNOWN_PSK_IDENTITY TLS1_AD_UNKNOWN_PSK_IDENTITY
 #define SSL_AD_CERTIFICATE_REQUIRED TLS1_AD_CERTIFICATE_REQUIRED
+#define SSL_AD_NO_APPLICATION_PROTOCOL TLS1_AD_NO_APPLICATION_PROTOCOL
 
 // SSL_alert_type_string_long returns a string description of |value| as an
 // alert type (warning or fatal).

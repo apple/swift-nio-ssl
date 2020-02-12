@@ -627,20 +627,8 @@ static enum ssl_hs_wait_t do_send_server_hello(SSL_HANDSHAKE *hs) {
         !CBB_add_u16_length_prefixed(&cert_request_extensions,
                                      &sigalg_contents) ||
         !CBB_add_u16_length_prefixed(&sigalg_contents, &sigalgs_cbb) ||
-        !tls12_add_verify_sigalgs(ssl, &sigalgs_cbb,
-                                  false /* online signature */)) {
+        !tls12_add_verify_sigalgs(hs, &sigalgs_cbb)) {
       return ssl_hs_error;
-    }
-
-    if (tls12_has_different_verify_sigalgs_for_certs(ssl)) {
-      if (!CBB_add_u16(&cert_request_extensions,
-                       TLSEXT_TYPE_signature_algorithms_cert) ||
-          !CBB_add_u16_length_prefixed(&cert_request_extensions,
-                                       &sigalg_contents) ||
-          !CBB_add_u16_length_prefixed(&sigalg_contents, &sigalgs_cbb) ||
-          !tls12_add_verify_sigalgs(ssl, &sigalgs_cbb, true /* certs */)) {
-        return ssl_hs_error;
-      }
     }
 
     if (ssl_has_client_CAs(hs->config)) {
@@ -709,7 +697,18 @@ static enum ssl_hs_wait_t do_send_server_finished(SSL_HANDSHAKE *hs) {
     return ssl_hs_error;
   }
 
+  hs->tls13_state = state13_send_half_rtt_ticket;
+  return ssl_hs_ok;
+}
+
+static enum ssl_hs_wait_t do_send_half_rtt_ticket(SSL_HANDSHAKE *hs) {
+  SSL *const ssl = hs->ssl;
+
   if (ssl->s3->early_data_accepted) {
+    if (hs->handback) {
+      return ssl_hs_handback;
+    }
+
     // We defer releasing the early traffic secret to QUIC to this point. First,
     // the early traffic secret is derived before ECDHE, but ECDHE may later
     // reject 0-RTT. We only release the secret after 0-RTT is fully resolved.
@@ -998,6 +997,9 @@ enum ssl_hs_wait_t tls13_server_handshake(SSL_HANDSHAKE *hs) {
       case state13_send_server_finished:
         ret = do_send_server_finished(hs);
         break;
+      case state13_send_half_rtt_ticket:
+        ret = do_send_half_rtt_ticket(hs);
+        break;
       case state13_read_second_client_flight:
         ret = do_read_second_client_flight(hs);
         break;
@@ -1052,6 +1054,8 @@ const char *tls13_server_handshake_state(SSL_HANDSHAKE *hs) {
       return "TLS 1.3 server send_server_hello";
     case state13_send_server_certificate_verify:
       return "TLS 1.3 server send_server_certificate_verify";
+    case state13_send_half_rtt_ticket:
+      return "TLS 1.3 server send_half_rtt_ticket";
     case state13_send_server_finished:
       return "TLS 1.3 server send_server_finished";
     case state13_read_second_client_flight:

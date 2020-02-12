@@ -325,7 +325,7 @@ static void ssl_get_compatible_server_ciphers(SSL_HANDSHAKE *hs,
   *out_mask_a = mask_a;
 }
 
-static const SSL_CIPHER *ssl3_choose_cipher(
+static const SSL_CIPHER *choose_cipher(
     SSL_HANDSHAKE *hs, const SSL_CLIENT_HELLO *client_hello,
     const SSLCipherPreferenceList *server_pref) {
   SSL *const ssl = hs->ssl;
@@ -699,7 +699,7 @@ static enum ssl_hs_wait_t do_select_certificate(SSL_HANDSHAKE *hs) {
   SSLCipherPreferenceList *prefs = hs->config->cipher_list
                                        ? hs->config->cipher_list.get()
                                        : ssl->ctx->cipher_list.get();
-  hs->new_cipher = ssl3_choose_cipher(hs, &client_hello, prefs);
+  hs->new_cipher = choose_cipher(hs, &client_hello, prefs);
   if (hs->new_cipher == NULL) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_NO_SHARED_CIPHER);
     ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_HANDSHAKE_FAILURE);
@@ -1092,12 +1092,9 @@ static enum ssl_hs_wait_t do_send_server_hello_done(SSL_HANDSHAKE *hs) {
         !CBB_add_u8_length_prefixed(&body, &cert_types) ||
         !CBB_add_u8(&cert_types, SSL3_CT_RSA_SIGN) ||
         !CBB_add_u8(&cert_types, TLS_CT_ECDSA_SIGN) ||
-        // TLS 1.2 has no way to specify different signature algorithms for
-        // certificates and the online signature, so emit the more restrictive
-        // certificate list.
         (ssl_protocol_version(ssl) >= TLS1_2_VERSION &&
          (!CBB_add_u16_length_prefixed(&body, &sigalgs_cbb) ||
-          !tls12_add_verify_sigalgs(ssl, &sigalgs_cbb, true /* certs */))) ||
+          !tls12_add_verify_sigalgs(hs, &sigalgs_cbb))) ||
         !ssl_add_client_CA_list(hs, &body) ||
         !ssl_add_message_cbb(ssl, cbb.get())) {
       OPENSSL_PUT_ERROR(SSL, ERR_R_INTERNAL_ERROR);
@@ -1442,7 +1439,7 @@ static enum ssl_hs_wait_t do_read_client_certificate_verify(SSL_HANDSHAKE *hs) {
       return ssl_hs_error;
     }
     uint8_t alert = SSL_AD_DECODE_ERROR;
-    if (!tls12_check_peer_sigalg(ssl, &alert, signature_algorithm)) {
+    if (!tls12_check_peer_sigalg(hs, &alert, signature_algorithm)) {
       ssl_send_alert(ssl, SSL3_AL_FATAL, alert);
       return ssl_hs_error;
     }
