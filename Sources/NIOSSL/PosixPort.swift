@@ -47,7 +47,7 @@ private func isBlacklistedErrno(_ code: CInt) -> Bool {
 
 /* Sorry, we really try hard to not use underscored attributes. In this case however we seem to break the inlining threshold which makes a system call take twice the time, ie. we need this exception. */
 @inline(__always)
-internal func wrapSyscall<T: FixedWidthInteger>(where function: StaticString = #function, _ body: () throws -> T) throws -> T {
+internal func wrapSyscall<T: FixedWidthInteger>(where function: String = #function, _ body: () throws -> T) throws -> T {
     while true {
         let res = try body()
         if res == -1 {
@@ -56,7 +56,7 @@ internal func wrapSyscall<T: FixedWidthInteger>(where function: StaticString = #
                 continue
             }
             assert(!isBlacklistedErrno(err), "blacklisted errno \(err) \(strerror(err)!)")
-            throw IOError(errnoCode: err, function: function)
+            throw IOError(errnoCode: err, reason: function)
         }
         return res
     }
@@ -64,7 +64,7 @@ internal func wrapSyscall<T: FixedWidthInteger>(where function: StaticString = #
 
 /* Sorry, we really try hard to not use underscored attributes. In this case however we seem to break the inlining threshold which makes a system call take twice the time, ie. we need this exception. */
 @inline(__always)
-internal func wrapErrorIsNullReturnCall<T>(where function: StaticString = #function, _ body: () throws -> T?) throws -> T {
+internal func wrapErrorIsNullReturnCall<T>(where function: String = #function, _ body: () throws -> T?) throws -> T {
     while true {
         guard let res = try body() else {
             let err = errno
@@ -72,7 +72,7 @@ internal func wrapErrorIsNullReturnCall<T>(where function: StaticString = #funct
                 continue
             }
             assert(!isBlacklistedErrno(err), "blacklisted errno \(err) \(strerror(err)!)")
-            throw IOError(errnoCode: err, function: function)
+            throw IOError(errnoCode: err, reason: function)
         }
         return res
     }
