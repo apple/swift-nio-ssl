@@ -196,7 +196,7 @@ public final class NIOSSLContext {
             }
         }
 
-        if configuration.applicationProtocols.count > 0 {
+        if configuration.encodedApplicationProtocols.count > 0 {
             try NIOSSLContext.setAlpnProtocols(configuration.encodedApplicationProtocols, context: context)
             NIOSSLContext.setAlpnCallback(context: context)
         }
