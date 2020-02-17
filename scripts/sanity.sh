@@ -18,7 +18,7 @@ here="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 function replace_acceptable_years() {
     # this needs to replace all acceptable forms with 'YEARS'
-    sed -e 's/201[78]-201[89]/YEARS/g' -e 's/2019/YEARS/g'
+    sed -e 's/20[12][78901]-20[12][8901]/YEARS/' -e 's/20[12][8901]/YEARS/'
 }
 
 printf "=> Checking linux tests... "
@@ -130,6 +130,7 @@ EOF
     cd "$here/.."
     find . \
       \( \! -path './.build/*' -a \
+         \! -path './.xcode/*' -a \
       \( "${matching_files[@]}" \) -a \
       \( \! \( "${exceptions[@]}" \) \) \) | while read line; do
       if [[ "$(cat "$line" | replace_acceptable_years | head -n $expected_lines | shasum)" != "$expected_sha" ]]; then
@@ -143,4 +144,3 @@ EOF
 done
 
 rm "$tmp"
-

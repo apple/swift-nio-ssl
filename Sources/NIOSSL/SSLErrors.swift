@@ -164,6 +164,7 @@ extension NIOSSLExtraError {
         case failedToValidateHostname
         case serverHostnameImpossibleToMatch
         case cannotUseIPAddressInSNI
+        case invalidSNIHostname
     }
 }
 
@@ -177,6 +178,17 @@ extension NIOSSLExtraError {
 
     /// IP addresses may not be used in SNI.
     public static let cannotUseIPAddressInSNI = NIOSSLExtraError(baseError: .cannotUseIPAddressInSNI, description: nil)
+
+    /// The SNI hostname requirements have not been met.
+    ///
+    /// - note: Should the provided SNI hostname be an IP address instead, `.cannotUseIPAddressInSNI` is thrown instead
+    ///         of this error.
+    ///
+    /// Reasons a hostname might not meet the requirements:
+    /// - hostname in UTF8 is more than 255 bytes
+    /// - hostname is the empty string
+    /// - hostname contains the `0` unicode scalar (which would be encoded as the `0` byte which is unsupported).
+    public static let invalidSNIHostname = NIOSSLExtraError(baseError: .invalidSNIHostname, description: nil)
 
     @inline(never)
     internal static func failedToValidateHostname(expectedName: String) -> NIOSSLExtraError {
