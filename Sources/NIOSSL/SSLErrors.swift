@@ -52,6 +52,7 @@ public typealias NIOBoringSSLErrorStack = [BoringSSLInternalError]
 /// Errors that can be raised by NIO's BoringSSL wrapper.
 public enum NIOSSLError: Error {
     case writeDuringTLSShutdown
+    @available(*, deprecated, message: "unableToAllocateBoringSSLObject is no longer available.")
     case unableToAllocateBoringSSLObject
     case noSuchFilesystemObject
     case failedToLoadCertificate
@@ -70,7 +71,6 @@ extension NIOSSLError: Equatable {
     public static func ==(lhs: NIOSSLError, rhs: NIOSSLError) -> Bool {
         switch (lhs, rhs) {
         case (.writeDuringTLSShutdown, .writeDuringTLSShutdown),
-             (.unableToAllocateBoringSSLObject, .unableToAllocateBoringSSLObject),
              (.noSuchFilesystemObject, .noSuchFilesystemObject),
              (.failedToLoadCertificate, .failedToLoadCertificate),
              (.failedToLoadPrivateKey, .failedToLoadPrivateKey),

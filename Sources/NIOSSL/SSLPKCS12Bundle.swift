@@ -60,10 +60,6 @@ public struct NIOSSLPKCS12Bundle {
         // Successfully parsed, let's unpack. The key and cert are mandatory,
         // the ca stack is not.
         guard let actualCert = cert, let actualKey = pkey else {
-            // Free the pointers that we have.
-            cert.map { CNIOBoringSSL_X509_free($0) }
-            pkey.map { CNIOBoringSSL_EVP_PKEY_free($0) }
-            caCerts.map { CNIOBoringSSL_sk_X509_pop_free($0, CNIOBoringSSL_X509_free) }
             fatalError("Failed to obtain cert and pkey from a PKC12 file")
         }
 
