@@ -20,7 +20,7 @@ import NIO
 public final class NIOSSLServerHandler: NIOSSLHandler {
     public init(context: NIOSSLContext, verificationCallback: NIOSSLVerificationCallback? = nil) throws {
         guard let connection = context.createConnection() else {
-            throw NIOSSLError.unableToAllocateBoringSSLObject
+            fatalError("Failed to create new connection in NIOSSLContext")
         }
 
         connection.setAcceptState()

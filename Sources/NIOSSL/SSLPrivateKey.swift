@@ -299,7 +299,7 @@ extension NIOSSLPrivateKey {
     /// The pointer provided to the closure is not valid beyond the lifetime of this method call.
     private func withUnsafeDERBuffer<T>(_ body: (UnsafeRawBufferPointer) throws -> T) throws -> T {
         guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_mem()) else {
-            throw NIOSSLError.unableToAllocateBoringSSLObject
+            fatalError("Failed to malloc for a BIO handler")
         }
 
         defer {
@@ -316,7 +316,7 @@ extension NIOSSLPrivateKey {
         let length = CNIOBoringSSL_BIO_get_mem_data(bio, &dataPtr)
 
         guard let bytes = dataPtr.map({ UnsafeRawBufferPointer(start: $0, count: length) }) else {
-            throw NIOSSLError.unableToAllocateBoringSSLObject
+            fatalError("Failed to map bytes from a private key")
         }
 
         return try body(bytes)

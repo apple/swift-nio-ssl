@@ -64,7 +64,7 @@ public struct NIOSSLPKCS12Bundle {
             cert.map { CNIOBoringSSL_X509_free($0) }
             pkey.map { CNIOBoringSSL_EVP_PKEY_free($0) }
             caCerts.map { CNIOBoringSSL_sk_X509_pop_free($0, CNIOBoringSSL_X509_free) }
-            throw NIOSSLError.unableToAllocateBoringSSLObject
+            fatalError("Failed to obtain cert and pkey from a PKC12 file")
         }
 
         let certStackSize = caCerts.map { CNIOBoringSSL_sk_X509_num($0) } ?? 0
