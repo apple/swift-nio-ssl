@@ -123,7 +123,7 @@ public final class NIOSSLContext {
     /// configuration.
     internal init(configuration: TLSConfiguration, callbackManager: CallbackManagerProtocol?) throws {
         guard boringSSLIsInitialized else { fatalError("Failed to initialize BoringSSL") }
-        guard let context = CNIOBoringSSL_SSL_CTX_new(CNIOBoringSSL_TLS_method()) else { throw NIOSSLError.unableToAllocateBoringSSLObject }
+        guard let context = CNIOBoringSSL_SSL_CTX_new(CNIOBoringSSL_TLS_method()) else { fatalError("Failed to create new BoringSSL context") }
 
         let minTLSVersion: CInt
         switch configuration.minimumTLSVersion {
