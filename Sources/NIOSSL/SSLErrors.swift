@@ -205,4 +205,8 @@ extension NIOSSLExtraError: CustomStringConvertible {
     }
 }
 
-extension NIOSSLExtraError: Equatable {}
+extension NIOSSLExtraError: Equatable {
+    public static func ==(lhs: NIOSSLExtraError, rhs: NIOSSLExtraError) -> Bool {
+        return lhs.baseError == rhs.baseError
+    }
+}
