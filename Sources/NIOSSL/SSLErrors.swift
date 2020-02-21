@@ -38,11 +38,6 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
     init(errorCode: UInt32) {
         self.errorCode = errorCode
     }
-
-    public static func ==(lhs: BoringSSLInternalError, rhs: BoringSSLInternalError) -> Bool {
-        return lhs.errorCode == rhs.errorCode
-    }
-
 }
 
 /// A representation of BoringSSL's internal error stack: a list of BoringSSL errors.
@@ -91,27 +86,6 @@ public enum BoringSSLError: Error {
 
 extension BoringSSLError: Equatable {}
 
-public func ==(lhs: BoringSSLError, rhs: BoringSSLError) -> Bool {
-    switch (lhs, rhs) {
-    case (.noError, .noError),
-         (.zeroReturn, .zeroReturn),
-         (.wantRead, .wantRead),
-         (.wantWrite, .wantWrite),
-         (.wantConnect, .wantConnect),
-         (.wantAccept, .wantAccept),
-         (.wantX509Lookup, .wantX509Lookup),
-         (.wantCertificateVerify, .wantCertificateVerify),
-         (.syscallError, .syscallError):
-        return true
-    case (.sslError(let e1), .sslError(let e2)),
-         (.unknownError(let e1), .unknownError(let e2)),
-         (.invalidSNIName(let e1), .invalidSNIName(let e2)),
-         (.failedToSetALPN(let e1), .failedToSetALPN(let e2)):
-        return e1 == e2
-    default:
-        return false
-    }
-}
 
 internal extension BoringSSLError {
     static func fromSSLGetErrorResult(_ result: CInt) -> BoringSSLError? {
