@@ -3192,6 +3192,11 @@ struct ssl_quic_method_st {
   // This function should use |SSL_get_current_cipher| to determine the TLS
   // cipher suite.
   //
+  // TODO(davidben): The advice to use |SSL_get_current_cipher| does not work
+  // for 0-RTT rejects on the client. As part of the fix to
+  // https://crbug.com/boringssl/303, we will add an explicit cipher suite
+  // parameter.
+  //
   // It returns one on success and zero on error.
   int (*set_encryption_secrets)(SSL *ssl, enum ssl_encryption_level_t level,
                                 const uint8_t *read_secret,
@@ -5021,7 +5026,7 @@ BSSL_NAMESPACE_END
 #define SSL_R_UNSUPPORTED_PROTOCOL_FOR_CUSTOM_KEY 252
 #define SSL_R_NO_COMMON_SIGNATURE_ALGORITHMS 253
 #define SSL_R_DOWNGRADE_DETECTED 254
-#define SSL_R_BUFFERED_MESSAGES_ON_CIPHER_CHANGE 255
+#define SSL_R_EXCESS_HANDSHAKE_DATA 255
 #define SSL_R_INVALID_COMPRESSION_LIST 256
 #define SSL_R_DUPLICATE_EXTENSION 257
 #define SSL_R_MISSING_KEY_SHARE 258
@@ -5070,6 +5075,7 @@ BSSL_NAMESPACE_END
 #define SSL_R_INVALID_DELEGATED_CREDENTIAL 301
 #define SSL_R_KEY_USAGE_BIT_INCORRECT 302
 #define SSL_R_INCONSISTENT_CLIENT_HELLO 303
+#define SSL_R_CIPHER_MISMATCH_ON_EARLY_DATA 304
 #define SSL_R_SSLV3_ALERT_CLOSE_NOTIFY 1000
 #define SSL_R_SSLV3_ALERT_UNEXPECTED_MESSAGE 1010
 #define SSL_R_SSLV3_ALERT_BAD_RECORD_MAC 1020
