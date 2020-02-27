@@ -58,7 +58,7 @@ tmpdir=$(mktemp -d /tmp/.build_podspecsXXXXXX)
 echo "Building podspec in $tmpdir"
 
 # JP - Think of a better way to handle this.. 
-# Might be able to leverage the list_topsorted_dependencies.sh script fully
+#      Might be able to leverage the list_topsorted_dependencies.sh script fully
 targets=( "CNIOBoringSSL" "CNIOBoringSSLShims" "SwiftNIOSSL" )
 
 for target in "${targets[@]}"; do
@@ -75,13 +75,15 @@ for target in "${targets[@]}"; do
   dependencies=()
 
   while read -r raw_dependency; do
-    if [ "$raw_dependency" == "CNIOBoringSSL" ] || [ "$raw_dependency" == "CNIOBoringSSLShims" ]; then
+    if [[ "$raw_dependency" =~ ^CNIO ]]; then
       dependencies+=( "${newline}  s.dependency '$raw_dependency', s.version.to_s" )
     else
       dependencies+=( "${newline}  s.dependency '$raw_dependency', '$nio_version'" )
     fi
   done < <("${here}/list_topsorted_dependencies.sh" -d "${target#Swift}" | sed 's/^NIO/SwiftNIO/')
 
+
+  # C++ specific podspec settings
   libraries=""
   xcconfig=""
   public_header_files=""
@@ -97,7 +99,7 @@ Pod::Spec.new do |s|
   s.name = '$target'
   s.version = '$version'
   s.license = { :type => 'Apache 2.0', :file => 'LICENSE.txt' }
-  s.summary = 'Useful code around SwiftNIO.'
+  s.summary = 'Useful code around SwiftNIOSSL.'
   s.homepage = 'https://github.com/apple/swift-nio-ssl'
   s.author = 'Apple Inc.'
   s.source = { :git => 'https://github.com/apple/swift-nio-ssl.git', :tag => s.version.to_s }
