@@ -57,7 +57,8 @@ tmpdir=$(mktemp -d /tmp/.build_podspecsXXXXXX)
 
 echo "Building podspec in $tmpdir"
 
-# We only want to generate Podspec files for the two targets
+# JP - Think of a better way to handle this.. 
+# Might be able to leverage the list_topsorted_dependencies.sh script fully
 targets=( "CNIOBoringSSL" "CNIOBoringSSLShims" "SwiftNIOSSL" )
 
 for target in "${targets[@]}"; do
@@ -82,9 +83,13 @@ for target in "${targets[@]}"; do
   done < <("${here}/list_topsorted_dependencies.sh" -d "${target#Swift}" | sed 's/^NIO/SwiftNIO/')
 
   libraries=""
+  xcconfig=""
+  public_header_files=""
 
   if [ "$target" == "CNIOBoringSSL" ] || [ "$target" == "CNIOBoringSSLShims" ]; then
-    libraries="s.libraries = 'z'"
+    libraries="s.libraries = 'c++'"
+    xcconfig="s.xcconfig = { 'HEADER_SEARCH_PATHS' => 'Sources/${target}/include', 'CLANG_CXX_LANGUAGE_STANDARD' => 'c++11', }"
+    public_header_files="s.public_header_files = 'Sources/${target}/include/*.h'"
   fi
 
   cat > "${tmpdir}/${target}.podspec" <<- EOF
@@ -105,16 +110,24 @@ Pod::Spec.new do |s|
   s.osx.deployment_target = '10.12'
   s.tvos.deployment_target = '10.0'
 
-  s.source_files = 'Sources/${target#Swift}/**/*.{swift,c,h}'
+  s.source_files = 'Sources/${target#Swift}/**/*.{swift,c,h,cc,S}'
+  $public_header_files
   ${dependencies[*]-}
   $libraries
+  $xcconfig
 end
 EOF
 
   pod repo update # last chance of getting the latest versions of previous pushed pods
   if $upload; then
     echo "Uploading ${tmpdir}/${target}.podspec"
-    pod trunk push "${tmpdir}/${target}.podspec"
+    # CNIOBoringSSL emits build warnings
+    if [ "$target" == "CNIOBoringSSL" ]; then
+      pod trunk push --allow-warnings "${tmpdir}/${target}.podspec"  
+    else
+      pod trunk push "${tmpdir}/${target}.podspec"  
+    fi
+    
   fi
 
 done
