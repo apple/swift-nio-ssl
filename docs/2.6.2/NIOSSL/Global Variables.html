@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>Functions  Reference</title>
+    <title>Global Variables  Reference</title>
     <link rel="stylesheet" type="text/css" href="css/jazzy.css" />
     <link rel="stylesheet" type="text/css" href="css/highlight.css" />
     <meta charset="utf-8">
@@ -14,14 +14,14 @@
   </head>
   <body>
 
-    <a name="//apple_ref/swift/Section/Functions" class="dashAnchor"></a>
+    <a name="//apple_ref/swift/Section/Global Variables" class="dashAnchor"></a>
 
-    <a title="Functions  Reference"></a>
+    <a title="Global Variables  Reference"></a>
 
     <header class="header">
       <p class="header-col header-col--primary">
         <a class="header-link" href="index.html">
-          NIOSSL Docs
+          NIOSSL 2.6.2 Docs
         </a>
          (71% documented)
       </p>
@@ -40,7 +40,7 @@
         </p>
     
         <p class="header-col header-col--secondary">
-          <a class="header-link" href="dash-feed://https%3A%2F%2Fapple%2Egithub%2Eio%2Fswift%2Dnio%2Dssl%2Fdocs%2F2%2E6%2E0%2Fdocsets%2FNIOSSL%2Exml">
+          <a class="header-link" href="dash-feed://https%3A%2F%2Fapple%2Egithub%2Eio%2Fswift%2Dnio%2Dssl%2Fdocs%2F2%2E6%2E2%2FNIOSSL%2Fdocsets%2FNIOSSL%2Exml">
             <img class="header-icon" src="img/dash.png"/>
             Install in Dash
           </a>
@@ -50,7 +50,7 @@
     <p class="breadcrumbs">
       <a class="breadcrumb" href="index.html">NIOSSL Reference</a>
       <img class="carat" src="img/carat.png" />
-      Functions  Reference
+      Global Variables  Reference
     </p>
 
     <div class="content-wrapper">
@@ -129,10 +129,10 @@
             </ul>
           </li>
           <li class="nav-group-name">
-            <a class="nav-group-name-link" href="Functions.html">Functions</a>
+            <a class="nav-group-name-link" href="Extensions.html">Extensions</a>
             <ul class="nav-group-tasks">
               <li class="nav-group-task">
-                <a class="nav-group-task-link" href="Functions.html#/s:6NIOSSL2eeoiySbAA14BoringSSLErrorO_ADtF">==(_:_:)</a>
+                <a class="nav-group-task-link" href="Extensions.html#/SSLConnection">SSLConnection</a>
               </li>
             </ul>
           </li>
@@ -184,9 +184,9 @@
       <article class="main-content">
 
         <section class="section">
-          <div class="section-content">
-            <h1>Functions</h1>
-            <p>The following functions are available globally.</p>
+          <div class="section-content top-matter">
+            <h1>Global Variables</h1>
+            <p>The following global variables are available globally.</p>
 
           </div>
         </section>
@@ -198,9 +198,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:6NIOSSL2eeoiySbAA14BoringSSLErrorO_ADtF"></a>
-                    <a name="//apple_ref/swift/Function/==(_:_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:6NIOSSL2eeoiySbAA14BoringSSLErrorO_ADtF">==(_:_:)</a>
+                    <a name="/s:6NIOSSL19defaultCipherSuitesSSvp"></a>
+                    <a name="//apple_ref/swift/Global/defaultCipherSuites" class="dashAnchor"></a>
+                    <a class="token" href="#/s:6NIOSSL19defaultCipherSuitesSSvp">defaultCipherSuites</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -208,14 +208,24 @@
                     <section class="section">
                       <div class="pointer"></div>
                       <div class="abstract">
-                        <p>Undocumented</p>
+                        <p>A secure default configuration of cipher suites for TLS 1.2 and earlier.</p>
+
+<p>The goal of this cipher suite string is:</p>
+
+<ul>
+<li>Prefer cipher suites that offer Perfect Forward Secrecy (DHE/ECDHE)</li>
+<li>Prefer ECDH(E) to DH(E) for performance.</li>
+<li>Prefer any AEAD cipher suite over non-AEAD suites for better performance and security</li>
+<li>Prefer AES-GCM over ChaCha20 because hardware-accelerated AES is common</li>
+<li>Disable NULL authentication and encryption and any appearance of MD5</li>
+</ul>
 
                       </div>
                       <div class="declaration">
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">func</span> <span class="o">==</span> <span class="p">(</span><span class="nv">lhs</span><span class="p">:</span> <span class="kt"><a href="Enums/BoringSSLError.html">BoringSSLError</a></span><span class="p">,</span> <span class="nv">rhs</span><span class="p">:</span> <span class="kt"><a href="Enums/BoringSSLError.html">BoringSSLError</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">Bool</span></code></pre>
+                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="k">let</span> <span class="nv">defaultCipherSuites</span><span class="p">:</span> <span class="kt">String</span></code></pre>
 
                         </div>
                       </div>
@@ -230,8 +240,8 @@
       </article>
     </div>
     <section class="footer">
-      <p>&copy; 2020 <a class="link" href="https://github.com/apple/swift-nio-ssl" target="_blank" rel="external">swift-nio team</a>. All rights reserved. (Last updated: 2020-01-22)</p>
-      <p>Generated by <a class="link" href="https://github.com/realm/jazzy" target="_blank" rel="external">jazzy ♪♫ v0.12.0</a>, a <a class="link" href="https://realm.io" target="_blank" rel="external">Realm</a> project.</p>
+      <p>&copy; 2020 <a class="link" href="https://github.com/apple/swift-nio-ssl" target="_blank" rel="external">swift-nio team</a>. All rights reserved. (Last updated: 2020-02-28)</p>
+      <p>Generated by <a class="link" href="https://github.com/realm/jazzy" target="_blank" rel="external">jazzy ♪♫ v0.13.1</a>, a <a class="link" href="https://realm.io" target="_blank" rel="external">Realm</a> project.</p>
     </section>
   </body>
 </div>
