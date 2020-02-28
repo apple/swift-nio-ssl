@@ -57,9 +57,7 @@ tmpdir=$(mktemp -d /tmp/.build_podspecsXXXXXX)
 
 echo "Building podspec in $tmpdir"
 
-# JP - Think of a better way to handle this.. 
-#      Might be able to leverage the list_topsorted_dependencies.sh script fully
-targets=( "CNIOBoringSSL" "CNIOBoringSSLShims" "SwiftNIOSSL" )
+targets=( $("${here}/list_topsorted_dependencies.sh" -l -r | sed 's/^NIO/SwiftNIO/') )
 
 for target in "${targets[@]}"; do
 
@@ -99,7 +97,7 @@ Pod::Spec.new do |s|
   s.name = '$target'
   s.version = '$version'
   s.license = { :type => 'Apache 2.0', :file => 'LICENSE.txt' }
-  s.summary = 'Useful code around SwiftNIOSSL.'
+  s.summary = 'TLS Support for SwiftNIO, based on BoringSSL.'
   s.homepage = 'https://github.com/apple/swift-nio-ssl'
   s.author = 'Apple Inc.'
   s.source = { :git => 'https://github.com/apple/swift-nio-ssl.git', :tag => s.version.to_s }
