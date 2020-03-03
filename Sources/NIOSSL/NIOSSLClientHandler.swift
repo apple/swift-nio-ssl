@@ -38,7 +38,7 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
     @available(*, deprecated, renamed: "init(context:serverHostname:customVerificationCallback:)")
     public init(context: NIOSSLContext, serverHostname: String?, verificationCallback: NIOSSLVerificationCallback? = nil) throws {
         guard let connection = context.createConnection() else {
-            throw NIOSSLError.unableToAllocateBoringSSLObject
+            fatalError("Failed to create new connection in NIOSSLContext")
         }
 
         connection.setConnectState()
@@ -66,7 +66,7 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
     // This exists to handle the explosion of initializers we got when I tried to deprecate the first one. At least they all pass through one path now.
     private init(context: NIOSSLContext, serverHostname: String?, optionalCustomVerificationCallback: NIOSSLCustomVerificationCallback?) throws {
         guard let connection = context.createConnection() else {
-            throw NIOSSLError.unableToAllocateBoringSSLObject
+            fatalError("Failed to create new connection in NIOSSLContext")
         }
 
         connection.setConnectState()

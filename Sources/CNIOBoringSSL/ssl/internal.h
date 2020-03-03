@@ -1356,9 +1356,11 @@ bool tls13_init_early_key_schedule(SSL_HANDSHAKE *hs, Span<const uint8_t> psk);
 bool tls13_advance_key_schedule(SSL_HANDSHAKE *hs, Span<const uint8_t> in);
 
 // tls13_set_traffic_key sets the read or write traffic keys to
-// |traffic_secret|. It returns true on success and false on error.
+// |traffic_secret|. The version and cipher suite are determined from |session|.
+// It returns true on success and false on error.
 bool tls13_set_traffic_key(SSL *ssl, enum ssl_encryption_level_t level,
                            enum evp_aead_direction_t direction,
+                           const SSL_SESSION *session,
                            Span<const uint8_t> traffic_secret);
 
 // tls13_derive_early_secret derives the early traffic secret. It returns true
@@ -1499,11 +1501,11 @@ enum tls13_server_hs_state_t {
 // handback_t lists the points in the state machine where a handback can occur.
 // These are the different points at which key material is no longer needed.
 enum handback_t {
-  handback_after_session_resumption,
-  handback_after_ecdhe,
-  handback_after_handshake,
-  handback_tls13,
-  handback_tls13_early_data,
+  handback_after_session_resumption = 0,
+  handback_after_ecdhe = 1,
+  handback_after_handshake = 2,
+  handback_tls13 = 3,
+  handback_max_value = handback_tls13,
 };
 
 
@@ -2110,6 +2112,9 @@ struct SSL_PROTOCOL_METHOD {
   bool (*get_message)(const SSL *ssl, SSLMessage *out);
   // next_message is called to release the current handshake message.
   void (*next_message)(SSL *ssl);
+  // has_unprocessed_handshake_data returns whether there is buffered
+  // handshake data that has not been consumed by |get_message|.
+  bool (*has_unprocessed_handshake_data)(const SSL *ssl);
   // Use the |ssl_open_handshake| wrapper.
   ssl_open_record_t (*open_handshake)(SSL *ssl, size_t *out_consumed,
                                       uint8_t *out_alert, Span<uint8_t> in);

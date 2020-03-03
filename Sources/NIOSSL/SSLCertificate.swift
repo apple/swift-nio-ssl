@@ -222,7 +222,7 @@ extension NIOSSLCertificate {
     /// - throws: If an error is encountered extracting the key.
     public func extractPublicKey() throws -> NIOSSLPublicKey {
         guard let key = CNIOBoringSSL_X509_get_pubkey(self.ref) else {
-            throw NIOSSLError.unableToAllocateBoringSSLObject
+            fatalError("Failed to extract a public key reference")
         }
 
         return NIOSSLPublicKey.fromInternalPointer(takingOwnership: key)
@@ -277,7 +277,7 @@ extension NIOSSLCertificate {
         }
 
         guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_file()) else {
-            throw NIOSSLError.unableToAllocateBoringSSLObject
+            fatalError("Failed to create a BIO handle to read a PEM file")
         }
         defer {
             CNIOBoringSSL_BIO_free(bio)
@@ -321,7 +321,7 @@ extension NIOSSLCertificate {
     /// The pointer provided to the closure is not valid beyond the lifetime of this method call.
     private func withUnsafeDERCertificateBuffer<T>(_ body: (UnsafeRawBufferPointer) throws -> T) throws -> T {
         guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_mem()) else {
-            throw NIOSSLError.unableToAllocateBoringSSLObject
+            fatalError("Failed to malloc for a BIO handler")
         }
 
         defer {
@@ -338,7 +338,7 @@ extension NIOSSLCertificate {
         let length = CNIOBoringSSL_BIO_get_mem_data(bio, &dataPtr)
 
         guard let bytes = dataPtr.map({ UnsafeRawBufferPointer(start: $0, count: length) }) else {
-            throw NIOSSLError.unableToAllocateBoringSSLObject
+            fatalError("Failed to map bytes from a certificate")
         }
 
         return try body(bytes)

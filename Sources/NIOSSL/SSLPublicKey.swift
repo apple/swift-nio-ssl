@@ -64,7 +64,7 @@ extension NIOSSLPublicKey {
     /// - throws: If an error occurred while serializing the key.
     public func toSPKIBytes() throws -> [UInt8] {
         guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_mem()) else {
-            throw NIOSSLError.unableToAllocateBoringSSLObject
+            fatalError("Failed to malloc for a BIO handler")
         }
 
         defer {
@@ -81,7 +81,7 @@ extension NIOSSLPublicKey {
         let length = CNIOBoringSSL_BIO_get_mem_data(bio, &dataPtr)
 
         guard let bytes = dataPtr.map({ UnsafeMutableRawBufferPointer(start: $0, count: length) }) else {
-            throw NIOSSLError.unableToAllocateBoringSSLObject
+            fatalError("Failed to map bytes from a public key")
         }
 
         return Array(bytes)

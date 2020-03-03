@@ -19,7 +19,7 @@
 #if __has_include(<CNIOBoringSSL/CNIOBoringSSL.h>)
 #include <CNIOBoringSSL/CNIOBoringSSL.h>
 #else
-#include <CNIOBoringSSL.h>
+#include "CNIOBoringSSL.h"
 #endif
 
 GENERAL_NAME *CNIOBoringSSLShims_sk_GENERAL_NAME_value(const STACK_OF(GENERAL_NAME) *sk, size_t i);
