@@ -39,7 +39,7 @@ let configuration = TLSConfiguration.forClient()
 let sslContext = try NIOSSLContext(configuration: configuration)
 
 let client = ClientBootstrap(group: group)
-    .channelInitializer { channel in}
+    .channelInitializer { channel in
         // important: The handler must be initialized _inside_ the `channelInitializer`
         let handler = try NIOSSLClientHandler(context: sslContext)
 
