@@ -1038,6 +1038,35 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTFail("Encountered unexpected error: \(error)")
         }
     }
+    
+    func testUnprocessedDataOnReadPathBeforeClosing() throws {
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+
+        let context = try configuredSSLContext()
+
+        try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait()
+        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
+
+        let addr = try SocketAddress(unixDomainSocketPath: "/tmp/whatever2")
+        let connectFuture = clientChannel.connect(to: addr)
+        serverChannel.pipeline.fireChannelActive()
+        try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
+        try connectFuture.wait()
+
+        // Ok, we're connected. Now we want to close the server, and have that trigger a client CLOSE_NOTIFY.
+        // After the CLOSE_NOTIFY create another chunk of data.
+        let _ = serverChannel.close()
+        
+        // Create a new chunk of data after the close
+        var clientBuffer = clientChannel.allocator.buffer(capacity: 5)
+        clientBuffer.writeStaticString("hello")
+        _ = try clientChannel.writeAndFlush(clientBuffer).wait()
+
+        // Manually take the client outbound buffer and hand it off to the server to validate that an error is not thrown.
+        let clientOutboundBuffer = try clientChannel.readOutbound(as: ByteBuffer.self)!
+        XCTAssertNoThrow(try serverChannel.writeInbound(clientOutboundBuffer))
+    }
 
     func testZeroLengthWrite() throws {
         let context = try configuredSSLContext()
@@ -1633,11 +1662,9 @@ class NIOSSLIntegrationTest: XCTestCase {
         do {
             try clientChannel.writeInbound(buffer)
             XCTFail("Did not error")
-        } catch NIOSSLError.shutdownFailed {
-            // expected
         } catch {
-            XCTFail("Unexpected error: \(error)")
-        }
+            // expected
+        } 
         (clientChannel.eventLoop as! EmbeddedEventLoop).run()
         XCTAssertTrue(clientClosed)
 

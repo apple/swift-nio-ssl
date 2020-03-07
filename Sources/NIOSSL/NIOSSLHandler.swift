@@ -134,7 +134,9 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             doDecodeData(context: context)
             doUnbufferWrites(context: context)
         case .closing:
-            doShutdownStep(context: context)
+            // Handle both natural close events and close events where data is still in
+            // flight.  Sending through doDecodeData will handle both conditions.
+            doDecodeData(context: context)
         case .unwrapping:
             self.doShutdownStep(context: context)
         default:

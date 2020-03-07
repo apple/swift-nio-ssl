@@ -41,6 +41,7 @@ extension NIOSSLIntegrationTest {
                 ("testTrustStoreOnDisk", testTrustStoreOnDisk),
                 ("testChecksTrustStoreOnDisk", testChecksTrustStoreOnDisk),
                 ("testReadAfterCloseNotifyDoesntKillProcess", testReadAfterCloseNotifyDoesntKillProcess),
+                ("testUnprocessedDataOnReadPathBeforeClosing", testUnprocessedDataOnReadPathBeforeClosing),
                 ("testZeroLengthWrite", testZeroLengthWrite),
                 ("testZeroLengthWritePromisesFireInOrder", testZeroLengthWritePromisesFireInOrder),
                 ("testEncryptedFileInContext", testEncryptedFileInContext),
