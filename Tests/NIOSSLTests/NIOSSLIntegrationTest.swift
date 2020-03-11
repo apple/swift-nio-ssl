@@ -1058,14 +1058,15 @@ class NIOSSLIntegrationTest: XCTestCase {
         // After the CLOSE_NOTIFY create another chunk of data.
         let _ = serverChannel.close()
         
-        // Create a new chunk of data after the close
+        // Create a new chunk of data after the close.
         var clientBuffer = clientChannel.allocator.buffer(capacity: 5)
         clientBuffer.writeStaticString("hello")
         _ = try clientChannel.writeAndFlush(clientBuffer).wait()
-
-        // Manually take the client outbound buffer and hand it off to the server to validate that an error is not thrown.
-        let clientOutboundBuffer = try clientChannel.readOutbound(as: ByteBuffer.self)!
-        XCTAssertNoThrow(try serverChannel.writeInbound(clientOutboundBuffer))
+        let clientClosePromise = clientChannel.close()
+        
+        // Use interactInMemory to finish the reads and writes.
+        XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
+        XCTAssertNoThrow(try clientClosePromise.wait())
     }
 
     func testZeroLengthWrite() throws {
@@ -1663,8 +1664,8 @@ class NIOSSLIntegrationTest: XCTestCase {
             try clientChannel.writeInbound(buffer)
             XCTFail("Did not error")
         } catch {
-            // expected
-        } 
+            XCTAssertEqual(error.localizedDescription, "The operation couldn’t be completed. (NIOSSL.BoringSSLError error 0.)")
+        }
         (clientChannel.eventLoop as! EmbeddedEventLoop).run()
         XCTAssertTrue(clientClosed)
 
