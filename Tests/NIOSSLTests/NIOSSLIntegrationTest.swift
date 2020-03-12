@@ -1664,9 +1664,13 @@ class NIOSSLIntegrationTest: XCTestCase {
             try clientChannel.writeInbound(buffer)
             XCTFail("Did not error")
         } catch  {
-            let errorCode = CNIOBoringSSL_ERR_get_error()
-            let bringSSLError = BoringSSLInternalError(errorCode: errorCode)
-            XCTAssertEqual(bringSSLError.description, "Error: 0 error:00000000:invalid library (0):OPENSSL_internal:invalid library (0)")
+            switch error as? BoringSSLError {
+            case .some(.sslError(let err)):
+                XCTAssertEqual(err.description, "[Error: 268435703 error:100000f7:SSL routines:OPENSSL_internal:WRONG_VERSION_NUMBER]")
+                break
+            default:
+                XCTFail("Unexpected error: \(error)")
+            }
         }
         (clientChannel.eventLoop as! EmbeddedEventLoop).run()
         XCTAssertTrue(clientClosed)
