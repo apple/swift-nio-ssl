@@ -1663,8 +1663,10 @@ class NIOSSLIntegrationTest: XCTestCase {
         do {
             try clientChannel.writeInbound(buffer)
             XCTFail("Did not error")
-        } catch {
-            XCTAssertEqual(error.localizedDescription, "The operation couldn’t be completed. (NIOSSL.BoringSSLError error 0.)")
+        } catch  {
+            let errorCode = CNIOBoringSSL_ERR_get_error()
+            let bringSSLError = BoringSSLInternalError(errorCode: errorCode)
+            XCTAssertEqual(bringSSLError.description, "Error: 0 error:00000000:invalid library (0):OPENSSL_internal:invalid library (0)")
         }
         (clientChannel.eventLoop as! EmbeddedEventLoop).run()
         XCTAssertTrue(clientClosed)
