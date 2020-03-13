@@ -463,7 +463,7 @@ static enum ssl_hs_wait_t do_enter_early_data(SSL_HANDSHAKE *hs) {
   }
   if (ssl->quic_method == nullptr &&
       !tls13_set_traffic_key(ssl, ssl_encryption_early_data, evp_aead_seal,
-                             hs->early_traffic_secret())) {
+                             ssl->session.get(), hs->early_traffic_secret())) {
     return ssl_hs_error;
   }
 
@@ -1198,6 +1198,13 @@ static enum ssl_hs_wait_t do_read_server_hello_done(SSL_HANDSHAKE *hs) {
   if (CBS_len(&msg.body) != 0) {
     ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_DECODE_ERROR);
     OPENSSL_PUT_ERROR(SSL, SSL_R_DECODE_ERROR);
+    return ssl_hs_error;
+  }
+
+  // ServerHelloDone should be the end of the flight.
+  if (ssl->method->has_unprocessed_handshake_data(ssl)) {
+    ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_UNEXPECTED_MESSAGE);
+    OPENSSL_PUT_ERROR(SSL, SSL_R_EXCESS_HANDSHAKE_DATA);
     return ssl_hs_error;
   }
 

@@ -183,6 +183,13 @@ static enum ssl_hs_wait_t do_read_hello_retry_request(SSL_HANDSHAKE *hs) {
     return ssl_hs_error;
   }
 
+  // HelloRetryRequest should be the end of the flight.
+  if (ssl->method->has_unprocessed_handshake_data(ssl)) {
+    ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_UNEXPECTED_MESSAGE);
+    OPENSSL_PUT_ERROR(SSL, SSL_R_EXCESS_HANDSHAKE_DATA);
+    return ssl_hs_error;
+  }
+
   ssl->method->next_message(ssl);
   ssl->s3->used_hello_retry_request = true;
   hs->tls13_state = state_send_second_client_hello;
@@ -393,6 +400,7 @@ static enum ssl_hs_wait_t do_read_server_hello(SSL_HANDSHAKE *hs) {
       !ssl_hash_message(hs, msg) ||
       !tls13_derive_handshake_secrets(hs) ||
       !tls13_set_traffic_key(ssl, ssl_encryption_handshake, evp_aead_open,
+                             hs->new_session.get(),
                              hs->server_handshake_secret())) {
     return ssl_hs_error;
   }
@@ -401,6 +409,7 @@ static enum ssl_hs_wait_t do_read_server_hello(SSL_HANDSHAKE *hs) {
     // If not sending early data, set client traffic keys now so that alerts are
     // encrypted.
     if (!tls13_set_traffic_key(ssl, ssl_encryption_handshake, evp_aead_seal,
+                               hs->new_session.get(),
                                hs->client_handshake_secret())) {
       return ssl_hs_error;
     }
@@ -439,14 +448,20 @@ static enum ssl_hs_wait_t do_read_encrypted_extensions(SSL_HANDSHAKE *hs) {
   }
 
   if (ssl->s3->early_data_accepted) {
-    if (hs->early_session->cipher != hs->new_session->cipher ||
-        MakeConstSpan(hs->early_session->early_alpn) !=
-            ssl->s3->alpn_selected) {
+    if (hs->early_session->cipher != hs->new_session->cipher) {
+      OPENSSL_PUT_ERROR(SSL, SSL_R_CIPHER_MISMATCH_ON_EARLY_DATA);
+      ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_ILLEGAL_PARAMETER);
+      return ssl_hs_error;
+    }
+    if (MakeConstSpan(hs->early_session->early_alpn) !=
+        ssl->s3->alpn_selected) {
       OPENSSL_PUT_ERROR(SSL, SSL_R_ALPN_MISMATCH_ON_EARLY_DATA);
+      ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_ILLEGAL_PARAMETER);
       return ssl_hs_error;
     }
     if (ssl->s3->channel_id_valid || ssl->s3->token_binding_negotiated) {
       OPENSSL_PUT_ERROR(SSL, SSL_R_UNEXPECTED_EXTENSION_ON_EARLY_DATA);
+      ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_ILLEGAL_PARAMETER);
       return ssl_hs_error;
     }
   }
@@ -622,6 +637,13 @@ static enum ssl_hs_wait_t do_read_server_finished(SSL_HANDSHAKE *hs) {
     return ssl_hs_error;
   }
 
+  // Finished should be the end of the flight.
+  if (ssl->method->has_unprocessed_handshake_data(ssl)) {
+    ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_UNEXPECTED_MESSAGE);
+    OPENSSL_PUT_ERROR(SSL, SSL_R_EXCESS_HANDSHAKE_DATA);
+    return ssl_hs_error;
+  }
+
   ssl->method->next_message(ssl);
   hs->tls13_state = state_send_end_of_early_data;
   return ssl_hs_ok;
@@ -647,6 +669,7 @@ static enum ssl_hs_wait_t do_send_end_of_early_data(SSL_HANDSHAKE *hs) {
 
   if (hs->early_data_offered) {
     if (!tls13_set_traffic_key(ssl, ssl_encryption_handshake, evp_aead_seal,
+                               hs->new_session.get(),
                                hs->client_handshake_secret())) {
       return ssl_hs_error;
     }
@@ -742,8 +765,10 @@ static enum ssl_hs_wait_t do_complete_second_flight(SSL_HANDSHAKE *hs) {
 
   // Derive the final keys and enable them.
   if (!tls13_set_traffic_key(ssl, ssl_encryption_application, evp_aead_open,
+                             hs->new_session.get(),
                              hs->server_traffic_secret_0()) ||
       !tls13_set_traffic_key(ssl, ssl_encryption_application, evp_aead_seal,
+                             hs->new_session.get(),
                              hs->client_traffic_secret_0()) ||
       !tls13_derive_resumption_secret(hs)) {
     return ssl_hs_error;

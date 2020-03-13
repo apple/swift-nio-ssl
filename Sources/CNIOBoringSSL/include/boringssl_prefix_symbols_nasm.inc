@@ -715,6 +715,8 @@
 %xdefine _ECDSA_SIG_free _ %+ BORINGSSL_PREFIX %+ _ECDSA_SIG_free
 %xdefine _ECDSA_SIG_from_bytes _ %+ BORINGSSL_PREFIX %+ _ECDSA_SIG_from_bytes
 %xdefine _ECDSA_SIG_get0 _ %+ BORINGSSL_PREFIX %+ _ECDSA_SIG_get0
+%xdefine _ECDSA_SIG_get0_r _ %+ BORINGSSL_PREFIX %+ _ECDSA_SIG_get0_r
+%xdefine _ECDSA_SIG_get0_s _ %+ BORINGSSL_PREFIX %+ _ECDSA_SIG_get0_s
 %xdefine _ECDSA_SIG_marshal _ %+ BORINGSSL_PREFIX %+ _ECDSA_SIG_marshal
 %xdefine _ECDSA_SIG_max_len _ %+ BORINGSSL_PREFIX %+ _ECDSA_SIG_max_len
 %xdefine _ECDSA_SIG_new _ %+ BORINGSSL_PREFIX %+ _ECDSA_SIG_new
@@ -2484,6 +2486,8 @@
 %xdefine _X509_get_serialNumber _ %+ BORINGSSL_PREFIX %+ _X509_get_serialNumber
 %xdefine _X509_get_signature_nid _ %+ BORINGSSL_PREFIX %+ _X509_get_signature_nid
 %xdefine _X509_get_subject_name _ %+ BORINGSSL_PREFIX %+ _X509_get_subject_name
+%xdefine _X509_getm_notAfter _ %+ BORINGSSL_PREFIX %+ _X509_getm_notAfter
+%xdefine _X509_getm_notBefore _ %+ BORINGSSL_PREFIX %+ _X509_getm_notBefore
 %xdefine _X509_gmtime_adj _ %+ BORINGSSL_PREFIX %+ _X509_gmtime_adj
 %xdefine _X509_issuer_and_serial_cmp _ %+ BORINGSSL_PREFIX %+ _X509_issuer_and_serial_cmp
 %xdefine _X509_issuer_and_serial_hash _ %+ BORINGSSL_PREFIX %+ _X509_issuer_and_serial_hash
@@ -3936,6 +3940,8 @@
 %xdefine ECDSA_SIG_free BORINGSSL_PREFIX %+ _ECDSA_SIG_free
 %xdefine ECDSA_SIG_from_bytes BORINGSSL_PREFIX %+ _ECDSA_SIG_from_bytes
 %xdefine ECDSA_SIG_get0 BORINGSSL_PREFIX %+ _ECDSA_SIG_get0
+%xdefine ECDSA_SIG_get0_r BORINGSSL_PREFIX %+ _ECDSA_SIG_get0_r
+%xdefine ECDSA_SIG_get0_s BORINGSSL_PREFIX %+ _ECDSA_SIG_get0_s
 %xdefine ECDSA_SIG_marshal BORINGSSL_PREFIX %+ _ECDSA_SIG_marshal
 %xdefine ECDSA_SIG_max_len BORINGSSL_PREFIX %+ _ECDSA_SIG_max_len
 %xdefine ECDSA_SIG_new BORINGSSL_PREFIX %+ _ECDSA_SIG_new
@@ -5705,6 +5711,8 @@
 %xdefine X509_get_serialNumber BORINGSSL_PREFIX %+ _X509_get_serialNumber
 %xdefine X509_get_signature_nid BORINGSSL_PREFIX %+ _X509_get_signature_nid
 %xdefine X509_get_subject_name BORINGSSL_PREFIX %+ _X509_get_subject_name
+%xdefine X509_getm_notAfter BORINGSSL_PREFIX %+ _X509_getm_notAfter
+%xdefine X509_getm_notBefore BORINGSSL_PREFIX %+ _X509_getm_notBefore
 %xdefine X509_gmtime_adj BORINGSSL_PREFIX %+ _X509_gmtime_adj
 %xdefine X509_issuer_and_serial_cmp BORINGSSL_PREFIX %+ _X509_issuer_and_serial_cmp
 %xdefine X509_issuer_and_serial_hash BORINGSSL_PREFIX %+ _X509_issuer_and_serial_hash
