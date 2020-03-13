@@ -1044,9 +1044,13 @@ class NIOSSLIntegrationTest: XCTestCase {
         let clientChannel = EmbeddedChannel()
 
         let context = try configuredSSLContext()
+        
+        
+        let completePromise: EventLoopPromise<ByteBuffer> = serverChannel.eventLoop.makePromise()
 
-        try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait()
-        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(ReadRecordingHandler(completePromise: completePromise)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait())
 
         let addr = try SocketAddress(unixDomainSocketPath: "/tmp/whatever2")
         let connectFuture = clientChannel.connect(to: addr)
@@ -1056,7 +1060,7 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         // Ok, we're connected. Now we want to close the server, and have that trigger a client CLOSE_NOTIFY.
         // After the CLOSE_NOTIFY create another chunk of data.
-        let _ = serverChannel.close()
+        let serverClosePromise = serverChannel.close()
         
         // Create a new chunk of data after the close.
         var clientBuffer = clientChannel.allocator.buffer(capacity: 5)
@@ -1067,6 +1071,11 @@ class NIOSSLIntegrationTest: XCTestCase {
         // Use interactInMemory to finish the reads and writes.
         XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
         XCTAssertNoThrow(try clientClosePromise.wait())
+        XCTAssertNoThrow(try serverClosePromise.wait())
+        
+        // Now check what we read.
+        var readData = try assertNoThrowWithValue(completePromise.futureResult.wait())
+        XCTAssertEqual(readData.readString(length: readData.readableBytes)!, "hello")
     }
 
     func testZeroLengthWrite() throws {
@@ -1660,17 +1669,8 @@ class NIOSSLIntegrationTest: XCTestCase {
         var buffer = clientChannel.allocator.buffer(capacity: 1024)
         buffer.writeStaticString("GET / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n")
 
-        do {
-            try clientChannel.writeInbound(buffer)
-            XCTFail("Did not error")
-        } catch  {
-            switch error as? BoringSSLError {
-            case .some(.sslError(let err)):
-                XCTAssertEqual(err.description, "[Error: 268435703 error:100000f7:SSL routines:OPENSSL_internal:WRONG_VERSION_NUMBER]")
-                break
-            default:
-                XCTFail("Unexpected error: \(error)")
-            }
+        XCTAssertThrowsError(try clientChannel.writeInbound(buffer)) { error in
+            XCTAssertEqual(String(describing: error), "sslError([Error: 268435703 error:100000f7:SSL routines:OPENSSL_internal:WRONG_VERSION_NUMBER])")
         }
         (clientChannel.eventLoop as! EmbeddedEventLoop).run()
         XCTAssertTrue(clientClosed)
