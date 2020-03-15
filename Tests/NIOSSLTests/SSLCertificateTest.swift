@@ -226,34 +226,24 @@ class SSLCertificateTest: XCTestCase {
 
     func testLoadingGibberishFromMemoryAsPemFails() throws {
         let keyBytes: [UInt8] = [1, 2, 3]
-
-        do {
-            _ = try NIOSSLCertificate(bytes: keyBytes, format: .pem)
-            XCTFail("Gibberish successfully loaded")
-        } catch NIOSSLError.failedToLoadCertificate {
-            // Do nothing.
+        
+        XCTAssertThrowsError(try NIOSSLCertificate(bytes: keyBytes, format: .pem)) {error in
+            XCTAssertEqual(.failedToLoadCertificate, error as? NIOSSLError)
         }
     }
 
     func testLoadingGibberishFromPEMBufferFails() throws {
         let keyBytes: [UInt8] = [1, 2, 3]
-
-        do {
-            _ = try NIOSSLCertificate.fromPEMBytes(keyBytes)
-            XCTFail("Gibberish successfully loaded")
-        } catch NIOSSLError.failedToLoadCertificate {
-            // Do nothing.
+        XCTAssertThrowsError(try NIOSSLCertificate.fromPEMBytes(keyBytes)) {error in
+            XCTAssertEqual(.failedToLoadCertificate, error as? NIOSSLError)
         }
     }
 
     func testLoadingGibberishFromMemoryAsDerFails() throws {
         let keyBytes: [UInt8] = [1, 2, 3]
 
-        do {
-            _ = try NIOSSLCertificate(bytes: keyBytes, format: .der)
-            XCTFail("Gibberish successfully loaded")
-        } catch NIOSSLError.failedToLoadCertificate {
-            // Do nothing.
+        XCTAssertThrowsError(try NIOSSLCertificate(bytes: keyBytes, format: .der)) {error in
+            XCTAssertEqual(.failedToLoadCertificate, error as? NIOSSLError)
         }
     }
 
@@ -262,12 +252,9 @@ class SSLCertificateTest: XCTestCase {
         defer {
             _ = tempFile.withCString { unlink($0) }
         }
-
-        do {
-            _ = try NIOSSLCertificate(file: tempFile, format: .pem)
-            XCTFail("Gibberish successfully loaded")
-        } catch NIOSSLError.failedToLoadCertificate {
-            // Do nothing.
+        
+        XCTAssertThrowsError(try NIOSSLCertificate(file: tempFile, format: .pem)) {error in
+            XCTAssertEqual(.failedToLoadCertificate, error as? NIOSSLError)
         }
     }
 
@@ -277,11 +264,8 @@ class SSLCertificateTest: XCTestCase {
             _ = tempFile.withCString { unlink($0) }
         }
 
-        do {
-            _ = try NIOSSLCertificate.fromPEMFile(tempFile)
-            XCTFail("Gibberish successfully loaded")
-        } catch NIOSSLError.failedToLoadCertificate {
-            // Do nothing.
+        XCTAssertThrowsError(try NIOSSLCertificate.fromPEMFile(tempFile)) {error in
+            XCTAssertEqual(.failedToLoadCertificate, error as? NIOSSLError)
         }
     }
 
@@ -291,42 +275,26 @@ class SSLCertificateTest: XCTestCase {
             _ = tempFile.withCString { unlink($0) }
         }
 
-        do {
-            _ = try NIOSSLCertificate(file: tempFile, format: .der)
-            XCTFail("Gibberish successfully loaded")
-        } catch NIOSSLError.failedToLoadCertificate {
-            // Do nothing.
+        XCTAssertThrowsError(try NIOSSLCertificate(file: tempFile, format: .der)) {error in
+            XCTAssertEqual(.failedToLoadCertificate, error as? NIOSSLError)
         }
     }
 
     func testLoadingNonexistentFileAsPem() throws {
-        do {
-            _ = try NIOSSLCertificate(file: "/nonexistent/path", format: .pem)
-            XCTFail("Did not throw")
-        } catch let error as IOError {
-            XCTAssertEqual(error.errnoCode, ENOENT)
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        XCTAssertThrowsError(try NIOSSLCertificate(file: "/nonexistent/path", format: .pem)) {error in
+            XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode }))
         }
     }
 
     func testLoadingNonexistentPEMFile() throws {
-        do {
-            _ = try NIOSSLCertificate.fromPEMFile("/nonexistent/path")
-            XCTFail("Did not throw")
-        } catch NIOSSLError.failedToLoadCertificate {
-            // Do nothing.
+        XCTAssertThrowsError(try NIOSSLCertificate.fromPEMFile("/nonexistent/path")) {error in
+            XCTAssertEqual(.failedToLoadCertificate, error as? NIOSSLError)
         }
     }
 
     func testLoadingNonexistentFileAsDer() throws {
-        do {
-            _ = try NIOSSLCertificate(file: "/nonexistent/path", format: .der)
-            XCTFail("Did not throw")
-        } catch let error as IOError {
-            XCTAssertEqual(error.errnoCode, ENOENT)
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        XCTAssertThrowsError(try NIOSSLCertificate(file: "/nonexistent/path", format: .der)) {error in
+            XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode }))
         }
     }
 
