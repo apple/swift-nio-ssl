@@ -482,14 +482,9 @@ final class UnwrappingTests: XCTestCase {
         // We haven't spun the event loop, so the handlers are still in the pipeline. Now attempt to unwrap.
         let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
         clientHandler.stopTLS(promise: stopPromise)
-
-        do {
-            try stopPromise.futureResult.wait()
-            XCTFail("Did not throw")
-        } catch NIOTLSUnwrappingError.alreadyClosed {
-            // expected
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        
+        XCTAssertThrowsError(try stopPromise.futureResult.wait()) { error in
+            XCTAssertEqual(.alreadyClosed, error as? NIOTLSUnwrappingError)
         }
     }
 
@@ -547,14 +542,9 @@ final class UnwrappingTests: XCTestCase {
         // of a CLOSE_NOTIFY.
         var buffer = clientChannel.allocator.buffer(capacity: 1024)
         buffer.writeStaticString("GET / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n")
-
-        do {
-            try clientChannel.writeInbound(buffer)
-            XCTFail("Did not error")
-        } catch NIOSSLError.shutdownFailed {
-            // expected
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        
+        XCTAssertThrowsError(try clientChannel.writeInbound(buffer)) { error in
+            XCTAssertEqual(.shutdownFailed, error as? NIOSSLError)
         }
 
         // The client should have errored out now. The handler should still be there, as unwrapping
