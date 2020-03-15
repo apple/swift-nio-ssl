@@ -544,7 +544,11 @@ final class UnwrappingTests: XCTestCase {
         buffer.writeStaticString("GET / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n")
         
         XCTAssertThrowsError(try clientChannel.writeInbound(buffer)) { error in
-            XCTAssertEqual(.shutdownFailed, error as? NIOSSLError)
+            if case .shutdownFailed = error as? NIOSSLError {
+                // Okay
+            } else {
+                XCTFail("Unexpected error: \(error)")
+            }
         }
 
         // The client should have errored out now. The handler should still be there, as unwrapping
