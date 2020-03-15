@@ -275,13 +275,8 @@ class TLSConfigurationTest: XCTestCase {
     func testNonexistentFileObject() throws {
         let clientConfig = TLSConfiguration.forClient(trustRoots: .file("/thispathbetternotexist/bogus.foo"))
 
-        do {
-            _ = try NIOSSLContext(configuration: clientConfig)
-            XCTFail("Did not throw")
-        } catch NIOSSLError.noSuchFilesystemObject {
-            // This is fine
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        XCTAssertThrowsError(try NIOSSLContext(configuration: clientConfig)) {error in
+            XCTAssertEqual(.noSuchFilesystemObject, error as? NIOSSLError)
         }
     }
     
