@@ -282,7 +282,7 @@ class SSLCertificateTest: XCTestCase {
 
     func testLoadingNonexistentFileAsPem() throws {
         XCTAssertThrowsError(try NIOSSLCertificate(file: "/nonexistent/path", format: .pem)) {error in
-            XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode }))
+            XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode })
         }
     }
 
@@ -294,7 +294,7 @@ class SSLCertificateTest: XCTestCase {
 
     func testLoadingNonexistentFileAsDer() throws {
         XCTAssertThrowsError(try NIOSSLCertificate(file: "/nonexistent/path", format: .der)) {error in
-            XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode }))
+            XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode })
         }
     }
 
