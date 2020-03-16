@@ -484,7 +484,7 @@ final class UnwrappingTests: XCTestCase {
         clientHandler.stopTLS(promise: stopPromise)
         
         XCTAssertThrowsError(try stopPromise.futureResult.wait()) { error in
-            XCTAssertEqual(.alreadyClosed, error as? NIOTLSUnwrappingError)
+            XCTAssertEqual(.some(.alreadyClosed), error as? NIOTLSUnwrappingError)
         }
     }
 
