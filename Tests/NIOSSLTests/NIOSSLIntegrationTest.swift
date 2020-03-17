@@ -611,6 +611,7 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         for promise in promises {
             // This should never block, but it may throw because the I/O is complete.
+            // Suppress all errors, they're fine.
             _ = try? promise.futureResult.wait()
         }
     }
