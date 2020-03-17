@@ -543,10 +543,14 @@ final class UnwrappingTests: XCTestCase {
         var buffer = clientChannel.allocator.buffer(capacity: 1024)
         buffer.writeStaticString("GET / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n")
         
-        XCTAssertThrowsError(try clientChannel.writeInbound(buffer)) { error in
-            if case .shutdownFailed = error as? NIOSSLError {
-                // Okay
-            } else {
+        do {
+            try clientChannel.writeInbound(buffer)
+        } catch {
+            switch error as? NIOSSLError {
+            case .shutdownFailed :
+                // Expected
+                break
+            default:
                 XCTFail("Unexpected error: \(error)")
             }
         }
