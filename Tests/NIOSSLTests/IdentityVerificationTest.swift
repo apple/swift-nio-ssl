@@ -192,18 +192,15 @@ class IdentityVerificationTest: XCTestCase {
 
     func testRejectsEncodedIDNALabel() throws {
         let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
-        do {
-            _ = try validIdentityForService(serverHostname: "straße.unicode.example.com",
-                                            socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                            leafCertificate: cert)
-        } catch {
+
+        XCTAssertThrowsError(try validIdentityForService(serverHostname: "straße.unicode.example.com",
+                           socketAddress: try .init(unixDomainSocketPath: "/path"),
+                           leafCertificate: cert)) { error in
             XCTAssertEqual(error as? NIOSSLExtraError, .serverHostnameImpossibleToMatch)
             XCTAssertEqual(String(describing: error),
                            "NIOSSLExtraError.serverHostnameImpossibleToMatch: The server hostname straße.unicode.example.com cannot be matched due to containing non-DNS characters")
-            return
         }
 
-        XCTFail("Did not throw")
     }
 
     func testMatchesUnencodedIDNALabel() throws {
@@ -240,17 +237,14 @@ class IdentityVerificationTest: XCTestCase {
 
     func testRejectsWildcardBeforeUnencodedIDNALabel() throws {
         let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
-        do {
-            _ = try validIdentityForService(serverHostname: "foo.straße.example.com",
-                                            socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                            leafCertificate: cert)
-        } catch {
+
+        XCTAssertThrowsError(try validIdentityForService(serverHostname: "foo.straße.example.com",
+                                socketAddress: try .init(unixDomainSocketPath: "/path"),
+                                leafCertificate: cert)) { error in
             XCTAssertEqual(error as? NIOSSLExtraError, .serverHostnameImpossibleToMatch)
             XCTAssertEqual(String(describing: error),
                            "NIOSSLExtraError.serverHostnameImpossibleToMatch: The server hostname foo.straße.example.com cannot be matched due to containing non-DNS characters")
-            return
         }
-        XCTFail("Did not throw")
     }
 
     func testMatchesWildcardBeforeEncodedIDNALabel() throws {
@@ -263,18 +257,14 @@ class IdentityVerificationTest: XCTestCase {
 
     func testDoesNotMatchSANWithEmbeddedNULL() throws {
         let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
-        do {
-            _ = try validIdentityForService(serverHostname: "nul\u{0000}l.example.com",
-                                            socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                            leafCertificate: cert)
-        } catch {
+
+       XCTAssertThrowsError(try validIdentityForService(serverHostname: "nul\u{0000}l.example.com",
+                               socketAddress: try .init(unixDomainSocketPath: "/path"),
+                               leafCertificate: cert)) { error in
             XCTAssertEqual(error as? NIOSSLExtraError, .serverHostnameImpossibleToMatch)
             XCTAssertEqual(String(describing: error),
                            "NIOSSLExtraError.serverHostnameImpossibleToMatch: The server hostname nul\u{0000}l.example.com cannot be matched due to containing non-DNS characters")
-            return
         }
-
-        XCTFail("Did not throw")
     }
 
     func testFallsBackToCommonName() throws {
@@ -295,18 +285,14 @@ class IdentityVerificationTest: XCTestCase {
 
     func testRejectsUnicodeCommonNameWithUnencodedIDNALabel() throws {
         let cert = try NIOSSLCertificate(bytes: .init(unicodeCNCert.utf8), format: .pem)
-        do {
-            _ = try validIdentityForService(serverHostname: "straße.org",
-                                            socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                            leafCertificate: cert)
-        } catch {
+
+        XCTAssertThrowsError(try validIdentityForService(serverHostname: "straße.org",
+                                socketAddress: try .init(unixDomainSocketPath: "/path"),
+                                leafCertificate: cert)) { error in
             XCTAssertEqual(error as? NIOSSLExtraError, .serverHostnameImpossibleToMatch)
             XCTAssertEqual(String(describing: error),
                            "NIOSSLExtraError.serverHostnameImpossibleToMatch: The server hostname straße.org cannot be matched due to containing non-DNS characters")
-            return
         }
-
-        XCTFail("Did not throw" )
     }
 
     func testRejectsUnicodeCommonNameWithEncodedIDNALabel() throws {

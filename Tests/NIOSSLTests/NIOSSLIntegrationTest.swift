@@ -611,11 +611,8 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         for promise in promises {
             // This should never block, but it may throw because the I/O is complete.
-            do {
-                _ = try promise.futureResult.wait()
-            } catch {
-                // Suppress all errors, they're fine.
-            }
+            // Suppress all errors, they're fine.
+            _ = try? promise.futureResult.wait()
         }
     }
 
@@ -1023,19 +1020,10 @@ class NIOSSLIntegrationTest: XCTestCase {
             serverChannel.pipeline.fireChannelReadComplete()
         }
 
-        do {
-            try serverChannel.throwIfErrorCaught()
-        } catch {
-            XCTFail("Already has error: \(error)")
-        }
-
-        do {
-            try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
-            XCTFail("Did not cause error")
-        } catch NIOSSLError.readInInvalidTLSState {
-            // Nothing to do here.
-        } catch {
-            XCTFail("Encountered unexpected error: \(error)")
+        XCTAssertNoThrow(try serverChannel.throwIfErrorCaught())
+        
+        XCTAssertThrowsError(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)) { error in
+            XCTAssertEqual(.readInInvalidTLSState, error as? NIOSSLError)
         }
     }
     

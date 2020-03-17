@@ -495,13 +495,8 @@ class SSLPKCS12BundleTest: XCTestCase {
     }
 
     func testDecodingNonExistentPKCS12File() throws {
-        do {
-            _ = try NIOSSLPKCS12Bundle(file: "/nonexistent/path")
-            XCTFail("Did not throw")
-        } catch let error as IOError {
-            XCTAssertEqual(error.errnoCode, ENOENT)
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        XCTAssertThrowsError(try NIOSSLPKCS12Bundle(file: "/nonexistent/path")){ error in
+            XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode })
         }
     }
 }

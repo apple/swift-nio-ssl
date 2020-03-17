@@ -97,22 +97,16 @@ class SSLPrivateKeyTest: XCTestCase {
     func testLoadingGibberishFromMemoryAsPemFails() throws {
         let keyBytes: [UInt8] = [1, 2, 3]
 
-        do {
-            _ = try NIOSSLPrivateKey(bytes: keyBytes, format: .pem)
-            XCTFail("Gibberish successfully loaded")
-        } catch NIOSSLError.failedToLoadPrivateKey {
-            // Do nothing.
+        XCTAssertThrowsError(try NIOSSLPrivateKey(bytes: keyBytes, format: .pem)) { error in
+            XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }
 
     func testLoadingGibberishFromMemoryAsDerFails() throws {
         let keyBytes: [UInt8] = [1, 2, 3]
 
-        do {
-            _ = try NIOSSLPrivateKey(bytes: keyBytes, format: .der)
-            XCTFail("Gibberish successfully loaded")
-        } catch NIOSSLError.failedToLoadPrivateKey {
-            // Do nothing.
+        XCTAssertThrowsError(try NIOSSLPrivateKey(bytes: keyBytes, format: .der)) { error in
+            XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }
 
@@ -122,11 +116,8 @@ class SSLPrivateKeyTest: XCTestCase {
             _ = tempFile.withCString { unlink($0) }
         }
 
-        do {
-            _ = try NIOSSLPrivateKey(file: tempFile, format: .pem)
-            XCTFail("Gibberish successfully loaded")
-        } catch NIOSSLError.failedToLoadPrivateKey {
-            // Do nothing.
+        XCTAssertThrowsError(try NIOSSLPrivateKey(file: tempFile, format: .pem)) { error in
+            XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }
 
@@ -136,59 +127,37 @@ class SSLPrivateKeyTest: XCTestCase {
             _ = tempFile.withCString { unlink($0) }
         }
 
-        do {
-            _ = try NIOSSLPrivateKey(file: tempFile, format: .der)
-            XCTFail("Gibberish successfully loaded")
-        } catch NIOSSLError.failedToLoadPrivateKey {
-            // Do nothing.
+        XCTAssertThrowsError(try NIOSSLPrivateKey(file: tempFile, format: .der)) { error in
+            XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }
 
     func testLoadingNonexistentFileAsPem() throws {
-        do {
-            _ = try NIOSSLPrivateKey(file: "/nonexistent/path", format: .pem)
-            XCTFail("Did not throw")
-        } catch let error as IOError {
-            XCTAssertEqual(error.errnoCode, ENOENT)
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+
+        XCTAssertThrowsError(try NIOSSLPrivateKey(file: "/nonexistent/path", format: .pem)) { error in
+            XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode })
         }
     }
 
     func testLoadingNonexistentFileAsDer() throws {
-        do {
-            _ = try NIOSSLPrivateKey(file: "/nonexistent/path", format: .der)
-            XCTFail("Did not throw")
-        } catch let error as IOError {
-            XCTAssertEqual(error.errnoCode, ENOENT)
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        XCTAssertThrowsError(try NIOSSLPrivateKey(file: "/nonexistent/path", format: .der)) { error in
+            XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode })
         }
     }
 
     func testLoadingNonexistentFileAsPemWithPassphrase() throws {
-        do {
-            _ = try NIOSSLPrivateKey(file: "/nonexistent/path", format: .pem) { (_: NIOSSLPassphraseSetter<Array<UInt8>>) in
-                XCTFail("Should not be called")
-            }
-            XCTFail("Did not throw")
-        } catch let error as IOError {
-            XCTAssertEqual(error.errnoCode, ENOENT)
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        XCTAssertThrowsError(try NIOSSLPrivateKey(file: "/nonexistent/path", format: .pem) { (_: NIOSSLPassphraseSetter<Array<UInt8>>) in
+            XCTFail("Should not be called")
+        }) { error in
+            XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode })
         }
     }
 
     func testLoadingNonexistentFileAsDerWithPassphrase() throws {
-        do {
-            _ = try NIOSSLPrivateKey(file: "/nonexistent/path", format: .der) { (_: NIOSSLPassphraseSetter<Array<UInt8>>) in
-                XCTFail("Should not be called")
-            }
-            XCTFail("Did not throw")
-        } catch let error as IOError {
-            XCTAssertEqual(error.errnoCode, ENOENT)
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        XCTAssertThrowsError(try NIOSSLPrivateKey(file: "/nonexistent/path", format: .der) { (_: NIOSSLPassphraseSetter<Array<UInt8>>) in
+            XCTFail("Should not be called")
+        }) { error in
+            XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode })
         }
     }
 
@@ -225,46 +194,26 @@ class SSLPrivateKeyTest: XCTestCase {
     }
 
     func testWildlyOverlongPassphraseRSAFromMemory() throws {
-        do {
-            _ = try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }
-            XCTFail("Should not have created the key")
-        } catch NIOSSLError.failedToLoadPrivateKey {
-            // ok
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        XCTAssertThrowsError(try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }) { error in
+            XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }
 
     func testWildlyOverlongPassphrasePKCS8FromMemory() throws {
-        do {
-            _ = try NIOSSLPrivateKey(bytes: .init(samplePKCS8PemPrivateKey.utf8), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }
-            XCTFail("Should not have created the key")
-        } catch NIOSSLError.failedToLoadPrivateKey {
-            // ok
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        XCTAssertThrowsError(try NIOSSLPrivateKey(bytes: .init(samplePKCS8PemPrivateKey.utf8), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }) { error in
+            XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }
 
     func testWildlyOverlongPassphraseRSAFromFile() throws {
-        do {
-            _ = try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }
-            XCTFail("Should not have created the key")
-        } catch NIOSSLError.failedToLoadPrivateKey {
-            // ok
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        XCTAssertThrowsError(try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }) { error in
+            XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }
 
     func testWildlyOverlongPassphrasePKCS8FromFile() throws {
-        do {
-            _ = try NIOSSLPrivateKey(bytes: .init(samplePKCS8PemPrivateKey.utf8), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }
-            XCTFail("Should not have created the key")
-        } catch NIOSSLError.failedToLoadPrivateKey {
-            // ok
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        XCTAssertThrowsError(try NIOSSLPrivateKey(bytes: .init(samplePKCS8PemPrivateKey.utf8), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }) { error in
+            XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }
 
@@ -273,15 +222,10 @@ class SSLPrivateKeyTest: XCTestCase {
             case error
         }
 
-        do {
-            _ = try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) { (_: NIOSSLPassphraseSetter<Array<UInt8>>) in
-                throw MyError.error
-            }
-            XCTFail("Should not have created the key")
-        } catch NIOSSLError.failedToLoadPrivateKey {
-            // ok
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        XCTAssertThrowsError(try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) { (_: NIOSSLPassphraseSetter<Array<UInt8>>) in
+            throw MyError.error
+        }) { error in
+            XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }
 
