@@ -547,7 +547,7 @@ final class UnwrappingTests: XCTestCase {
             try clientChannel.writeInbound(buffer)
         } catch {
             switch error as? NIOSSLError {
-            case .shutdownFailed :
+            case .some(.shutdownFailed) :
                 // Expected
                 break
             default:
