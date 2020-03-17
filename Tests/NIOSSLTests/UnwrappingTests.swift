@@ -542,10 +542,8 @@ final class UnwrappingTests: XCTestCase {
         // of a CLOSE_NOTIFY.
         var buffer = clientChannel.allocator.buffer(capacity: 1024)
         buffer.writeStaticString("GET / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n")
-        
-        do {
-            try clientChannel.writeInbound(buffer)
-        } catch {
+
+        XCTAssertThrowsError(try clientChannel.writeInbound(buffer)) {error in
             switch error as? NIOSSLError {
             case .some(.shutdownFailed) :
                 // Expected
