@@ -295,12 +295,39 @@ internal func clientTLSChannel(context: NIOSSLContext,
                                serverHostname: String? = nil,
                                file: StaticString = #file,
                                line: UInt = #line) throws -> Channel {
-    func handlerFactory() throws -> NIOSSLClientHandler {
-        return try NIOSSLClientHandler(context: context, serverHostname: serverHostname)
+    func tlsFactory() -> NIOSSLClientTLSProvider<ClientBootstrap> {
+        return try! .init(context: context, serverHostname: serverHostname)
     }
 
-    return try _clientTLSChannel(context: context, preHandlers: preHandlers, postHandlers: postHandlers, group: group, connectingTo: connectingTo, handlerFactory: handlerFactory)
+    return try _clientTLSChannel(context: context, preHandlers: preHandlers, postHandlers: postHandlers, group: group, connectingTo: connectingTo, tlsFactory: tlsFactory)
 }
+
+@available(*, deprecated, message: "just for testing the deprecated functionality")
+private struct DeprecatedTLSProviderForTests<Bootstrap: NIOClientTCPBootstrapProtocol>: NIOClientTLSProvider {
+    public typealias Bootstrap = Bootstrap
+
+    let context: NIOSSLContext
+    let serverHostname: String?
+    let verificationCallback: NIOSSLVerificationCallback
+
+    @available(*, deprecated, renamed: "init(context:serverHostname:customVerificationCallback:)")
+    public init(context: NIOSSLContext, serverHostname: String?, verificationCallback: @escaping NIOSSLVerificationCallback) {
+        self.context = context
+        self.serverHostname = serverHostname
+        self.verificationCallback = verificationCallback
+    }
+
+    public func enableTLS(_ bootstrap: Bootstrap) -> Bootstrap {
+        return bootstrap.protocolHandlers {
+            // NIOSSLClientHandler.init only throws because of `malloc` error and invalid SNI hostnames. We want to crash
+            // on malloc error and we pre-checked the SNI hostname in `init` so that should be impossible here.
+            return [try! NIOSSLClientHandler(context: self.context,
+                                             serverHostname: self.serverHostname,
+                                             verificationCallback: self.verificationCallback)]
+        }
+    }
+}
+
 
 
 @available(*, deprecated, renamed: "clientTLSChannel(context:preHandlers:postHandlers:group:connectingTo:serverHostname:customVerificationCallback:file:line:)")
@@ -313,11 +340,15 @@ internal func clientTLSChannel(context: NIOSSLContext,
                                verificationCallback: @escaping NIOSSLVerificationCallback,
                                file: StaticString = #file,
                                line: UInt = #line) throws -> Channel {
-    func handlerFactory() throws -> NIOSSLClientHandler {
-        return try NIOSSLClientHandler(context: context, serverHostname: serverHostname, verificationCallback: verificationCallback)
+    func tlsFactory() -> DeprecatedTLSProviderForTests<ClientBootstrap> {
+        return .init(context: context, serverHostname: serverHostname, verificationCallback: verificationCallback)
     }
 
-    return try _clientTLSChannel(context: context, preHandlers: preHandlers, postHandlers: postHandlers, group: group, connectingTo: connectingTo, handlerFactory: handlerFactory)
+    return try _clientTLSChannel(context: context,
+                                 preHandlers: preHandlers,
+                                 postHandlers: postHandlers,
+                                 group: group, connectingTo: connectingTo,
+                                 tlsFactory: tlsFactory)
 }
 
 
@@ -330,33 +361,42 @@ internal func clientTLSChannel(context: NIOSSLContext,
                                customVerificationCallback: @escaping NIOSSLCustomVerificationCallback,
                                file: StaticString = #file,
                                line: UInt = #line) throws -> Channel {
-    func handlerFactory() throws -> NIOSSLClientHandler {
-        return try NIOSSLClientHandler(context: context, serverHostname: serverHostname, customVerificationCallback: customVerificationCallback)
+    func tlsFactory() -> NIOSSLClientTLSProvider<ClientBootstrap> {
+        return try! .init(context: context,
+                          serverHostname: serverHostname,
+                          customVerificationCallback: customVerificationCallback)
     }
 
-    return try _clientTLSChannel(context: context, preHandlers: preHandlers, postHandlers: postHandlers, group: group, connectingTo: connectingTo, handlerFactory: handlerFactory)
+    return try _clientTLSChannel(context: context,
+                                 preHandlers: preHandlers,
+                                 postHandlers: postHandlers,
+                                 group: group,
+                                 connectingTo: connectingTo,
+                                 tlsFactory: tlsFactory)
 }
 
-fileprivate func _clientTLSChannel(context: NIOSSLContext,
-                                   preHandlers: [ChannelHandler],
-                                   postHandlers: [ChannelHandler],
-                                   group: EventLoopGroup,
-                                   connectingTo: SocketAddress,
-                                   handlerFactory: @escaping () throws -> NIOSSLClientHandler,
-                                   file: StaticString = #file,
-                                   line: UInt = #line) throws -> Channel {
-    return try assertNoThrowWithValue(ClientBootstrap(group: group)
+fileprivate func _clientTLSChannel<TLS: NIOClientTLSProvider>(context: NIOSSLContext,
+                                                              preHandlers: [ChannelHandler],
+                                                              postHandlers: [ChannelHandler],
+                                                              group: EventLoopGroup,
+                                                              connectingTo: SocketAddress,
+                                                              tlsFactory: @escaping () -> TLS,
+                                                              file: StaticString = #file,
+                                                              line: UInt = #line) throws -> Channel where TLS.Bootstrap == ClientBootstrap {
+    let bootstrap = NIOClientTCPBootstrap(ClientBootstrap(group: group),
+                                          tls: tlsFactory())
+    return try assertNoThrowWithValue(bootstrap
         .channelInitializer { channel in
-            let results = preHandlers.map { channel.pipeline.addHandler($0) }
-            return EventLoopFuture<Void>.andAllSucceed(results, on: results.first?.eventLoop ?? group.next()).flatMapThrowing {
-                try handlerFactory()
-            }.flatMap {
-                channel.pipeline.addHandler($0)
-            }.flatMap {
-                let results = postHandlers.map { channel.pipeline.addHandler($0) }
-            return EventLoopFuture<Void>.andAllSucceed(results, on: results.first?.eventLoop ?? group.next())
+            channel.pipeline.addHandlers(postHandlers)
+    }
+    .enableTLS()
+    .connect(to: connectingTo)
+    .flatMap { channel in
+        channel.pipeline.addHandlers(preHandlers, position: .first).map {
+            channel
         }
-    }.connect(to: connectingTo).wait(), file: file, line: line)
+    }
+    .wait(), file: file, line: line)
 }
 
 class NIOSSLIntegrationTest: XCTestCase {

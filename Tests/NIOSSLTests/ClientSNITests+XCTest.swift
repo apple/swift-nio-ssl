@@ -31,6 +31,11 @@ extension ClientSNITests {
                 ("testNoSNILeadsToNoExtension", testNoSNILeadsToNoExtension),
                 ("testSNIIsRejectedForIPv4Addresses", testSNIIsRejectedForIPv4Addresses),
                 ("testSNIIsRejectedForIPv6Addresses", testSNIIsRejectedForIPv6Addresses),
+                ("testSNIIsRejectedForEmptyHostname", testSNIIsRejectedForEmptyHostname),
+                ("testSNIIsRejectedForTooLongHostname", testSNIIsRejectedForTooLongHostname),
+                ("testSNIIsRejectedFor0Byte", testSNIIsRejectedFor0Byte),
+                ("testSNIIsNotRejectedForAnyOfTheFirst1000CodeUnits", testSNIIsNotRejectedForAnyOfTheFirst1000CodeUnits),
+                ("testSNIIsNotRejectedForVeryWeirdCharacters", testSNIIsNotRejectedForVeryWeirdCharacters),
            ]
    }
 }

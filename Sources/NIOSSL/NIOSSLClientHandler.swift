@@ -14,8 +14,8 @@
 
 import NIO
 
-private extension String {
-    func isIPAddress() -> Bool {
+extension String {
+    private func isIPAddress() -> Bool {
         // We need some scratch space to let inet_pton write into.
         var ipv4Addr = in_addr()
         var ipv6Addr = in6_addr()
@@ -23,6 +23,21 @@ private extension String {
         return self.withCString { ptr in
             return inet_pton(AF_INET, ptr, &ipv4Addr) == 1 ||
                    inet_pton(AF_INET6, ptr, &ipv6Addr) == 1
+        }
+    }
+
+    func validateSNIServerName() throws {
+        guard !self.isIPAddress() else {
+            throw NIOSSLExtraError.cannotUseIPAddressInSNI(ipAddress: self)
+        }
+
+        // no 0 bytes
+        guard !self.utf8.contains(0) else {
+            throw NIOSSLExtraError.invalidSNIHostname
+        }
+
+        guard (1 ... 255).contains(self.utf8.count) else {
+            throw NIOSSLExtraError.invalidSNIHostname
         }
     }
 }
@@ -43,12 +58,14 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
 
         connection.setConnectState()
         if let serverHostname = serverHostname {
-            if serverHostname.isIPAddress() {
-                throw NIOSSLExtraError.cannotUseIPAddressInSNI(ipAddress: serverHostname)
-            }
+            try serverHostname.validateSNIServerName()
 
             // IP addresses must not be provided in the SNI extension, so filter them.
-            try connection.setServerName(name: serverHostname)
+            do {
+                try connection.setServerName(name: serverHostname)
+            } catch {
+                preconditionFailure("Bug in NIOSSL (please report): \(Array(serverHostname.utf8)) passed NIOSSL's hostname test but failed in BoringSSL.")
+            }
         }
 
         if let verificationCallback = verificationCallback {
@@ -71,12 +88,14 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
 
         connection.setConnectState()
         if let serverHostname = serverHostname {
-            if serverHostname.isIPAddress() {
-                throw NIOSSLExtraError.cannotUseIPAddressInSNI(ipAddress: serverHostname)
-            }
+            try serverHostname.validateSNIServerName()
 
             // IP addresses must not be provided in the SNI extension, so filter them.
-            try connection.setServerName(name: serverHostname)
+            do {
+                try connection.setServerName(name: serverHostname)
+            } catch {
+                preconditionFailure("Bug in NIOSSL (please report): \(Array(serverHostname.utf8)) passed NIOSSL's hostname test but failed in BoringSSL.")
+            }
         }
 
         if let verificationCallback = optionalCustomVerificationCallback {
