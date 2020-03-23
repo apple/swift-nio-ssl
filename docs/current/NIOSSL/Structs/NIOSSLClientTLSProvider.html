@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>CertificateVerification Enumeration Reference</title>
+    <title>NIOSSLClientTLSProvider Structure Reference</title>
     <link rel="stylesheet" type="text/css" href="../css/jazzy.css" />
     <link rel="stylesheet" type="text/css" href="../css/highlight.css" />
     <meta charset="utf-8">
@@ -14,9 +14,9 @@
   </head>
   <body>
 
-    <a name="//apple_ref/swift/Enum/CertificateVerification" class="dashAnchor"></a>
+    <a name="//apple_ref/swift/Struct/NIOSSLClientTLSProvider" class="dashAnchor"></a>
 
-    <a title="CertificateVerification Enumeration Reference"></a>
+    <a title="NIOSSLClientTLSProvider Structure Reference"></a>
 
     <header class="header">
       <p class="header-col header-col--primary">
@@ -50,7 +50,7 @@
     <p class="breadcrumbs">
       <a class="breadcrumb" href="../index.html">NIOSSL Reference</a>
       <img class="carat" src="../img/carat.png" />
-      CertificateVerification Enumeration Reference
+      NIOSSLClientTLSProvider Structure Reference
     </p>
 
     <div class="content-wrapper">
@@ -188,14 +188,29 @@
 
         <section class="section">
           <div class="section-content top-matter">
-            <h1>CertificateVerification</h1>
+            <h1>NIOSSLClientTLSProvider</h1>
               <div class="declaration">
                 <div class="language">
-                  <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">enum</span> <span class="kt">CertificateVerification</span></code></pre>
+                  <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">struct</span> <span class="kt">NIOSSLClientTLSProvider</span><span class="o">&lt;</span><span class="kt">Bootstrap</span><span class="o">&gt;</span> <span class="p">:</span> <span class="kt">NIOClientTLSProvider</span> <span class="k">where</span> <span class="kt">Bootstrap</span> <span class="p">:</span> <span class="kt">NIOClientTCPBootstrapProtocol</span></code></pre>
 
                 </div>
               </div>
-            <p>Certificate verification modes.</p>
+            <p>A TLS provider to bootstrap TLS-enabled connections with <code>NIOClientTCPBootstrap</code>.</p>
+
+<p>Example:</p>
+<pre class="highlight swift"><code><span class="c1">// TLS setup.</span>
+<span class="k">let</span> <span class="nv">configuration</span> <span class="o">=</span> <span class="kt">TLSConfiguration</span><span class="o">.</span><span class="nf">forClient</span><span class="p">()</span>
+<span class="k">let</span> <span class="nv">sslContext</span> <span class="o">=</span> <span class="k">try</span> <span class="kt">NIOSSLContext</span><span class="p">(</span><span class="nv">configuration</span><span class="p">:</span> <span class="n">configuration</span><span class="p">)</span>
+
+<span class="c1">// Creating the "universal bootstrap" with the `NIOSSLClientTLSProvider`.</span>
+<span class="k">let</span> <span class="nv">tlsProvider</span> <span class="o">=</span> <span class="kt">NIOSSLClientTLSProvider</span><span class="o">&lt;</span><span class="kt">ClientBootstrap</span><span class="o">&gt;</span><span class="p">(</span><span class="nv">context</span><span class="p">:</span> <span class="n">sslContext</span><span class="p">,</span> <span class="nv">serverHostname</span><span class="p">:</span> <span class="s">"example.com"</span><span class="p">)</span>
+<span class="k">let</span> <span class="nv">bootstrap</span> <span class="o">=</span> <span class="kt">NIOClientTCPBootstrap</span><span class="p">(</span><span class="kt">ClientBootstrap</span><span class="p">(</span><span class="nv">group</span><span class="p">:</span> <span class="n">group</span><span class="p">),</span> <span class="nv">tls</span><span class="p">:</span> <span class="n">tlsProvider</span><span class="p">)</span>
+
+<span class="c1">// Bootstrapping a connection using the "universal bootstrapping mechanism"</span>
+<span class="k">let</span> <span class="nv">connection</span> <span class="o">=</span> <span class="n">bootstrap</span><span class="o">.</span><span class="nf">enableTLS</span><span class="p">()</span>
+                     <span class="o">.</span><span class="nf">connect</span><span class="p">(</span><span class="nv">to</span><span class="p">:</span> <span class="s">"example.com"</span><span class="p">)</span>
+                     <span class="o">.</span><span class="nf">wait</span><span class="p">()</span>
+</code></pre>
 
           </div>
         </section>
@@ -207,9 +222,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:6NIOSSL23CertificateVerificationO4noneyA2CmF"></a>
-                    <a name="//apple_ref/swift/Element/none" class="dashAnchor"></a>
-                    <a class="token" href="#/s:6NIOSSL23CertificateVerificationO4noneyA2CmF">none</a>
+                    <a name="/s:6NIOSSL23NIOSSLClientTLSProviderV9Bootstrapa"></a>
+                    <a name="//apple_ref/swift/Alias/Bootstrap" class="dashAnchor"></a>
+                    <a class="token" href="#/s:6NIOSSL23NIOSSLClientTLSProviderV9Bootstrapa">Bootstrap</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -217,14 +232,14 @@
                     <section class="section">
                       <div class="pointer"></div>
                       <div class="abstract">
-                        <p>All certificate verification disabled.</p>
+                        <p>Undocumented</p>
 
                       </div>
                       <div class="declaration">
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="k">none</span></code></pre>
+                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">typealias</span> <span class="kt">Bootstrap</span> <span class="o">=</span> <span class="kt">Bootstrap</span></code></pre>
 
                         </div>
                       </div>
@@ -234,9 +249,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:6NIOSSL23CertificateVerificationO010noHostnameC0yA2CmF"></a>
-                    <a name="//apple_ref/swift/Element/noHostnameVerification" class="dashAnchor"></a>
-                    <a class="token" href="#/s:6NIOSSL23CertificateVerificationO010noHostnameC0yA2CmF">noHostnameVerification</a>
+                    <a name="/s:6NIOSSL23NIOSSLClientTLSProviderV7context14serverHostname26customVerificationCallbackACyxGAA13NIOSSLContextC_SSSgySayAA17NIOSSLCertificateCG_3NIO16EventLoopPromiseVyAA24NIOSSLVerificationResultOGtcSgtKcfc"></a>
+                    <a name="//apple_ref/swift/Method/init(context:serverHostname:customVerificationCallback:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:6NIOSSL23NIOSSLClientTLSProviderV7context14serverHostname26customVerificationCallbackACyxGAA13NIOSSLContextC_SSSgySayAA17NIOSSLCertificateCG_3NIO16EventLoopPromiseVyAA24NIOSSLVerificationResultOGtcSgtKcfc">init(context:serverHostname:customVerificationCallback:)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -244,15 +259,16 @@
                     <section class="section">
                       <div class="pointer"></div>
                       <div class="abstract">
-                        <p>Certificates will be validated against the trust store, but will not
-be checked to see if they are valid for the given hostname.</p>
+                        <p>Construct the TLS provider with the necessary configuration.</p>
 
                       </div>
                       <div class="declaration">
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="n">noHostnameVerification</span></code></pre>
+                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="nf">init</span><span class="p">(</span><span class="nv">context</span><span class="p">:</span> <span class="kt"><a href="../Classes/NIOSSLContext.html">NIOSSLContext</a></span><span class="p">,</span>
+            <span class="nv">serverHostname</span><span class="p">:</span> <span class="kt">String</span><span class="p">?,</span>
+            <span class="nv">customVerificationCallback</span><span class="p">:</span> <span class="kt"><a href="../Typealiases.html#/s:6NIOSSL32NIOSSLCustomVerificationCallbacka">NIOSSLCustomVerificationCallback</a></span><span class="p">?</span> <span class="o">=</span> <span class="kc">nil</span><span class="p">)</span> <span class="k">throws</span></code></pre>
 
                         </div>
                       </div>
@@ -262,9 +278,9 @@ be checked to see if they are valid for the given hostname.</p>
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:6NIOSSL23CertificateVerificationO04fullC0yA2CmF"></a>
-                    <a name="//apple_ref/swift/Element/fullVerification" class="dashAnchor"></a>
-                    <a class="token" href="#/s:6NIOSSL23CertificateVerificationO04fullC0yA2CmF">fullVerification</a>
+                    <a name="/s:6NIOSSL23NIOSSLClientTLSProviderV9enableTLSyxxF"></a>
+                    <a name="//apple_ref/swift/Method/enableTLS(_:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:6NIOSSL23NIOSSLClientTLSProviderV9enableTLSyxxF">enableTLS(_:)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -272,15 +288,15 @@ be checked to see if they are valid for the given hostname.</p>
                     <section class="section">
                       <div class="pointer"></div>
                       <div class="abstract">
-                        <p>Certificates will be validated against the trust store and checked
-against the hostname of the service we are contacting.</p>
+                        <p>Enable TLS on the bootstrap. This is not a function you will typically call as a user, it is called by
+<code>NIOClientTCPBootstrap</code>.</p>
 
                       </div>
                       <div class="declaration">
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="n">fullVerification</span></code></pre>
+                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">func</span> <span class="nf">enableTLS</span><span class="p">(</span><span class="n">_</span> <span class="nv">bootstrap</span><span class="p">:</span> <span class="kt"><a href="../Structs/NIOSSLClientTLSProvider.html#/s:6NIOSSL23NIOSSLClientTLSProviderV9Bootstrapa">Bootstrap</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt"><a href="../Structs/NIOSSLClientTLSProvider.html#/s:6NIOSSL23NIOSSLClientTLSProviderV9Bootstrapa">Bootstrap</a></span></code></pre>
 
                         </div>
                       </div>
