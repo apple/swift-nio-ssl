@@ -313,8 +313,24 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     /// out. This task should be cancelled if the shutdown does not time out.
     private func scheduleTimedOutShutdown(context: ChannelHandlerContext) -> Scheduled<Void> {
         return context.eventLoop.scheduleTask(in: self.shutdownTimeout) {
-            self.state = .closed
-            self.channelClose(context: context, reason: NIOSSLCloseTimedOutError())
+            switch self.state {
+            case .idle, .handshaking, .active:
+                preconditionFailure("Cannot schedule timed out shutdown on non-shutting down handler")
+
+            case .closed, .unwrapped:
+                // This means we raced with the shutdown completing. We just let this one go: do nothing.
+                return
+
+            case .closing:
+                // We're closing, the only thing we do here is exit.
+                self.state = .closed
+                self.channelClose(context: context, reason: NIOSSLCloseTimedOutError())
+
+            case .unwrapping:
+                // The user only wants us to error and unwrap, not to close.
+                self.state = .unwrapped
+                self.channelUnwrap(context: context, failedWithError: NIOSSLCloseTimedOutError())
+            }
         }
     }
 
@@ -451,7 +467,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         context.close(promise: closePromise)
     }
 
-    private func channelUnwrap(context: ChannelHandlerContext) {
+    private func channelUnwrap(context: ChannelHandlerContext, failedWithError error: Error? = nil) {
         assert(self.closePromise == nil)
         self.state = .unwrapped
 
@@ -468,9 +484,23 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             if let unconsumedData = self.connection.extractUnconsumedData() {
                 context.fireChannelRead(self.wrapInboundOut(unconsumedData))
             }
+
+            if let error = error {
+                context.fireErrorCaught(error)
+            }
         }
 
         if let promise = shutdownPromise {
+            removalFuture.whenComplete { result in
+                switch (result, error) {
+                case(.success, .none):
+                    promise.succeed(())
+                case (.success, .some(let error)):
+                    promise.fail(error)
+                case (.failure(let failure), _):
+                    promise.fail(failure)
+                }
+            }
             removalFuture.cascade(to: promise)
         }
 
@@ -504,13 +534,15 @@ extension NIOSSLHandler {
     ///
     /// This will send a CLOSE_NOTIFY and wait for the corresponding CLOSE_NOTIFY. When that next
     /// CLOSE_NOTIFY is received, this handler will pass on all pending writes and remove itself
-    /// from the channel pipeline.
+    /// from the channel pipeline. If the shutdown times out then an error will fire down the
+    /// pipeline, this handler will remove itself from the pipeline, but the channel will not be
+    /// automatically closed.
     ///
     /// This function **is not thread-safe**: you **must** call it from the correct event
     /// loop thread.
     ///
     /// - parameters:
-    ///     - promise: (optional) An `EventLoopPromise` that will be completed when the unwrapping has
+    ///     - promise: An `EventLoopPromise` that will be completed when the unwrapping has
     ///         completed.
     public func stopTLS(promise: EventLoopPromise<Void>?) {
         switch self.state {

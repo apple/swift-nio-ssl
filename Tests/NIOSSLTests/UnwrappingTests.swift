@@ -742,8 +742,8 @@ final class UnwrappingTests: XCTestCase {
         var unwrapped = false
 
         defer {
-            XCTAssertNoThrow(try serverChannel.finish(acceptAlreadyClosed: true))
-            XCTAssertNoThrow(try clientChannel.finish(acceptAlreadyClosed: true))
+            XCTAssertNoThrow(try serverChannel.finish(acceptAlreadyClosed: false))
+            XCTAssertNoThrow(try clientChannel.finish(acceptAlreadyClosed: false))
         }
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
@@ -785,21 +785,28 @@ final class UnwrappingTests: XCTestCase {
         XCTAssertFalse(clientClosed)
         XCTAssertFalse(serverClosed)
         XCTAssertFalse(unwrapped)
+        XCTAssertNoThrow(try serverChannel.throwIfErrorCaught())
 
-        // Advance time by 5 seconds. This should fire the timeout. We unwrap and close the connection.
+        // Advance time by 5 seconds. This should fire the timeout. We unwrap. The connection is not closed automatically.
         serverChannel.embeddedEventLoop.advanceTime(by: .seconds(5))
         XCTAssertFalse(clientClosed)
-        XCTAssertTrue(serverClosed)
+        XCTAssertFalse(serverClosed)
         XCTAssertTrue(unwrapped)
         serverChannel.pipeline.assertDoesNotContain(handler: serverHandler)
+        XCTAssertThrowsError(try serverChannel.throwIfErrorCaught()) { error in
+            XCTAssertTrue(error is NIOSSLCloseTimedOutError, "Unexpected error: \(error)")
+        }
 
         // Now we do the same for the client to get it out of the pipeline too. Naturally, it'll time out.
         clientHandler.stopTLS(promise: nil)
         clientChannel.embeddedEventLoop.advanceTime(by: .seconds(5))
         clientChannel.pipeline.assertDoesNotContain(handler: clientHandler)
+        XCTAssertThrowsError(try clientChannel.throwIfErrorCaught()) { error in
+            XCTAssertTrue(error is NIOSSLCloseTimedOutError, "Unexpected error: \(error)")
+        }
 
-        XCTAssertTrue(clientClosed)
-        XCTAssertTrue(serverClosed)
+        XCTAssertFalse(clientClosed)
+        XCTAssertFalse(serverClosed)
         XCTAssertTrue(unwrapped)
     }
 
@@ -875,7 +882,7 @@ final class UnwrappingTests: XCTestCase {
 
         defer {
             XCTAssertNoThrow(try serverChannel.finish(acceptAlreadyClosed: true))
-            XCTAssertNoThrow(try clientChannel.finish(acceptAlreadyClosed: true))
+            XCTAssertNoThrow(try clientChannel.finish(acceptAlreadyClosed: false))
         }
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
@@ -948,8 +955,11 @@ final class UnwrappingTests: XCTestCase {
         clientHandler.stopTLS(promise: nil)
         clientChannel.embeddedEventLoop.advanceTime(by: .seconds(5))
         clientChannel.pipeline.assertDoesNotContain(handler: clientHandler)
+        XCTAssertThrowsError(try clientChannel.throwIfErrorCaught()) { error in
+            XCTAssertTrue(error is NIOSSLCloseTimedOutError, "Unexpected error: \(error)")
+        }
 
-        XCTAssertTrue(clientClosed)
+        XCTAssertFalse(clientClosed)
         XCTAssertTrue(serverClosed)
         XCTAssertTrue(unwrapped)
     }
