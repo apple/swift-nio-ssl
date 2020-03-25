@@ -732,4 +732,225 @@ final class UnwrappingTests: XCTestCase {
         // We should also have received the plaintext data.
         XCTAssertTrue(readCompleted)
     }
+
+    func testUnwrappingTimeout() throws {
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+
+        var clientClosed = false
+        var serverClosed = false
+        var unwrapped = false
+
+        defer {
+            XCTAssertNoThrow(try serverChannel.finish(acceptAlreadyClosed: true))
+            XCTAssertNoThrow(try clientChannel.finish(acceptAlreadyClosed: true))
+        }
+
+        let context = try assertNoThrowWithValue(configuredSSLContext())
+
+        let serverHandler = try assertNoThrowWithValue(NIOSSLServerHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(serverHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        let handshakeHandler = HandshakeCompletedHandler()
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(handshakeHandler).wait())
+
+        // Mark the closure of the channels.
+        clientChannel.closeFuture.whenComplete { _ in
+            clientClosed = true
+        }
+        serverChannel.closeFuture.whenComplete { _ in
+            serverClosed = true
+        }
+
+        // Connect. This should lead to a completed handshake.
+        XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel))
+        XCTAssertTrue(handshakeHandler.handshakeSucceeded)
+
+        // Let's unwrap the server connection. We are not going to interact in memory, because we want to simulate a
+        // timeout.
+        let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
+        stopPromise.futureResult.whenComplete { result in
+            unwrapped = true
+
+            switch result {
+            case .success:
+                XCTFail("Shutdown succeeded unexpectedly")
+            case .failure(let err):
+                XCTAssertTrue(err is NIOSSLCloseTimedOutError, "Unexpected error: \(err)")
+            }
+        }
+        serverHandler.stopTLS(promise: stopPromise)
+
+        XCTAssertFalse(clientClosed)
+        XCTAssertFalse(serverClosed)
+        XCTAssertFalse(unwrapped)
+
+        // Advance time by 5 seconds. This should fire the timeout. We unwrap and close the connection.
+        serverChannel.embeddedEventLoop.advanceTime(by: .seconds(5))
+        XCTAssertFalse(clientClosed)
+        XCTAssertTrue(serverClosed)
+        XCTAssertTrue(unwrapped)
+        serverChannel.pipeline.assertDoesNotContain(handler: serverHandler)
+
+        // Now we do the same for the client to get it out of the pipeline too. Naturally, it'll time out.
+        clientHandler.stopTLS(promise: nil)
+        clientChannel.embeddedEventLoop.advanceTime(by: .seconds(5))
+        clientChannel.pipeline.assertDoesNotContain(handler: clientHandler)
+
+        XCTAssertTrue(clientClosed)
+        XCTAssertTrue(serverClosed)
+        XCTAssertTrue(unwrapped)
+    }
+
+    func testSuccessfulUnwrapCancelsTimeout() throws {
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+
+        var clientClosed = false
+        var serverClosed = false
+        var unwrapped = false
+
+        defer {
+            XCTAssertNoThrow(try serverChannel.finish(acceptAlreadyClosed: false))
+            XCTAssertNoThrow(try clientChannel.finish(acceptAlreadyClosed: true))
+        }
+
+        let context = try assertNoThrowWithValue(configuredSSLContext())
+
+        let serverHandler = try assertNoThrowWithValue(NIOSSLServerHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(serverHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        let handshakeHandler = HandshakeCompletedHandler()
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(handshakeHandler).wait())
+
+        // Mark the closure of the channels.
+        clientChannel.closeFuture.whenComplete { _ in
+            clientClosed = true
+        }
+        serverChannel.closeFuture.whenComplete { _ in
+            serverClosed = true
+        }
+
+        // Connect. This should lead to a completed handshake.
+        XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel))
+        XCTAssertTrue(handshakeHandler.handshakeSucceeded)
+
+        // Let's unwrap the server connection.
+        let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
+        stopPromise.futureResult.whenSuccess { result in
+            unwrapped = true
+        }
+        serverHandler.stopTLS(promise: stopPromise)
+
+        XCTAssertFalse(clientClosed)
+        XCTAssertFalse(serverClosed)
+        XCTAssertFalse(unwrapped)
+
+        // Now interact in memory.
+        XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
+
+        XCTAssertFalse(clientClosed)
+        XCTAssertFalse(serverClosed)
+        XCTAssertTrue(unwrapped)
+        serverChannel.pipeline.assertDoesNotContain(handler: serverHandler)
+
+        // Now advance time by 5 seconds and confirm that the server doesn't get closed.
+        serverChannel.embeddedEventLoop.advanceTime(by: .seconds(5))
+        XCTAssertFalse(clientClosed)
+        XCTAssertFalse(serverClosed)
+        XCTAssertTrue(unwrapped)
+        serverChannel.pipeline.assertDoesNotContain(handler: serverHandler)
+    }
+
+    func testUnwrappingAndClosingShareATimeout() throws {
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+
+        var clientClosed = false
+        var serverClosed = false
+        var unwrapped = false
+        var closed = false
+
+        defer {
+            XCTAssertNoThrow(try serverChannel.finish(acceptAlreadyClosed: true))
+            XCTAssertNoThrow(try clientChannel.finish(acceptAlreadyClosed: true))
+        }
+
+        let context = try assertNoThrowWithValue(configuredSSLContext())
+
+        let serverHandler = try assertNoThrowWithValue(NIOSSLServerHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(serverHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        let handshakeHandler = HandshakeCompletedHandler()
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(handshakeHandler).wait())
+
+        // Mark the closure of the channels.
+        clientChannel.closeFuture.whenComplete { _ in
+            clientClosed = true
+        }
+        serverChannel.closeFuture.whenComplete { _ in
+            serverClosed = true
+        }
+
+        // Connect. This should lead to a completed handshake.
+        XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel))
+        XCTAssertTrue(handshakeHandler.handshakeSucceeded)
+
+        // Let's unwrap the server connection. We are not going to interact in memory, because we want to simulate a
+        // timeout.
+        let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
+        stopPromise.futureResult.whenComplete { result in
+            unwrapped = true
+
+            switch result {
+            case .success:
+                XCTFail("Shutdown succeeded unexpectedly")
+            case .failure(let err):
+                XCTAssertTrue(err is NIOSSLCloseTimedOutError, "Unexpected error: \(err)")
+            }
+        }
+        serverHandler.stopTLS(promise: stopPromise)
+
+        XCTAssertFalse(clientClosed)
+        XCTAssertFalse(serverClosed)
+        XCTAssertFalse(unwrapped)
+
+        // Advance time by 3 seconds. This should not fire the timeout.
+        serverChannel.embeddedEventLoop.advanceTime(by: .seconds(3))
+        XCTAssertFalse(clientClosed)
+        XCTAssertFalse(serverClosed)
+        XCTAssertFalse(unwrapped)
+        serverChannel.pipeline.assertContains(handler: serverHandler)
+
+        // Now we close. This will report success.
+        serverChannel.close().whenSuccess { result in
+            closed = true
+        }
+
+        XCTAssertFalse(clientClosed)
+        XCTAssertFalse(serverClosed)
+        XCTAssertFalse(unwrapped)
+        XCTAssertFalse(closed)
+        serverChannel.pipeline.assertContains(handler: serverHandler)
+
+        // Now we advance two more seconds. This closes the connection. All the promises succeed.
+        serverChannel.embeddedEventLoop.advanceTime(by: .seconds(2))
+        XCTAssertFalse(clientClosed)
+        XCTAssertTrue(serverClosed)
+        XCTAssertTrue(unwrapped)
+        XCTAssertTrue(closed)
+        serverChannel.pipeline.assertDoesNotContain(handler: serverHandler)
+
+        // Now we do the same for the client to get it out of the pipeline too. Naturally, it'll time out.
+        clientHandler.stopTLS(promise: nil)
+        clientChannel.embeddedEventLoop.advanceTime(by: .seconds(5))
+        clientChannel.pipeline.assertDoesNotContain(handler: clientHandler)
+
+        XCTAssertTrue(clientClosed)
+        XCTAssertTrue(serverClosed)
+        XCTAssertTrue(unwrapped)
+    }
 }

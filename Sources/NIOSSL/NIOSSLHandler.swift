@@ -38,7 +38,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         case idle
         case handshaking
         case active
-        case unwrapping
+        case unwrapping(Scheduled<Void>)
         case closing(Scheduled<Void>)
         case unwrapped
         case closed
@@ -179,11 +179,11 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             } else if let promise = promise {
                 self.closePromise = promise
             }
-        case .unwrapping:
+        case .unwrapping(let scheduledShutdown):
             // We've been asked to close the connection, but we were currently unwrapping.
             // We don't have to send any CLOSE_NOTIFY, but we now need to upgrade ourselves:
             // closing is a more extreme activity than unwrapping.
-            self.state = .closing(self.scheduleTimedOutShutdown(context: context))
+            self.state = .closing(scheduledShutdown)
             if let promise = promise, let closePromise = self.closePromise {
                 closePromise.futureResult.cascade(to: promise)
             } else if let promise = promise {
@@ -275,7 +275,8 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         case .closing(let scheduledShutdown):
             uncleanScheduledShutdown = scheduledShutdown
             targetCompleteState = .closed
-        case .unwrapping:
+        case .unwrapping(let scheduledShutdown):
+            uncleanScheduledShutdown = scheduledShutdown
             targetCompleteState = .unwrapped
         default:
             preconditionFailure("Shutting down in a non-shutting-down state")
@@ -528,7 +529,7 @@ extension NIOSSLHandler {
                 return
             }
 
-            self.state = .unwrapping
+            self.state = .unwrapped
             self.shutdownPromise = promise
             self.channelUnwrap(context: storedContext)
 
@@ -539,7 +540,7 @@ extension NIOSSLHandler {
                 return
             }
 
-            self.state = .unwrapping
+            self.state = .unwrapping(self.scheduleTimedOutShutdown(context: storedContext))
             self.shutdownPromise = promise
             self.doShutdownStep(context: storedContext)
 

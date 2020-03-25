@@ -40,6 +40,9 @@ extension UnwrappingTests {
                 ("testPendingWritesFailOnUnwrap", testPendingWritesFailOnUnwrap),
                 ("testPendingWritesFailWhenFlushedOnUnwrap", testPendingWritesFailWhenFlushedOnUnwrap),
                 ("testDataReceivedAfterCloseNotifyIsPassedDownThePipeline", testDataReceivedAfterCloseNotifyIsPassedDownThePipeline),
+                ("testUnwrappingTimeout", testUnwrappingTimeout),
+                ("testSuccessfulUnwrapCancelsTimeout", testSuccessfulUnwrapCancelsTimeout),
+                ("testUnwrappingAndClosingShareATimeout", testUnwrappingAndClosingShareATimeout),
            ]
    }
 }
