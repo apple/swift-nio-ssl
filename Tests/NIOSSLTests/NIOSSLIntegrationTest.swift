@@ -276,13 +276,13 @@ internal func serverTLSChannel(context: NIOSSLContext,
         .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
         .childChannelInitializer { channel in
             let results = preHandlers.map { channel.pipeline.addHandler($0) }
-            return EventLoopFuture<Void>.andAllSucceed(results, on: results.first?.eventLoop ?? group.next()).flatMapThrowing {
+            return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop).flatMapThrowing {
                 try NIOSSLServerHandler(context: context)
                 }.flatMap {
                     channel.pipeline.addHandler($0)
                 }.flatMap {
                     let results = postHandlers.map { channel.pipeline.addHandler($0) }
-                return EventLoopFuture<Void>.andAllSucceed(results, on: results.first?.eventLoop ?? group.next())
+                    return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop)
             }
         }.bind(host: "127.0.0.1", port: 0).wait(), file: file, line: line)
 }
@@ -683,7 +683,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         // We're going to issue a number of small writes. Each of these should be coalesced together
         // such that the underlying layer sees only one write for them. The total number of
         // writes should be (after we flush) 3: one for Client Hello, one for Finished, and one
-        // for the coalesced writes.
+        // for the coalesced writes. However, we'll tolerate fewer!
         var originalBuffer = clientChannel.allocator.buffer(capacity: 1)
         originalBuffer.writeString("A")
         var writeFutures: [EventLoopFuture<()>] = []
@@ -699,7 +699,7 @@ class NIOSSLIntegrationTest: XCTestCase {
             // happened.
             return writeCounter.writeCount
         }.wait()
-        XCTAssertEqual(writeCount, 3)
+        XCTAssertLessThanOrEqual(writeCount, 3)
     }
 
     func testCoalescedWritesWithFutures() throws {
@@ -1381,38 +1381,23 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
 
-        let errorHandler = ErrorCatcher<NIOSSLError>()
+        let handshakeResultPromise = group.next().makePromise(of: Void.self)
+        let handshakeWatcher = WaitForHandshakeHandler(handshakeResultPromise: handshakeResultPromise)
         let clientChannel = try clientTLSChannel(context: try configuredClientContext(),
                                                  preHandlers: [],
-                                                 postHandlers: [errorHandler],
+                                                 postHandlers: [handshakeWatcher],
                                                  group: group,
                                                  connectingTo: serverChannel.localAddress!,
                                                  customVerificationCallback: { _, promise in
                                                     promise.succeed(.failed)
         })
 
-        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
-        originalBuffer.writeString("Hello")
-        let writeFuture = clientChannel.writeAndFlush(originalBuffer)
-        let errorsFuture: EventLoopFuture<[NIOSSLError]> = writeFuture.recover { (_: Error) in
-            // We're swallowing errors here, on purpose, because we'll definitely
-            // hit them.
-            return ()
-        }.map {
-            return errorHandler.errors
+        defer {
+            // Ignore errors here, the channel should be closed already by the time this happens.
+            try? clientChannel.close().wait()
         }
-        let actualErrors = try errorsFuture.wait()
 
-        // This write will have failed, but that's fine: we just want it as a signal that
-        // the handshake is done so we can make our assertions.
-        XCTAssertEqual(actualErrors.count, 1)
-        switch actualErrors.first! {
-        case .handshakeFailed:
-            // expected
-            break
-        case let error:
-            XCTFail("Unexpected error: \(error)")
-        }
+        XCTAssertThrowsError(try handshakeResultPromise.futureResult.wait())
     }
 
     func testErroringNewVerificationCallback() throws {
@@ -1432,38 +1417,22 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
 
-        let errorHandler = ErrorCatcher<NIOSSLError>()
+        let handshakeResultPromise = group.next().makePromise(of: Void.self)
+        let handshakeWatcher = WaitForHandshakeHandler(handshakeResultPromise: handshakeResultPromise)
         let clientChannel = try clientTLSChannel(context: try configuredClientContext(),
                                                  preHandlers: [],
-                                                 postHandlers: [errorHandler],
+                                                 postHandlers: [handshakeWatcher],
                                                  group: group,
                                                  connectingTo: serverChannel.localAddress!,
                                                  customVerificationCallback: { _, promise in
                                                     promise.fail(LocalError.kaboom)
         })
-
-        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
-        originalBuffer.writeString("Hello")
-        let writeFuture = clientChannel.writeAndFlush(originalBuffer)
-        let errorsFuture: EventLoopFuture<[NIOSSLError]> = writeFuture.recover { (_: Error) in
-            // We're swallowing errors here, on purpose, because we'll definitely
-            // hit them.
-            return ()
-        }.map {
-            return errorHandler.errors
+        defer {
+            // Ignore errors here, the channel should be closed already by the time this happens.
+            try? clientChannel.close().wait()
         }
-        let actualErrors = try errorsFuture.wait()
 
-        // This write will have failed, but that's fine: we just want it as a signal that
-        // the handshake is done so we can make our assertions.
-        XCTAssertEqual(actualErrors.count, 1)
-        switch actualErrors.first! {
-        case .handshakeFailed:
-            // expected
-            break
-        case let error:
-            XCTFail("Unexpected error: \(error)")
-        }
+        XCTAssertThrowsError(try handshakeResultPromise.futureResult.wait())
     }
 
     func testNewCallbackCanDelayHandshake() throws {
@@ -1474,7 +1443,6 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
 
-
         var completionPromiseFired: Bool = false
         let completionPromiseFiredLock = Lock()
 
@@ -1484,7 +1452,6 @@ class NIOSSLIntegrationTest: XCTestCase {
                 completionPromiseFired = true
             }
         }
-
 
         let serverChannel: Channel = try serverTLSChannel(context: context, handlers: [SimpleEchoServer()], group: group)
         defer {
@@ -1524,7 +1491,6 @@ class NIOSSLIntegrationTest: XCTestCase {
         handshakeCompletePromise!.succeed(.certificateVerified)
 
         let newBuffer = try completionPromise.futureResult.wait()
-        XCTAssertTrue(completionPromiseFired)
         XCTAssertEqual(newBuffer, originalBuffer)
     }
 

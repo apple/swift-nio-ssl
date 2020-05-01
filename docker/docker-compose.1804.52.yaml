@@ -1,0 +1,28 @@
+version: "3"
+
+services:
+
+  runtime-setup:
+    image: swift-nio-ssl:18.04-5.2
+    build:
+      args:
+        ubuntu_version: "bionic"
+        swift_version: "5.2"
+
+  unit-tests:
+    image: swift-nio-ssl:18.04-5.2
+
+  integration-tests:
+    image: swift-nio-ssl:18.04-5.2
+
+  test:
+    image: swift-nio-ssl:18.04-5.2
+    environment:
+      - MAX_ALLOCS_ALLOWED_simple_handshake=743000
+      - MAX_ALLOCS_ALLOWED_many_writes=201000
+
+  performance-test:
+    image: swift-nio-ssl:18.04-5.2
+
+  shell:
+    image: swift-nio-ssl:18.04-5.2
