@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-#if compiler(>=5.1) && compiler(<5.3)
+#if compiler(>=5.1) && compiler(<5.4)
 @_implementationOnly import CNIOBoringSSL
 #else
 import CNIOBoringSSL
