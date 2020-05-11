@@ -1,0 +1,27 @@
+version: "3"
+
+services:
+
+  runtime-setup:
+    image: swift-nio-ssl:18.04-5.3
+    build:
+      args:
+        base_image: "swiftlang/swift:nightly-5.3-bionic"
+
+  unit-tests:
+    image: swift-nio-ssl:18.04-5.3
+
+  integration-tests:
+    image: swift-nio-ssl:18.04-5.3
+
+  test:
+    image: swift-nio-ssl:18.04-5.3
+    environment:
+      - MAX_ALLOCS_ALLOWED_simple_handshake=743000
+      - MAX_ALLOCS_ALLOWED_many_writes=201000
+
+  performance-test:
+    image: swift-nio-ssl:18.04-5.3
+
+  shell:
+    image: swift-nio-ssl:18.04-5.3

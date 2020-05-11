@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
-#if compiler(>=5.1) && compiler(<5.3)
+#if compiler(>=5.1) && compiler(<5.4)
 @_implementationOnly import CNIOBoringSSL
 #else
 import CNIOBoringSSL
@@ -44,6 +44,33 @@ class HandshakeCompletedHandler: ChannelInboundHandler {
             self.handshakeSucceeded = true
         }
         context.fireUserInboundEventTriggered(event)
+    }
+}
+
+class WaitForHandshakeHandler: ChannelInboundHandler {
+    public typealias InboundIn = Any
+    public var handshakeResult: EventLoopFuture<Void> {
+        return self.handshakeResultPromise.futureResult
+    }
+
+    private var handshakeResultPromise: EventLoopPromise<Void>
+
+    init(handshakeResultPromise: EventLoopPromise<Void>) {
+        self.handshakeResultPromise = handshakeResultPromise
+    }
+
+    public func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
+        if let event = event as? TLSUserEvent, case .handshakeCompleted = event {
+            self.handshakeResultPromise.succeed(())
+        }
+        context.fireUserInboundEventTriggered(event)
+    }
+
+    public func errorCaught(context: ChannelHandlerContext, error: Error) {
+        if let error = error as? NIOSSLError, case .handshakeFailed = error {
+            self.handshakeResultPromise.fail(error)
+        }
+        context.fireErrorCaught(error)
     }
 }
 
