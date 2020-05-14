@@ -59,6 +59,7 @@ extension NIOSSLIntegrationTest {
                 ("testChannelInactiveAfterCloseNotify", testChannelInactiveAfterCloseNotify),
                 ("testKeyLoggingClientAndServer", testKeyLoggingClientAndServer),
                 ("testLoadsOfCloses", testLoadsOfCloses),
+                ("testWriteFromFailureOfWrite", testWriteFromFailureOfWrite),
            ]
    }
 }
