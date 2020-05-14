@@ -600,8 +600,9 @@ extension NIOSSLHandler {
     }
 
     private func discardBufferedWrites(reason: Error) {
-        self.bufferedWrites.forEachRemoving {
-            $0.promise?.fail(reason)
+        while self.bufferedWrites.count > 0 {
+            let bufferedWrite = self.bufferedWrites.removeFirst()
+            bufferedWrite.promise?.fail(reason)
         }
     }
 
@@ -669,12 +670,6 @@ fileprivate extension MarkedCircularBuffer {
         // do something about that, we just have to live with this.
         while try self.hasMark && callback(self.first!) {
             _ = self.removeFirst()
-        }
-    }
-
-    mutating func forEachRemoving(callback: (Element) -> Void) {
-        while self.count > 0 {
-            callback(self.removeFirst())
         }
     }
 }

@@ -1870,4 +1870,41 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
         XCTAssertNoThrow(try EventLoopFuture<Void>.andAllComplete(closeFutures, on: clientChannel.eventLoop).wait())
     }
+
+    func testWriteFromFailureOfWrite() throws {
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+        defer {
+            // Both were closed uncleanly in the test, so they'll throw.
+            XCTAssertThrowsError(try serverChannel.finish())
+            XCTAssertThrowsError(try clientChannel.finish())
+        }
+
+        let context = try configuredSSLContext()
+
+        try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait()
+        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
+
+        // Do the handshake.
+        let addr: SocketAddress = try SocketAddress(unixDomainSocketPath: "/tmp/whatever")
+        let connectFuture = clientChannel.connect(to: addr)
+        serverChannel.pipeline.fireChannelActive()
+        try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
+        try connectFuture.wait()
+
+        // Ok, we're gonna do a weird thing here. We're going to queue up a write, whose write promise is going
+        // to issue another write. In older builds, this would crash due to an exclusivity violation.
+        var buffer = clientChannel.allocator.buffer(capacity: 1024)
+        buffer.writeBytes("Hello, world!".utf8)
+
+        clientChannel.write(buffer).whenComplete { _ in
+            clientChannel.writeAndFlush(buffer, promise: nil)
+        }
+
+        // Now we're going to fire channel inactive on the client. This used to crash: now it doesn't.
+        clientChannel.pipeline.fireChannelInactive()
+
+        // Do the same for the server, but we don't care about the outcome.
+        serverChannel.pipeline.fireChannelInactive()
+    }
 }
