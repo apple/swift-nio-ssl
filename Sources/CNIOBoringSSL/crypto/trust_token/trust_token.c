@@ -37,6 +37,7 @@ const TRUST_TOKEN_METHOD *TRUST_TOKEN_experiment_v0(void) {
       pmbtoken_exp0_unblind,
       pmbtoken_exp0_read,
       0 /* don't use token hash */,
+      0 /* don't use batched proof */,
   };
   return &kMethod;
 }
@@ -51,6 +52,7 @@ const TRUST_TOKEN_METHOD *TRUST_TOKEN_experiment_v1(void) {
       pmbtoken_exp1_unblind,
       pmbtoken_exp1_read,
       1 /* use token hash */,
+      1 /* use batched proof */,
   };
   return &kMethod;
 }
@@ -623,8 +625,13 @@ int TRUST_TOKEN_ISSUER_redeem(const TRUST_TOKEN_ISSUER *ctx, uint8_t **out,
   assert(strlen(kClientDataLabel) < strlen(kExpiryTimestampLabel));
   assert(strlen(kPublicLabel) < strlen(kPrivateLabel));
 
+  size_t map_entries = 3;
+  if (ctx->method->use_token_hash) {
+    map_entries = 4;
+  }
+
   if (!CBB_init(&srr, 0) ||
-      !add_cbor_map(&srr, 3) ||  // SRR map
+      !add_cbor_map(&srr, map_entries) ||  // SRR map
       !add_cbor_text(&srr, kMetadataLabel, strlen(kMetadataLabel)) ||
       !add_cbor_map(&srr, 2) ||  // Metadata map
       !add_cbor_text(&srr, kPublicLabel, strlen(kPublicLabel)) ||
