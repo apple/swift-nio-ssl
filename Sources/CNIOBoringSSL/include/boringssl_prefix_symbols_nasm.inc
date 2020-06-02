@@ -592,6 +592,7 @@
 %xdefine _CRYPTO_ghash_init _ %+ BORINGSSL_PREFIX %+ _CRYPTO_ghash_init
 %xdefine _CRYPTO_has_asm _ %+ BORINGSSL_PREFIX %+ _CRYPTO_has_asm
 %xdefine _CRYPTO_hchacha20 _ %+ BORINGSSL_PREFIX %+ _CRYPTO_hchacha20
+%xdefine _CRYPTO_init_sysrand _ %+ BORINGSSL_PREFIX %+ _CRYPTO_init_sysrand
 %xdefine _CRYPTO_is_ARMv8_AES_capable _ %+ BORINGSSL_PREFIX %+ _CRYPTO_is_ARMv8_AES_capable
 %xdefine _CRYPTO_is_ARMv8_PMULL_capable _ %+ BORINGSSL_PREFIX %+ _CRYPTO_is_ARMv8_PMULL_capable
 %xdefine _CRYPTO_is_NEON_capable_at_runtime _ %+ BORINGSSL_PREFIX %+ _CRYPTO_is_NEON_capable_at_runtime
@@ -606,6 +607,7 @@
 %xdefine _CRYPTO_poly1305_finish _ %+ BORINGSSL_PREFIX %+ _CRYPTO_poly1305_finish
 %xdefine _CRYPTO_poly1305_init _ %+ BORINGSSL_PREFIX %+ _CRYPTO_poly1305_init
 %xdefine _CRYPTO_poly1305_update _ %+ BORINGSSL_PREFIX %+ _CRYPTO_poly1305_update
+%xdefine _CRYPTO_pre_sandbox_init _ %+ BORINGSSL_PREFIX %+ _CRYPTO_pre_sandbox_init
 %xdefine _CRYPTO_rdrand _ %+ BORINGSSL_PREFIX %+ _CRYPTO_rdrand
 %xdefine _CRYPTO_rdrand_multiple8_buf _ %+ BORINGSSL_PREFIX %+ _CRYPTO_rdrand_multiple8_buf
 %xdefine _CRYPTO_refcount_dec_and_test_zero _ %+ BORINGSSL_PREFIX %+ _CRYPTO_refcount_dec_and_test_zero
@@ -1455,7 +1457,6 @@
 %xdefine _RAND_pseudo_bytes _ %+ BORINGSSL_PREFIX %+ _RAND_pseudo_bytes
 %xdefine _RAND_seed _ %+ BORINGSSL_PREFIX %+ _RAND_seed
 %xdefine _RAND_set_rand_method _ %+ BORINGSSL_PREFIX %+ _RAND_set_rand_method
-%xdefine _RAND_set_urandom_fd _ %+ BORINGSSL_PREFIX %+ _RAND_set_urandom_fd
 %xdefine _RAND_status _ %+ BORINGSSL_PREFIX %+ _RAND_status
 %xdefine _RC4 _ %+ BORINGSSL_PREFIX %+ _RC4
 %xdefine _RC4_set_key _ %+ BORINGSSL_PREFIX %+ _RC4_set_key
@@ -1922,6 +1923,7 @@
 %xdefine _SSL_peek _ %+ BORINGSSL_PREFIX %+ _SSL_peek
 %xdefine _SSL_pending _ %+ BORINGSSL_PREFIX %+ _SSL_pending
 %xdefine _SSL_process_quic_post_handshake _ %+ BORINGSSL_PREFIX %+ _SSL_process_quic_post_handshake
+%xdefine _SSL_process_tls13_new_session_ticket _ %+ BORINGSSL_PREFIX %+ _SSL_process_tls13_new_session_ticket
 %xdefine _SSL_provide_quic_data _ %+ BORINGSSL_PREFIX %+ _SSL_provide_quic_data
 %xdefine _SSL_quic_max_handshake_flight_len _ %+ BORINGSSL_PREFIX %+ _SSL_quic_max_handshake_flight_len
 %xdefine _SSL_quic_read_level _ %+ BORINGSSL_PREFIX %+ _SSL_quic_read_level
@@ -2893,7 +2895,7 @@
 %xdefine _ec_GFp_mont_mul_base _ %+ BORINGSSL_PREFIX %+ _ec_GFp_mont_mul_base
 %xdefine _ec_GFp_mont_mul_batch _ %+ BORINGSSL_PREFIX %+ _ec_GFp_mont_mul_batch
 %xdefine _ec_GFp_mont_mul_precomp _ %+ BORINGSSL_PREFIX %+ _ec_GFp_mont_mul_precomp
-%xdefine _ec_GFp_mont_mul_public _ %+ BORINGSSL_PREFIX %+ _ec_GFp_mont_mul_public
+%xdefine _ec_GFp_mont_mul_public_batch _ %+ BORINGSSL_PREFIX %+ _ec_GFp_mont_mul_public_batch
 %xdefine _ec_GFp_nistp_recode_scalar_bits _ %+ BORINGSSL_PREFIX %+ _ec_GFp_nistp_recode_scalar_bits
 %xdefine _ec_GFp_simple_cmp_x_coordinate _ %+ BORINGSSL_PREFIX %+ _ec_GFp_simple_cmp_x_coordinate
 %xdefine _ec_GFp_simple_felem_from_bytes _ %+ BORINGSSL_PREFIX %+ _ec_GFp_simple_felem_from_bytes
@@ -2943,6 +2945,7 @@
 %xdefine _ec_point_mul_scalar_batch _ %+ BORINGSSL_PREFIX %+ _ec_point_mul_scalar_batch
 %xdefine _ec_point_mul_scalar_precomp _ %+ BORINGSSL_PREFIX %+ _ec_point_mul_scalar_precomp
 %xdefine _ec_point_mul_scalar_public _ %+ BORINGSSL_PREFIX %+ _ec_point_mul_scalar_public
+%xdefine _ec_point_mul_scalar_public_batch _ %+ BORINGSSL_PREFIX %+ _ec_point_mul_scalar_public_batch
 %xdefine _ec_point_select _ %+ BORINGSSL_PREFIX %+ _ec_point_select
 %xdefine _ec_point_set_affine_coordinates _ %+ BORINGSSL_PREFIX %+ _ec_point_set_affine_coordinates
 %xdefine _ec_point_to_bytes _ %+ BORINGSSL_PREFIX %+ _ec_point_to_bytes
@@ -3908,6 +3911,7 @@
 %xdefine CRYPTO_ghash_init BORINGSSL_PREFIX %+ _CRYPTO_ghash_init
 %xdefine CRYPTO_has_asm BORINGSSL_PREFIX %+ _CRYPTO_has_asm
 %xdefine CRYPTO_hchacha20 BORINGSSL_PREFIX %+ _CRYPTO_hchacha20
+%xdefine CRYPTO_init_sysrand BORINGSSL_PREFIX %+ _CRYPTO_init_sysrand
 %xdefine CRYPTO_is_ARMv8_AES_capable BORINGSSL_PREFIX %+ _CRYPTO_is_ARMv8_AES_capable
 %xdefine CRYPTO_is_ARMv8_PMULL_capable BORINGSSL_PREFIX %+ _CRYPTO_is_ARMv8_PMULL_capable
 %xdefine CRYPTO_is_NEON_capable_at_runtime BORINGSSL_PREFIX %+ _CRYPTO_is_NEON_capable_at_runtime
@@ -3922,6 +3926,7 @@
 %xdefine CRYPTO_poly1305_finish BORINGSSL_PREFIX %+ _CRYPTO_poly1305_finish
 %xdefine CRYPTO_poly1305_init BORINGSSL_PREFIX %+ _CRYPTO_poly1305_init
 %xdefine CRYPTO_poly1305_update BORINGSSL_PREFIX %+ _CRYPTO_poly1305_update
+%xdefine CRYPTO_pre_sandbox_init BORINGSSL_PREFIX %+ _CRYPTO_pre_sandbox_init
 %xdefine CRYPTO_rdrand BORINGSSL_PREFIX %+ _CRYPTO_rdrand
 %xdefine CRYPTO_rdrand_multiple8_buf BORINGSSL_PREFIX %+ _CRYPTO_rdrand_multiple8_buf
 %xdefine CRYPTO_refcount_dec_and_test_zero BORINGSSL_PREFIX %+ _CRYPTO_refcount_dec_and_test_zero
@@ -4771,7 +4776,6 @@
 %xdefine RAND_pseudo_bytes BORINGSSL_PREFIX %+ _RAND_pseudo_bytes
 %xdefine RAND_seed BORINGSSL_PREFIX %+ _RAND_seed
 %xdefine RAND_set_rand_method BORINGSSL_PREFIX %+ _RAND_set_rand_method
-%xdefine RAND_set_urandom_fd BORINGSSL_PREFIX %+ _RAND_set_urandom_fd
 %xdefine RAND_status BORINGSSL_PREFIX %+ _RAND_status
 %xdefine RC4 BORINGSSL_PREFIX %+ _RC4
 %xdefine RC4_set_key BORINGSSL_PREFIX %+ _RC4_set_key
@@ -5238,6 +5242,7 @@
 %xdefine SSL_peek BORINGSSL_PREFIX %+ _SSL_peek
 %xdefine SSL_pending BORINGSSL_PREFIX %+ _SSL_pending
 %xdefine SSL_process_quic_post_handshake BORINGSSL_PREFIX %+ _SSL_process_quic_post_handshake
+%xdefine SSL_process_tls13_new_session_ticket BORINGSSL_PREFIX %+ _SSL_process_tls13_new_session_ticket
 %xdefine SSL_provide_quic_data BORINGSSL_PREFIX %+ _SSL_provide_quic_data
 %xdefine SSL_quic_max_handshake_flight_len BORINGSSL_PREFIX %+ _SSL_quic_max_handshake_flight_len
 %xdefine SSL_quic_read_level BORINGSSL_PREFIX %+ _SSL_quic_read_level
@@ -6209,7 +6214,7 @@
 %xdefine ec_GFp_mont_mul_base BORINGSSL_PREFIX %+ _ec_GFp_mont_mul_base
 %xdefine ec_GFp_mont_mul_batch BORINGSSL_PREFIX %+ _ec_GFp_mont_mul_batch
 %xdefine ec_GFp_mont_mul_precomp BORINGSSL_PREFIX %+ _ec_GFp_mont_mul_precomp
-%xdefine ec_GFp_mont_mul_public BORINGSSL_PREFIX %+ _ec_GFp_mont_mul_public
+%xdefine ec_GFp_mont_mul_public_batch BORINGSSL_PREFIX %+ _ec_GFp_mont_mul_public_batch
 %xdefine ec_GFp_nistp_recode_scalar_bits BORINGSSL_PREFIX %+ _ec_GFp_nistp_recode_scalar_bits
 %xdefine ec_GFp_simple_cmp_x_coordinate BORINGSSL_PREFIX %+ _ec_GFp_simple_cmp_x_coordinate
 %xdefine ec_GFp_simple_felem_from_bytes BORINGSSL_PREFIX %+ _ec_GFp_simple_felem_from_bytes
@@ -6259,6 +6264,7 @@
 %xdefine ec_point_mul_scalar_batch BORINGSSL_PREFIX %+ _ec_point_mul_scalar_batch
 %xdefine ec_point_mul_scalar_precomp BORINGSSL_PREFIX %+ _ec_point_mul_scalar_precomp
 %xdefine ec_point_mul_scalar_public BORINGSSL_PREFIX %+ _ec_point_mul_scalar_public
+%xdefine ec_point_mul_scalar_public_batch BORINGSSL_PREFIX %+ _ec_point_mul_scalar_public_batch
 %xdefine ec_point_select BORINGSSL_PREFIX %+ _ec_point_select
 %xdefine ec_point_set_affine_coordinates BORINGSSL_PREFIX %+ _ec_point_set_affine_coordinates
 %xdefine ec_point_to_bytes BORINGSSL_PREFIX %+ _ec_point_to_bytes

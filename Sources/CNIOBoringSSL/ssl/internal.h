@@ -1863,6 +1863,8 @@ enum ssl_private_key_result_t tls13_add_certificate_verify(SSL_HANDSHAKE *hs);
 
 bool tls13_add_finished(SSL_HANDSHAKE *hs);
 bool tls13_process_new_session_ticket(SSL *ssl, const SSLMessage &msg);
+bssl::UniquePtr<SSL_SESSION> tls13_create_session_with_ticket(SSL *ssl,
+                                                              CBS *body);
 
 bool ssl_ext_key_share_parse_serverhello(SSL_HANDSHAKE *hs,
                                          Array<uint8_t> *out_secret,
@@ -2740,11 +2742,6 @@ struct SSL_CONFIG {
   bool jdk11_workaround : 1;
 };
 
-// Computes a SHA-256 hash of the transport parameters and early data context
-// for QUIC, putting the hash in |SHA256_DIGEST_LENGTH| bytes at |hash_out|.
-bool compute_quic_early_data_hash(const SSL_CONFIG *config,
-                                  uint8_t hash_out[SHA256_DIGEST_LENGTH]);
-
 // From RFC 8446, used in determining PSK modes.
 #define SSL_PSK_DHE_KE 0x1
 
@@ -3559,9 +3556,9 @@ struct ssl_session_st {
   // is_quic indicates whether this session was created using QUIC.
   bool is_quic : 1;
 
-  // quic_early_data_hash is used to determine whether early data must be
+  // quic_early_data_context is used to determine whether early data must be
   // rejected when performing a QUIC handshake.
-  bssl::Array<uint8_t> quic_early_data_hash;
+  bssl::Array<uint8_t> quic_early_data_context;
 
  private:
   ~ssl_session_st();

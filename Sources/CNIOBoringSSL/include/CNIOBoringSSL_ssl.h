@@ -2197,6 +2197,20 @@ struct ssl_ticket_aead_method_st {
 OPENSSL_EXPORT void SSL_CTX_set_ticket_aead_method(
     SSL_CTX *ctx, const SSL_TICKET_AEAD_METHOD *aead_method);
 
+// SSL_process_tls13_new_session_ticket processes an unencrypted TLS 1.3
+// NewSessionTicket message from |buf| and returns a resumable |SSL_SESSION|,
+// or NULL on error. The caller takes ownership of the returned session and
+// must call |SSL_SESSION_free| to free it.
+//
+// |buf| contains |buf_len| bytes that represents a complete NewSessionTicket
+// message including its header, i.e., one byte for the type (0x04) and three
+// bytes for the length. |buf| must contain only one such message.
+//
+// This function may be used to process NewSessionTicket messages in TLS 1.3
+// clients that are handling the record layer externally.
+OPENSSL_EXPORT SSL_SESSION *SSL_process_tls13_new_session_ticket(
+    SSL *ssl, const uint8_t *buf, size_t buf_len);
+
 
 // Elliptic curve Diffie-Hellman.
 //
@@ -2450,7 +2464,7 @@ OPENSSL_EXPORT int SSL_CTX_set_default_verify_paths(SSL_CTX *ctx);
 // one on success and zero on failure.
 //
 // See
-// https://www.openssl.org/docs/manmaster/ssl/SSL_CTX_load_verify_locations.html
+// https://www.openssl.org/docs/man1.1.0/man3/SSL_CTX_load_verify_locations.html
 // for documentation on the directory format.
 OPENSSL_EXPORT int SSL_CTX_load_verify_locations(SSL_CTX *ctx,
                                                  const char *ca_file,
@@ -3153,12 +3167,15 @@ OPENSSL_EXPORT int SSL_delegated_credential_used(const SSL *ssl);
 // QUIC may impose similar restrictions, for example HTTP/3's restrictions on
 // SETTINGS frames.
 //
-// BoringSSL imposes a stricter check on the server to enforce these
-// restrictions. BoringSSL requires that the transport parameters and
-// application protocol state be a byte-for-byte match between the connection
-// where the ticket was issued and the connection where it is used for 0-RTT. If
-// there is a mismatch, BoringSSL will reject early data (but not reject the
-// resumption attempt).
+// BoringSSL implements this check by doing a byte-for-byte comparison of an
+// opaque context passed in by the server. This context must be the same on the
+// connection where the ticket was issued and the connection where that ticket
+// is used for 0-RTT. If there is a mismatch, or the context was not set,
+// BoringSSL will reject early data (but not reject the resumption attempt).
+// This context is set via |SSL_set_quic_early_data_context| and should cover
+// both transport parameters and any application state.
+// |SSL_set_quic_early_data_context| must be called on the server with a
+// non-empty context if the server is to support 0-RTT in QUIC.
 //
 // BoringSSL does not perform any client-side checks on the transport
 // parameters received from a server that also accepted early data. It is up to
@@ -3166,12 +3183,6 @@ OPENSSL_EXPORT int SSL_delegated_credential_used(const SSL *ssl);
 // limits, and to close the QUIC connection if that is not the case. The same
 // holds for any application protocol state remembered for 0-RTT, e.g. HTTP/3
 // SETTINGS.
-//
-// The transport parameter check happens automatically with
-// |SSL_set_quic_transport_params|. QUIC servers must set application state via
-// |SSL_set_quic_early_data_context| to configure the application protocol
-// check. No other mechanisms are provided to have BoringSSL reject early data
-// because of QUIC transport or application protocol restrictions.
 
 // ssl_encryption_level_t represents a specific QUIC encryption level used to
 // transmit handshake messages.
@@ -3321,8 +3332,12 @@ OPENSSL_EXPORT void SSL_get_peer_quic_transport_params(
 // SSL_set_quic_early_data_context configures a context string in QUIC servers
 // for accepting early data. If a resumption connection offers early data, the
 // server will check if the value matches that of the connection which minted
-// the ticket. If not, resumption still succeeds but early data is rejected. For
-// HTTP/3, this should be the serialized server SETTINGS frame.
+// the ticket. If not, resumption still succeeds but early data is rejected.
+// This should include all QUIC Transport Parameters except ones specified that
+// the client MUST NOT remember. This should also include any application
+// protocol-specific state. For HTTP/3, this should be the serialized server
+// SETTINGS frame and the QUIC Transport Parameters (except the stateless reset
+// token).
 //
 // This function may be called before |SSL_do_handshake| or during server
 // certificate selection. It returns 1 on success and 0 on failure.
@@ -4304,7 +4319,7 @@ OPENSSL_EXPORT int SSL_set1_sigalgs(SSL *ssl, const int *values,
 // SSL_CTX_set1_sigalgs_list takes a textual specification of a set of signature
 // algorithms and configures them on |ctx|. It returns one on success and zero
 // on error. See
-// https://www.openssl.org/docs/man1.1.0/ssl/SSL_CTX_set1_sigalgs_list.html for
+// https://www.openssl.org/docs/man1.1.0/man3/SSL_CTX_set1_sigalgs_list.html for
 // a description of the text format. Also note that TLS 1.3 names (e.g.
 // "rsa_pkcs1_md5_sha1") can also be used (as in OpenSSL, although OpenSSL
 // doesn't document that).
@@ -4317,7 +4332,7 @@ OPENSSL_EXPORT int SSL_CTX_set1_sigalgs_list(SSL_CTX *ctx, const char *str);
 // SSL_set1_sigalgs_list takes a textual specification of a set of signature
 // algorithms and configures them on |ssl|. It returns one on success and zero
 // on error. See
-// https://www.openssl.org/docs/man1.1.0/ssl/SSL_CTX_set1_sigalgs_list.html for
+// https://www.openssl.org/docs/man1.1.0/man3/SSL_CTX_set1_sigalgs_list.html for
 // a description of the text format. Also note that TLS 1.3 names (e.g.
 // "rsa_pkcs1_md5_sha1") can also be used (as in OpenSSL, although OpenSSL
 // doesn't document that).
