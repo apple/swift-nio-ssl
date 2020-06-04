@@ -366,6 +366,12 @@ extension NIOSSLContext {
         case .fullVerification, .noHostnameVerification:
             CNIOBoringSSL_SSL_CTX_set_verify(context, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, nil)
 
+            // Also, set TRUSTED_FIRST to work around dumb clients that don't know what they're doing and send
+            // untrusted root certs. X509_VERIFY_PARAM will or-in the flags, so we don't need to load them first.
+            // This is get0 so we can just ignore the pointer, we don't have an owned ref.
+            let trustParams = CNIOBoringSSL_SSL_CTX_get0_param(context)!
+            CNIOBoringSSL_X509_VERIFY_PARAM_set_flags(trustParams, CUnsignedLong(X509_V_FLAG_TRUSTED_FIRST))
+
             switch trustRoots {
             case .some(.default), .none:
                 try NIOSSLContext.platformDefaultConfiguration(context: context)
