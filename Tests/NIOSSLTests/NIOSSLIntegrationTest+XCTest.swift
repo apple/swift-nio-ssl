@@ -60,6 +60,7 @@ extension NIOSSLIntegrationTest {
                 ("testKeyLoggingClientAndServer", testKeyLoggingClientAndServer),
                 ("testLoadsOfCloses", testLoadsOfCloses),
                 ("testWriteFromFailureOfWrite", testWriteFromFailureOfWrite),
+                ("testTrustedFirst", testTrustedFirst),
            ]
    }
 }

@@ -1907,4 +1907,58 @@ class NIOSSLIntegrationTest: XCTestCase {
         // Do the same for the server, but we don't care about the outcome.
         serverChannel.pipeline.fireChannelInactive()
     }
+
+    func testTrustedFirst() throws {
+        // We need to explain this test a bit.
+        //
+        // BoringSSL has a flag: X509_V_FLAG_TRUSTED_FIRST. This flag affects the way the X509 verifier works. In particular,
+        // it causes the verifier to look for certificates in the trust store _before_ it looks for them in the chain. This
+        // is important, because some misbehaving clients may send an excessively long chain that, in some cases, includes
+        // certificates we don't trust!
+        //
+        // In this case, the server has a cert that was signed by a CA whose original certificate has expired. We, the client,
+        // have a valid root certificate for the intermediate that _actually_ issued the key, which is now a root, as
+        // well as the old cert. (This is important! If we don't also have the old cert, this fails.)
+        // The server is, stupidly, also sending the old, _expired_, CA root cert. This test validates that we
+        // ignore the dumb server and get to the valid trust chain anyway.
+        let oldCA = try NIOSSLCertificate(bytes: Array(sampleExpiredCA.utf8), format: .pem)
+        let oldIntermediate = try NIOSSLCertificate(bytes: Array(sampleIntermediateCA.utf8), format: .pem)
+        let newCA = try NIOSSLCertificate(bytes: Array(sampleIntermediateAsRootCA.utf8), format: .pem)
+        let serverCert = try NIOSSLCertificate(bytes: Array(sampleClientOfIntermediateCA.utf8), format: .pem)
+        let serverKey = try NIOSSLPrivateKey(bytes: Array(sampleKeyForCertificateOfClientOfIntermediateCA.utf8), format: .pem)
+        let clientConfig = TLSConfiguration.forClient(trustRoots: .certificates([newCA, oldCA]))
+        let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(serverCert), .certificate(oldIntermediate), .certificate(oldCA)], privateKey: .privateKey(serverKey))
+
+        let clientContext = try NIOSSLContext(configuration: clientConfig)
+        let serverContext = try NIOSSLContext(configuration: serverConfig)
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
+
+        let serverChannel: Channel = try serverTLSChannel(context: serverContext, handlers: [SimpleEchoServer()], group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let clientChannel = try clientTLSChannel(context: clientContext,
+                                                 preHandlers: [],
+                                                 postHandlers: [PromiseOnReadHandler(promise: completionPromise)],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!,
+                                                 serverHostname: "localhost")
+        defer {
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        try clientChannel.writeAndFlush(originalBuffer).wait()
+
+        let newBuffer = try completionPromise.futureResult.wait()
+        XCTAssertEqual(newBuffer, originalBuffer)
+    }
 }
