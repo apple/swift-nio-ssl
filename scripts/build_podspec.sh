@@ -133,9 +133,9 @@ EOF
     echo "Uploading ${tmpdir}/${target}.podspec"
     # CNIOBoringSSL emits build warnings
     if [ "$target" == "CNIOBoringSSL" ]; then
-      pod trunk push --allow-warnings "${tmpdir}/${target}.podspec"
+      pod trunk push --allow-warnings --synchronous "${tmpdir}/${target}.podspec"
     else
-      pod trunk push "${tmpdir}/${target}.podspec"
+      pod trunk push  --synchronous "${tmpdir}/${target}.podspec"
     fi
 
   fi
