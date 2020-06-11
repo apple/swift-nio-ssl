@@ -1534,6 +1534,79 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertEqual(certificates, [NIOSSLIntegrationTest.cert])
     }
 
+    func testNewCallbackCombinedWithDefaultTrustStore() throws {
+        // This test is mostly useful on macOS, where it previously failed due to an excessive assertion.
+        let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+                                                      privateKey: .privateKey(NIOSSLIntegrationTest.key))
+        let clientConfig = TLSConfiguration.forClient(certificateVerification: .fullVerification, trustRoots: .default)
+        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
+        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let serverChannel: Channel = try serverTLSChannel(context: serverContext, handlers: [], group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let handshakeCompletePromise = group.next().makePromise(of: Void.self)
+        let customCallbackCalledPromise = group.next().makePromise(of: Void.self)
+        let clientChannel = try clientTLSChannel(context: clientContext,
+                                                 preHandlers: [],
+                                                 postHandlers: [WaitForHandshakeHandler(handshakeResultPromise: handshakeCompletePromise)],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!,
+                                                 serverHostname: "localhost",
+                                                 customVerificationCallback: { _, promise in
+                                                    // Note that we override certificate verification here.
+                                                    customCallbackCalledPromise.succeed(())
+                                                    promise.succeed(.certificateVerified)
+        })
+        defer {
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+
+        XCTAssertNoThrow(try customCallbackCalledPromise.futureResult.wait())
+        XCTAssertNoThrow(try handshakeCompletePromise.futureResult.wait())
+    }
+
+    func testMacOSVerificationCallbackIsNotUsedIfVerificationDisabled() throws {
+        // This test is mostly useful on macOS, where it validates that disabling verification actually, well,
+        // disables verification.
+        let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+                                                      privateKey: .privateKey(NIOSSLIntegrationTest.key))
+        let clientConfig = TLSConfiguration.forClient(certificateVerification: .none, trustRoots: .default)
+        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
+        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let serverChannel: Channel = try serverTLSChannel(context: serverContext, handlers: [], group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let handshakeCompletePromise = group.next().makePromise(of: Void.self)
+        let clientChannel = try clientTLSChannel(context: clientContext,
+                                                 preHandlers: [],
+                                                 postHandlers: [WaitForHandshakeHandler(handshakeResultPromise: handshakeCompletePromise)],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!,
+                                                 serverHostname: "localhost")
+        defer {
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+
+        // This connection should succeed, as certificate verification is disabled.
+        XCTAssertNoThrow(try handshakeCompletePromise.futureResult.wait())
+    }
+
     func testRepeatedClosure() throws {
         let serverChannel = EmbeddedChannel()
         let clientChannel = EmbeddedChannel()
