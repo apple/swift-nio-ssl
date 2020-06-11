@@ -164,10 +164,11 @@ internal final class SSLConnection {
         // Store the verification callback. We need to do this to keep it alive throughout the connection.
         // We'll drop this when we're told that it's no longer needed to ensure we break the reference cycles
         // that this callback inevitably produces.
-        assert(self.customVerificationManager == nil)
         self.customVerificationManager = callbackManager
 
         // We need to know what the current mode is.
+        // Note that this also has the effect of ensuring that if we disabled certificate validation
+        // it actually _stays_ disabled: if the verify mode is no-verification, this callback never gets called.
         let currentMode = CNIOBoringSSL_SSL_get_verify_mode(self.ssl)
         CNIOBoringSSL_SSL_set_custom_verify(self.ssl, currentMode) { ssl, outAlert in
             guard let unwrappedSSL = ssl else {
