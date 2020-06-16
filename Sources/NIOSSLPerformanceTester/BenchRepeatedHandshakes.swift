@@ -35,7 +35,7 @@ final class BenchRepeatedHandshakes: Benchmark {
     func run() throws -> Int {
         for _ in 0..<self.loopCount {
             let backToBack = BackToBackEmbeddedChannel()
-            let serverHandler = try NIOSSLServerHandler(context: self.serverContext)
+            let serverHandler = NIOSSLServerHandler(context: self.serverContext)
             let clientHandler = try NIOSSLClientHandler(context: self.clientContext, serverHostname: "localhost")
             try backToBack.client.pipeline.addHandler(clientHandler).wait()
             try backToBack.server.pipeline.addHandler(serverHandler).wait()

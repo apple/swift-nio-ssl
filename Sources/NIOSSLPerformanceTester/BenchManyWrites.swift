@@ -34,7 +34,7 @@ final class BenchManyWrites: Benchmark {
     }
 
     func setUp() throws {
-        let serverHandler = try NIOSSLServerHandler(context: self.serverContext)
+        let serverHandler = NIOSSLServerHandler(context: self.serverContext)
         let clientHandler = try NIOSSLClientHandler(context: self.clientContext, serverHostname: "localhost")
         try self.backToBack.client.pipeline.addHandler(clientHandler).wait()
         try self.backToBack.server.pipeline.addHandler(serverHandler).wait()

@@ -54,6 +54,7 @@ extension NIOSSLIntegrationTest {
                 ("testExtractingCertificatesNewCallback", testExtractingCertificatesNewCallback),
                 ("testNewCallbackCombinedWithDefaultTrustStore", testNewCallbackCombinedWithDefaultTrustStore),
                 ("testMacOSVerificationCallbackIsNotUsedIfVerificationDisabled", testMacOSVerificationCallbackIsNotUsedIfVerificationDisabled),
+                ("testServerHasNewCallbackCalledToo", testServerHasNewCallbackCalledToo),
                 ("testRepeatedClosure", testRepeatedClosure),
                 ("testClosureTimeout", testClosureTimeout),
                 ("testReceivingGibberishAfterAttemptingToClose", testReceivingGibberishAfterAttemptingToClose),

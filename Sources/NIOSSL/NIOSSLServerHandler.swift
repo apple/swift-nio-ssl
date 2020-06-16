@@ -18,6 +18,11 @@ import NIO
 /// handler can be used in channels that are acting as the server in
 /// the TLS dialog. For client connections, use the `NIOSSLClientHandler`.
 public final class NIOSSLServerHandler: NIOSSLHandler {
+    public convenience init(context: NIOSSLContext) {
+        self.init(context: context, optionalCustomVerificationCallback: nil)
+    }
+
+    @available(*, deprecated, renamed: "init(context:serverHostname:customVerificationCallback:)")
     public init(context: NIOSSLContext, verificationCallback: NIOSSLVerificationCallback? = nil) throws {
         guard let connection = context.createConnection() else {
             fatalError("Failed to create new connection in NIOSSLContext")
@@ -27,6 +32,25 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
 
         if let verificationCallback = verificationCallback {
             connection.setVerificationCallback(verificationCallback)
+        }
+
+        super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout)
+    }
+
+    public convenience init(context: NIOSSLContext, customVerificationCallback: @escaping NIOSSLCustomVerificationCallback) {
+        self.init(context: context, optionalCustomVerificationCallback: customVerificationCallback)
+    }
+
+    /// This exists to handle the explosion of initializers I got when I deprecated the first one.
+    private init(context: NIOSSLContext, optionalCustomVerificationCallback: NIOSSLCustomVerificationCallback?) {
+        guard let connection = context.createConnection() else {
+            fatalError("Failed to create new connection in NIOSSLContext")
+        }
+
+        connection.setAcceptState()
+
+        if let customVerificationCallback = optionalCustomVerificationCallback {
+            connection.setCustomVerificationCallback(.init(callback: customVerificationCallback))
         }
 
         super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout)

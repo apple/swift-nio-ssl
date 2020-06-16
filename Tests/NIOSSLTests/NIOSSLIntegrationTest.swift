@@ -270,19 +270,24 @@ internal func serverTLSChannel(context: NIOSSLContext,
                                preHandlers: [ChannelHandler],
                                postHandlers: [ChannelHandler],
                                group: EventLoopGroup,
+                               customVerificationCallback: NIOSSLCustomVerificationCallback? = nil,
                                file: StaticString = #file,
                                line: UInt = #line) throws -> Channel {
     return try assertNoThrowWithValue(ServerBootstrap(group: group)
         .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
         .childChannelInitializer { channel in
             let results = preHandlers.map { channel.pipeline.addHandler($0) }
-            return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop).flatMapThrowing {
-                try NIOSSLServerHandler(context: context)
-                }.flatMap {
-                    channel.pipeline.addHandler($0)
-                }.flatMap {
-                    let results = postHandlers.map { channel.pipeline.addHandler($0) }
-                    return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop)
+            return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop).map {
+                if let verify = customVerificationCallback {
+                    return NIOSSLServerHandler(context: context, customVerificationCallback: verify)
+                } else {
+                    return NIOSSLServerHandler(context: context)
+                }
+            }.flatMap {
+                channel.pipeline.addHandler($0)
+            }.flatMap {
+                let results = postHandlers.map { channel.pipeline.addHandler($0) }
+                return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop)
             }
         }.bind(host: "127.0.0.1", port: 0).wait(), file: file, line: line)
 }
@@ -902,7 +907,7 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let context = try configuredSSLContext()
 
-        try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait()
+        try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait()
         try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
 
         let addr: SocketAddress = try SocketAddress(unixDomainSocketPath: "/tmp/whatever")
@@ -1039,7 +1044,7 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let context = try configuredSSLContext()
 
-        try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait()
+        try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait()
         try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
 
         let addr = try SocketAddress(unixDomainSocketPath: "/tmp/whatever2")
@@ -1076,7 +1081,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         
         let completePromise: EventLoopPromise<ByteBuffer> = serverChannel.eventLoop.makePromise()
 
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(ReadRecordingHandler(completePromise: completePromise)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait())
 
@@ -1158,7 +1163,7 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let context = try configuredSSLContext()
 
-        try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait()
+        try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait()
         try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
 
         let addr = try SocketAddress(unixDomainSocketPath: "/tmp/whatever2")
@@ -1244,7 +1249,7 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let completePromise: EventLoopPromise<ByteBuffer> = serverChannel.eventLoop.makePromise()
 
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(ReadRecordingHandler(completePromise: completePromise)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait())
 
@@ -1607,6 +1612,46 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertNoThrow(try handshakeCompletePromise.futureResult.wait())
     }
 
+    func testServerHasNewCallbackCalledToo() throws {
+        let config = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+                                                privateKey: .privateKey(NIOSSLIntegrationTest.key),
+                                                certificateVerification: .fullVerification,
+                                                trustRoots: .default)
+        let context = try assertNoThrowWithValue(NIOSSLContext(configuration: config))
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let handshakeResultPromise = group.next().makePromise(of: Void.self)
+        let handshakeWatcher = WaitForHandshakeHandler(handshakeResultPromise: handshakeResultPromise)
+        let serverChannel: Channel = try serverTLSChannel(context: context,
+                                                          preHandlers: [],
+                                                          postHandlers: [handshakeWatcher],
+                                                          group: group,
+                                                          customVerificationCallback: { _, promise in
+                                                              promise.succeed(.failed)
+              })
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+
+        let clientChannel = try clientTLSChannel(context: try configuredSSLContext(),
+                                                 preHandlers: [],
+                                                 postHandlers: [],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!)
+
+        defer {
+            // Ignore errors here, the channel should be closed already by the time this happens.
+            try? clientChannel.close().wait()
+        }
+        
+        XCTAssertThrowsError(try handshakeResultPromise.futureResult.wait())
+    }
+
     func testRepeatedClosure() throws {
         let serverChannel = EmbeddedChannel()
         let clientChannel = EmbeddedChannel()
@@ -1834,7 +1879,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
 
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(SecondChannelInactiveSwallower()).wait())
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(FlushOnReadHandler()).wait())
 
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait())
@@ -1955,7 +2000,7 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let context = try configuredSSLContext()
 
-        try serverChannel.pipeline.addHandler(try NIOSSLServerHandler(context: context)).wait()
+        try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait()
         try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
 
         // Do the handshake.
