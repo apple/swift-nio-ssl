@@ -27,7 +27,7 @@ public func assertNoThrowWithValue<T>(_ body: @autoclosure () throws -> T, defau
     do {
         return try body()
     } catch {
-        XCTFail("unexpected error \(error) thrown", file: file, line: line)
+        XCTFail("unexpected error \(error) thrown", file: (file), line: line)
         if let defaultValue = defaultValue {
             return defaultValue
         } else {

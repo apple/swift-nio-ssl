@@ -129,12 +129,12 @@ class TLSConfigurationTest: XCTestCase {
             switch eventHandler.errors[0] {
             case .handshakeFailed(.sslError(let errs)):
                 let correctError: Bool = messages.map { errs[0].description.contains($0) }.reduce(false) { $0 || $1 }
-                XCTAssert(correctError, errs[0].description, file: file, line: line)
+                XCTAssert(correctError, errs[0].description, file: (file), line: line)
             default:
-                XCTFail("Unexpected error: \(eventHandler.errors[0])", file: file, line: line)
+                XCTFail("Unexpected error: \(eventHandler.errors[0])", file: (file), line: line)
             }
 
-            XCTAssertFalse(handshakeHandler.handshakeSucceeded, file: file, line: line)
+            XCTAssertFalse(handshakeHandler.handshakeSucceeded, file: (file), line: line)
         }
         try clientChannel.closeFuture.wait()
     }
@@ -159,18 +159,18 @@ class TLSConfigurationTest: XCTestCase {
 
         // We expect the channel to be closed fairly swiftly as the handshake should fail.
         clientChannel.closeFuture.whenComplete { _ in
-            XCTAssertEqual(eventHandler.errors.count, 1, file: file, line: line)
+            XCTAssertEqual(eventHandler.errors.count, 1, file: (file), line: line)
 
             switch eventHandler.errors[0] {
             case .sslError(let errs):
-                XCTAssertEqual(errs.count, 1, file: file, line: line)
+                XCTAssertEqual(errs.count, 1, file: (file), line: line)
                 let correctError: Bool = messages.map { errs[0].description.contains($0) }.reduce(false) { $0 || $1 }
-                XCTAssert(correctError, errs[0].description, file: file, line: line)
+                XCTAssert(correctError, errs[0].description, file: (file), line: line)
             default:
-                XCTFail("Unexpected error: \(eventHandler.errors[0])", file: file, line: line)
+                XCTFail("Unexpected error: \(eventHandler.errors[0])", file: (file), line: line)
             }
 
-            XCTAssertTrue(handshakeHandler.handshakeSucceeded, file: file, line: line)
+            XCTAssertTrue(handshakeHandler.handshakeSucceeded, file: (file), line: line)
         }
         try clientChannel.closeFuture.wait()
     }
