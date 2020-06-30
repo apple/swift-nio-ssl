@@ -29,14 +29,14 @@ extension ChannelPipeline {
         do {
             _ = try self.context(handler: handler).wait()
         } catch {
-            XCTFail("Handler \(handler) missing from \(self)", file: file, line: line)
+            XCTFail("Handler \(handler) missing from \(self)", file: (file), line: line)
         }
     }
 
     func assertDoesNotContain(handler: ChannelHandler, file: StaticString = #file, line: UInt = #line) {
         do {
             _ = try self.context(handler: handler).wait()
-            XCTFail("Handler \(handler) present in \(self)", file: file, line: line)
+            XCTFail("Handler \(handler) present in \(self)", file: (file), line: line)
         } catch {
             // Expected
         }
