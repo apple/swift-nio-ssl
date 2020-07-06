@@ -81,6 +81,9 @@ class TLSConfigurationTest: XCTestCase {
     static var cert2: NIOSSLCertificate!
     static var key2: NIOSSLPrivateKey!
 
+    static var compatibleSignatureAlgorithm: SignatureAlgorithm!
+    static var incompatibleSignatureAlgorithm: SignatureAlgorithm!
+
     override class func setUp() {
         super.setUp()
         var (cert, key) = generateSelfSignedCert()
@@ -90,6 +93,9 @@ class TLSConfigurationTest: XCTestCase {
         (cert, key) = generateSelfSignedCert()
         TLSConfigurationTest.cert2 = cert
         TLSConfigurationTest.key2 = key
+
+        TLSConfigurationTest.compatibleSignatureAlgorithm = .rsaPssRsaeSha256
+        TLSConfigurationTest.incompatibleSignatureAlgorithm = .ecdsaSecp384R1Sha384
     }
 
     func assertHandshakeError(withClientConfig clientConfig: TLSConfiguration,
@@ -173,6 +179,40 @@ class TLSConfigurationTest: XCTestCase {
             XCTAssertTrue(handshakeHandler.handshakeSucceeded, file: (file), line: line)
         }
         try clientChannel.closeFuture.wait()
+    }
+    
+    func assertHandshakeSucceeded(withClientConfig clientConfig: TLSConfiguration,
+                                  andServerConfig serverConfig: TLSConfiguration,
+                                  file: StaticString = #file,
+                                  line: UInt = #line) throws {
+        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
+        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())//, file: (file), line: line)
+        }
+        
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+
+        defer {
+            // We expect the server case to throw
+            _ = try? serverChannel.finish()
+            _ = try? clientChannel.finish()
+        }
+        
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext)).wait(), file: (file), line: line)
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil)).wait(), file: (file), line: line)
+        let handshakeHandler = HandshakeCompletedHandler()
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait(), file: (file), line: line)
+        
+        // Connect. This should lead to a completed handshake.
+        XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel), file: (file), line: line)
+        XCTAssertTrue(handshakeHandler.handshakeSucceeded, file: (file), line: line)
+        
+        _ = serverChannel.close()
+        try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
     }
 
     func testNonOverlappingTLSVersions() throws {
@@ -297,6 +337,61 @@ class TLSConfigurationTest: XCTestCase {
                                                       trustRoots: .certificates([TLSConfigurationTest.cert2]))
 
         try assertPostHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["CERTIFICATE_REQUIRED"])
+    }
+    
+    func testIncompatibleSignatures() throws {
+        let clientConfig = TLSConfiguration.forClient(
+            verifySignatureAlgorithms: [TLSConfigurationTest.incompatibleSignatureAlgorithm],
+            minimumTLSVersion: .tlsv13,
+            certificateVerification:.noHostnameVerification,
+            trustRoots: .certificates([TLSConfigurationTest.cert1])
+        )
+
+        let serverConfig = TLSConfiguration.forServer(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1),
+            signingSignatureAlgorithms: [TLSConfigurationTest.compatibleSignatureAlgorithm],
+            minimumTLSVersion: .tlsv13,
+            certificateVerification: .none)
+
+        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_HANDSHAKE_FAILURE")
+    }
+
+    func testCompatibleSignatures() throws {
+
+        let clientConfig = TLSConfiguration.forClient(
+            minimumTLSVersion: .tlsv13,
+            certificateVerification:.noHostnameVerification,
+            trustRoots: .certificates([TLSConfigurationTest.cert1])
+        )
+
+        let serverConfig = TLSConfiguration.forServer(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1),
+            signingSignatureAlgorithms:  [TLSConfigurationTest.compatibleSignatureAlgorithm],
+            minimumTLSVersion: .tlsv13,
+            certificateVerification: .none)
+
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    func testMatchingCompatibleSignatures() throws {
+
+        let clientConfig = TLSConfiguration.forClient(
+            verifySignatureAlgorithms: [TLSConfigurationTest.compatibleSignatureAlgorithm],
+            minimumTLSVersion: .tlsv13,
+            certificateVerification:.noHostnameVerification,
+            trustRoots: .certificates([TLSConfigurationTest.cert1])
+        )
+
+        let serverConfig = TLSConfiguration.forServer(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1),
+            signingSignatureAlgorithms: [TLSConfigurationTest.compatibleSignatureAlgorithm],
+            minimumTLSVersion: .tlsv13,
+            certificateVerification: .none)
+
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
 
     func testNonexistentFileObject() throws {
