@@ -171,7 +171,10 @@ public final class NIOSSLContext {
                 .withUnsafeBufferPointer { algo in
                     CNIOBoringSSL_SSL_CTX_set_verify_algorithm_prefs(context, algo.baseAddress, algo.count)
             }
-            precondition(1 == returnCode)
+            if returnCode != 1 {
+                let errorStack = BoringSSLError.buildErrorStack()
+                throw BoringSSLError.unknownError(errorStack)
+            }
         }
         
         // Configure signing algorithms
@@ -181,7 +184,10 @@ public final class NIOSSLContext {
                 .withUnsafeBufferPointer { algo in
                     CNIOBoringSSL_SSL_CTX_set_signing_algorithm_prefs(context, algo.baseAddress, algo.count)
             }
-            precondition(1 == returnCode)
+            if returnCode != 1 {
+                let errorStack = BoringSSLError.buildErrorStack()
+                throw BoringSSLError.unknownError(errorStack)
+            }
         }
         
         // If we were given a certificate chain to use, load it and its associated private key. Before

@@ -81,9 +81,6 @@ class TLSConfigurationTest: XCTestCase {
     static var cert2: NIOSSLCertificate!
     static var key2: NIOSSLPrivateKey!
 
-    static var compatibleSignatureAlgorithm: SignatureAlgorithm!
-    static var incompatibleSignatureAlgorithm: SignatureAlgorithm!
-
     override class func setUp() {
         super.setUp()
         var (cert, key) = generateSelfSignedCert()
@@ -93,9 +90,6 @@ class TLSConfigurationTest: XCTestCase {
         (cert, key) = generateSelfSignedCert()
         TLSConfigurationTest.cert2 = cert
         TLSConfigurationTest.key2 = key
-
-        TLSConfigurationTest.compatibleSignatureAlgorithm = .rsaPssRsaeSha256
-        TLSConfigurationTest.incompatibleSignatureAlgorithm = .ecdsaSecp384R1Sha384
     }
 
     func assertHandshakeError(withClientConfig clientConfig: TLSConfiguration,
@@ -188,11 +182,6 @@ class TLSConfigurationTest: XCTestCase {
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
 
-        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try group.syncShutdownGracefully())//, file: (file), line: line)
-        }
-        
         let serverChannel = EmbeddedChannel()
         let clientChannel = EmbeddedChannel()
 
@@ -341,16 +330,17 @@ class TLSConfigurationTest: XCTestCase {
     
     func testIncompatibleSignatures() throws {
         let clientConfig = TLSConfiguration.forClient(
-            verifySignatureAlgorithms: [TLSConfigurationTest.incompatibleSignatureAlgorithm],
+            verifySignatureAlgorithms: [.ecdsaSecp384R1Sha384],
             minimumTLSVersion: .tlsv13,
             certificateVerification:.noHostnameVerification,
-            trustRoots: .certificates([TLSConfigurationTest.cert1])
+            trustRoots: .certificates([TLSConfigurationTest.cert1]),
+            renegotiationSupport: .none
         )
 
         let serverConfig = TLSConfiguration.forServer(
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
             privateKey: .privateKey(TLSConfigurationTest.key1),
-            signingSignatureAlgorithms: [TLSConfigurationTest.compatibleSignatureAlgorithm],
+            signingSignatureAlgorithms: [.rsaPssRsaeSha256],
             minimumTLSVersion: .tlsv13,
             certificateVerification: .none)
 
@@ -368,7 +358,7 @@ class TLSConfigurationTest: XCTestCase {
         let serverConfig = TLSConfiguration.forServer(
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
             privateKey: .privateKey(TLSConfigurationTest.key1),
-            signingSignatureAlgorithms:  [TLSConfigurationTest.compatibleSignatureAlgorithm],
+            signingSignatureAlgorithms:  [.rsaPssRsaeSha256],
             minimumTLSVersion: .tlsv13,
             certificateVerification: .none)
 
@@ -378,16 +368,17 @@ class TLSConfigurationTest: XCTestCase {
     func testMatchingCompatibleSignatures() throws {
 
         let clientConfig = TLSConfiguration.forClient(
-            verifySignatureAlgorithms: [TLSConfigurationTest.compatibleSignatureAlgorithm],
+            verifySignatureAlgorithms: [.rsaPssRsaeSha256],
             minimumTLSVersion: .tlsv13,
             certificateVerification:.noHostnameVerification,
-            trustRoots: .certificates([TLSConfigurationTest.cert1])
+            trustRoots: .certificates([TLSConfigurationTest.cert1]),
+            renegotiationSupport: .none
         )
 
         let serverConfig = TLSConfiguration.forServer(
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
             privateKey: .privateKey(TLSConfigurationTest.key1),
-            signingSignatureAlgorithms: [TLSConfigurationTest.compatibleSignatureAlgorithm],
+            signingSignatureAlgorithms: [.rsaPssRsaeSha256],
             minimumTLSVersion: .tlsv13,
             certificateVerification: .none)
 
