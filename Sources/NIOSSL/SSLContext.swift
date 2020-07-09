@@ -163,7 +163,33 @@ public final class NIOSSLContext {
         try NIOSSLContext.configureCertificateValidation(context: context,
                                                       verification: configuration.certificateVerification,
                                                       trustRoots: configuration.trustRoots)
-
+        
+        // Configure verification algorithms
+        if let verifySignatureAlgorithms = configuration.verifySignatureAlgorithms {
+            returnCode = verifySignatureAlgorithms
+                .map { $0.rawValue }
+                .withUnsafeBufferPointer { algo in
+                    CNIOBoringSSL_SSL_CTX_set_verify_algorithm_prefs(context, algo.baseAddress, algo.count)
+            }
+            if returnCode != 1 {
+                let errorStack = BoringSSLError.buildErrorStack()
+                throw BoringSSLError.unknownError(errorStack)
+            }
+        }
+        
+        // Configure signing algorithms
+        if let signingSignatureAlgorithms = configuration.signingSignatureAlgorithms {
+            returnCode = signingSignatureAlgorithms
+                .map { $0.rawValue }
+                .withUnsafeBufferPointer { algo in
+                    CNIOBoringSSL_SSL_CTX_set_signing_algorithm_prefs(context, algo.baseAddress, algo.count)
+            }
+            if returnCode != 1 {
+                let errorStack = BoringSSLError.buildErrorStack()
+                throw BoringSSLError.unknownError(errorStack)
+            }
+        }
+        
         // If we were given a certificate chain to use, load it and its associated private key. Before
         // we do, set up a passphrase callback if we need to.
         if let callbackManager = callbackManager {

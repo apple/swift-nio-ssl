@@ -84,6 +84,31 @@ public enum NIORenegotiationSupport {
     case always
 }
 
+/// Signature algorithms. The values are defined as in TLS 1.3
+public struct SignatureAlgorithm : RawRepresentable, Hashable {
+    
+    public typealias RawValue = UInt16
+    public var rawValue: UInt16
+    
+    public init(rawValue: UInt16) {
+        self.rawValue = rawValue
+    }
+    
+    public static let rsaPkcs1Sha1 = SignatureAlgorithm(rawValue: 0x0201)
+    public static let rsaPkcs1Sha256 = SignatureAlgorithm(rawValue: 0x0401)
+    public static let rsaPkcs1Sha384 = SignatureAlgorithm(rawValue: 0x0501)
+    public static let rsaPkcs1Sha512 = SignatureAlgorithm(rawValue: 0x0601)
+    public static let ecdsaSha1 = SignatureAlgorithm(rawValue: 0x0203)
+    public static let ecdsaSecp256R1Sha256 = SignatureAlgorithm(rawValue: 0x0403)
+    public static let ecdsaSecp384R1Sha384 = SignatureAlgorithm(rawValue: 0x0503)
+    public static let ecdsaSecp521R1Sha512 = SignatureAlgorithm(rawValue: 0x0603)
+    public static let rsaPssRsaeSha256 = SignatureAlgorithm(rawValue: 0x0804)
+    public static let rsaPssRsaeSha384 = SignatureAlgorithm(rawValue: 0x0805)
+    public static let rsaPssRsaeSha512 = SignatureAlgorithm(rawValue: 0x0806)
+    public static let ed25519 = SignatureAlgorithm(rawValue: 0x0807)
+}
+
+
 /// A secure default configuration of cipher suites for TLS 1.2 and earlier.
 ///
 /// The goal of this cipher suite string is:
@@ -143,6 +168,12 @@ public struct TLSConfiguration {
     /// TLS 1.3 cipher suites cannot be configured.
     public var cipherSuites: String
 
+    /// Allowed algorithms to verify signatures. Passing nil means, that a built-in set of algorithms will be used.
+    public var verifySignatureAlgorithms : [SignatureAlgorithm]?
+
+    /// Allowed algorithms to sign signatures. Passing nil means, that a built-in set of algorithms will be used.
+    public var signingSignatureAlgorithms : [SignatureAlgorithm]?
+
     /// Whether to verify remote certificates.
     public var certificateVerification: CertificateVerification
 
@@ -182,6 +213,8 @@ public struct TLSConfiguration {
     public var renegotiationSupport: NIORenegotiationSupport
 
     private init(cipherSuites: String,
+                 verifySignatureAlgorithms: [SignatureAlgorithm]?,
+                 signingSignatureAlgorithms: [SignatureAlgorithm]?,
                  minimumTLSVersion: TLSVersion,
                  maximumTLSVersion: TLSVersion?,
                  certificateVerification: CertificateVerification,
@@ -193,6 +226,8 @@ public struct TLSConfiguration {
                  keyLogCallback: NIOSSLKeyLogCallback?,
                  renegotiationSupport: NIORenegotiationSupport) {
         self.cipherSuites = cipherSuites
+        self.verifySignatureAlgorithms = verifySignatureAlgorithms
+        self.signingSignatureAlgorithms = signingSignatureAlgorithms
         self.minimumTLSVersion = minimumTLSVersion
         self.maximumTLSVersion = maximumTLSVersion
         self.certificateVerification = certificateVerification
@@ -221,6 +256,8 @@ public struct TLSConfiguration {
                                  shutdownTimeout: TimeAmount = .seconds(5),
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
+                                verifySignatureAlgorithms: nil,
+                                signingSignatureAlgorithms: nil,
                                 minimumTLSVersion: minimumTLSVersion,
                                 maximumTLSVersion: maximumTLSVersion,
                                 certificateVerification: certificateVerification,
@@ -233,6 +270,36 @@ public struct TLSConfiguration {
                                 renegotiationSupport: .none)  // Servers never support renegotiation: there's no point.
     }
 
+    /// Create a TLS configuration for use with server-side contexts.
+    ///
+    /// This provides sensible defaults while requiring that you provide any data that is necessary
+    /// for server-side function. For client use, try `forClient` instead.
+    public static func forServer(certificateChain: [NIOSSLCertificateSource],
+                                 privateKey: NIOSSLPrivateKeySource,
+                                 cipherSuites: String = defaultCipherSuites,
+                                 verifySignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 signingSignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 minimumTLSVersion: TLSVersion = .tlsv1,
+                                 maximumTLSVersion: TLSVersion? = nil,
+                                 certificateVerification: CertificateVerification = .none,
+                                 trustRoots: NIOSSLTrustRoots = .default,
+                                 applicationProtocols: [String] = [],
+                                 shutdownTimeout: TimeAmount = .seconds(5),
+                                 keyLogCallback: NIOSSLKeyLogCallback? = nil) -> TLSConfiguration {
+        return TLSConfiguration(cipherSuites: cipherSuites,
+                                verifySignatureAlgorithms: verifySignatureAlgorithms,
+                                signingSignatureAlgorithms: signingSignatureAlgorithms,
+                                minimumTLSVersion: minimumTLSVersion,
+                                maximumTLSVersion: maximumTLSVersion,
+                                certificateVerification: certificateVerification,
+                                trustRoots: trustRoots,
+                                certificateChain: certificateChain,
+                                privateKey: privateKey,
+                                applicationProtocols: applicationProtocols,
+                                shutdownTimeout: shutdownTimeout,
+                                keyLogCallback: keyLogCallback,
+                                renegotiationSupport: .none)  // Servers never support renegotiation: there's no point.
+    }
 
     /// Creates a TLS configuration for use with client-side contexts.
     ///
@@ -249,6 +316,8 @@ public struct TLSConfiguration {
                                  shutdownTimeout: TimeAmount = .seconds(5),
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
+                                verifySignatureAlgorithms: nil,
+                                signingSignatureAlgorithms: nil,
                                 minimumTLSVersion: minimumTLSVersion,
                                 maximumTLSVersion: maximumTLSVersion,
                                 certificateVerification: certificateVerification,
@@ -278,6 +347,40 @@ public struct TLSConfiguration {
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil,
                                  renegotiationSupport: NIORenegotiationSupport) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
+                                verifySignatureAlgorithms: nil,
+                                signingSignatureAlgorithms: nil,
+                                minimumTLSVersion: minimumTLSVersion,
+                                maximumTLSVersion: maximumTLSVersion,
+                                certificateVerification: certificateVerification,
+                                trustRoots: trustRoots,
+                                certificateChain: certificateChain,
+                                privateKey: privateKey,
+                                applicationProtocols: applicationProtocols,
+                                shutdownTimeout: shutdownTimeout,
+                                keyLogCallback: keyLogCallback,
+                                renegotiationSupport: renegotiationSupport)
+    }
+    
+    /// Creates a TLS configuration for use with client-side contexts.
+    ///
+    /// This provides sensible defaults, and can be used without customisation. For server-side
+    /// contexts, you should use `forServer` instead.
+    public static func forClient(cipherSuites: String = defaultCipherSuites,
+                                 verifySignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 signingSignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 minimumTLSVersion: TLSVersion = .tlsv1,
+                                 maximumTLSVersion: TLSVersion? = nil,
+                                 certificateVerification: CertificateVerification = .fullVerification,
+                                 trustRoots: NIOSSLTrustRoots = .default,
+                                 certificateChain: [NIOSSLCertificateSource] = [],
+                                 privateKey: NIOSSLPrivateKeySource? = nil,
+                                 applicationProtocols: [String] = [],
+                                 shutdownTimeout: TimeAmount = .seconds(5),
+                                 keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 renegotiationSupport: NIORenegotiationSupport) -> TLSConfiguration {
+        return TLSConfiguration(cipherSuites: cipherSuites,
+                                verifySignatureAlgorithms: verifySignatureAlgorithms,
+                                signingSignatureAlgorithms: signingSignatureAlgorithms,
                                 minimumTLSVersion: minimumTLSVersion,
                                 maximumTLSVersion: maximumTLSVersion,
                                 certificateVerification: certificateVerification,
