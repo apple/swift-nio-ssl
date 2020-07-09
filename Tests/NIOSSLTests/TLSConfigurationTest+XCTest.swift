@@ -35,6 +35,9 @@ extension TLSConfigurationTest {
                 ("testMutualValidation", testMutualValidation),
                 ("testMutualValidationRequiresClientCertificatePreTLS13", testMutualValidationRequiresClientCertificatePreTLS13),
                 ("testMutualValidationRequiresClientCertificatePostTLS13", testMutualValidationRequiresClientCertificatePostTLS13),
+                ("testIncompatibleSignatures", testIncompatibleSignatures),
+                ("testCompatibleSignatures", testCompatibleSignatures),
+                ("testMatchingCompatibleSignatures", testMatchingCompatibleSignatures),
                 ("testNonexistentFileObject", testNonexistentFileObject),
                 ("testComputedApplicationProtocols", testComputedApplicationProtocols),
            ]
