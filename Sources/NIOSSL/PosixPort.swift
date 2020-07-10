@@ -36,7 +36,7 @@ private let sysStat: @convention(c) (UnsafePointer<CChar>, UnsafeMutablePointer<
 
 
 // MARK:- Copied code from SwiftNIO
-private func isBlacklistedErrno(_ code: CInt) -> Bool {
+private func isUnacceptableErrno(_ code: CInt) -> Bool {
     switch code {
     case EFAULT, EBADF:
         return true
@@ -55,7 +55,7 @@ internal func wrapSyscall<T: FixedWidthInteger>(where function: String = #functi
             if err == EINTR {
                 continue
             }
-            assert(!isBlacklistedErrno(err), "blacklisted errno \(err) \(strerror(err)!)")
+            assert(!isUnacceptableErrno(err), "unacceptable errno \(err) \(strerror(err)!)")
             throw IOError(errnoCode: err, reason: function)
         }
         return res
@@ -71,7 +71,7 @@ internal func wrapErrorIsNullReturnCall<T>(where function: String = #function, _
             if err == EINTR {
                 continue
             }
-            assert(!isBlacklistedErrno(err), "blacklisted errno \(err) \(strerror(err)!)")
+            assert(!isUnacceptableErrno(err), "unacceptable errno \(err) \(strerror(err)!)")
             throw IOError(errnoCode: err, reason: function)
         }
         return res
