@@ -20,7 +20,8 @@ RUN apt-get update && apt-get install -y execstack
 
 # ruby and jazzy for docs generation
 RUN apt-get update && apt-get install -y ruby ruby-dev libsqlite3-dev
-RUN gem install jazzy --no-ri --no-rdoc
+# jazzy no longer works on xenial as ruby is too old.
+RUN if [ "${ubuntu_version}" != "xenial" ] ; then  gem install jazzy --no-ri --no-rdoc ; fi
 
 # tools
 RUN mkdir -p $HOME/.tools
