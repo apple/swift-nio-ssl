@@ -25,7 +25,7 @@ function usage() {
 
 upload=false
 skip_until=""
-while getopts ":u" opt; do
+while getopts ":uf:" opt; do
   case $opt in
     u)
       upload=true
