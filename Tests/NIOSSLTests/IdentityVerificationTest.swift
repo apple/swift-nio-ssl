@@ -75,7 +75,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "localhost",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertTrue(matched)
     }
 
@@ -83,7 +84,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertTrue(matched)
     }
 
@@ -91,7 +93,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "example.com.",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertTrue(matched)
     }
 
@@ -99,7 +102,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "LoCaLhOsT",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertTrue(matched)
     }
 
@@ -107,7 +111,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "httpbin.org",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertFalse(matched)
     }
 
@@ -115,7 +120,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: nil,
                                                   socketAddress: try .makeAddressResolvingHost("192.168.0.1", port: 443),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertTrue(matched)
     }
 
@@ -127,7 +133,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: nil,
                                                   socketAddress: ipv6Address,
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertTrue(matched)
     }
 
@@ -135,7 +142,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: nil,
                                                   socketAddress: try .makeAddressResolvingHost("192.168.0.2", port: 443),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertFalse(matched)
     }
 
@@ -146,7 +154,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: nil,
                                                   socketAddress: ipv6Address,
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertFalse(matched)
     }
 
@@ -154,7 +163,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "this.wildcard.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertTrue(matched)
     }
 
@@ -162,7 +172,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "foo.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertTrue(matched)
     }
 
@@ -170,7 +181,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "bar.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertTrue(matched)
     }
 
@@ -178,7 +190,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "baz.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertTrue(matched)
     }
 
@@ -186,7 +199,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "trailing.period.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertTrue(matched)
     }
 
@@ -195,7 +209,8 @@ class IdentityVerificationTest: XCTestCase {
 
         XCTAssertThrowsError(try validIdentityForService(serverHostname: "straße.unicode.example.com",
                            socketAddress: try .init(unixDomainSocketPath: "/path"),
-                           leafCertificate: cert)) { error in
+                           leafCertificate: cert,
+                           includeCommonName: false)) { error in
             XCTAssertEqual(error as? NIOSSLExtraError, .serverHostnameImpossibleToMatch)
             XCTAssertEqual(String(describing: error),
                            "NIOSSLExtraError.serverHostnameImpossibleToMatch: The server hostname straße.unicode.example.com cannot be matched due to containing non-DNS characters")
@@ -207,7 +222,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "xn--strae-oqa.unicode.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertTrue(matched)
     }
 
@@ -215,7 +231,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "xn--xx-gia.unicode.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertFalse(matched)
     }
 
@@ -223,7 +240,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "weirdwildcard.nomatch.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertFalse(matched)
     }
 
@@ -231,7 +249,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "one.two.double.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertFalse(matched)
     }
 
@@ -240,7 +259,8 @@ class IdentityVerificationTest: XCTestCase {
 
         XCTAssertThrowsError(try validIdentityForService(serverHostname: "foo.straße.example.com",
                                 socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                leafCertificate: cert)) { error in
+                                leafCertificate: cert,
+                                includeCommonName: false)) { error in
             XCTAssertEqual(error as? NIOSSLExtraError, .serverHostnameImpossibleToMatch)
             XCTAssertEqual(String(describing: error),
                            "NIOSSLExtraError.serverHostnameImpossibleToMatch: The server hostname foo.straße.example.com cannot be matched due to containing non-DNS characters")
@@ -251,7 +271,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "foo.xn--strae-oqa.example.com",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertTrue(matched)
     }
 
@@ -260,7 +281,8 @@ class IdentityVerificationTest: XCTestCase {
 
        XCTAssertThrowsError(try validIdentityForService(serverHostname: "nul\u{0000}l.example.com",
                                socketAddress: try .init(unixDomainSocketPath: "/path"),
-                               leafCertificate: cert)) { error in
+                               leafCertificate: cert,
+                               includeCommonName: false)) { error in
             XCTAssertEqual(error as? NIOSSLExtraError, .serverHostnameImpossibleToMatch)
             XCTAssertEqual(String(describing: error),
                            "NIOSSLExtraError.serverHostnameImpossibleToMatch: The server hostname nul\u{0000}l.example.com cannot be matched due to containing non-DNS characters")
@@ -271,7 +293,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(multiCNCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "localhost",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: true)
         XCTAssertTrue(matched)
     }
 
@@ -279,8 +302,27 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(multiCNCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "LoCaLhOsT",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: true)
         XCTAssertTrue(matched)
+    }
+
+    func testDoesNotFallBackToCommonName() throws {
+        let cert = try NIOSSLCertificate(bytes: .init(multiCNCert.utf8), format: .pem)
+        let matched = try validIdentityForService(serverHostname: "localhost",
+                                                  socketAddress: try .init(unixDomainSocketPath: "/path"),
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
+        XCTAssertFalse(matched)
+    }
+
+    func testNoLowercasesForCommonName() throws {
+        let cert = try NIOSSLCertificate(bytes: .init(multiCNCert.utf8), format: .pem)
+        let matched = try validIdentityForService(serverHostname: "LoCaLhOsT",
+                                                  socketAddress: try .init(unixDomainSocketPath: "/path"),
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
+        XCTAssertFalse(matched)
     }
 
     func testRejectsUnicodeCommonNameWithUnencodedIDNALabel() throws {
@@ -288,7 +330,8 @@ class IdentityVerificationTest: XCTestCase {
 
         XCTAssertThrowsError(try validIdentityForService(serverHostname: "straße.org",
                                 socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                leafCertificate: cert)) { error in
+                                leafCertificate: cert,
+                                includeCommonName: false)) { error in
             XCTAssertEqual(error as? NIOSSLExtraError, .serverHostnameImpossibleToMatch)
             XCTAssertEqual(String(describing: error),
                            "NIOSSLExtraError.serverHostnameImpossibleToMatch: The server hostname straße.org cannot be matched due to containing non-DNS characters")
@@ -299,7 +342,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(unicodeCNCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "xn--strae-oqa.org",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertFalse(matched)
     }
 
@@ -307,7 +351,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(noCNCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "localhost",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertFalse(matched)
     }
 
@@ -315,7 +360,8 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
         let matched = try validIdentityForService(serverHostname: "httpbin.org",
                                                   socketAddress: try .init(unixDomainSocketPath: "/path"),
-                                                  leafCertificate: cert)
+                                                  leafCertificate: cert,
+                                                  includeCommonName: false)
         XCTAssertFalse(matched)
     }
 }

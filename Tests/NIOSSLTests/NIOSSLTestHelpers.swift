@@ -432,7 +432,7 @@ func addExtension(x509: UnsafeMutablePointer<X509>, nid: CInt, value: String) {
     CNIOBoringSSL_X509_EXTENSION_free(ext)
 }
 
-func generateSelfSignedCert() -> (NIOSSLCertificate, NIOSSLPrivateKey) {
+func generateSelfSignedCert(withSAN: Bool = true) -> (NIOSSLCertificate, NIOSSLPrivateKey) {
     let pkey = generateRSAPrivateKey()
     let x = CNIOBoringSSL_X509_new()!
     CNIOBoringSSL_X509_set_version(x, 2)
@@ -456,7 +456,7 @@ func generateSelfSignedCert() -> (NIOSSLCertificate, NIOSSLPrivateKey) {
     
     CNIOBoringSSL_X509_set_pubkey(x, pkey)
     
-    let commonName = "localhost"
+    let commonName = "camembert"
     let name = CNIOBoringSSL_X509_get_subject_name(x)
     commonName.withCString { (pointer: UnsafePointer<Int8>) -> Void in
         pointer.withMemoryRebound(to: UInt8.self, capacity: commonName.lengthOfBytes(using: .utf8)) { (pointer: UnsafePointer<UInt8>) -> Void in
@@ -473,8 +473,11 @@ func generateSelfSignedCert() -> (NIOSSLCertificate, NIOSSLPrivateKey) {
     
     addExtension(x509: x, nid: NID_basic_constraints, value: "critical,CA:FALSE")
     addExtension(x509: x, nid: NID_subject_key_identifier, value: "hash")
-    addExtension(x509: x, nid: NID_subject_alt_name, value: "DNS:localhost")
     addExtension(x509: x, nid: NID_ext_key_usage, value: "critical,serverAuth,clientAuth")
+
+    if withSAN {
+        addExtension(x509: x, nid: NID_subject_alt_name, value: "DNS:localhost")
+    }
     
     CNIOBoringSSL_X509_sign(x, pkey, CNIOBoringSSL_EVP_sha256())
     

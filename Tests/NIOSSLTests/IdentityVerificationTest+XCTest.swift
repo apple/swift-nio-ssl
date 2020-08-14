@@ -51,6 +51,8 @@ extension IdentityVerificationTest {
                 ("testDoesNotMatchSANWithEmbeddedNULL", testDoesNotMatchSANWithEmbeddedNULL),
                 ("testFallsBackToCommonName", testFallsBackToCommonName),
                 ("testLowercasesForCommonName", testLowercasesForCommonName),
+                ("testDoesNotFallBackToCommonName", testDoesNotFallBackToCommonName),
+                ("testNoLowercasesForCommonName", testNoLowercasesForCommonName),
                 ("testRejectsUnicodeCommonNameWithUnencodedIDNALabel", testRejectsUnicodeCommonNameWithUnencodedIDNALabel),
                 ("testRejectsUnicodeCommonNameWithEncodedIDNALabel", testRejectsUnicodeCommonNameWithEncodedIDNALabel),
                 ("testHandlesMissingCommonName", testHandlesMissingCommonName),

@@ -87,23 +87,27 @@ extension UInt8 {
 /// follow along at home.
 internal func validIdentityForService(serverHostname: String?,
                                       socketAddress: SocketAddress,
-                                      leafCertificate: NIOSSLCertificate) throws -> Bool {
+                                      leafCertificate: NIOSSLCertificate,
+                                      includeCommonName: Bool) throws -> Bool {
     if let serverHostname = serverHostname {
         return try serverHostname.withLowercaseASCIIBuffer {
             try validIdentityForService(serverHostname: $0,
                                         socketAddress: socketAddress,
-                                        leafCertificate: leafCertificate)
+                                        leafCertificate: leafCertificate,
+                                        includeCommonName: includeCommonName)
         }
     } else {
         return try validIdentityForService(serverHostname: nil as Array<UInt8>?,
                                            socketAddress: socketAddress,
-                                           leafCertificate: leafCertificate)
+                                           leafCertificate: leafCertificate,
+                                           includeCommonName: includeCommonName)
     }
 }
 
 private func validIdentityForService(serverHostname: Array<UInt8>?,
                                      socketAddress: SocketAddress,
-                                     leafCertificate: NIOSSLCertificate) throws -> Bool {
+                                     leafCertificate: NIOSSLCertificate,
+                                     includeCommonName: Bool) throws -> Bool {
     // Before we begin, we want to locate the first period in our own domain name. We need to do
     // this because we may need to match a wildcard label.
     var serverHostnameSlice: ArraySlice<UInt8>? = nil
@@ -150,16 +154,15 @@ private func validIdentityForService(serverHostname: Array<UInt8>?,
     }
 
     // In the absence of any matchable subjectAlternativeNames, we can fall back to checking
-    // the common name. This is a deprecated practice, and in a future release we should
-    // stop doing this.
-    guard let commonName = leafCertificate.commonName() else {
-        // No CN, no match.
+    // the common name. We only do this if the user has configured a system that trusts the commonName field.
+    if includeCommonName, let commonName = leafCertificate.commonName() {
+        // We have a common name. Let's check it against the provided hostname. We never check
+        // the common name against the IP address.
+        return matchHostname(ourHostname: serverHostnameSlice, firstPeriodIndex: firstPeriodIndex, dnsName: commonName)
+    } else {
+        // We don't trust the common name, or we do but don't have one to look at.
         return false
     }
-
-    // We have a common name. Let's check it against the provided hostname. We never check
-    // the common name against the IP address.
-    return matchHostname(ourHostname: serverHostnameSlice, firstPeriodIndex: firstPeriodIndex, dnsName: commonName)
 }
 
 
