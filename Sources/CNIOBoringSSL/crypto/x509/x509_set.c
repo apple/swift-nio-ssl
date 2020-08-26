@@ -117,7 +117,7 @@ int X509_set_subject_name(X509 *x, X509_NAME *name)
     return (X509_NAME_set(&x->cert_info->subject, name));
 }
 
-int X509_set_notBefore(X509 *x, const ASN1_TIME *tm)
+int X509_set1_notBefore(X509 *x, const ASN1_TIME *tm)
 {
     ASN1_TIME *in;
 
@@ -132,6 +132,11 @@ int X509_set_notBefore(X509 *x, const ASN1_TIME *tm)
         }
     }
     return (in != NULL);
+}
+
+int X509_set_notBefore(X509 *x, const ASN1_TIME *tm)
+{
+    return X509_set1_notBefore(x, tm);
 }
 
 const ASN1_TIME *X509_get0_notBefore(const X509 *x)
@@ -155,7 +160,7 @@ ASN1_TIME *X509_get_notBefore(const X509 *x509)
     return x509->cert_info->validity->notBefore;
 }
 
-int X509_set_notAfter(X509 *x, const ASN1_TIME *tm)
+int X509_set1_notAfter(X509 *x, const ASN1_TIME *tm)
 {
     ASN1_TIME *in;
 
@@ -170,6 +175,11 @@ int X509_set_notAfter(X509 *x, const ASN1_TIME *tm)
         }
     }
     return (in != NULL);
+}
+
+int X509_set_notAfter(X509 *x, const ASN1_TIME *tm)
+{
+    return X509_set1_notAfter(x, tm);
 }
 
 const ASN1_TIME *X509_get0_notAfter(const X509 *x)
@@ -191,6 +201,17 @@ ASN1_TIME *X509_get_notAfter(const X509 *x509)
     // |X509_getm_notAfter| is const-correct. |X509_get_notAfter| was
     // originally a macro, so it needs to capture both get0 and getm use cases.
     return x509->cert_info->validity->notAfter;
+}
+
+void X509_get0_uids(const X509 *x509, const ASN1_BIT_STRING **out_issuer_uid,
+                    const ASN1_BIT_STRING **out_subject_uid)
+{
+    if (out_issuer_uid != NULL) {
+        *out_issuer_uid = x509->cert_info->issuerUID;
+    }
+    if (out_subject_uid != NULL) {
+        *out_subject_uid = x509->cert_info->subjectUID;
+    }
 }
 
 int X509_set_pubkey(X509 *x, EVP_PKEY *pkey)
