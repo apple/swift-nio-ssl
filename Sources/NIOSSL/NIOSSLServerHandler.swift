@@ -22,7 +22,7 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
         self.init(context: context, optionalCustomVerificationCallback: nil)
     }
 
-    @available(*, deprecated, renamed: "init(context:serverHostname:customVerificationCallback:)")
+    @available(*, deprecated, renamed: "init(context:customVerificationCallback:)")
     public init(context: NIOSSLContext, verificationCallback: NIOSSLVerificationCallback? = nil) throws {
         guard let connection = context.createConnection() else {
             fatalError("Failed to create new connection in NIOSSLContext")
