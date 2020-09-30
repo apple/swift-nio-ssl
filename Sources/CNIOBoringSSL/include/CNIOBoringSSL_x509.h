@@ -541,6 +541,15 @@ OPENSSL_EXPORT X509_CINF *X509_get_cert_info(const X509 *x509);
 // |X509_get_pubkey| instead.
 #define X509_extract_key(x) X509_get_pubkey(x)
 
+// X509_get_pathlen returns path length constraint from the basic constraints
+// extension in |x509|. (See RFC5280, section 4.2.1.9.) It returns -1 if the
+// constraint is not present, or if some extension in |x509| was invalid.
+//
+// Note that decoding an |X509| object will not check for invalid extensions. To
+// detect the error case, call |X509_get_extensions_flags| and check the
+// |EXFLAG_INVALID| bit.
+OPENSSL_EXPORT long X509_get_pathlen(X509 *x509);
+
 // X509_REQ_get_version returns the numerical value of |req|'s version. That is,
 // it returns zero for a v1 request. If |req| is invalid, it may return another
 // value, or -1 on overflow.
@@ -600,6 +609,10 @@ OPENSSL_EXPORT X509_NAME *X509_CRL_get_issuer(const X509_CRL *crl);
 // would break existing callers. For now, we match upstream.
 OPENSSL_EXPORT STACK_OF(X509_REVOKED) *X509_CRL_get_REVOKED(X509_CRL *crl);
 
+// X509_CRL_get0_extensions returns |crl|'s extension list.
+OPENSSL_EXPORT const STACK_OF(X509_EXTENSION) *
+    X509_CRL_get0_extensions(const X509_CRL *crl);
+
 // X509_CINF_set_modified marks |cinf| as modified so that changes will be
 // reflected in serializing the structure.
 //
@@ -643,26 +656,66 @@ OPENSSL_EXPORT void *X509_CRL_get_meth_data(X509_CRL *crl);
 // object.
 OPENSSL_EXPORT X509_PUBKEY *X509_get_X509_PUBKEY(const X509 *x509);
 
-OPENSSL_EXPORT const char *X509_verify_cert_error_string(long n);
+// X509_verify_cert_error_string returns |err| as a human-readable string, where
+// |err| should be one of the |X509_V_*| values. If |err| is unknown, it returns
+// a default description.
+//
+// TODO(davidben): Move this function to x509_vfy.h, with the |X509_V_*|
+// definitions, or fold x509_vfy.h into this function.
+OPENSSL_EXPORT const char *X509_verify_cert_error_string(long err);
 
-#ifndef OPENSSL_NO_EVP
-OPENSSL_EXPORT int X509_verify(X509 *a, EVP_PKEY *r);
+// X509_verify checks that |x509| has a valid signature by |pkey|. It returns
+// one if the signature is valid and zero otherwise. Note this function only
+// checks the signature itself and does not perform a full certificate
+// validation.
+OPENSSL_EXPORT int X509_verify(X509 *x509, EVP_PKEY *pkey);
 
-OPENSSL_EXPORT int X509_REQ_verify(X509_REQ *a, EVP_PKEY *r);
-OPENSSL_EXPORT int X509_CRL_verify(X509_CRL *a, EVP_PKEY *r);
-OPENSSL_EXPORT int NETSCAPE_SPKI_verify(NETSCAPE_SPKI *a, EVP_PKEY *r);
+// X509_REQ_verify checks that |req| has a valid signature by |pkey|. It returns
+// one if the signature is valid and zero otherwise.
+OPENSSL_EXPORT int X509_REQ_verify(X509_REQ *req, EVP_PKEY *pkey);
 
+// X509_CRL_verify checks that |crl| has a valid signature by |pkey|. It returns
+// one if the signature is valid and zero otherwise.
+OPENSSL_EXPORT int X509_CRL_verify(X509_CRL *crl, EVP_PKEY *pkey);
+
+// NETSCAPE_SPKI_verify checks that |spki| has a valid signature by |pkey|. It
+// returns one if the signature is valid and zero otherwise.
+OPENSSL_EXPORT int NETSCAPE_SPKI_verify(NETSCAPE_SPKI *spki, EVP_PKEY *pkey);
+
+// NETSCAPE_SPKI_b64_decode decodes |len| bytes from |str| as a base64-encoded
+// Netscape signed public key and challenge (SPKAC) structure. It returns a
+// newly-allocated |NETSCAPE_SPKI| structure with the result, or NULL on error.
+// If |len| is 0 or negative, the length is calculated with |strlen| and |str|
+// must be a NUL-terminated C string.
 OPENSSL_EXPORT NETSCAPE_SPKI *NETSCAPE_SPKI_b64_decode(const char *str,
                                                        int len);
-OPENSSL_EXPORT char *NETSCAPE_SPKI_b64_encode(NETSCAPE_SPKI *x);
-OPENSSL_EXPORT EVP_PKEY *NETSCAPE_SPKI_get_pubkey(NETSCAPE_SPKI *x);
-OPENSSL_EXPORT int NETSCAPE_SPKI_set_pubkey(NETSCAPE_SPKI *x, EVP_PKEY *pkey);
 
-OPENSSL_EXPORT int NETSCAPE_SPKI_print(BIO *out, NETSCAPE_SPKI *spki);
+// NETSCAPE_SPKI_b64_encode encodes |spki| as a base64-encoded Netscape signed
+// public key and challenge (SPKAC) structure. It returns a newly-allocated
+// NUL-terminated C string with the result, or NULL on error. The caller must
+// release the memory with |OPENSSL_free| when done.
+OPENSSL_EXPORT char *NETSCAPE_SPKI_b64_encode(NETSCAPE_SPKI *spki);
 
-OPENSSL_EXPORT int X509_signature_dump(BIO *bp, const ASN1_STRING *sig,
+// NETSCAPE_SPKI_get_pubkey decodes and returns the public key in |spki| as an
+// |EVP_PKEY|, or NULL on error. The resulting pointer is non-owning and valid
+// until |spki| is released or mutated. The caller should take a reference with
+// |EVP_PKEY_up_ref| to extend the lifetime.
+OPENSSL_EXPORT EVP_PKEY *NETSCAPE_SPKI_get_pubkey(NETSCAPE_SPKI *spki);
+
+// NETSCAPE_SPKI_set_pubkey sets |spki|'s public key to |pkey|. It returns one
+// on success or zero on error. This function does not take ownership of |pkey|,
+// so the caller may continue to manage its lifetime independently of |spki|.
+OPENSSL_EXPORT int NETSCAPE_SPKI_set_pubkey(NETSCAPE_SPKI *spki,
+                                            EVP_PKEY *pkey);
+
+// X509_signature_dump writes a human-readable representation of |sig| to |bio|,
+// indented with |indent| spaces. It returns one on success and zero on error.
+OPENSSL_EXPORT int X509_signature_dump(BIO *bio, const ASN1_STRING *sig,
                                        int indent);
-OPENSSL_EXPORT int X509_signature_print(BIO *bp, const X509_ALGOR *alg,
+
+// X509_signature_print writes a human-readable representation of |alg| and
+// |sig| to |bio|. It returns one on success and zero on error.
+OPENSSL_EXPORT int X509_signature_print(BIO *bio, const X509_ALGOR *alg,
                                         const ASN1_STRING *sig);
 
 OPENSSL_EXPORT int X509_sign(X509 *x, EVP_PKEY *pkey, const EVP_MD *md);
@@ -684,7 +737,6 @@ OPENSSL_EXPORT int X509_REQ_digest(const X509_REQ *data, const EVP_MD *type,
                                    unsigned char *md, unsigned int *len);
 OPENSSL_EXPORT int X509_NAME_digest(const X509_NAME *data, const EVP_MD *type,
                                     unsigned char *md, unsigned int *len);
-#endif
 
 // X509_parse_from_buffer parses an X.509 structure from |buf| and returns a
 // fresh X509 or NULL on error. There must not be any trailing data in |buf|.
@@ -882,7 +934,6 @@ OPENSSL_EXPORT void X509_PKEY_free(X509_PKEY *a);
 DECLARE_ASN1_FUNCTIONS(NETSCAPE_SPKI)
 DECLARE_ASN1_FUNCTIONS(NETSCAPE_SPKAC)
 
-#ifndef OPENSSL_NO_EVP
 OPENSSL_EXPORT X509_INFO *X509_INFO_new(void);
 OPENSSL_EXPORT void X509_INFO_free(X509_INFO *a);
 OPENSSL_EXPORT char *X509_NAME_oneline(const X509_NAME *a, char *buf, int size);
@@ -906,7 +957,6 @@ OPENSSL_EXPORT int ASN1_item_sign_ctx(const ASN1_ITEM *it, X509_ALGOR *algor1,
                                       X509_ALGOR *algor2,
                                       ASN1_BIT_STRING *signature, void *asn,
                                       EVP_MD_CTX *ctx);
-#endif
 
 OPENSSL_EXPORT int X509_set_version(X509 *x, long version);
 OPENSSL_EXPORT int X509_set_serialNumber(X509 *x, ASN1_INTEGER *serial);
@@ -918,7 +968,8 @@ OPENSSL_EXPORT X509_NAME *X509_get_subject_name(const X509 *a);
 OPENSSL_EXPORT int X509_set_pubkey(X509 *x, EVP_PKEY *pkey);
 OPENSSL_EXPORT EVP_PKEY *X509_get_pubkey(X509 *x);
 OPENSSL_EXPORT ASN1_BIT_STRING *X509_get0_pubkey_bitstr(const X509 *x);
-OPENSSL_EXPORT STACK_OF(X509_EXTENSION) * X509_get0_extensions(const X509 *x);
+OPENSSL_EXPORT const STACK_OF(X509_EXTENSION) *
+    X509_get0_extensions(const X509 *x);
 OPENSSL_EXPORT const X509_ALGOR *X509_get0_tbs_sigalg(const X509 *x);
 
 OPENSSL_EXPORT int X509_REQ_set_version(X509_REQ *x, long version);
@@ -979,6 +1030,10 @@ OPENSSL_EXPORT const ASN1_TIME *X509_REVOKED_get0_revocationDate(
     const X509_REVOKED *x);
 OPENSSL_EXPORT int X509_REVOKED_set_revocationDate(X509_REVOKED *r,
                                                    ASN1_TIME *tm);
+
+// X509_REVOKED_get0_extensions returns |r|'s extensions.
+OPENSSL_EXPORT const STACK_OF(X509_EXTENSION) *
+    X509_REVOKED_get0_extensions(const X509_REVOKED *r);
 
 OPENSSL_EXPORT X509_CRL *X509_CRL_diff(X509_CRL *base, X509_CRL *newer,
                                        EVP_PKEY *skey, const EVP_MD *md,
