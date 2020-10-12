@@ -434,3 +434,52 @@ internal class SubjectAltNameSequence: Sequence, IteratorProtocol {
         CNIOBoringSSL_GENERAL_NAMES_free(self.nameStack)
     }
 }
+
+extension NIOSSLCertificate: CustomStringConvertible {
+    
+    public var description: String {
+        var desc = "<"
+        if let commonNameBytes = self.commonName() {
+            let commonName = String(decoding: commonNameBytes, as: Unicode.UTF8.self)
+            desc += ";common_name=" + commonName
+        }
+        if let alternativeName = self.subjectAlternativeNames() {
+            desc += ";alternative_names="
+            for altName in alternativeName {
+                switch altName {
+                case .dnsName(let bytes):
+                    desc += "\(String(decoding: bytes, as: Unicode.UTF8.self)),"
+                case .ipAddress(let address):
+                    desc += "\(ipToString(address)),"
+                }
+            }
+        }
+        return desc + ">"
+    }
+    
+    private func ipToString(_ address: IPAddress) -> String {
+        switch address{
+        case .ipv4(let addr):
+            return ipv4ToString(addr)
+        case .ipv6(let addr):
+            return ipv6ToString(addr)
+        }
+    }
+    
+    private func ipv4ToString(_ address: in_addr) -> String {
+        var address = address
+        let pointer = malloc(Int(INET_ADDRSTRLEN)).assumingMemoryBound(to: CChar.self)
+        inet_ntop(AF_INET, &address, pointer, socklen_t(INET_ADDRSTRLEN))
+        let string = String(cString: pointer)
+        return string
+    }
+    
+    private func ipv6ToString(_ address: in6_addr) -> String {
+        var address = address
+        let pointer = malloc(Int(INET_ADDRSTRLEN)).assumingMemoryBound(to: CChar.self)
+        inet_ntop(AF_INET6, &address, pointer, socklen_t(INET6_ADDRSTRLEN))
+        let string = String(cString: pointer)
+        return string
+    }
+    
+}
