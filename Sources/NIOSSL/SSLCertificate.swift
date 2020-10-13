@@ -46,6 +46,15 @@ public class NIOSSLCertificate {
         case ipv4(in_addr)
         case ipv6(in6_addr)
     }
+    
+    public var serialNumber: String {
+        let sn = CNIOBoringSSL_X509_get_serialNumber(self.ref)
+        var bn = BIGNUM()
+        CNIOBoringSSL_ASN1_INTEGER_to_BN(sn, &bn)
+        let result = CNIOBoringSSL_BN_bn2hex(&bn)
+        precondition(result != nil, "Failed to convert bignum to hex")
+        return String(cString: result!)
+    }
 
     private init(withOwnedReference ref: UnsafeMutablePointer<X509>) {
         self._ref = UnsafeMutableRawPointer(ref) // erasing the type for @_implementationOnly import CNIOBoringSSL
@@ -438,7 +447,7 @@ internal class SubjectAltNameSequence: Sequence, IteratorProtocol {
 extension NIOSSLCertificate: CustomStringConvertible {
     
     public var description: String {
-        var desc = "<NIOSSLCertificate"
+        var desc = "<NIOSSLCertificate;serial_number=" + self.serialNumber
         if let commonNameBytes = self.commonName() {
             let commonName = String(decoding: commonNameBytes, as: UTF8.self)
             desc += ";common_name=" + commonName
