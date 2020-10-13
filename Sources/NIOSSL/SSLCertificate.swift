@@ -464,7 +464,7 @@ extension NIOSSLCertificate.IPAddress: CustomStringConvertible {
     private static let ipv4AddressLength = 16
     private static let ipv6AddressLength = 46
     
-    /// A string representaion of the IP address.
+    /// A string representation of the IP address.
     /// E.g. IPv4: `192.168.0.1`
     /// E.g. IPv6: `2001:db8::1`
     public var description: String {
