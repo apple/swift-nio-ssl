@@ -479,9 +479,9 @@ extension NIOSSLCertificate.IPAddress: CustomStringConvertible {
     private func ipv4ToString(_ address: in_addr) -> String {
         var address = address
         var dest: [CChar] = []
-        dest.reserveCapacity(Self.ipv4AddressLength)
+        dest.reserveCapacity(NIOSSLCertificate.IPAddress.ipv4AddressLength)
         dest.withUnsafeMutableBufferPointer { pointer in
-            let result = inet_ntop(AF_INET, &address, pointer.baseAddress!, socklen_t(Self.ipv4AddressLength))
+            let result = inet_ntop(AF_INET, &address, pointer.baseAddress!, socklen_t(NIOSSLCertificate.IPAddress.ipv4AddressLength))
             precondition(result != nil, "The IP address was invalid. This should never happen as we're within the IP address struct.")
         }
         return String(cString: &dest)
@@ -490,9 +490,9 @@ extension NIOSSLCertificate.IPAddress: CustomStringConvertible {
     private func ipv6ToString(_ address: in6_addr) -> String {
         var address = address
         var dest: [CChar] = []
-        dest.reserveCapacity(Self.ipv6AddressLength)
+        dest.reserveCapacity(NIOSSLCertificate.IPAddress.ipv6AddressLength)
         dest.withUnsafeMutableBufferPointer { pointer in
-            let result = inet_ntop(AF_INET6, &address, pointer.baseAddress!, socklen_t(Self.ipv6AddressLength))
+            let result = inet_ntop(AF_INET6, &address, pointer.baseAddress!, socklen_t(NIOSSLCertificate.IPAddress.ipv6AddressLength))
             precondition(result != nil, "The IP address was invalid. This should never happen as we're within the IP address struct.")
         }
         return String(cString: &dest)
