@@ -468,7 +468,7 @@ extension NIOSSLCertificate: CustomStringConvertible {
     
     private func ipv4ToString(_ address: in_addr) -> String {
         var address = address
-        let pointer = malloc(Int(INET_ADDRSTRLEN)).assumingMemoryBound(to: CChar.self)
+        let pointer = UnsafeMutableBufferPointer<CChar>.allocate(ipv4Len)
         inet_ntop(AF_INET, &address, pointer, socklen_t(INET_ADDRSTRLEN))
         let string = String(cString: pointer)
         return string
