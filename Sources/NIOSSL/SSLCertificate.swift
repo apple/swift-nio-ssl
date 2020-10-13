@@ -437,8 +437,11 @@ internal class SubjectAltNameSequence: Sequence, IteratorProtocol {
 
 extension NIOSSLCertificate: CustomStringConvertible {
     
+    static let ipv4AddressLength = 16
+    static let ipv6AddressLength = 46
+    
     public var description: String {
-        var desc = "<"
+        var desc = "<NIOSSLCertificate"
         if let commonNameBytes = self.commonName() {
             let commonName = String(decoding: commonNameBytes, as: UTF8.self)
             desc += ";common_name=" + commonName
@@ -468,18 +471,26 @@ extension NIOSSLCertificate: CustomStringConvertible {
     
     private func ipv4ToString(_ address: in_addr) -> String {
         var address = address
-        let pointer = UnsafeMutableBufferPointer<CChar>.allocate(ipv4Len)
-        inet_ntop(AF_INET, &address, pointer, socklen_t(INET_ADDRSTRLEN))
-        let string = String(cString: pointer)
-        return string
+        let pointer = UnsafeMutablePointer<CChar>.allocate(capacity: Self.ipv4AddressLength)
+        inet_ntop(AF_INET, &address, pointer, socklen_t(Self.ipv4AddressLength))
+        
+        defer {
+            pointer.deallocate()
+        }
+        
+        return String(cString: pointer)
     }
     
     private func ipv6ToString(_ address: in6_addr) -> String {
         var address = address
-        let pointer = malloc(Int(INET_ADDRSTRLEN)).assumingMemoryBound(to: CChar.self)
-        inet_ntop(AF_INET6, &address, pointer, socklen_t(INET6_ADDRSTRLEN))
-        let string = String(cString: pointer)
-        return string
+        let pointer = UnsafeMutablePointer<CChar>.allocate(capacity: Self.ipv6AddressLength)
+        inet_ntop(AF_INET6, &address, pointer, socklen_t(Self.ipv6AddressLength))
+        
+        defer {
+            pointer.deallocate()
+        }
+        
+        return String(cString: pointer)
     }
     
 }

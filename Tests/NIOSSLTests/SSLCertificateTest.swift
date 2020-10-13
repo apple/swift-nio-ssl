@@ -382,7 +382,7 @@ class SSLCertificateTest: XCTestCase {
     }
     
     func testPrintingDebugDetails_commonName() throws {
-        let expectedDebugDescription = "<;common_name=robots.sanfransokyo.edu>"
+        let expectedDebugDescription = "<NIOSSLCertificate;common_name=robots.sanfransokyo.edu>"
         let cert = try assertNoThrowWithValue(NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem))
         let debugString = String(describing: cert)
 
@@ -390,7 +390,7 @@ class SSLCertificateTest: XCTestCase {
     }
     
     func testPrintingDebugDetails_alternativeName() throws {
-        let expectedDebugDescription = "<;common_name=localhost;alternative_names=localhost,example.com,192.168.0.1,2001:db8::1,>"
+        let expectedDebugDescription = "<NIOSSLCertificate;common_name=localhost;alternative_names=localhost,example.com,192.168.0.1,2001:db8::1,>"
         let cert = try assertNoThrowWithValue(NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem))
         let debugString = String(describing: cert)
 
