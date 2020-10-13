@@ -468,7 +468,7 @@ extension NIOSSLCertificate.IPAddress: CustomStringConvertible {
     /// E.g. IPv4: `192.168.0.1`
     /// E.g. IPv6: `2001:db8::1`
     public var description: String {
-        switch self{
+        switch self {
         case .ipv4(let addr):
             return self.ipv4ToString(addr)
         case .ipv6(let addr):
