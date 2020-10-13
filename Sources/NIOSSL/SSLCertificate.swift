@@ -437,9 +437,6 @@ internal class SubjectAltNameSequence: Sequence, IteratorProtocol {
 
 extension NIOSSLCertificate: CustomStringConvertible {
     
-    static let ipv4AddressLength = 16
-    static let ipv6AddressLength = 46
-    
     public var description: String {
         var desc = "<NIOSSLCertificate"
         if let commonNameBytes = self.commonName() {
@@ -453,15 +450,25 @@ extension NIOSSLCertificate: CustomStringConvertible {
                 case .dnsName(let bytes):
                     desc += "\(String(decoding: bytes, as: UTF8.self)),"
                 case .ipAddress(let address):
-                    desc += "\(ipToString(address)),"
+                    desc += "\(address.stringValue),"
                 }
             }
         }
         return desc + ">"
     }
     
-    private func ipToString(_ address: IPAddress) -> String {
-        switch address{
+}
+
+extension NIOSSLCertificate.IPAddress {
+    
+    static let ipv4AddressLength = 16
+    static let ipv6AddressLength = 46
+    
+    /// A string representaion of the IP address.
+    /// E.g. IPv4: `192.168.0.1`
+    /// E.g. IPv6: `2001:db8::1`
+    public var stringValue: String {
+        switch self{
         case .ipv4(let addr):
             return ipv4ToString(addr)
         case .ipv6(let addr):
