@@ -448,7 +448,7 @@ extension NIOSSLCertificate: CustomStringConvertible {
             for altName in alternativeName {
                 switch altName {
                 case .dnsName(let bytes):
-                    desc += "\(String(decoding: bytes, as: Unicode.UTF8.self)),"
+                    desc += "\(String(decoding: bytes, as: UTF8.self)),"
                 case .ipAddress(let address):
                     desc += "\(ipToString(address)),"
                 }
