@@ -449,7 +449,7 @@ extension NIOSSLCertificate: CustomStringConvertible {
                 case .dnsName(let bytes):
                     return String(decoding: bytes, as: UTF8.self)
                 case .ipAddress(let address):
-                    return address.description
+                    return String(describing: address)
                 }
             }.joined(separator: ",")
             desc += ";alternative_names=\(altNames)"
