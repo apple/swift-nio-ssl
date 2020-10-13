@@ -480,7 +480,7 @@ extension NIOSSLCertificate.IPAddress: CustomStringConvertible {
         var address = address
         var dest: [CChar] = Array(repeating: 0, count: NIOSSLCertificate.IPAddress.ipv4AddressLength)
         dest.withUnsafeMutableBufferPointer { pointer in
-            let result = inet_ntop(AF_INET, &address, pointer.baseAddress!, socklen_t(NIOSSLCertificate.IPAddress.ipv4AddressLength))
+            let result = inet_ntop(AF_INET, &address, pointer.baseAddress!, socklen_t(pointer.count))
             precondition(result != nil, "The IP address was invalid. This should never happen as we're within the IP address struct.")
         }
         return String(cString: &dest)
