@@ -54,6 +54,8 @@ extension SSLCertificateTest {
                 ("testExtractingPublicKey", testExtractingPublicKey),
                 ("testDumpingPEMCert", testDumpingPEMCert),
                 ("testDumpingDERCert", testDumpingDERCert),
+                ("testPrintingDebugDetailsNoAlternativeNames", testPrintingDebugDetailsNoAlternativeNames),
+                ("testPrintingDebugDetailsWithAlternativeNames", testPrintingDebugDetailsWithAlternativeNames),
            ]
    }
 }

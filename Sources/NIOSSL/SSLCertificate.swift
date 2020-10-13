@@ -434,3 +434,66 @@ internal class SubjectAltNameSequence: Sequence, IteratorProtocol {
         CNIOBoringSSL_GENERAL_NAMES_free(self.nameStack)
     }
 }
+
+extension NIOSSLCertificate: CustomStringConvertible {
+    
+    public var description: String {
+        var desc = "<NIOSSLCertificate"
+        if let commonNameBytes = self.commonName() {
+            let commonName = String(decoding: commonNameBytes, as: UTF8.self)
+            desc += ";common_name=" + commonName
+        }
+        if let alternativeName = self.subjectAlternativeNames() {
+            let altNames = alternativeName.map { name in
+                switch name {
+                case .dnsName(let bytes):
+                    return String(decoding: bytes, as: UTF8.self)
+                case .ipAddress(let address):
+                    return String(describing: address)
+                }
+            }.joined(separator: ",")
+            desc += ";alternative_names=\(altNames)"
+        }
+        return desc + ">"
+    }
+    
+}
+
+extension NIOSSLCertificate.IPAddress: CustomStringConvertible {
+    
+    private static let ipv4AddressLength = 16
+    private static let ipv6AddressLength = 46
+    
+    /// A string representation of the IP address.
+    /// E.g. IPv4: `192.168.0.1`
+    /// E.g. IPv6: `2001:db8::1`
+    public var description: String {
+        switch self {
+        case .ipv4(let addr):
+            return self.ipv4ToString(addr)
+        case .ipv6(let addr):
+            return self.ipv6ToString(addr)
+        }
+    }
+    
+    private func ipv4ToString(_ address: in_addr) -> String {
+        var address = address
+        var dest: [CChar] = Array(repeating: 0, count: NIOSSLCertificate.IPAddress.ipv4AddressLength)
+        dest.withUnsafeMutableBufferPointer { pointer in
+            let result = inet_ntop(AF_INET, &address, pointer.baseAddress!, socklen_t(pointer.count))
+            precondition(result != nil, "The IP address was invalid. This should never happen as we're within the IP address struct.")
+        }
+        return String(cString: &dest)
+    }
+    
+    private func ipv6ToString(_ address: in6_addr) -> String {
+        var address = address
+        var dest: [CChar] = Array(repeating: 0, count: NIOSSLCertificate.IPAddress.ipv6AddressLength)
+        dest.withUnsafeMutableBufferPointer { pointer in
+            let result = inet_ntop(AF_INET6, &address, pointer.baseAddress!, socklen_t(pointer.count))
+            precondition(result != nil, "The IP address was invalid. This should never happen as we're within the IP address struct.")
+        }
+        return String(cString: &dest)
+    }
+    
+}
