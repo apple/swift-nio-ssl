@@ -479,7 +479,8 @@ extension NIOSSLCertificate.IPAddress {
     private func ipv4ToString(_ address: in_addr) -> String {
         var address = address
         let pointer = UnsafeMutablePointer<CChar>.allocate(capacity: Self.ipv4AddressLength)
-        inet_ntop(AF_INET, &address, pointer, socklen_t(Self.ipv4AddressLength))
+        let result = inet_ntop(AF_INET, &address, pointer, socklen_t(Self.ipv4AddressLength))
+        precondition(result != nil, "The IP address was invalid. This should never happen as we're within the IP address struct.")
         
         defer {
             pointer.deallocate()
@@ -491,7 +492,8 @@ extension NIOSSLCertificate.IPAddress {
     private func ipv6ToString(_ address: in6_addr) -> String {
         var address = address
         let pointer = UnsafeMutablePointer<CChar>.allocate(capacity: Self.ipv6AddressLength)
-        inet_ntop(AF_INET6, &address, pointer, socklen_t(Self.ipv6AddressLength))
+        let result = inet_ntop(AF_INET6, &address, pointer, socklen_t(Self.ipv6AddressLength))
+        precondition(result != nil, "The IP address was invalid. This should never happen as we're within the IP address struct.")
         
         defer {
             pointer.deallocate()
