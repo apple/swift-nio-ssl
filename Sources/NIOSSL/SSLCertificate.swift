@@ -450,7 +450,7 @@ extension NIOSSLCertificate: CustomStringConvertible {
                 case .dnsName(let bytes):
                     desc += "\(String(decoding: bytes, as: UTF8.self)),"
                 case .ipAddress(let address):
-                    desc += "\(address.stringValue),"
+                    desc += "\(address.description),"
                 }
             }
         }
@@ -459,47 +459,43 @@ extension NIOSSLCertificate: CustomStringConvertible {
     
 }
 
-extension NIOSSLCertificate.IPAddress {
+extension NIOSSLCertificate.IPAddress: CustomStringConvertible {
     
-    static let ipv4AddressLength = 16
-    static let ipv6AddressLength = 46
+    private static let ipv4AddressLength = 16
+    private static let ipv6AddressLength = 46
     
     /// A string representaion of the IP address.
     /// E.g. IPv4: `192.168.0.1`
     /// E.g. IPv6: `2001:db8::1`
-    public var stringValue: String {
+    public var description: String {
         switch self{
         case .ipv4(let addr):
-            return ipv4ToString(addr)
+            return self.ipv4ToString(addr)
         case .ipv6(let addr):
-            return ipv6ToString(addr)
+            return self.ipv6ToString(addr)
         }
     }
     
     private func ipv4ToString(_ address: in_addr) -> String {
         var address = address
-        let pointer = UnsafeMutablePointer<CChar>.allocate(capacity: Self.ipv4AddressLength)
-        let result = inet_ntop(AF_INET, &address, pointer, socklen_t(Self.ipv4AddressLength))
-        precondition(result != nil, "The IP address was invalid. This should never happen as we're within the IP address struct.")
-        
-        defer {
-            pointer.deallocate()
+        var dest: [CChar] = []
+        dest.reserveCapacity(Self.ipv4AddressLength)
+        dest.withUnsafeMutableBufferPointer { pointer in
+            let result = inet_ntop(AF_INET, &address, pointer.baseAddress!, socklen_t(Self.ipv4AddressLength))
+            precondition(result != nil, "The IP address was invalid. This should never happen as we're within the IP address struct.")
         }
-        
-        return String(cString: pointer)
+        return String(cString: &dest)
     }
     
     private func ipv6ToString(_ address: in6_addr) -> String {
         var address = address
-        let pointer = UnsafeMutablePointer<CChar>.allocate(capacity: Self.ipv6AddressLength)
-        let result = inet_ntop(AF_INET6, &address, pointer, socklen_t(Self.ipv6AddressLength))
-        precondition(result != nil, "The IP address was invalid. This should never happen as we're within the IP address struct.")
-        
-        defer {
-            pointer.deallocate()
+        var dest: [CChar] = []
+        dest.reserveCapacity(Self.ipv6AddressLength)
+        dest.withUnsafeMutableBufferPointer { pointer in
+            let result = inet_ntop(AF_INET6, &address, pointer.baseAddress!, socklen_t(Self.ipv6AddressLength))
+            precondition(result != nil, "The IP address was invalid. This should never happen as we're within the IP address struct.")
         }
-        
-        return String(cString: pointer)
+        return String(cString: &dest)
     }
     
 }
