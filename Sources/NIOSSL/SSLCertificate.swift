@@ -488,7 +488,7 @@ extension NIOSSLCertificate.IPAddress: CustomStringConvertible {
     
     private func ipv6ToString(_ address: in6_addr) -> String {
         var address = address
-        var dest: [CChar] = Array(repeating: 0, count: NIOSSLCertificate.IPAddress.ipv4AddressLength)
+        var dest: [CChar] = Array(repeating: 0, count: NIOSSLCertificate.IPAddress.ipv6AddressLength)
         dest.withUnsafeMutableBufferPointer { pointer in
             let result = inet_ntop(AF_INET6, &address, pointer.baseAddress!, socklen_t(pointer.count))
             precondition(result != nil, "The IP address was invalid. This should never happen as we're within the IP address struct.")
