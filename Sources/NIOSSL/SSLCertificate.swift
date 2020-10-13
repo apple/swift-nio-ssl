@@ -440,7 +440,7 @@ extension NIOSSLCertificate: CustomStringConvertible {
     public var description: String {
         var desc = "<"
         if let commonNameBytes = self.commonName() {
-            let commonName = String(decoding: commonNameBytes, as: Unicode.UTF8.self)
+            let commonName = String(decoding: commonNameBytes, as: UTF8.self)
             desc += ";common_name=" + commonName
         }
         if let alternativeName = self.subjectAlternativeNames() {
