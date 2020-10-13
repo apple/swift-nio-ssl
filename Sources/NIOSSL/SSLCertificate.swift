@@ -47,14 +47,14 @@ public class NIOSSLCertificate {
         case ipv6(in6_addr)
     }
     
-    public var serialNumber: String {
+    public lazy var serialNumber: String = {
         let sn = CNIOBoringSSL_X509_get_serialNumber(self.ref)
         var bn = BIGNUM()
         CNIOBoringSSL_ASN1_INTEGER_to_BN(sn, &bn)
         let result = CNIOBoringSSL_BN_bn2hex(&bn)
         precondition(result != nil, "Failed to convert bignum to hex")
         return String(cString: result!)
-    }
+    }()
 
     private init(withOwnedReference ref: UnsafeMutablePointer<X509>) {
         self._ref = UnsafeMutableRawPointer(ref) // erasing the type for @_implementationOnly import CNIOBoringSSL
