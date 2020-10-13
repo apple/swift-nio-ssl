@@ -48,12 +48,13 @@ public class NIOSSLCertificate {
     }
     
     public lazy var serialNumber: String = {
-        let sn = CNIOBoringSSL_X509_get_serialNumber(self.ref)
+        let serialNumber = CNIOBoringSSL_X509_get_serialNumber(self.ref)
         var bn = BIGNUM()
-        CNIOBoringSSL_ASN1_INTEGER_to_BN(sn, &bn)
-        let result = CNIOBoringSSL_BN_bn2hex(&bn)
-        precondition(result != nil, "Failed to convert bignum to hex")
-        return String(cString: result!)
+        CNIOBoringSSL_ASN1_INTEGER_to_BN(serialNumber, &bn)
+        guard let result = CNIOBoringSSL_BN_bn2hex(&bn) else {
+            preconditionFailure("Failed to convert bignum to hex")
+        }
+        return String(cString: result)
     }()
 
     private init(withOwnedReference ref: UnsafeMutablePointer<X509>) {
