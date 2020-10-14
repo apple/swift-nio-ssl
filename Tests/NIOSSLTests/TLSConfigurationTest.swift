@@ -401,4 +401,44 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertEqual(config.applicationProtocols, ["h2", "http/1.1"])
         XCTAssertEqual(config.encodedApplicationProtocols, [[2, 104, 50], [8, 104, 116, 116, 112, 47, 49, 46, 49]])
     }
+
+    func testKeyLogManagerOverlappingAccess() throws {
+        // Tests that we can have overlapping calls to the log() function of the keylog manager.
+        // This test fails probabilistically! DO NOT IGNORE INTERMITTENT FAILURES OF THIS TEST.
+        let semaphore = DispatchSemaphore(value: 0)
+        let group = DispatchGroup()
+        let completionsQueue = DispatchQueue(label: "completionsQueue")
+        var completions: [Bool] = []
+
+        func keylogCallback(_ ign: ByteBuffer) {
+            completionsQueue.sync {
+                completions.append(true)
+                semaphore.wait()
+            }
+            group.leave()
+        }
+
+        let keylogManager = KeyLogCallbackManager(callback: keylogCallback(_:))
+
+        // Now we call log twice, from different threads. These will not complete right away so we
+        // do those on background threads. They should not both complete.
+        group.enter()
+        group.enter()
+        DispatchQueue(label: "first-thread").async {
+            keylogManager.log("hello!")
+        }
+        DispatchQueue(label: "second-thread").async {
+            keylogManager.log("world!")
+        }
+
+        // We now sleep a short time to let everything catch up and the runtime catch any exclusivity violation.
+        // 10ms is fine.
+        usleep(10_000)
+
+        // Great, signal the sempahore twice to un-wedge everything and wait for everything to exit.
+        semaphore.signal()
+        semaphore.signal()
+        group.wait()
+        XCTAssertEqual([true, true], completionsQueue.sync { completions })
+    }
 }

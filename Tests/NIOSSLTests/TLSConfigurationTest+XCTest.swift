@@ -40,6 +40,7 @@ extension TLSConfigurationTest {
                 ("testMatchingCompatibleSignatures", testMatchingCompatibleSignatures),
                 ("testNonexistentFileObject", testNonexistentFileObject),
                 ("testComputedApplicationProtocols", testComputedApplicationProtocols),
+                ("testKeyLogManagerOverlappingAccess", testKeyLogManagerOverlappingAccess),
            ]
    }
 }

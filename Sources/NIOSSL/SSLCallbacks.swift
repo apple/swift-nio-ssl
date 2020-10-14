@@ -106,31 +106,23 @@ public typealias NIOSSLKeyLogCallback = (ByteBuffer) -> Void
 internal struct KeyLogCallbackManager {
     private var callback: NIOSSLKeyLogCallback
 
-    private var scratchBuffer: ByteBuffer
-}
-
-extension KeyLogCallbackManager {
     init(callback: @escaping NIOSSLKeyLogCallback) {
         self.callback = callback
-
-        // We need to allocate a bytebuffer into which we can write the string. Normally we wouldn't just magic
-        // a ByteBufferAllocator into existence, but here it's just worthwhile doing, not least because a SSLContext doesn't
-        // necessarily belong to only one Channel anyway. As for 512: it seemed a reasonable guess that 512 bytes was about as long as this
-        // needed to be (most secrets won't be longer than 256 bits, which is 32 bytes, so even when base64 encoded we have loads of headroom).
-        self.scratchBuffer = ByteBufferAllocator().buffer(capacity: 512)
     }
 }
 
 extension KeyLogCallbackManager {
     /// Called to log a string to the user.
-    mutating func log(_ stringPointer: UnsafePointer<CChar>) {
-        self.scratchBuffer.clear()
-
+    func log(_ stringPointer: UnsafePointer<CChar>) {
         let len = strlen(stringPointer)
+
+        // We don't cache this because `log` can be called from arbitrary threads concurrently.
+        var scratchBuffer = ByteBufferAllocator().buffer(capacity: len + 1)
+
         let bufferPointer = UnsafeRawBufferPointer(start: stringPointer, count: Int(len))
-        self.scratchBuffer.writeBytes(bufferPointer)
-        self.scratchBuffer.writeInteger(UInt8(ascii: "\n"))
-        self.callback(self.scratchBuffer)
+        scratchBuffer.writeBytes(bufferPointer)
+        scratchBuffer.writeInteger(UInt8(ascii: "\n"))
+        self.callback(scratchBuffer)
     }
 }
 
