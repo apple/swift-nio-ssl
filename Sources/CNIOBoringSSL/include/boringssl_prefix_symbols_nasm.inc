@@ -283,6 +283,7 @@
 %xdefine _BIO_set_mem_eof_return _ %+ BORINGSSL_PREFIX %+ _BIO_set_mem_eof_return
 %xdefine _BIO_set_nbio _ %+ BORINGSSL_PREFIX %+ _BIO_set_nbio
 %xdefine _BIO_set_retry_read _ %+ BORINGSSL_PREFIX %+ _BIO_set_retry_read
+%xdefine _BIO_set_retry_reason _ %+ BORINGSSL_PREFIX %+ _BIO_set_retry_reason
 %xdefine _BIO_set_retry_special _ %+ BORINGSSL_PREFIX %+ _BIO_set_retry_special
 %xdefine _BIO_set_retry_write _ %+ BORINGSSL_PREFIX %+ _BIO_set_retry_write
 %xdefine _BIO_set_shutdown _ %+ BORINGSSL_PREFIX %+ _BIO_set_shutdown
@@ -1432,7 +1433,6 @@
 %xdefine _PKCS8_parse_encrypted_private_key _ %+ BORINGSSL_PREFIX %+ _PKCS8_parse_encrypted_private_key
 %xdefine _PKCS8_pkey_get0 _ %+ BORINGSSL_PREFIX %+ _PKCS8_pkey_get0
 %xdefine _PKCS8_pkey_set0 _ %+ BORINGSSL_PREFIX %+ _PKCS8_pkey_set0
-%xdefine _PMBTOKEN_PRETOKEN_free _ %+ BORINGSSL_PREFIX %+ _PMBTOKEN_PRETOKEN_free
 %xdefine _POLICYINFO_free _ %+ BORINGSSL_PREFIX %+ _POLICYINFO_free
 %xdefine _POLICYINFO_it _ %+ BORINGSSL_PREFIX %+ _POLICYINFO_it
 %xdefine _POLICYINFO_new _ %+ BORINGSSL_PREFIX %+ _POLICYINFO_new
@@ -2077,10 +2077,11 @@
 %xdefine _TRUST_TOKEN_ISSUER_redeem _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_redeem
 %xdefine _TRUST_TOKEN_ISSUER_set_metadata_key _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_set_metadata_key
 %xdefine _TRUST_TOKEN_ISSUER_set_srr_key _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_set_srr_key
+%xdefine _TRUST_TOKEN_PRETOKEN_free _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_PRETOKEN_free
 %xdefine _TRUST_TOKEN_decode_private_metadata _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_decode_private_metadata
 %xdefine _TRUST_TOKEN_experiment_v1 _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_experiment_v1
 %xdefine _TRUST_TOKEN_experiment_v2_pmb _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_experiment_v2_pmb
-%xdefine _TRUST_TOKEN_experiment_v2_pp _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_experiment_v2_pp
+%xdefine _TRUST_TOKEN_experiment_v2_voprf _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_experiment_v2_voprf
 %xdefine _TRUST_TOKEN_free _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_free
 %xdefine _TRUST_TOKEN_generate_key _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_generate_key
 %xdefine _TRUST_TOKEN_new _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_new
@@ -3324,6 +3325,13 @@
 %xdefine _v3_policy_mappings _ %+ BORINGSSL_PREFIX %+ _v3_policy_mappings
 %xdefine _v3_sinfo _ %+ BORINGSSL_PREFIX %+ _v3_sinfo
 %xdefine _v3_skey_id _ %+ BORINGSSL_PREFIX %+ _v3_skey_id
+%xdefine _voprf_exp2_blind _ %+ BORINGSSL_PREFIX %+ _voprf_exp2_blind
+%xdefine _voprf_exp2_client_key_from_bytes _ %+ BORINGSSL_PREFIX %+ _voprf_exp2_client_key_from_bytes
+%xdefine _voprf_exp2_generate_key _ %+ BORINGSSL_PREFIX %+ _voprf_exp2_generate_key
+%xdefine _voprf_exp2_issuer_key_from_bytes _ %+ BORINGSSL_PREFIX %+ _voprf_exp2_issuer_key_from_bytes
+%xdefine _voprf_exp2_read _ %+ BORINGSSL_PREFIX %+ _voprf_exp2_read
+%xdefine _voprf_exp2_sign _ %+ BORINGSSL_PREFIX %+ _voprf_exp2_sign
+%xdefine _voprf_exp2_unblind _ %+ BORINGSSL_PREFIX %+ _voprf_exp2_unblind
 %xdefine _vpaes_cbc_encrypt _ %+ BORINGSSL_PREFIX %+ _vpaes_cbc_encrypt
 %xdefine _vpaes_ctr32_encrypt_blocks _ %+ BORINGSSL_PREFIX %+ _vpaes_ctr32_encrypt_blocks
 %xdefine _vpaes_decrypt _ %+ BORINGSSL_PREFIX %+ _vpaes_decrypt
@@ -3623,6 +3631,7 @@
 %xdefine BIO_set_mem_eof_return BORINGSSL_PREFIX %+ _BIO_set_mem_eof_return
 %xdefine BIO_set_nbio BORINGSSL_PREFIX %+ _BIO_set_nbio
 %xdefine BIO_set_retry_read BORINGSSL_PREFIX %+ _BIO_set_retry_read
+%xdefine BIO_set_retry_reason BORINGSSL_PREFIX %+ _BIO_set_retry_reason
 %xdefine BIO_set_retry_special BORINGSSL_PREFIX %+ _BIO_set_retry_special
 %xdefine BIO_set_retry_write BORINGSSL_PREFIX %+ _BIO_set_retry_write
 %xdefine BIO_set_shutdown BORINGSSL_PREFIX %+ _BIO_set_shutdown
@@ -4772,7 +4781,6 @@
 %xdefine PKCS8_parse_encrypted_private_key BORINGSSL_PREFIX %+ _PKCS8_parse_encrypted_private_key
 %xdefine PKCS8_pkey_get0 BORINGSSL_PREFIX %+ _PKCS8_pkey_get0
 %xdefine PKCS8_pkey_set0 BORINGSSL_PREFIX %+ _PKCS8_pkey_set0
-%xdefine PMBTOKEN_PRETOKEN_free BORINGSSL_PREFIX %+ _PMBTOKEN_PRETOKEN_free
 %xdefine POLICYINFO_free BORINGSSL_PREFIX %+ _POLICYINFO_free
 %xdefine POLICYINFO_it BORINGSSL_PREFIX %+ _POLICYINFO_it
 %xdefine POLICYINFO_new BORINGSSL_PREFIX %+ _POLICYINFO_new
@@ -5417,10 +5425,11 @@
 %xdefine TRUST_TOKEN_ISSUER_redeem BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_redeem
 %xdefine TRUST_TOKEN_ISSUER_set_metadata_key BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_set_metadata_key
 %xdefine TRUST_TOKEN_ISSUER_set_srr_key BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_set_srr_key
+%xdefine TRUST_TOKEN_PRETOKEN_free BORINGSSL_PREFIX %+ _TRUST_TOKEN_PRETOKEN_free
 %xdefine TRUST_TOKEN_decode_private_metadata BORINGSSL_PREFIX %+ _TRUST_TOKEN_decode_private_metadata
 %xdefine TRUST_TOKEN_experiment_v1 BORINGSSL_PREFIX %+ _TRUST_TOKEN_experiment_v1
 %xdefine TRUST_TOKEN_experiment_v2_pmb BORINGSSL_PREFIX %+ _TRUST_TOKEN_experiment_v2_pmb
-%xdefine TRUST_TOKEN_experiment_v2_pp BORINGSSL_PREFIX %+ _TRUST_TOKEN_experiment_v2_pp
+%xdefine TRUST_TOKEN_experiment_v2_voprf BORINGSSL_PREFIX %+ _TRUST_TOKEN_experiment_v2_voprf
 %xdefine TRUST_TOKEN_free BORINGSSL_PREFIX %+ _TRUST_TOKEN_free
 %xdefine TRUST_TOKEN_generate_key BORINGSSL_PREFIX %+ _TRUST_TOKEN_generate_key
 %xdefine TRUST_TOKEN_new BORINGSSL_PREFIX %+ _TRUST_TOKEN_new
@@ -6664,6 +6673,13 @@
 %xdefine v3_policy_mappings BORINGSSL_PREFIX %+ _v3_policy_mappings
 %xdefine v3_sinfo BORINGSSL_PREFIX %+ _v3_sinfo
 %xdefine v3_skey_id BORINGSSL_PREFIX %+ _v3_skey_id
+%xdefine voprf_exp2_blind BORINGSSL_PREFIX %+ _voprf_exp2_blind
+%xdefine voprf_exp2_client_key_from_bytes BORINGSSL_PREFIX %+ _voprf_exp2_client_key_from_bytes
+%xdefine voprf_exp2_generate_key BORINGSSL_PREFIX %+ _voprf_exp2_generate_key
+%xdefine voprf_exp2_issuer_key_from_bytes BORINGSSL_PREFIX %+ _voprf_exp2_issuer_key_from_bytes
+%xdefine voprf_exp2_read BORINGSSL_PREFIX %+ _voprf_exp2_read
+%xdefine voprf_exp2_sign BORINGSSL_PREFIX %+ _voprf_exp2_sign
+%xdefine voprf_exp2_unblind BORINGSSL_PREFIX %+ _voprf_exp2_unblind
 %xdefine vpaes_cbc_encrypt BORINGSSL_PREFIX %+ _vpaes_cbc_encrypt
 %xdefine vpaes_ctr32_encrypt_blocks BORINGSSL_PREFIX %+ _vpaes_ctr32_encrypt_blocks
 %xdefine vpaes_decrypt BORINGSSL_PREFIX %+ _vpaes_decrypt
