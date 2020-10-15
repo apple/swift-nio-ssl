@@ -43,6 +43,13 @@
       "warning": "undocumented"
     },
     {
+      "file": "/code/Sources/NIOSSL/SSLCertificate.swift",
+      "line": 50,
+      "symbol": "NIOSSLCertificate.serialNumber",
+      "symbol_kind": "source.lang.swift.decl.var.instance",
+      "warning": "undocumented"
+    },
+    {
       "file": "/code/Sources/NIOSSL/SSLErrors.swift",
       "line": 49,
       "symbol": "NIOSSLError.writeDuringTLSShutdown",
