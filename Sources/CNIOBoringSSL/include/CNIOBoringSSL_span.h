@@ -24,6 +24,7 @@ extern "C++" {
 #include <algorithm>
 #include <cstdlib>
 #include <type_traits>
+#include <stdlib.h>
 
 BSSL_NAMESPACE_BEGIN
 
