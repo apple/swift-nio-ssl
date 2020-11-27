@@ -80,7 +80,6 @@
 %xdefine _ASN1_OBJECT_free _ %+ BORINGSSL_PREFIX %+ _ASN1_OBJECT_free
 %xdefine _ASN1_OBJECT_it _ %+ BORINGSSL_PREFIX %+ _ASN1_OBJECT_it
 %xdefine _ASN1_OBJECT_new _ %+ BORINGSSL_PREFIX %+ _ASN1_OBJECT_new
-%xdefine _ASN1_OCTET_STRING_NDEF_it _ %+ BORINGSSL_PREFIX %+ _ASN1_OCTET_STRING_NDEF_it
 %xdefine _ASN1_OCTET_STRING_cmp _ %+ BORINGSSL_PREFIX %+ _ASN1_OCTET_STRING_cmp
 %xdefine _ASN1_OCTET_STRING_dup _ %+ BORINGSSL_PREFIX %+ _ASN1_OCTET_STRING_dup
 %xdefine _ASN1_OCTET_STRING_free _ %+ BORINGSSL_PREFIX %+ _ASN1_OCTET_STRING_free
@@ -175,7 +174,6 @@
 %xdefine _ASN1_item_i2d _ %+ BORINGSSL_PREFIX %+ _ASN1_item_i2d
 %xdefine _ASN1_item_i2d_bio _ %+ BORINGSSL_PREFIX %+ _ASN1_item_i2d_bio
 %xdefine _ASN1_item_i2d_fp _ %+ BORINGSSL_PREFIX %+ _ASN1_item_i2d_fp
-%xdefine _ASN1_item_ndef_i2d _ %+ BORINGSSL_PREFIX %+ _ASN1_item_ndef_i2d
 %xdefine _ASN1_item_new _ %+ BORINGSSL_PREFIX %+ _ASN1_item_new
 %xdefine _ASN1_item_pack _ %+ BORINGSSL_PREFIX %+ _ASN1_item_pack
 %xdefine _ASN1_item_sign _ %+ BORINGSSL_PREFIX %+ _ASN1_item_sign
@@ -186,13 +184,11 @@
 %xdefine _ASN1_mbstring_ncopy _ %+ BORINGSSL_PREFIX %+ _ASN1_mbstring_ncopy
 %xdefine _ASN1_object_size _ %+ BORINGSSL_PREFIX %+ _ASN1_object_size
 %xdefine _ASN1_primitive_free _ %+ BORINGSSL_PREFIX %+ _ASN1_primitive_free
-%xdefine _ASN1_primitive_new _ %+ BORINGSSL_PREFIX %+ _ASN1_primitive_new
 %xdefine _ASN1_put_eoc _ %+ BORINGSSL_PREFIX %+ _ASN1_put_eoc
 %xdefine _ASN1_put_object _ %+ BORINGSSL_PREFIX %+ _ASN1_put_object
 %xdefine _ASN1_tag2bit _ %+ BORINGSSL_PREFIX %+ _ASN1_tag2bit
 %xdefine _ASN1_tag2str _ %+ BORINGSSL_PREFIX %+ _ASN1_tag2str
 %xdefine _ASN1_template_free _ %+ BORINGSSL_PREFIX %+ _ASN1_template_free
-%xdefine _ASN1_template_new _ %+ BORINGSSL_PREFIX %+ _ASN1_template_new
 %xdefine _AUTHORITY_INFO_ACCESS_free _ %+ BORINGSSL_PREFIX %+ _AUTHORITY_INFO_ACCESS_free
 %xdefine _AUTHORITY_INFO_ACCESS_it _ %+ BORINGSSL_PREFIX %+ _AUTHORITY_INFO_ACCESS_it
 %xdefine _AUTHORITY_INFO_ACCESS_new _ %+ BORINGSSL_PREFIX %+ _AUTHORITY_INFO_ACCESS_new
@@ -509,7 +505,9 @@
 %xdefine _CBS_get_u8 _ %+ BORINGSSL_PREFIX %+ _CBS_get_u8
 %xdefine _CBS_get_u8_length_prefixed _ %+ BORINGSSL_PREFIX %+ _CBS_get_u8_length_prefixed
 %xdefine _CBS_init _ %+ BORINGSSL_PREFIX %+ _CBS_init
+%xdefine _CBS_is_unsigned_asn1_integer _ %+ BORINGSSL_PREFIX %+ _CBS_is_unsigned_asn1_integer
 %xdefine _CBS_is_valid_asn1_bitstring _ %+ BORINGSSL_PREFIX %+ _CBS_is_valid_asn1_bitstring
+%xdefine _CBS_is_valid_asn1_integer _ %+ BORINGSSL_PREFIX %+ _CBS_is_valid_asn1_integer
 %xdefine _CBS_len _ %+ BORINGSSL_PREFIX %+ _CBS_len
 %xdefine _CBS_mem_equal _ %+ BORINGSSL_PREFIX %+ _CBS_mem_equal
 %xdefine _CBS_peek_asn1_tag _ %+ BORINGSSL_PREFIX %+ _CBS_peek_asn1_tag
@@ -1087,6 +1085,7 @@
 %xdefine _EVP_aead_aes_128_ccm_bluetooth_8 _ %+ BORINGSSL_PREFIX %+ _EVP_aead_aes_128_ccm_bluetooth_8
 %xdefine _EVP_aead_aes_128_ctr_hmac_sha256 _ %+ BORINGSSL_PREFIX %+ _EVP_aead_aes_128_ctr_hmac_sha256
 %xdefine _EVP_aead_aes_128_gcm _ %+ BORINGSSL_PREFIX %+ _EVP_aead_aes_128_gcm
+%xdefine _EVP_aead_aes_128_gcm_randnonce _ %+ BORINGSSL_PREFIX %+ _EVP_aead_aes_128_gcm_randnonce
 %xdefine _EVP_aead_aes_128_gcm_siv _ %+ BORINGSSL_PREFIX %+ _EVP_aead_aes_128_gcm_siv
 %xdefine _EVP_aead_aes_128_gcm_tls12 _ %+ BORINGSSL_PREFIX %+ _EVP_aead_aes_128_gcm_tls12
 %xdefine _EVP_aead_aes_128_gcm_tls13 _ %+ BORINGSSL_PREFIX %+ _EVP_aead_aes_128_gcm_tls13
@@ -1097,6 +1096,7 @@
 %xdefine _EVP_aead_aes_256_cbc_sha384_tls _ %+ BORINGSSL_PREFIX %+ _EVP_aead_aes_256_cbc_sha384_tls
 %xdefine _EVP_aead_aes_256_ctr_hmac_sha256 _ %+ BORINGSSL_PREFIX %+ _EVP_aead_aes_256_ctr_hmac_sha256
 %xdefine _EVP_aead_aes_256_gcm _ %+ BORINGSSL_PREFIX %+ _EVP_aead_aes_256_gcm
+%xdefine _EVP_aead_aes_256_gcm_randnonce _ %+ BORINGSSL_PREFIX %+ _EVP_aead_aes_256_gcm_randnonce
 %xdefine _EVP_aead_aes_256_gcm_siv _ %+ BORINGSSL_PREFIX %+ _EVP_aead_aes_256_gcm_siv
 %xdefine _EVP_aead_aes_256_gcm_tls12 _ %+ BORINGSSL_PREFIX %+ _EVP_aead_aes_256_gcm_tls12
 %xdefine _EVP_aead_aes_256_gcm_tls13 _ %+ BORINGSSL_PREFIX %+ _EVP_aead_aes_256_gcm_tls13
@@ -1800,6 +1800,7 @@
 %xdefine _SSL_accept _ %+ BORINGSSL_PREFIX %+ _SSL_accept
 %xdefine _SSL_add0_chain_cert _ %+ BORINGSSL_PREFIX %+ _SSL_add0_chain_cert
 %xdefine _SSL_add1_chain_cert _ %+ BORINGSSL_PREFIX %+ _SSL_add1_chain_cert
+%xdefine _SSL_add_application_settings _ %+ BORINGSSL_PREFIX %+ _SSL_add_application_settings
 %xdefine _SSL_add_client_CA _ %+ BORINGSSL_PREFIX %+ _SSL_add_client_CA
 %xdefine _SSL_add_file_cert_subjects_to_stack _ %+ BORINGSSL_PREFIX %+ _SSL_add_file_cert_subjects_to_stack
 %xdefine _SSL_alert_desc_string _ %+ BORINGSSL_PREFIX %+ _SSL_alert_desc_string
@@ -1821,6 +1822,7 @@
 %xdefine _SSL_dup_CA_list _ %+ BORINGSSL_PREFIX %+ _SSL_dup_CA_list
 %xdefine _SSL_early_callback_ctx_extension_get _ %+ BORINGSSL_PREFIX %+ _SSL_early_callback_ctx_extension_get
 %xdefine _SSL_early_data_accepted _ %+ BORINGSSL_PREFIX %+ _SSL_early_data_accepted
+%xdefine _SSL_early_data_reason_string _ %+ BORINGSSL_PREFIX %+ _SSL_early_data_reason_string
 %xdefine _SSL_enable_ocsp_stapling _ %+ BORINGSSL_PREFIX %+ _SSL_enable_ocsp_stapling
 %xdefine _SSL_enable_signed_cert_timestamps _ %+ BORINGSSL_PREFIX %+ _SSL_enable_signed_cert_timestamps
 %xdefine _SSL_enable_tls_channel_id _ %+ BORINGSSL_PREFIX %+ _SSL_enable_tls_channel_id
@@ -1834,6 +1836,7 @@
 %xdefine _SSL_get0_next_proto_negotiated _ %+ BORINGSSL_PREFIX %+ _SSL_get0_next_proto_negotiated
 %xdefine _SSL_get0_ocsp_response _ %+ BORINGSSL_PREFIX %+ _SSL_get0_ocsp_response
 %xdefine _SSL_get0_param _ %+ BORINGSSL_PREFIX %+ _SSL_get0_param
+%xdefine _SSL_get0_peer_application_settings _ %+ BORINGSSL_PREFIX %+ _SSL_get0_peer_application_settings
 %xdefine _SSL_get0_peer_certificates _ %+ BORINGSSL_PREFIX %+ _SSL_get0_peer_certificates
 %xdefine _SSL_get0_peer_delegation_algorithms _ %+ BORINGSSL_PREFIX %+ _SSL_get0_peer_delegation_algorithms
 %xdefine _SSL_get0_peer_verify_algorithms _ %+ BORINGSSL_PREFIX %+ _SSL_get0_peer_verify_algorithms
@@ -1913,6 +1916,7 @@
 %xdefine _SSL_get_wbio _ %+ BORINGSSL_PREFIX %+ _SSL_get_wbio
 %xdefine _SSL_get_wfd _ %+ BORINGSSL_PREFIX %+ _SSL_get_wfd
 %xdefine _SSL_get_write_sequence _ %+ BORINGSSL_PREFIX %+ _SSL_get_write_sequence
+%xdefine _SSL_has_application_settings _ %+ BORINGSSL_PREFIX %+ _SSL_has_application_settings
 %xdefine _SSL_in_early_data _ %+ BORINGSSL_PREFIX %+ _SSL_in_early_data
 %xdefine _SSL_in_false_start _ %+ BORINGSSL_PREFIX %+ _SSL_in_false_start
 %xdefine _SSL_in_init _ %+ BORINGSSL_PREFIX %+ _SSL_in_init
@@ -2075,6 +2079,7 @@
 %xdefine _TRUST_TOKEN_ISSUER_issue _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_issue
 %xdefine _TRUST_TOKEN_ISSUER_new _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_new
 %xdefine _TRUST_TOKEN_ISSUER_redeem _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_redeem
+%xdefine _TRUST_TOKEN_ISSUER_redeem_raw _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_redeem_raw
 %xdefine _TRUST_TOKEN_ISSUER_set_metadata_key _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_set_metadata_key
 %xdefine _TRUST_TOKEN_ISSUER_set_srr_key _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_set_srr_key
 %xdefine _TRUST_TOKEN_PRETOKEN_free _ %+ BORINGSSL_PREFIX %+ _TRUST_TOKEN_PRETOKEN_free
@@ -2596,6 +2601,8 @@
 %xdefine _X509_reject_clear _ %+ BORINGSSL_PREFIX %+ _X509_reject_clear
 %xdefine _X509_set1_notAfter _ %+ BORINGSSL_PREFIX %+ _X509_set1_notAfter
 %xdefine _X509_set1_notBefore _ %+ BORINGSSL_PREFIX %+ _X509_set1_notBefore
+%xdefine _X509_set1_signature_algo _ %+ BORINGSSL_PREFIX %+ _X509_set1_signature_algo
+%xdefine _X509_set1_signature_value _ %+ BORINGSSL_PREFIX %+ _X509_set1_signature_value
 %xdefine _X509_set_ex_data _ %+ BORINGSSL_PREFIX %+ _X509_set_ex_data
 %xdefine _X509_set_issuer_name _ %+ BORINGSSL_PREFIX %+ _X509_set_issuer_name
 %xdefine _X509_set_notAfter _ %+ BORINGSSL_PREFIX %+ _X509_set_notAfter
@@ -2682,8 +2689,6 @@
 %xdefine _asn1_enc_init _ %+ BORINGSSL_PREFIX %+ _asn1_enc_init
 %xdefine _asn1_enc_restore _ %+ BORINGSSL_PREFIX %+ _asn1_enc_restore
 %xdefine _asn1_enc_save _ %+ BORINGSSL_PREFIX %+ _asn1_enc_save
-%xdefine _asn1_ex_c2i _ %+ BORINGSSL_PREFIX %+ _asn1_ex_c2i
-%xdefine _asn1_ex_i2c _ %+ BORINGSSL_PREFIX %+ _asn1_ex_i2c
 %xdefine _asn1_generalizedtime_to_tm _ %+ BORINGSSL_PREFIX %+ _asn1_generalizedtime_to_tm
 %xdefine _asn1_get_choice_selector _ %+ BORINGSSL_PREFIX %+ _asn1_get_choice_selector
 %xdefine _asn1_get_field_ptr _ %+ BORINGSSL_PREFIX %+ _asn1_get_field_ptr
@@ -3141,6 +3146,7 @@
 %xdefine _i2d_X509_CRL_INFO _ %+ BORINGSSL_PREFIX %+ _i2d_X509_CRL_INFO
 %xdefine _i2d_X509_CRL_bio _ %+ BORINGSSL_PREFIX %+ _i2d_X509_CRL_bio
 %xdefine _i2d_X509_CRL_fp _ %+ BORINGSSL_PREFIX %+ _i2d_X509_CRL_fp
+%xdefine _i2d_X509_CRL_tbs _ %+ BORINGSSL_PREFIX %+ _i2d_X509_CRL_tbs
 %xdefine _i2d_X509_EXTENSION _ %+ BORINGSSL_PREFIX %+ _i2d_X509_EXTENSION
 %xdefine _i2d_X509_EXTENSIONS _ %+ BORINGSSL_PREFIX %+ _i2d_X509_EXTENSIONS
 %xdefine _i2d_X509_NAME _ %+ BORINGSSL_PREFIX %+ _i2d_X509_NAME
@@ -3155,6 +3161,7 @@
 %xdefine _i2d_X509_VAL _ %+ BORINGSSL_PREFIX %+ _i2d_X509_VAL
 %xdefine _i2d_X509_bio _ %+ BORINGSSL_PREFIX %+ _i2d_X509_bio
 %xdefine _i2d_X509_fp _ %+ BORINGSSL_PREFIX %+ _i2d_X509_fp
+%xdefine _i2d_X509_tbs _ %+ BORINGSSL_PREFIX %+ _i2d_X509_tbs
 %xdefine _i2d_re_X509_CRL_tbs _ %+ BORINGSSL_PREFIX %+ _i2d_re_X509_CRL_tbs
 %xdefine _i2d_re_X509_REQ_tbs _ %+ BORINGSSL_PREFIX %+ _i2d_re_X509_REQ_tbs
 %xdefine _i2d_re_X509_tbs _ %+ BORINGSSL_PREFIX %+ _i2d_re_X509_tbs
@@ -3428,7 +3435,6 @@
 %xdefine ASN1_OBJECT_free BORINGSSL_PREFIX %+ _ASN1_OBJECT_free
 %xdefine ASN1_OBJECT_it BORINGSSL_PREFIX %+ _ASN1_OBJECT_it
 %xdefine ASN1_OBJECT_new BORINGSSL_PREFIX %+ _ASN1_OBJECT_new
-%xdefine ASN1_OCTET_STRING_NDEF_it BORINGSSL_PREFIX %+ _ASN1_OCTET_STRING_NDEF_it
 %xdefine ASN1_OCTET_STRING_cmp BORINGSSL_PREFIX %+ _ASN1_OCTET_STRING_cmp
 %xdefine ASN1_OCTET_STRING_dup BORINGSSL_PREFIX %+ _ASN1_OCTET_STRING_dup
 %xdefine ASN1_OCTET_STRING_free BORINGSSL_PREFIX %+ _ASN1_OCTET_STRING_free
@@ -3523,7 +3529,6 @@
 %xdefine ASN1_item_i2d BORINGSSL_PREFIX %+ _ASN1_item_i2d
 %xdefine ASN1_item_i2d_bio BORINGSSL_PREFIX %+ _ASN1_item_i2d_bio
 %xdefine ASN1_item_i2d_fp BORINGSSL_PREFIX %+ _ASN1_item_i2d_fp
-%xdefine ASN1_item_ndef_i2d BORINGSSL_PREFIX %+ _ASN1_item_ndef_i2d
 %xdefine ASN1_item_new BORINGSSL_PREFIX %+ _ASN1_item_new
 %xdefine ASN1_item_pack BORINGSSL_PREFIX %+ _ASN1_item_pack
 %xdefine ASN1_item_sign BORINGSSL_PREFIX %+ _ASN1_item_sign
@@ -3534,13 +3539,11 @@
 %xdefine ASN1_mbstring_ncopy BORINGSSL_PREFIX %+ _ASN1_mbstring_ncopy
 %xdefine ASN1_object_size BORINGSSL_PREFIX %+ _ASN1_object_size
 %xdefine ASN1_primitive_free BORINGSSL_PREFIX %+ _ASN1_primitive_free
-%xdefine ASN1_primitive_new BORINGSSL_PREFIX %+ _ASN1_primitive_new
 %xdefine ASN1_put_eoc BORINGSSL_PREFIX %+ _ASN1_put_eoc
 %xdefine ASN1_put_object BORINGSSL_PREFIX %+ _ASN1_put_object
 %xdefine ASN1_tag2bit BORINGSSL_PREFIX %+ _ASN1_tag2bit
 %xdefine ASN1_tag2str BORINGSSL_PREFIX %+ _ASN1_tag2str
 %xdefine ASN1_template_free BORINGSSL_PREFIX %+ _ASN1_template_free
-%xdefine ASN1_template_new BORINGSSL_PREFIX %+ _ASN1_template_new
 %xdefine AUTHORITY_INFO_ACCESS_free BORINGSSL_PREFIX %+ _AUTHORITY_INFO_ACCESS_free
 %xdefine AUTHORITY_INFO_ACCESS_it BORINGSSL_PREFIX %+ _AUTHORITY_INFO_ACCESS_it
 %xdefine AUTHORITY_INFO_ACCESS_new BORINGSSL_PREFIX %+ _AUTHORITY_INFO_ACCESS_new
@@ -3857,7 +3860,9 @@
 %xdefine CBS_get_u8 BORINGSSL_PREFIX %+ _CBS_get_u8
 %xdefine CBS_get_u8_length_prefixed BORINGSSL_PREFIX %+ _CBS_get_u8_length_prefixed
 %xdefine CBS_init BORINGSSL_PREFIX %+ _CBS_init
+%xdefine CBS_is_unsigned_asn1_integer BORINGSSL_PREFIX %+ _CBS_is_unsigned_asn1_integer
 %xdefine CBS_is_valid_asn1_bitstring BORINGSSL_PREFIX %+ _CBS_is_valid_asn1_bitstring
+%xdefine CBS_is_valid_asn1_integer BORINGSSL_PREFIX %+ _CBS_is_valid_asn1_integer
 %xdefine CBS_len BORINGSSL_PREFIX %+ _CBS_len
 %xdefine CBS_mem_equal BORINGSSL_PREFIX %+ _CBS_mem_equal
 %xdefine CBS_peek_asn1_tag BORINGSSL_PREFIX %+ _CBS_peek_asn1_tag
@@ -4435,6 +4440,7 @@
 %xdefine EVP_aead_aes_128_ccm_bluetooth_8 BORINGSSL_PREFIX %+ _EVP_aead_aes_128_ccm_bluetooth_8
 %xdefine EVP_aead_aes_128_ctr_hmac_sha256 BORINGSSL_PREFIX %+ _EVP_aead_aes_128_ctr_hmac_sha256
 %xdefine EVP_aead_aes_128_gcm BORINGSSL_PREFIX %+ _EVP_aead_aes_128_gcm
+%xdefine EVP_aead_aes_128_gcm_randnonce BORINGSSL_PREFIX %+ _EVP_aead_aes_128_gcm_randnonce
 %xdefine EVP_aead_aes_128_gcm_siv BORINGSSL_PREFIX %+ _EVP_aead_aes_128_gcm_siv
 %xdefine EVP_aead_aes_128_gcm_tls12 BORINGSSL_PREFIX %+ _EVP_aead_aes_128_gcm_tls12
 %xdefine EVP_aead_aes_128_gcm_tls13 BORINGSSL_PREFIX %+ _EVP_aead_aes_128_gcm_tls13
@@ -4445,6 +4451,7 @@
 %xdefine EVP_aead_aes_256_cbc_sha384_tls BORINGSSL_PREFIX %+ _EVP_aead_aes_256_cbc_sha384_tls
 %xdefine EVP_aead_aes_256_ctr_hmac_sha256 BORINGSSL_PREFIX %+ _EVP_aead_aes_256_ctr_hmac_sha256
 %xdefine EVP_aead_aes_256_gcm BORINGSSL_PREFIX %+ _EVP_aead_aes_256_gcm
+%xdefine EVP_aead_aes_256_gcm_randnonce BORINGSSL_PREFIX %+ _EVP_aead_aes_256_gcm_randnonce
 %xdefine EVP_aead_aes_256_gcm_siv BORINGSSL_PREFIX %+ _EVP_aead_aes_256_gcm_siv
 %xdefine EVP_aead_aes_256_gcm_tls12 BORINGSSL_PREFIX %+ _EVP_aead_aes_256_gcm_tls12
 %xdefine EVP_aead_aes_256_gcm_tls13 BORINGSSL_PREFIX %+ _EVP_aead_aes_256_gcm_tls13
@@ -5148,6 +5155,7 @@
 %xdefine SSL_accept BORINGSSL_PREFIX %+ _SSL_accept
 %xdefine SSL_add0_chain_cert BORINGSSL_PREFIX %+ _SSL_add0_chain_cert
 %xdefine SSL_add1_chain_cert BORINGSSL_PREFIX %+ _SSL_add1_chain_cert
+%xdefine SSL_add_application_settings BORINGSSL_PREFIX %+ _SSL_add_application_settings
 %xdefine SSL_add_client_CA BORINGSSL_PREFIX %+ _SSL_add_client_CA
 %xdefine SSL_add_file_cert_subjects_to_stack BORINGSSL_PREFIX %+ _SSL_add_file_cert_subjects_to_stack
 %xdefine SSL_alert_desc_string BORINGSSL_PREFIX %+ _SSL_alert_desc_string
@@ -5169,6 +5177,7 @@
 %xdefine SSL_dup_CA_list BORINGSSL_PREFIX %+ _SSL_dup_CA_list
 %xdefine SSL_early_callback_ctx_extension_get BORINGSSL_PREFIX %+ _SSL_early_callback_ctx_extension_get
 %xdefine SSL_early_data_accepted BORINGSSL_PREFIX %+ _SSL_early_data_accepted
+%xdefine SSL_early_data_reason_string BORINGSSL_PREFIX %+ _SSL_early_data_reason_string
 %xdefine SSL_enable_ocsp_stapling BORINGSSL_PREFIX %+ _SSL_enable_ocsp_stapling
 %xdefine SSL_enable_signed_cert_timestamps BORINGSSL_PREFIX %+ _SSL_enable_signed_cert_timestamps
 %xdefine SSL_enable_tls_channel_id BORINGSSL_PREFIX %+ _SSL_enable_tls_channel_id
@@ -5182,6 +5191,7 @@
 %xdefine SSL_get0_next_proto_negotiated BORINGSSL_PREFIX %+ _SSL_get0_next_proto_negotiated
 %xdefine SSL_get0_ocsp_response BORINGSSL_PREFIX %+ _SSL_get0_ocsp_response
 %xdefine SSL_get0_param BORINGSSL_PREFIX %+ _SSL_get0_param
+%xdefine SSL_get0_peer_application_settings BORINGSSL_PREFIX %+ _SSL_get0_peer_application_settings
 %xdefine SSL_get0_peer_certificates BORINGSSL_PREFIX %+ _SSL_get0_peer_certificates
 %xdefine SSL_get0_peer_delegation_algorithms BORINGSSL_PREFIX %+ _SSL_get0_peer_delegation_algorithms
 %xdefine SSL_get0_peer_verify_algorithms BORINGSSL_PREFIX %+ _SSL_get0_peer_verify_algorithms
@@ -5261,6 +5271,7 @@
 %xdefine SSL_get_wbio BORINGSSL_PREFIX %+ _SSL_get_wbio
 %xdefine SSL_get_wfd BORINGSSL_PREFIX %+ _SSL_get_wfd
 %xdefine SSL_get_write_sequence BORINGSSL_PREFIX %+ _SSL_get_write_sequence
+%xdefine SSL_has_application_settings BORINGSSL_PREFIX %+ _SSL_has_application_settings
 %xdefine SSL_in_early_data BORINGSSL_PREFIX %+ _SSL_in_early_data
 %xdefine SSL_in_false_start BORINGSSL_PREFIX %+ _SSL_in_false_start
 %xdefine SSL_in_init BORINGSSL_PREFIX %+ _SSL_in_init
@@ -5423,6 +5434,7 @@
 %xdefine TRUST_TOKEN_ISSUER_issue BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_issue
 %xdefine TRUST_TOKEN_ISSUER_new BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_new
 %xdefine TRUST_TOKEN_ISSUER_redeem BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_redeem
+%xdefine TRUST_TOKEN_ISSUER_redeem_raw BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_redeem_raw
 %xdefine TRUST_TOKEN_ISSUER_set_metadata_key BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_set_metadata_key
 %xdefine TRUST_TOKEN_ISSUER_set_srr_key BORINGSSL_PREFIX %+ _TRUST_TOKEN_ISSUER_set_srr_key
 %xdefine TRUST_TOKEN_PRETOKEN_free BORINGSSL_PREFIX %+ _TRUST_TOKEN_PRETOKEN_free
@@ -5944,6 +5956,8 @@
 %xdefine X509_reject_clear BORINGSSL_PREFIX %+ _X509_reject_clear
 %xdefine X509_set1_notAfter BORINGSSL_PREFIX %+ _X509_set1_notAfter
 %xdefine X509_set1_notBefore BORINGSSL_PREFIX %+ _X509_set1_notBefore
+%xdefine X509_set1_signature_algo BORINGSSL_PREFIX %+ _X509_set1_signature_algo
+%xdefine X509_set1_signature_value BORINGSSL_PREFIX %+ _X509_set1_signature_value
 %xdefine X509_set_ex_data BORINGSSL_PREFIX %+ _X509_set_ex_data
 %xdefine X509_set_issuer_name BORINGSSL_PREFIX %+ _X509_set_issuer_name
 %xdefine X509_set_notAfter BORINGSSL_PREFIX %+ _X509_set_notAfter
@@ -6030,8 +6044,6 @@
 %xdefine asn1_enc_init BORINGSSL_PREFIX %+ _asn1_enc_init
 %xdefine asn1_enc_restore BORINGSSL_PREFIX %+ _asn1_enc_restore
 %xdefine asn1_enc_save BORINGSSL_PREFIX %+ _asn1_enc_save
-%xdefine asn1_ex_c2i BORINGSSL_PREFIX %+ _asn1_ex_c2i
-%xdefine asn1_ex_i2c BORINGSSL_PREFIX %+ _asn1_ex_i2c
 %xdefine asn1_generalizedtime_to_tm BORINGSSL_PREFIX %+ _asn1_generalizedtime_to_tm
 %xdefine asn1_get_choice_selector BORINGSSL_PREFIX %+ _asn1_get_choice_selector
 %xdefine asn1_get_field_ptr BORINGSSL_PREFIX %+ _asn1_get_field_ptr
@@ -6489,6 +6501,7 @@
 %xdefine i2d_X509_CRL_INFO BORINGSSL_PREFIX %+ _i2d_X509_CRL_INFO
 %xdefine i2d_X509_CRL_bio BORINGSSL_PREFIX %+ _i2d_X509_CRL_bio
 %xdefine i2d_X509_CRL_fp BORINGSSL_PREFIX %+ _i2d_X509_CRL_fp
+%xdefine i2d_X509_CRL_tbs BORINGSSL_PREFIX %+ _i2d_X509_CRL_tbs
 %xdefine i2d_X509_EXTENSION BORINGSSL_PREFIX %+ _i2d_X509_EXTENSION
 %xdefine i2d_X509_EXTENSIONS BORINGSSL_PREFIX %+ _i2d_X509_EXTENSIONS
 %xdefine i2d_X509_NAME BORINGSSL_PREFIX %+ _i2d_X509_NAME
@@ -6503,6 +6516,7 @@
 %xdefine i2d_X509_VAL BORINGSSL_PREFIX %+ _i2d_X509_VAL
 %xdefine i2d_X509_bio BORINGSSL_PREFIX %+ _i2d_X509_bio
 %xdefine i2d_X509_fp BORINGSSL_PREFIX %+ _i2d_X509_fp
+%xdefine i2d_X509_tbs BORINGSSL_PREFIX %+ _i2d_X509_tbs
 %xdefine i2d_re_X509_CRL_tbs BORINGSSL_PREFIX %+ _i2d_re_X509_CRL_tbs
 %xdefine i2d_re_X509_REQ_tbs BORINGSSL_PREFIX %+ _i2d_re_X509_REQ_tbs
 %xdefine i2d_re_X509_tbs BORINGSSL_PREFIX %+ _i2d_re_X509_tbs
