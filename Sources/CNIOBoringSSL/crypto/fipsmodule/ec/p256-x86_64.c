@@ -27,8 +27,6 @@
 #include <CNIOBoringSSL_crypto.h>
 #include <CNIOBoringSSL_err.h>
 
-#include <CNIOBoringSSL_cpu.h>
-
 #include "../bn/internal.h"
 #include "../delocate.h"
 #include "../../internal.h"
