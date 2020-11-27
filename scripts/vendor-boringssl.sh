@@ -229,7 +229,7 @@ echo "DELETING crypto/fipsmodule/bcm.c"
 rm -f $DSTROOT/crypto/fipsmodule/bcm.c
 
 echo "FIXING missing include"
-perl -pi -e '$_ .= qq(\n#include <openssl/cpu.h>\n) if /#include <openssl\/err.h>/' "$DSTROOT/crypto/fipsmodule/ec/p256-x86_64.c"
+perl -pi -e '$_ .= qq(\n#include <openssl/evp.h>\n) if /#include <openssl\/ec_key.h>/' "$DSTROOT/crypto/fipsmodule/self_check/self_check.c"
 
 mangle_symbols
 
