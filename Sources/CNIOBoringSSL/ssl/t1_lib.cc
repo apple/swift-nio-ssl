@@ -2561,7 +2561,7 @@ static bool ext_token_binding_parse_clienthello(SSL_HANDSHAKE *hs,
   // If the client-selected version is higher than we support, use our max
   // version. Otherwise, use the client's version.
   hs->negotiated_token_binding_version =
-      std::min(version, kTokenBindingMaxVersion);
+      (std::min)(version, kTokenBindingMaxVersion);
   if (!select_tb_param(hs, params)) {
     return true;
   }

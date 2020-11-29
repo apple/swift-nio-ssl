@@ -313,7 +313,7 @@ class Array {
       return true;
     }
 
-    if (new_size > std::numeric_limits<size_t>::max() / sizeof(T)) {
+    if (new_size > (std::numeric_limits<size_t>::max)() / sizeof(T)) {
       OPENSSL_PUT_ERROR(SSL, ERR_R_OVERFLOW);
       return false;
     }
@@ -427,7 +427,7 @@ class GrowableArray {
       return true;
     }
     // Double the array's size if it's safe to do so.
-    if (array_.size() > std::numeric_limits<size_t>::max() / 2) {
+    if (array_.size() > (std::numeric_limits<size_t>::max)() / 2) {
       OPENSSL_PUT_ERROR(SSL, ERR_R_OVERFLOW);
       return false;
     }

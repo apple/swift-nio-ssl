@@ -1079,7 +1079,7 @@ int SSL_peek(SSL *ssl, void *buf, int num) {
     return num;
   }
   size_t todo =
-      std::min(ssl->s3->pending_app_data.size(), static_cast<size_t>(num));
+      (std::min)(ssl->s3->pending_app_data.size(), static_cast<size_t>(num));
   OPENSSL_memcpy(buf, ssl->s3->pending_app_data.data(), todo);
   return static_cast<int>(todo);
 }

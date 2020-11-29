@@ -541,8 +541,8 @@ bool SSL_apply_handback(SSL *ssl, Span<const uint8_t> handback) {
         !CBS_get_asn1(&seq, &early_traffic_secret, CBS_ASN1_OCTETSTRING)) {
       return false;
     }
-    if (ticket_age_skew > std::numeric_limits<int32_t>::max() ||
-        ticket_age_skew < std::numeric_limits<int32_t>::min()) {
+    if (ticket_age_skew > (std::numeric_limits<int32_t>::max)() ||
+        ticket_age_skew < (std::numeric_limits<int32_t>::min)()) {
       return false;
     }
     s3->ticket_age_skew = static_cast<int32_t>(ticket_age_skew);
