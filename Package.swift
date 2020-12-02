@@ -47,5 +47,5 @@ MANGLE_END */
         .target(name: "NIOSSLPerformanceTester", dependencies: ["NIO", "NIOSSL"]),
         .testTarget(name: "NIOSSLTests", dependencies: ["NIOTLS", "NIOSSL"]),
     ],
-    cxxLanguageStandard: .cxx11
+    cxxLanguageStandard: .cxx14
 )
