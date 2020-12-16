@@ -722,6 +722,7 @@ SSL *SSL_new(SSL_CTX *ctx) {
 
 SSL_CONFIG::SSL_CONFIG(SSL *ssl_arg)
     : ssl(ssl_arg),
+      ech_grease_enabled(false),
       signed_cert_timestamps_enabled(false),
       ocsp_stapling_enabled(false),
       channel_id_enabled(false),
@@ -729,7 +730,8 @@ SSL_CONFIG::SSL_CONFIG(SSL *ssl_arg)
       retain_only_sha256_of_client_certs(false),
       handoff(false),
       shed_handshake_config(false),
-      jdk11_workaround(false) {
+      jdk11_workaround(false),
+      quic_use_legacy_codepoint(true) {
   assert(ssl);
 }
 
@@ -1464,6 +1466,13 @@ const char *SSL_error_description(int err) {
     default:
       return nullptr;
   }
+}
+
+void SSL_set_enable_ech_grease(SSL *ssl, int enable) {
+  if (!ssl->config) {
+    return;
+  }
+  ssl->config->ech_grease_enabled = !!enable;
 }
 
 uint32_t SSL_CTX_set_options(SSL_CTX *ctx, uint32_t options) {
@@ -2948,6 +2957,13 @@ void SSL_set_jdk11_workaround(SSL *ssl, int enable) {
     return;
   }
   ssl->config->jdk11_workaround = !!enable;
+}
+
+void SSL_set_quic_use_legacy_codepoint(SSL *ssl, int use_legacy) {
+  if (!ssl->config) {
+    return;
+  }
+  ssl->config->quic_use_legacy_codepoint = !!use_legacy;
 }
 
 int SSL_clear(SSL *ssl) {

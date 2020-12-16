@@ -59,7 +59,6 @@
 
 #include "CNIOBoringSSL_base.h"
 
-#include "CNIOBoringSSL_ex_data.h"
 #include "CNIOBoringSSL_thread.h"
 
 #if defined(__cplusplus)
@@ -179,6 +178,19 @@ OPENSSL_EXPORT int DH_generate_key(DH *dh);
 OPENSSL_EXPORT int DH_compute_key(uint8_t *out, const BIGNUM *peers_key,
                                   DH *dh);
 
+// DH_compute_key_hashed calculates the shared key between |dh| and |peers_key|
+// and hashes it with the given |digest|. If the hash output is less than
+// |max_out_len| bytes then it writes the hash output to |out| and sets
+// |*out_len| to the number of bytes written. Otherwise it signals an error. It
+// returns one on success or zero on error.
+//
+// NOTE: this follows the usual BoringSSL return-value convention, but that's
+// different from |DH_compute_key|, above.
+OPENSSL_EXPORT int DH_compute_key_hashed(DH *dh, uint8_t *out, size_t *out_len,
+                                         size_t max_out_len,
+                                         const BIGNUM *peers_key,
+                                         const EVP_MD *digest);
+
 
 // Utility functions.
 
@@ -237,18 +249,6 @@ OPENSSL_EXPORT DH *DH_parse_parameters(CBS *cbs);
 OPENSSL_EXPORT int DH_marshal_parameters(CBB *cbb, const DH *dh);
 
 
-// ex_data functions.
-//
-// See |ex_data.h| for details.
-
-OPENSSL_EXPORT int DH_get_ex_new_index(long argl, void *argp,
-                                       CRYPTO_EX_unused *unused,
-                                       CRYPTO_EX_dup *dup_unused,
-                                       CRYPTO_EX_free *free_func);
-OPENSSL_EXPORT int DH_set_ex_data(DH *d, int idx, void *arg);
-OPENSSL_EXPORT void *DH_get_ex_data(DH *d, int idx);
-
-
 // Deprecated functions.
 
 // DH_generate_parameters behaves like |DH_generate_parameters_ex|, which is
@@ -301,7 +301,6 @@ struct dh_st {
 
   int flags;
   CRYPTO_refcount_t references;
-  CRYPTO_EX_DATA ex_data;
 };
 
 

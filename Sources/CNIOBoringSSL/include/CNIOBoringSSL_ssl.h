@@ -2823,13 +2823,11 @@ OPENSSL_EXPORT int SSL_has_application_settings(const SSL *ssl);
 
 // Certificate compression.
 //
-// Certificates in TLS 1.3 can be compressed[1]. BoringSSL supports this as both
-// a client and a server, but does not link against any specific compression
-// libraries in order to keep dependencies to a minimum. Instead, hooks for
-// compression and decompression can be installed in an |SSL_CTX| to enable
-// support.
-//
-// [1] https://tools.ietf.org/html/draft-ietf-tls-certificate-compression-03.
+// Certificates in TLS 1.3 can be compressed (RFC 8879). BoringSSL supports this
+// as both a client and a server, but does not link against any specific
+// compression libraries in order to keep dependencies to a minimum. Instead,
+// hooks for compression and decompression can be installed in an |SSL_CTX| to
+// enable support.
 
 // ssl_cert_compression_func_t is a pointer to a function that performs
 // compression. It must write the compressed representation of |in| to |out|,
@@ -3386,6 +3384,12 @@ OPENSSL_EXPORT int SSL_set_quic_transport_params(SSL *ssl,
 OPENSSL_EXPORT void SSL_get_peer_quic_transport_params(
     const SSL *ssl, const uint8_t **out_params, size_t *out_params_len);
 
+// SSL_set_quic_use_legacy_codepoint configures whether to use the legacy QUIC
+// extension codepoint 0xffa5 as opposed to the official value 57. Call with
+// |use_legacy| set to 1 to use 0xffa5 and call with 0 to use 57. The default
+// value for this is currently 1 but it will change to 0 at a later date.
+OPENSSL_EXPORT void SSL_set_quic_use_legacy_codepoint(SSL *ssl, int use_legacy);
+
 // SSL_set_quic_early_data_context configures a context string in QUIC servers
 // for accepting early data. If a resumption connection offers early data, the
 // server will check if the value matches that of the connection which minted
@@ -3553,6 +3557,21 @@ OPENSSL_EXPORT enum ssl_early_data_reason_t SSL_get_early_data_reason(
 // NULL if |reason| is unknown. This function may be used for logging.
 OPENSSL_EXPORT const char *SSL_early_data_reason_string(
     enum ssl_early_data_reason_t reason);
+
+
+// Encrypted Client Hello.
+//
+// ECH is a mechanism for encrypting the entire ClientHello message in TLS 1.3.
+// This can prevent observers from seeing cleartext information about the
+// connection, such as the server_name extension.
+//
+// ECH support in BoringSSL is still experimental and under development.
+//
+// See https://tools.ietf.org/html/draft-ietf-tls-esni-08.
+
+// SSL_set_enable_ech_grease configures whether the client may send ECH GREASE
+// as part of this connection.
+OPENSSL_EXPORT void SSL_set_enable_ech_grease(SSL *ssl, int enable);
 
 
 // Alerts.

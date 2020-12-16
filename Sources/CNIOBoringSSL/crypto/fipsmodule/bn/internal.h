@@ -123,7 +123,7 @@
 #ifndef OPENSSL_HEADER_BN_INTERNAL_H
 #define OPENSSL_HEADER_BN_INTERNAL_H
 
-#include <CNIOBoringSSL_base.h>
+#include <CNIOBoringSSL_bn.h>
 
 #if defined(OPENSSL_X86_64) && defined(_MSC_VER)
 OPENSSL_MSVC_PRAGMA(warning(push, 3))

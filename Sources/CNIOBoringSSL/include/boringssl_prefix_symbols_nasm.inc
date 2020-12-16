@@ -639,6 +639,7 @@
 %xdefine _DH_check _ %+ BORINGSSL_PREFIX %+ _DH_check
 %xdefine _DH_check_pub_key _ %+ BORINGSSL_PREFIX %+ _DH_check_pub_key
 %xdefine _DH_compute_key _ %+ BORINGSSL_PREFIX %+ _DH_compute_key
+%xdefine _DH_compute_key_hashed _ %+ BORINGSSL_PREFIX %+ _DH_compute_key_hashed
 %xdefine _DH_free _ %+ BORINGSSL_PREFIX %+ _DH_free
 %xdefine _DH_generate_key _ %+ BORINGSSL_PREFIX %+ _DH_generate_key
 %xdefine _DH_generate_parameters_ex _ %+ BORINGSSL_PREFIX %+ _DH_generate_parameters_ex
@@ -649,15 +650,12 @@
 %xdefine _DH_get0_priv_key _ %+ BORINGSSL_PREFIX %+ _DH_get0_priv_key
 %xdefine _DH_get0_pub_key _ %+ BORINGSSL_PREFIX %+ _DH_get0_pub_key
 %xdefine _DH_get0_q _ %+ BORINGSSL_PREFIX %+ _DH_get0_q
-%xdefine _DH_get_ex_data _ %+ BORINGSSL_PREFIX %+ _DH_get_ex_data
-%xdefine _DH_get_ex_new_index _ %+ BORINGSSL_PREFIX %+ _DH_get_ex_new_index
 %xdefine _DH_marshal_parameters _ %+ BORINGSSL_PREFIX %+ _DH_marshal_parameters
 %xdefine _DH_new _ %+ BORINGSSL_PREFIX %+ _DH_new
 %xdefine _DH_num_bits _ %+ BORINGSSL_PREFIX %+ _DH_num_bits
 %xdefine _DH_parse_parameters _ %+ BORINGSSL_PREFIX %+ _DH_parse_parameters
 %xdefine _DH_set0_key _ %+ BORINGSSL_PREFIX %+ _DH_set0_key
 %xdefine _DH_set0_pqg _ %+ BORINGSSL_PREFIX %+ _DH_set0_pqg
-%xdefine _DH_set_ex_data _ %+ BORINGSSL_PREFIX %+ _DH_set_ex_data
 %xdefine _DH_set_length _ %+ BORINGSSL_PREFIX %+ _DH_set_length
 %xdefine _DH_size _ %+ BORINGSSL_PREFIX %+ _DH_size
 %xdefine _DH_up_ref _ %+ BORINGSSL_PREFIX %+ _DH_up_ref
@@ -966,6 +964,8 @@
 %xdefine _EVP_HPKE_CTX_setup_psk_r_x25519 _ %+ BORINGSSL_PREFIX %+ _EVP_HPKE_CTX_setup_psk_r_x25519
 %xdefine _EVP_HPKE_CTX_setup_psk_s_x25519 _ %+ BORINGSSL_PREFIX %+ _EVP_HPKE_CTX_setup_psk_s_x25519
 %xdefine _EVP_HPKE_CTX_setup_psk_s_x25519_for_test _ %+ BORINGSSL_PREFIX %+ _EVP_HPKE_CTX_setup_psk_s_x25519_for_test
+%xdefine _EVP_HPKE_get_aead _ %+ BORINGSSL_PREFIX %+ _EVP_HPKE_get_aead
+%xdefine _EVP_HPKE_get_hkdf_md _ %+ BORINGSSL_PREFIX %+ _EVP_HPKE_get_hkdf_md
 %xdefine _EVP_MD_CTX_block_size _ %+ BORINGSSL_PREFIX %+ _EVP_MD_CTX_block_size
 %xdefine _EVP_MD_CTX_cleanup _ %+ BORINGSSL_PREFIX %+ _EVP_MD_CTX_cleanup
 %xdefine _EVP_MD_CTX_copy _ %+ BORINGSSL_PREFIX %+ _EVP_MD_CTX_copy
@@ -1975,6 +1975,7 @@
 %xdefine _SSL_set_connect_state _ %+ BORINGSSL_PREFIX %+ _SSL_set_connect_state
 %xdefine _SSL_set_custom_verify _ %+ BORINGSSL_PREFIX %+ _SSL_set_custom_verify
 %xdefine _SSL_set_early_data_enabled _ %+ BORINGSSL_PREFIX %+ _SSL_set_early_data_enabled
+%xdefine _SSL_set_enable_ech_grease _ %+ BORINGSSL_PREFIX %+ _SSL_set_enable_ech_grease
 %xdefine _SSL_set_enforce_rsa_key_usage _ %+ BORINGSSL_PREFIX %+ _SSL_set_enforce_rsa_key_usage
 %xdefine _SSL_set_ex_data _ %+ BORINGSSL_PREFIX %+ _SSL_set_ex_data
 %xdefine _SSL_set_fd _ %+ BORINGSSL_PREFIX %+ _SSL_set_fd
@@ -1998,6 +1999,7 @@
 %xdefine _SSL_set_quic_early_data_context _ %+ BORINGSSL_PREFIX %+ _SSL_set_quic_early_data_context
 %xdefine _SSL_set_quic_method _ %+ BORINGSSL_PREFIX %+ _SSL_set_quic_method
 %xdefine _SSL_set_quic_transport_params _ %+ BORINGSSL_PREFIX %+ _SSL_set_quic_transport_params
+%xdefine _SSL_set_quic_use_legacy_codepoint _ %+ BORINGSSL_PREFIX %+ _SSL_set_quic_use_legacy_codepoint
 %xdefine _SSL_set_quiet_shutdown _ %+ BORINGSSL_PREFIX %+ _SSL_set_quiet_shutdown
 %xdefine _SSL_set_read_ahead _ %+ BORINGSSL_PREFIX %+ _SSL_set_read_ahead
 %xdefine _SSL_set_renegotiate_mode _ %+ BORINGSSL_PREFIX %+ _SSL_set_renegotiate_mode
@@ -3994,6 +3996,7 @@
 %xdefine DH_check BORINGSSL_PREFIX %+ _DH_check
 %xdefine DH_check_pub_key BORINGSSL_PREFIX %+ _DH_check_pub_key
 %xdefine DH_compute_key BORINGSSL_PREFIX %+ _DH_compute_key
+%xdefine DH_compute_key_hashed BORINGSSL_PREFIX %+ _DH_compute_key_hashed
 %xdefine DH_free BORINGSSL_PREFIX %+ _DH_free
 %xdefine DH_generate_key BORINGSSL_PREFIX %+ _DH_generate_key
 %xdefine DH_generate_parameters_ex BORINGSSL_PREFIX %+ _DH_generate_parameters_ex
@@ -4004,15 +4007,12 @@
 %xdefine DH_get0_priv_key BORINGSSL_PREFIX %+ _DH_get0_priv_key
 %xdefine DH_get0_pub_key BORINGSSL_PREFIX %+ _DH_get0_pub_key
 %xdefine DH_get0_q BORINGSSL_PREFIX %+ _DH_get0_q
-%xdefine DH_get_ex_data BORINGSSL_PREFIX %+ _DH_get_ex_data
-%xdefine DH_get_ex_new_index BORINGSSL_PREFIX %+ _DH_get_ex_new_index
 %xdefine DH_marshal_parameters BORINGSSL_PREFIX %+ _DH_marshal_parameters
 %xdefine DH_new BORINGSSL_PREFIX %+ _DH_new
 %xdefine DH_num_bits BORINGSSL_PREFIX %+ _DH_num_bits
 %xdefine DH_parse_parameters BORINGSSL_PREFIX %+ _DH_parse_parameters
 %xdefine DH_set0_key BORINGSSL_PREFIX %+ _DH_set0_key
 %xdefine DH_set0_pqg BORINGSSL_PREFIX %+ _DH_set0_pqg
-%xdefine DH_set_ex_data BORINGSSL_PREFIX %+ _DH_set_ex_data
 %xdefine DH_set_length BORINGSSL_PREFIX %+ _DH_set_length
 %xdefine DH_size BORINGSSL_PREFIX %+ _DH_size
 %xdefine DH_up_ref BORINGSSL_PREFIX %+ _DH_up_ref
@@ -4321,6 +4321,8 @@
 %xdefine EVP_HPKE_CTX_setup_psk_r_x25519 BORINGSSL_PREFIX %+ _EVP_HPKE_CTX_setup_psk_r_x25519
 %xdefine EVP_HPKE_CTX_setup_psk_s_x25519 BORINGSSL_PREFIX %+ _EVP_HPKE_CTX_setup_psk_s_x25519
 %xdefine EVP_HPKE_CTX_setup_psk_s_x25519_for_test BORINGSSL_PREFIX %+ _EVP_HPKE_CTX_setup_psk_s_x25519_for_test
+%xdefine EVP_HPKE_get_aead BORINGSSL_PREFIX %+ _EVP_HPKE_get_aead
+%xdefine EVP_HPKE_get_hkdf_md BORINGSSL_PREFIX %+ _EVP_HPKE_get_hkdf_md
 %xdefine EVP_MD_CTX_block_size BORINGSSL_PREFIX %+ _EVP_MD_CTX_block_size
 %xdefine EVP_MD_CTX_cleanup BORINGSSL_PREFIX %+ _EVP_MD_CTX_cleanup
 %xdefine EVP_MD_CTX_copy BORINGSSL_PREFIX %+ _EVP_MD_CTX_copy
@@ -5330,6 +5332,7 @@
 %xdefine SSL_set_connect_state BORINGSSL_PREFIX %+ _SSL_set_connect_state
 %xdefine SSL_set_custom_verify BORINGSSL_PREFIX %+ _SSL_set_custom_verify
 %xdefine SSL_set_early_data_enabled BORINGSSL_PREFIX %+ _SSL_set_early_data_enabled
+%xdefine SSL_set_enable_ech_grease BORINGSSL_PREFIX %+ _SSL_set_enable_ech_grease
 %xdefine SSL_set_enforce_rsa_key_usage BORINGSSL_PREFIX %+ _SSL_set_enforce_rsa_key_usage
 %xdefine SSL_set_ex_data BORINGSSL_PREFIX %+ _SSL_set_ex_data
 %xdefine SSL_set_fd BORINGSSL_PREFIX %+ _SSL_set_fd
@@ -5353,6 +5356,7 @@
 %xdefine SSL_set_quic_early_data_context BORINGSSL_PREFIX %+ _SSL_set_quic_early_data_context
 %xdefine SSL_set_quic_method BORINGSSL_PREFIX %+ _SSL_set_quic_method
 %xdefine SSL_set_quic_transport_params BORINGSSL_PREFIX %+ _SSL_set_quic_transport_params
+%xdefine SSL_set_quic_use_legacy_codepoint BORINGSSL_PREFIX %+ _SSL_set_quic_use_legacy_codepoint
 %xdefine SSL_set_quiet_shutdown BORINGSSL_PREFIX %+ _SSL_set_quiet_shutdown
 %xdefine SSL_set_read_ahead BORINGSSL_PREFIX %+ _SSL_set_read_ahead
 %xdefine SSL_set_renegotiate_mode BORINGSSL_PREFIX %+ _SSL_set_renegotiate_mode
