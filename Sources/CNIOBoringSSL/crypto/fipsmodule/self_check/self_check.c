@@ -21,6 +21,7 @@
 #include <CNIOBoringSSL_aes.h>
 #include <CNIOBoringSSL_bn.h>
 #include <CNIOBoringSSL_des.h>
+#include <CNIOBoringSSL_digest.h>
 #include <CNIOBoringSSL_ec.h>
 #include <CNIOBoringSSL_ecdsa.h>
 #include <CNIOBoringSSL_ec_key.h>

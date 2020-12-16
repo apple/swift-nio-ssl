@@ -18,6 +18,7 @@
 #include <CNIOBoringSSL_arm_arch.h>
 
 
+.hidden	OPENSSL_armcap_P
 
 .section	.rodata
 

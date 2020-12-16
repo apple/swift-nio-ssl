@@ -113,10 +113,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <algorithm>
 #include <utility>
 
+#include <CNIOBoringSSL_aead.h>
 #include <CNIOBoringSSL_bytestring.h>
 #include <CNIOBoringSSL_chacha.h>
+#include <CNIOBoringSSL_curve25519.h>
 #include <CNIOBoringSSL_digest.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_evp.h>
@@ -125,6 +128,7 @@
 #include <CNIOBoringSSL_nid.h>
 #include <CNIOBoringSSL_rand.h>
 
+#include "../crypto/hpke/internal.h"
 #include "../crypto/internal.h"
 #include "internal.h"
 
@@ -583,6 +587,160 @@ static bool ext_sni_add_serverhello(SSL_HANDSHAKE *hs, CBB *out) {
     return false;
   }
 
+  return true;
+}
+
+
+// Encrypted Client Hello (ECH)
+//
+// https://tools.ietf.org/html/draft-ietf-tls-esni-08
+
+// random_size returns a random value between |min| and |max|, inclusive.
+static size_t random_size(size_t min, size_t max) {
+  assert(min < max);
+  size_t value;
+  RAND_bytes(reinterpret_cast<uint8_t *>(&value), sizeof(value));
+  return value % (max - min + 1) + min;
+}
+
+static bool ext_ech_add_clienthello_grease(SSL_HANDSHAKE *hs, CBB *out) {
+  // If we are responding to the server's HelloRetryRequest, we repeat the bytes
+  // of the first ECH GREASE extension.
+  if (hs->ssl->s3->used_hello_retry_request) {
+    CBB ech_body;
+    if (!CBB_add_u16(out, TLSEXT_TYPE_encrypted_client_hello) ||
+        !CBB_add_u16_length_prefixed(out, &ech_body) ||
+        !CBB_add_bytes(&ech_body, hs->ech_grease.data(),
+                       hs->ech_grease.size()) ||
+        !CBB_flush(out)) {
+      return false;
+    }
+    return true;
+  }
+
+  constexpr uint16_t kdf_id = EVP_HPKE_HKDF_SHA256;
+  const EVP_MD *kdf = EVP_HPKE_get_hkdf_md(kdf_id);
+  assert(kdf != nullptr);
+
+  const uint16_t aead_id = EVP_has_aes_hardware()
+                               ? EVP_HPKE_AEAD_AES_GCM_128
+                               : EVP_HPKE_AEAD_CHACHA20POLY1305;
+  const EVP_AEAD *aead = EVP_HPKE_get_aead(aead_id);
+  assert(aead != nullptr);
+
+  uint8_t ech_config_id_buf[EVP_MAX_MD_SIZE];
+  Span<uint8_t> ech_config_id(ech_config_id_buf, EVP_MD_size(kdf));
+  RAND_bytes(ech_config_id.data(), ech_config_id.size());
+
+  uint8_t ech_enc[X25519_PUBLIC_VALUE_LEN];
+  uint8_t private_key_unused[X25519_PRIVATE_KEY_LEN];
+  X25519_keypair(ech_enc, private_key_unused);
+
+  // To determine a plausible length for the payload, we first estimate the size
+  // of a typical EncodedClientHelloInner, with an expected use of
+  // outer_extensions. To limit the size, we only consider initial ClientHellos
+  // that do not offer resumption.
+  //
+  //   Field/Extension                           Size
+  // ---------------------------------------------------------------------
+  //   version                                      2
+  //   random                                      32
+  //   legacy_session_id                            1
+  //      - Has a U8 length prefix, but body is
+  //        always empty string in inner CH.
+  //   cipher_suites                                2  (length prefix)
+  //      - Only includes TLS 1.3 ciphers (3).      6
+  //      - Maybe also include a GREASE suite.      2
+  //   legacy_compression_methods                   2  (length prefix)
+  //      - Always has "null" compression method.   1
+  //   extensions:                                  2  (length prefix)
+  //      - encrypted_client_hello (empty).         4  (id + length prefix)
+  //      - supported_versions.                     4  (id + length prefix)
+  //        - U8 length prefix                      1
+  //        - U16 protocol version (TLS 1.3)        2
+  //      - outer_extensions.                       4  (id + length prefix)
+  //        - U8 length prefix                      1
+  //        - N extension IDs (2 bytes each):
+  //          - key_share                           2
+  //          - sigalgs                             2
+  //          - sct                                 2
+  //          - alpn                                2
+  //          - supported_groups.                   2
+  //          - status_request.                     2
+  //          - psk_key_exchange_modes.             2
+  //          - compress_certificate.               2
+  //
+  // The server_name extension has an overhead of 9 bytes, plus up to an
+  // estimated 100 bytes of hostname. Rounding up to a multiple of 32 yields a
+  // range of 96 to 192. Note that this estimate does not fully capture
+  // optional extensions like GREASE, but the rounding gives some leeway.
+
+  uint8_t payload[EVP_AEAD_MAX_OVERHEAD + 192];
+  const size_t payload_len =
+      EVP_AEAD_max_overhead(aead) + 32 * random_size(96 / 32, 192 / 32);
+  assert(payload_len <= sizeof(payload));
+  RAND_bytes(payload, payload_len);
+
+  // Inside the TLS extension contents, write a serialized ClientEncryptedCH.
+  CBB ech_body, config_id_cbb, enc_cbb, payload_cbb;
+  if (!CBB_add_u16(out, TLSEXT_TYPE_encrypted_client_hello) ||
+      !CBB_add_u16_length_prefixed(out, &ech_body) ||
+      !CBB_add_u16(&ech_body, kdf_id) ||  //
+      !CBB_add_u16(&ech_body, aead_id) ||
+      !CBB_add_u8_length_prefixed(&ech_body, &config_id_cbb) ||
+      !CBB_add_bytes(&config_id_cbb, ech_config_id.data(),
+                     ech_config_id.size()) ||
+      !CBB_add_u16_length_prefixed(&ech_body, &enc_cbb) ||
+      !CBB_add_bytes(&enc_cbb, ech_enc, OPENSSL_ARRAY_SIZE(ech_enc)) ||
+      !CBB_add_u16_length_prefixed(&ech_body, &payload_cbb) ||
+      !CBB_add_bytes(&payload_cbb, payload, payload_len) ||  //
+      !CBB_flush(&ech_body)) {
+    return false;
+  }
+  // Save the bytes of the newly-generated extension in case the server sends
+  // a HelloRetryRequest.
+  if (!hs->ech_grease.CopyFrom(
+          MakeConstSpan(CBB_data(&ech_body), CBB_len(&ech_body)))) {
+    return false;
+  }
+  return CBB_flush(out);
+}
+
+static bool ext_ech_add_clienthello(SSL_HANDSHAKE *hs, CBB *out) {
+  if (hs->max_version < TLS1_3_VERSION) {
+    return true;
+  }
+  if (hs->config->ech_grease_enabled) {
+    return ext_ech_add_clienthello_grease(hs, out);
+  }
+  // Nothing to do, since we don't yet implement the non-GREASE parts of ECH.
+  return true;
+}
+
+static bool ext_ech_parse_serverhello(SSL_HANDSHAKE *hs, uint8_t *out_alert,
+                                      CBS *contents) {
+  if (contents == NULL) {
+    return true;
+  }
+
+  // If the client only sent GREASE, we must check the extension syntactically.
+  CBS ech_configs;
+  if (!CBS_get_u16_length_prefixed(contents, &ech_configs) ||
+      CBS_len(&ech_configs) == 0 ||  //
+      CBS_len(contents) > 0) {
+    *out_alert = SSL_AD_DECODE_ERROR;
+    return false;
+  }
+  while (CBS_len(&ech_configs) > 0) {
+    // Do a top-level parse of the ECHConfig, stopping before ECHConfigContents.
+    uint16_t version;
+    CBS ech_config_contents;
+    if (!CBS_get_u16(&ech_configs, &version) ||
+        !CBS_get_u16_length_prefixed(&ech_configs, &ech_config_contents)) {
+      *out_alert = SSL_AD_DECODE_ERROR;
+      return false;
+    }
+  }
   return true;
 }
 
@@ -2592,8 +2750,8 @@ static bool ext_token_binding_add_serverhello(SSL_HANDSHAKE *hs, CBB *out) {
 
 // QUIC Transport Parameters
 
-static bool ext_quic_transport_params_add_clienthello(SSL_HANDSHAKE *hs,
-                                                      CBB *out) {
+static bool ext_quic_transport_params_add_clienthello_impl(
+    SSL_HANDSHAKE *hs, CBB *out, bool use_legacy_codepoint) {
   if (hs->config->quic_transport_params.empty() && !hs->ssl->quic_method) {
     return true;
   }
@@ -2605,9 +2763,18 @@ static bool ext_quic_transport_params_add_clienthello(SSL_HANDSHAKE *hs,
     return false;
   }
   assert(hs->min_version > TLS1_2_VERSION);
+  if (use_legacy_codepoint != hs->config->quic_use_legacy_codepoint) {
+    // Do nothing, we'll send the other codepoint.
+    return true;
+  }
+
+  uint16_t extension_type = TLSEXT_TYPE_quic_transport_parameters;
+  if (hs->config->quic_use_legacy_codepoint) {
+    extension_type = TLSEXT_TYPE_quic_transport_parameters_legacy;
+  }
 
   CBB contents;
-  if (!CBB_add_u16(out, TLSEXT_TYPE_quic_transport_parameters) ||
+  if (!CBB_add_u16(out, extension_type) ||
       !CBB_add_u16_length_prefixed(out, &contents) ||
       !CBB_add_bytes(&contents, hs->config->quic_transport_params.data(),
                      hs->config->quic_transport_params.size()) ||
@@ -2617,31 +2784,61 @@ static bool ext_quic_transport_params_add_clienthello(SSL_HANDSHAKE *hs,
   return true;
 }
 
-static bool ext_quic_transport_params_parse_serverhello(SSL_HANDSHAKE *hs,
-                                                        uint8_t *out_alert,
-                                                        CBS *contents) {
+static bool ext_quic_transport_params_add_clienthello(SSL_HANDSHAKE *hs,
+                                                      CBB *out) {
+  return ext_quic_transport_params_add_clienthello_impl(
+      hs, out, /*use_legacy_codepoint=*/false);
+}
+
+static bool ext_quic_transport_params_add_clienthello_legacy(SSL_HANDSHAKE *hs,
+                                                             CBB *out) {
+  return ext_quic_transport_params_add_clienthello_impl(
+      hs, out, /*use_legacy_codepoint=*/true);
+}
+
+static bool ext_quic_transport_params_parse_serverhello_impl(
+    SSL_HANDSHAKE *hs, uint8_t *out_alert, CBS *contents,
+    bool used_legacy_codepoint) {
   SSL *const ssl = hs->ssl;
   if (contents == nullptr) {
+    if (used_legacy_codepoint != hs->config->quic_use_legacy_codepoint) {
+      // Silently ignore because we expect the other QUIC codepoint.
+      return true;
+    }
     if (!ssl->quic_method) {
       return true;
     }
-    assert(ssl->quic_method);
     *out_alert = SSL_AD_MISSING_EXTENSION;
     return false;
   }
-  if (!ssl->quic_method) {
-    *out_alert = SSL_AD_UNSUPPORTED_EXTENSION;
-    return false;
-  }
-  // QUIC requires TLS 1.3.
+  // The extensions parser will check for unsolicited extensions before
+  // calling the callback.
+  assert(ssl->quic_method != nullptr);
   assert(ssl_protocol_version(ssl) == TLS1_3_VERSION);
-
+  assert(used_legacy_codepoint == hs->config->quic_use_legacy_codepoint);
   return ssl->s3->peer_quic_transport_params.CopyFrom(*contents);
 }
 
-static bool ext_quic_transport_params_parse_clienthello(SSL_HANDSHAKE *hs,
+static bool ext_quic_transport_params_parse_serverhello(SSL_HANDSHAKE *hs,
                                                         uint8_t *out_alert,
                                                         CBS *contents) {
+  return ext_quic_transport_params_parse_serverhello_impl(
+      hs, out_alert, contents, /*used_legacy_codepoint=*/false);
+}
+
+static bool ext_quic_transport_params_parse_serverhello_legacy(
+    SSL_HANDSHAKE *hs, uint8_t *out_alert, CBS *contents) {
+  return ext_quic_transport_params_parse_serverhello_impl(
+      hs, out_alert, contents, /*used_legacy_codepoint=*/true);
+}
+
+static bool ext_quic_transport_params_parse_clienthello_impl(
+    SSL_HANDSHAKE *hs, uint8_t *out_alert, CBS *contents,
+    bool used_legacy_codepoint) {
+  if (used_legacy_codepoint != hs->config->quic_use_legacy_codepoint) {
+    // Silently ignore because we expect the other QUIC codepoint.
+    return true;
+  }
   SSL *const ssl = hs->ssl;
   if (!contents) {
     if (!ssl->quic_method) {
@@ -2664,17 +2861,39 @@ static bool ext_quic_transport_params_parse_clienthello(SSL_HANDSHAKE *hs,
   return ssl->s3->peer_quic_transport_params.CopyFrom(*contents);
 }
 
-static bool ext_quic_transport_params_add_serverhello(SSL_HANDSHAKE *hs,
-                                                      CBB *out) {
+static bool ext_quic_transport_params_parse_clienthello(SSL_HANDSHAKE *hs,
+                                                        uint8_t *out_alert,
+                                                        CBS *contents) {
+  return ext_quic_transport_params_parse_clienthello_impl(
+      hs, out_alert, contents, /*used_legacy_codepoint=*/false);
+}
+
+static bool ext_quic_transport_params_parse_clienthello_legacy(
+    SSL_HANDSHAKE *hs, uint8_t *out_alert, CBS *contents) {
+  return ext_quic_transport_params_parse_clienthello_impl(
+      hs, out_alert, contents, /*used_legacy_codepoint=*/true);
+}
+
+static bool ext_quic_transport_params_add_serverhello_impl(
+    SSL_HANDSHAKE *hs, CBB *out, bool use_legacy_codepoint) {
   assert(hs->ssl->quic_method != nullptr);
   if (hs->config->quic_transport_params.empty()) {
     // Transport parameters must be set when using QUIC.
     OPENSSL_PUT_ERROR(SSL, SSL_R_QUIC_TRANSPORT_PARAMETERS_MISCONFIGURED);
     return false;
   }
+  if (use_legacy_codepoint != hs->config->quic_use_legacy_codepoint) {
+    // Do nothing, we'll send the other codepoint.
+    return true;
+  }
+
+  uint16_t extension_type = TLSEXT_TYPE_quic_transport_parameters;
+  if (hs->config->quic_use_legacy_codepoint) {
+    extension_type = TLSEXT_TYPE_quic_transport_parameters_legacy;
+  }
 
   CBB contents;
-  if (!CBB_add_u16(out, TLSEXT_TYPE_quic_transport_parameters) ||
+  if (!CBB_add_u16(out, extension_type) ||
       !CBB_add_u16_length_prefixed(out, &contents) ||
       !CBB_add_bytes(&contents, hs->config->quic_transport_params.data(),
                      hs->config->quic_transport_params.size()) ||
@@ -2683,6 +2902,18 @@ static bool ext_quic_transport_params_add_serverhello(SSL_HANDSHAKE *hs,
   }
 
   return true;
+}
+
+static bool ext_quic_transport_params_add_serverhello(SSL_HANDSHAKE *hs,
+                                                      CBB *out) {
+  return ext_quic_transport_params_add_serverhello_impl(
+      hs, out, /*use_legacy_codepoint=*/false);
+}
+
+static bool ext_quic_transport_params_add_serverhello_legacy(SSL_HANDSHAKE *hs,
+                                                             CBB *out) {
+  return ext_quic_transport_params_add_serverhello_impl(
+      hs, out, /*use_legacy_codepoint=*/true);
 }
 
 // Delegated credentials.
@@ -2971,6 +3202,14 @@ static const struct tls_extension kExtensions[] = {
     ext_sni_add_serverhello,
   },
   {
+    TLSEXT_TYPE_encrypted_client_hello,
+    NULL,
+    ext_ech_add_clienthello,
+    ext_ech_parse_serverhello,
+    ignore_parse_clienthello,
+    dont_add_serverhello,
+  },
+  {
     TLSEXT_TYPE_extended_master_secret,
     NULL,
     ext_ems_add_clienthello,
@@ -3115,6 +3354,14 @@ static const struct tls_extension kExtensions[] = {
     ext_quic_transport_params_parse_serverhello,
     ext_quic_transport_params_parse_clienthello,
     ext_quic_transport_params_add_serverhello,
+  },
+  {
+    TLSEXT_TYPE_quic_transport_parameters_legacy,
+    NULL,
+    ext_quic_transport_params_add_clienthello_legacy,
+    ext_quic_transport_params_parse_serverhello_legacy,
+    ext_quic_transport_params_parse_clienthello_legacy,
+    ext_quic_transport_params_add_serverhello_legacy,
   },
   {
     TLSEXT_TYPE_token_binding,
