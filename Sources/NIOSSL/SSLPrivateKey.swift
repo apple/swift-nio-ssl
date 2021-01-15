@@ -51,7 +51,7 @@ public typealias NIOSSLPassphraseSetter<Bytes: Collection> = (Bytes) -> Void whe
 /// `globalBoringSSLPassphraseCallback` is not. Thus, rather than try to hold the actual specific `BoringSSLPassphraseManager`,
 /// we can hold it inside a protocol existential instead, so long as that protocol existential gives us the correct
 /// function to call. Hence: `CallbackManagerProtocol`, a private protocol with a single conforming type.
-internal protocol CallbackManagerProtocol: class {
+internal protocol CallbackManagerProtocol: AnyObject {
     func invoke(buffer: UnsafeMutableBufferPointer<CChar>) -> CInt
 }
 
