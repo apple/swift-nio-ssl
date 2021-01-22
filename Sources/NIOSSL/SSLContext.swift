@@ -87,7 +87,7 @@ private func alpnCallback(ssl: OpaquePointer?,
                           in: UnsafePointer<UInt8>?,
                           inlen: UInt32,
                           appData: UnsafeMutableRawPointer?) -> CInt {
-    // Perform some sanity checks. We don't want NULL pointers around here.
+    // Perform some soundness checks. We don't want NULL pointers around here.
     guard let ssl = ssl, let out = out, let outlen = outlen, let `in` = `in` else {
         return SSL_TLSEXT_ERR_NOACK
     }
