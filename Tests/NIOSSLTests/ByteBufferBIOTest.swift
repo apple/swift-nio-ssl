@@ -14,7 +14,7 @@
 
 import XCTest
 import NIO
-#if compiler(>=5.1) && compiler(<5.4)
+#if compiler(>=5.1)
 @_implementationOnly import CNIOBoringSSL
 #else
 import CNIOBoringSSL
