@@ -20,6 +20,7 @@
 #include "CNIOBoringSSL_asn1t.h"
 #include "CNIOBoringSSL_base.h"
 #include "CNIOBoringSSL_bio.h"
+#include "CNIOBoringSSL_blake2.h"
 #include "CNIOBoringSSL_blowfish.h"
 #include "CNIOBoringSSL_boringssl_prefix_symbols.h"
 #include "CNIOBoringSSL_boringssl_prefix_symbols_asm.h"
