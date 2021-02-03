@@ -196,7 +196,7 @@ extern "C" {
 // A consumer may use this symbol in the preprocessor to temporarily build
 // against multiple revisions of BoringSSL at the same time. It is not
 // recommended to do so for longer than is necessary.
-#define BORINGSSL_API_VERSION 13
+#define BORINGSSL_API_VERSION 14
 
 #if defined(BORINGSSL_SHARED_LIBRARY)
 
@@ -381,6 +381,7 @@ typedef struct bignum_ctx BN_CTX;
 typedef struct bignum_st BIGNUM;
 typedef struct bio_method_st BIO_METHOD;
 typedef struct bio_st BIO;
+typedef struct blake2b_state_st BLAKE2B_CTX;
 typedef struct bn_gencb_st BN_GENCB;
 typedef struct bn_mont_ctx_st BN_MONT_CTX;
 typedef struct buf_mem_st BUF_MEM;

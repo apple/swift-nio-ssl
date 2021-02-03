@@ -299,6 +299,10 @@
 %xdefine _BIO_write _ %+ BORINGSSL_PREFIX %+ _BIO_write
 %xdefine _BIO_write_all _ %+ BORINGSSL_PREFIX %+ _BIO_write_all
 %xdefine _BIO_write_filename _ %+ BORINGSSL_PREFIX %+ _BIO_write_filename
+%xdefine _BLAKE2B256 _ %+ BORINGSSL_PREFIX %+ _BLAKE2B256
+%xdefine _BLAKE2B256_Final _ %+ BORINGSSL_PREFIX %+ _BLAKE2B256_Final
+%xdefine _BLAKE2B256_Init _ %+ BORINGSSL_PREFIX %+ _BLAKE2B256_Init
+%xdefine _BLAKE2B256_Update _ %+ BORINGSSL_PREFIX %+ _BLAKE2B256_Update
 %xdefine _BN_BLINDING_convert _ %+ BORINGSSL_PREFIX %+ _BN_BLINDING_convert
 %xdefine _BN_BLINDING_free _ %+ BORINGSSL_PREFIX %+ _BN_BLINDING_free
 %xdefine _BN_BLINDING_invalidate _ %+ BORINGSSL_PREFIX %+ _BN_BLINDING_invalidate
@@ -640,6 +644,7 @@
 %xdefine _DH_check_pub_key _ %+ BORINGSSL_PREFIX %+ _DH_check_pub_key
 %xdefine _DH_compute_key _ %+ BORINGSSL_PREFIX %+ _DH_compute_key
 %xdefine _DH_compute_key_hashed _ %+ BORINGSSL_PREFIX %+ _DH_compute_key_hashed
+%xdefine _DH_compute_key_padded _ %+ BORINGSSL_PREFIX %+ _DH_compute_key_padded
 %xdefine _DH_free _ %+ BORINGSSL_PREFIX %+ _DH_free
 %xdefine _DH_generate_key _ %+ BORINGSSL_PREFIX %+ _DH_generate_key
 %xdefine _DH_generate_parameters_ex _ %+ BORINGSSL_PREFIX %+ _DH_generate_parameters_ex
@@ -803,6 +808,7 @@
 %xdefine _EC_POINT_dbl _ %+ BORINGSSL_PREFIX %+ _EC_POINT_dbl
 %xdefine _EC_POINT_dup _ %+ BORINGSSL_PREFIX %+ _EC_POINT_dup
 %xdefine _EC_POINT_free _ %+ BORINGSSL_PREFIX %+ _EC_POINT_free
+%xdefine _EC_POINT_get_affine_coordinates _ %+ BORINGSSL_PREFIX %+ _EC_POINT_get_affine_coordinates
 %xdefine _EC_POINT_get_affine_coordinates_GFp _ %+ BORINGSSL_PREFIX %+ _EC_POINT_get_affine_coordinates_GFp
 %xdefine _EC_POINT_invert _ %+ BORINGSSL_PREFIX %+ _EC_POINT_invert
 %xdefine _EC_POINT_is_at_infinity _ %+ BORINGSSL_PREFIX %+ _EC_POINT_is_at_infinity
@@ -812,6 +818,7 @@
 %xdefine _EC_POINT_oct2point _ %+ BORINGSSL_PREFIX %+ _EC_POINT_oct2point
 %xdefine _EC_POINT_point2cbb _ %+ BORINGSSL_PREFIX %+ _EC_POINT_point2cbb
 %xdefine _EC_POINT_point2oct _ %+ BORINGSSL_PREFIX %+ _EC_POINT_point2oct
+%xdefine _EC_POINT_set_affine_coordinates _ %+ BORINGSSL_PREFIX %+ _EC_POINT_set_affine_coordinates
 %xdefine _EC_POINT_set_affine_coordinates_GFp _ %+ BORINGSSL_PREFIX %+ _EC_POINT_set_affine_coordinates_GFp
 %xdefine _EC_POINT_set_compressed_coordinates_GFp _ %+ BORINGSSL_PREFIX %+ _EC_POINT_set_compressed_coordinates_GFp
 %xdefine _EC_POINT_set_to_infinity _ %+ BORINGSSL_PREFIX %+ _EC_POINT_set_to_infinity
@@ -1120,6 +1127,7 @@
 %xdefine _EVP_aes_256_ecb _ %+ BORINGSSL_PREFIX %+ _EVP_aes_256_ecb
 %xdefine _EVP_aes_256_gcm _ %+ BORINGSSL_PREFIX %+ _EVP_aes_256_gcm
 %xdefine _EVP_aes_256_ofb _ %+ BORINGSSL_PREFIX %+ _EVP_aes_256_ofb
+%xdefine _EVP_blake2b256 _ %+ BORINGSSL_PREFIX %+ _EVP_blake2b256
 %xdefine _EVP_cleanup _ %+ BORINGSSL_PREFIX %+ _EVP_cleanup
 %xdefine _EVP_des_cbc _ %+ BORINGSSL_PREFIX %+ _EVP_des_cbc
 %xdefine _EVP_des_ecb _ %+ BORINGSSL_PREFIX %+ _EVP_des_ecb
@@ -1452,6 +1460,7 @@
 %xdefine _PROXY_POLICY_free _ %+ BORINGSSL_PREFIX %+ _PROXY_POLICY_free
 %xdefine _PROXY_POLICY_it _ %+ BORINGSSL_PREFIX %+ _PROXY_POLICY_it
 %xdefine _PROXY_POLICY_new _ %+ BORINGSSL_PREFIX %+ _PROXY_POLICY_new
+%xdefine _RAND_OpenSSL _ %+ BORINGSSL_PREFIX %+ _RAND_OpenSSL
 %xdefine _RAND_SSLeay _ %+ BORINGSSL_PREFIX %+ _RAND_SSLeay
 %xdefine _RAND_add _ %+ BORINGSSL_PREFIX %+ _RAND_add
 %xdefine _RAND_bytes _ %+ BORINGSSL_PREFIX %+ _RAND_bytes
@@ -2761,6 +2770,7 @@
 %xdefine _bn_scatter5 _ %+ BORINGSSL_PREFIX %+ _bn_scatter5
 %xdefine _bn_select_words _ %+ BORINGSSL_PREFIX %+ _bn_select_words
 %xdefine _bn_set_minimal_width _ %+ BORINGSSL_PREFIX %+ _bn_set_minimal_width
+%xdefine _bn_set_static_words _ %+ BORINGSSL_PREFIX %+ _bn_set_static_words
 %xdefine _bn_set_words _ %+ BORINGSSL_PREFIX %+ _bn_set_words
 %xdefine _bn_sqr8x_internal _ %+ BORINGSSL_PREFIX %+ _bn_sqr8x_internal
 %xdefine _bn_sqr_comba4 _ %+ BORINGSSL_PREFIX %+ _bn_sqr_comba4
@@ -3656,6 +3666,10 @@
 %xdefine BIO_write BORINGSSL_PREFIX %+ _BIO_write
 %xdefine BIO_write_all BORINGSSL_PREFIX %+ _BIO_write_all
 %xdefine BIO_write_filename BORINGSSL_PREFIX %+ _BIO_write_filename
+%xdefine BLAKE2B256 BORINGSSL_PREFIX %+ _BLAKE2B256
+%xdefine BLAKE2B256_Final BORINGSSL_PREFIX %+ _BLAKE2B256_Final
+%xdefine BLAKE2B256_Init BORINGSSL_PREFIX %+ _BLAKE2B256_Init
+%xdefine BLAKE2B256_Update BORINGSSL_PREFIX %+ _BLAKE2B256_Update
 %xdefine BN_BLINDING_convert BORINGSSL_PREFIX %+ _BN_BLINDING_convert
 %xdefine BN_BLINDING_free BORINGSSL_PREFIX %+ _BN_BLINDING_free
 %xdefine BN_BLINDING_invalidate BORINGSSL_PREFIX %+ _BN_BLINDING_invalidate
@@ -3997,6 +4011,7 @@
 %xdefine DH_check_pub_key BORINGSSL_PREFIX %+ _DH_check_pub_key
 %xdefine DH_compute_key BORINGSSL_PREFIX %+ _DH_compute_key
 %xdefine DH_compute_key_hashed BORINGSSL_PREFIX %+ _DH_compute_key_hashed
+%xdefine DH_compute_key_padded BORINGSSL_PREFIX %+ _DH_compute_key_padded
 %xdefine DH_free BORINGSSL_PREFIX %+ _DH_free
 %xdefine DH_generate_key BORINGSSL_PREFIX %+ _DH_generate_key
 %xdefine DH_generate_parameters_ex BORINGSSL_PREFIX %+ _DH_generate_parameters_ex
@@ -4160,6 +4175,7 @@
 %xdefine EC_POINT_dbl BORINGSSL_PREFIX %+ _EC_POINT_dbl
 %xdefine EC_POINT_dup BORINGSSL_PREFIX %+ _EC_POINT_dup
 %xdefine EC_POINT_free BORINGSSL_PREFIX %+ _EC_POINT_free
+%xdefine EC_POINT_get_affine_coordinates BORINGSSL_PREFIX %+ _EC_POINT_get_affine_coordinates
 %xdefine EC_POINT_get_affine_coordinates_GFp BORINGSSL_PREFIX %+ _EC_POINT_get_affine_coordinates_GFp
 %xdefine EC_POINT_invert BORINGSSL_PREFIX %+ _EC_POINT_invert
 %xdefine EC_POINT_is_at_infinity BORINGSSL_PREFIX %+ _EC_POINT_is_at_infinity
@@ -4169,6 +4185,7 @@
 %xdefine EC_POINT_oct2point BORINGSSL_PREFIX %+ _EC_POINT_oct2point
 %xdefine EC_POINT_point2cbb BORINGSSL_PREFIX %+ _EC_POINT_point2cbb
 %xdefine EC_POINT_point2oct BORINGSSL_PREFIX %+ _EC_POINT_point2oct
+%xdefine EC_POINT_set_affine_coordinates BORINGSSL_PREFIX %+ _EC_POINT_set_affine_coordinates
 %xdefine EC_POINT_set_affine_coordinates_GFp BORINGSSL_PREFIX %+ _EC_POINT_set_affine_coordinates_GFp
 %xdefine EC_POINT_set_compressed_coordinates_GFp BORINGSSL_PREFIX %+ _EC_POINT_set_compressed_coordinates_GFp
 %xdefine EC_POINT_set_to_infinity BORINGSSL_PREFIX %+ _EC_POINT_set_to_infinity
@@ -4477,6 +4494,7 @@
 %xdefine EVP_aes_256_ecb BORINGSSL_PREFIX %+ _EVP_aes_256_ecb
 %xdefine EVP_aes_256_gcm BORINGSSL_PREFIX %+ _EVP_aes_256_gcm
 %xdefine EVP_aes_256_ofb BORINGSSL_PREFIX %+ _EVP_aes_256_ofb
+%xdefine EVP_blake2b256 BORINGSSL_PREFIX %+ _EVP_blake2b256
 %xdefine EVP_cleanup BORINGSSL_PREFIX %+ _EVP_cleanup
 %xdefine EVP_des_cbc BORINGSSL_PREFIX %+ _EVP_des_cbc
 %xdefine EVP_des_ecb BORINGSSL_PREFIX %+ _EVP_des_ecb
@@ -4809,6 +4827,7 @@
 %xdefine PROXY_POLICY_free BORINGSSL_PREFIX %+ _PROXY_POLICY_free
 %xdefine PROXY_POLICY_it BORINGSSL_PREFIX %+ _PROXY_POLICY_it
 %xdefine PROXY_POLICY_new BORINGSSL_PREFIX %+ _PROXY_POLICY_new
+%xdefine RAND_OpenSSL BORINGSSL_PREFIX %+ _RAND_OpenSSL
 %xdefine RAND_SSLeay BORINGSSL_PREFIX %+ _RAND_SSLeay
 %xdefine RAND_add BORINGSSL_PREFIX %+ _RAND_add
 %xdefine RAND_bytes BORINGSSL_PREFIX %+ _RAND_bytes
@@ -6118,6 +6137,7 @@
 %xdefine bn_scatter5 BORINGSSL_PREFIX %+ _bn_scatter5
 %xdefine bn_select_words BORINGSSL_PREFIX %+ _bn_select_words
 %xdefine bn_set_minimal_width BORINGSSL_PREFIX %+ _bn_set_minimal_width
+%xdefine bn_set_static_words BORINGSSL_PREFIX %+ _bn_set_static_words
 %xdefine bn_set_words BORINGSSL_PREFIX %+ _bn_set_words
 %xdefine bn_sqr8x_internal BORINGSSL_PREFIX %+ _bn_sqr8x_internal
 %xdefine bn_sqr_comba4 BORINGSSL_PREFIX %+ _bn_sqr_comba4

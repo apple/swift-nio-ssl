@@ -267,7 +267,7 @@ OPENSSL_EXPORT int SSL_is_dtls(const SSL *ssl);
 // |SSL_set0_rbio| and |SSL_set0_wbio| instead.
 OPENSSL_EXPORT void SSL_set_bio(SSL *ssl, BIO *rbio, BIO *wbio);
 
-// SSL_set0_rbio configures |ssl| to write to |rbio|. It takes ownership of
+// SSL_set0_rbio configures |ssl| to read from |rbio|. It takes ownership of
 // |rbio|.
 //
 // Note that, although this function and |SSL_set0_wbio| may be called on the
@@ -3567,7 +3567,7 @@ OPENSSL_EXPORT const char *SSL_early_data_reason_string(
 //
 // ECH support in BoringSSL is still experimental and under development.
 //
-// See https://tools.ietf.org/html/draft-ietf-tls-esni-08.
+// See https://tools.ietf.org/html/draft-ietf-tls-esni-09.
 
 // SSL_set_enable_ech_grease configures whether the client may send ECH GREASE
 // as part of this connection.
