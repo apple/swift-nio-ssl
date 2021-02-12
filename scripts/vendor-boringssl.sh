@@ -132,6 +132,41 @@ function mangle_symbols {
     namespace_inlines "$DSTROOT"
 }
 
+
+# BoringSSL includes a few non-namespaced C++ structures. These aren't namespaced because they're exposed
+# in C-land, which doesn't know about the namespacing. Sadly, these structures include constructors and destructors,
+# and if those aren't namespaced we're still able to conflict.
+#
+# This function is responsible for identifying them and manually cleaning them up. We run this only on
+# macOS because we don't believe that the cross-platform architectures will hit any other structures.
+function mangle_cpp_structures {
+    echo "MANGLING C++ structures"
+    (
+        # We need a .a: may as well get SwiftPM to give it to us.
+        # Temporarily enable the product we need.
+        $sed -i -e 's/MANGLE_START/MANGLE_START*\//' -e 's/MANGLE_END/\/*MANGLE_END/' "${HERE}/Package.swift"
+
+        # Build for macOS.
+        swift build --product CNIOBoringSSL
+
+        # Woah, this is a hell of a command! What does it do?
+        #
+        # The nm command grabs all global defined symbols. We then run the C++ demangler over them and look for methods with '::' in them:
+        # these are C++ methods. We then exclude any that contain CNIOBoringSSL (as those are already namespaced!) and any that contain swift
+        # (as those were put there by the Swift runtime, not us). This gives us a list of symbols. The following cut command
+        # grabs the type name from each of those (the bit preceding the '::'). Finally, we sort and uniqify that list. This gives us all the
+        # structures that need to be renamed.
+        structures=$(nm -gUj "$HERE/.build/x86_64-apple-macosx/debug/libCNIOBoringSSL.a" | c++filt | grep "::" | grep -v -e "CNIOBoringSSL" -e "swift" | cut -d : -f1 | sort | uniq)
+
+        for struct in ${structures}; do
+            echo "#define ${struct} BORINGSSL_ADD_PREFIX(BORINGSSL_PREFIX, ${struct})" >> "${DSTROOT}/include/CNIOBoringSSL_boringssl_prefix_symbols.h"
+        done
+
+        # Remove the product, as we no longer need it.
+        $sed -i -e 's/MANGLE_START\*\//MANGLE_START/' -e 's/\/\*MANGLE_END/MANGLE_END/' "${HERE}/Package.swift"
+    )
+}
+
 case "$(uname -s)" in
     Darwin)
         sed=gsed
@@ -271,6 +306,8 @@ echo "PROTECTING against executable stacks"
     cd "$DSTROOT"
     find . -name "*.S" | xargs $sed -i '$ a #if defined(__linux__) && defined(__ELF__)\n.section .note.GNU-stack,"",%progbits\n#endif\n'
 )
+
+mangle_cpp_structures
 
 # We need BoringSSL to be modularised
 echo "MODULARISING BoringSSL"
