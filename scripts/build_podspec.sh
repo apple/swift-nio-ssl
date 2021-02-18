@@ -132,13 +132,8 @@ EOF
   pod repo update # last chance of getting the latest versions of previous pushed pods
   if $upload; then
     echo "Uploading ${tmpdir}/${target}.podspec"
-    # CNIOBoringSSL emits build warnings
-    if [ "$target" == "CNIOBoringSSL" ]; then
-      pod trunk push --allow-warnings --synchronous "${tmpdir}/${target}.podspec"
-    else
-      pod trunk push  --synchronous "${tmpdir}/${target}.podspec"
-    fi
-
+    # CNIOBoringSSL and SwiftNIOSSL emit build warnings
+    pod trunk push --allow-warnings --synchronous "${tmpdir}/${target}.podspec"
   fi
 
 done
