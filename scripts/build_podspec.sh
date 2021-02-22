@@ -121,7 +121,10 @@ Pod::Spec.new do |s|
   s.tvos.deployment_target = '10.0'
   s.watchos.deployment_target = '6.0'
 
-  s.source_files = 'Sources/${target#Swift}/**/*.{swift,c,h,cc,S}'
+  s.source_files = 'Sources/${target#Swift}/**/*.{swift,c,h,cc}'
+  s.ios.source_files = 'Sources/${target#Swift}/**/*.S'
+  s.osx.source_files = 'Sources/${target#Swift}/**/*.S'
+  s.tvos.source_files = 'Sources/${target#Swift}/**/*.S'
   $public_header_files
   ${dependencies[*]-}
   $libraries
