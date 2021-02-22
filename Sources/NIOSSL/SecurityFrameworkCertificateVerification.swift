@@ -29,7 +29,7 @@ extension SSLConnection {
     func performSecurityFrameworkValidation(promise: EventLoopPromise<NIOSSLVerificationResult>) {
         do {
             // Ok, time to kick off a validation. Let's get some certificate buffers.
-            let certificates: [SecCertificate] = try self.withPeerCertificateChainBuffers { buffers in
+            let peerCertificates: [SecCertificate] = try self.withPeerCertificateChainBuffers { buffers in
                 guard let buffers = buffers else {
                     throw NIOSSLError.unableToValidateCertificate
                 }
@@ -47,9 +47,46 @@ extension SSLConnection {
             var trust: SecTrust? = nil
             var result: OSStatus
             let policy = SecPolicyCreateSSL(self.role! == .client, self.expectedHostname as CFString?)
-            result = SecTrustCreateWithCertificates(certificates as CFArray, policy, &trust)
+            result = SecTrustCreateWithCertificates(peerCertificates as CFArray, policy, &trust)
             guard result == errSecSuccess, let actualTrust = trust else {
                 throw NIOSSLError.unableToValidateCertificate
+            }
+
+            // If there are additional trust roots then we need to add them to the SecTrust as anchors.
+            var additionalAnchorCertificates: [SecCertificate] = try self.parentContext.configuration.additionalTrustRoots.flatMap { trustRoots -> [NIOSSLCertificate] in
+                switch trustRoots {
+                case .file(let path):
+                    return try NIOSSLCertificate.fromPEMFile(path)
+                case .certificates(let certs):
+                    return certs
+                }
+            }.map {
+                guard let secCert = SecCertificateCreateWithData(nil, Data(try $0.toDERBytes()) as CFData) else {
+                    throw NIOSSLError.failedToLoadCertificate
+                }
+                return secCert
+            }
+            if !additionalAnchorCertificates.isEmpty {
+                // To use additional anchors _and_ the built-in ones we must reenable the built-in ones expicitly.
+                switch self.parentContext.configuration.trustRoots {
+                case .none, .some(.default):
+                    guard SecTrustSetAnchorCertificatesOnly(actualTrust, false) == errSecSuccess else {
+                        throw NIOSSLError.failedToLoadCertificate
+                    }
+                default:
+                    break
+                }
+                // We should add our additional anchors to any custom ones that already exist.
+                var existingCustomAnchorCertificates: CFArray? = nil
+                guard SecTrustCopyCustomAnchorCertificates(actualTrust, &existingCustomAnchorCertificates) == errSecSuccess else {
+                    throw NIOSSLError.failedToLoadCertificate
+                }
+                if let existingCustomAnchorCertificates = existingCustomAnchorCertificates as! [SecCertificate]? {
+                    additionalAnchorCertificates.append(contentsOf: existingCustomAnchorCertificates)
+                }
+                guard SecTrustSetAnchorCertificates(actualTrust, additionalAnchorCertificates as CFArray) == errSecSuccess else {
+                    throw NIOSSLError.failedToLoadCertificate
+                }
             }
 
             // We create a DispatchQueue here to be called back on, as this validation may perform network activity.
