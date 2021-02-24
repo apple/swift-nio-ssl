@@ -121,7 +121,15 @@ Pod::Spec.new do |s|
   s.tvos.deployment_target = '10.0'
   s.watchos.deployment_target = '6.0'
 
-  s.source_files = 'Sources/${target#Swift}/**/*.{swift,c,h,cc,S}'
+  s.source_files = 'Sources/${target#Swift}/**/*.{swift,c,h,cc}'
+  s.ios.source_files = 'Sources/${target#Swift}/**/*.S'
+  s.osx.source_files = 'Sources/${target#Swift}/**/*.S'
+  s.tvos.source_files = 'Sources/${target#Swift}/**/*.S'
+
+  s.watchos.pod_target_xcconfig = {
+    'GCC_PREPROCESSOR_DEFINITIONS' => 'OPENSSL_NO_ASM=1',
+    'SWIFT_ACTIVE_COMPILATION_CONDITIONS' => '\$(inherited) OPENSSL_NO_ASM'
+  }
   $public_header_files
   ${dependencies[*]-}
   $libraries
