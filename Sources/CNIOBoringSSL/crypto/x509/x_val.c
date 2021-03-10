@@ -60,6 +60,8 @@
 #include <CNIOBoringSSL_asn1t.h>
 #include <CNIOBoringSSL_x509.h>
 
+#include "internal.h"
+
 
 ASN1_SEQUENCE(X509_VAL) = {
         ASN1_SIMPLE(X509_VAL, notBefore, ASN1_TIME),
