@@ -397,11 +397,22 @@ public struct TLSConfiguration {
 // MARK: Hashable
 extension TLSConfiguration: Hashable {
     public static func == (lhs: TLSConfiguration, rhs: TLSConfiguration) -> Bool {
-        lhs.hashValue == rhs.hashValue
+        lhs.minimumTLSVersion == rhs.minimumTLSVersion &&
+        lhs.maximumTLSVersion == rhs.maximumTLSVersion &&
+        lhs.cipherSuites == rhs.cipherSuites &&
+        lhs.verifySignatureAlgorithms == rhs.verifySignatureAlgorithms &&
+        lhs.signingSignatureAlgorithms == rhs.signingSignatureAlgorithms &&
+        lhs.certificateVerification == rhs.certificateVerification &&
+        lhs.trustRoots == rhs.trustRoots &&
+        lhs.certificateChain == rhs.certificateChain &&
+        lhs.privateKey == rhs.privateKey &&
+        lhs.applicationProtocols == rhs.applicationProtocols &&
+        lhs.encodedApplicationProtocols == rhs.encodedApplicationProtocols &&
+        lhs.shutdownTimeout == rhs.shutdownTimeout &&
+        lhs.renegotiationSupport == rhs.renegotiationSupport
     }
     
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(minimumTLSVersion)
         hasher.combine(minimumTLSVersion)
         hasher.combine(maximumTLSVersion)
         hasher.combine(cipherSuites)
