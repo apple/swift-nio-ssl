@@ -28,20 +28,20 @@ public enum TLSVersion {
 }
 
 /// Places NIOSSL can obtain certificates from.
-public enum NIOSSLCertificateSource {
+public enum NIOSSLCertificateSource: Hashable {
     @available(*, deprecated, message: "Use 'NIOSSLCertificate.fromPEMFile(_:)' to load the certificate(s) and use the '.certificate(NIOSSLCertificate)' case to provide them as a source")
     case file(String)
     case certificate(NIOSSLCertificate)
 }
 
 /// Places NIOSSL can obtain private keys from.
-public enum NIOSSLPrivateKeySource {
+public enum NIOSSLPrivateKeySource: Hashable {
     case file(String)
     case privateKey(NIOSSLPrivateKey)
 }
 
 /// Places NIOSSL can obtain a trust store from.
-public enum NIOSSLTrustRoots {
+public enum NIOSSLTrustRoots: Hashable {
     case file(String)
     case certificates([NIOSSLCertificate])
     case `default`
@@ -391,5 +391,29 @@ public struct TLSConfiguration {
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
                                 renegotiationSupport: renegotiationSupport)
+    }
+}
+
+// MARK: Hashable
+extension TLSConfiguration: Hashable {
+    public static func == (lhs: TLSConfiguration, rhs: TLSConfiguration) -> Bool {
+        lhs.hashValue == rhs.hashValue
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(minimumTLSVersion)
+        hasher.combine(minimumTLSVersion)
+        hasher.combine(maximumTLSVersion)
+        hasher.combine(cipherSuites)
+        hasher.combine(verifySignatureAlgorithms)
+        hasher.combine(signingSignatureAlgorithms)
+        hasher.combine(certificateVerification)
+        hasher.combine(trustRoots)
+        hasher.combine(certificateChain)
+        hasher.combine(privateKey)
+        hasher.combine(applicationProtocols)
+        hasher.combine(encodedApplicationProtocols)
+        hasher.combine(shutdownTimeout)
+        hasher.combine(renegotiationSupport)
     }
 }
