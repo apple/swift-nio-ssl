@@ -55,22 +55,40 @@ extension SSLConnection {
             // We create a DispatchQueue here to be called back on, as this validation may perform network activity.
             let callbackQueue = DispatchQueue(label: "io.swiftnio.ssl.validationCallbackQueue")
 
-            result = SecTrustEvaluateAsync(actualTrust, callbackQueue) { (_, result) in
-                switch result {
-                case .proceed, .unspecified:
-                    // These two cases mean we have successfully validated the certificate. We're done!
-                    promise.succeed(.certificateVerified)
-                default:
-                    // Oops, we failed.
-                    promise.succeed(.failed)
-                }
-            }
+            // SecTrustEvaluateAsync and its cousin withError require that they are called from the same queue given to
+            // them as a parameter. Thus, we async away now.
+            callbackQueue.async {
+                let result: OSStatus
 
-            guard result == errSecSuccess else {
-                throw NIOSSLError.unableToValidateCertificate
+                if #available(iOS 13, macOS 10.15, tvOS 13, watchOS 6, *) {
+                    result = SecTrustEvaluateAsyncWithError(actualTrust, callbackQueue) { (_, valid, _) in
+                        promise.succeed(valid ? .certificateVerified : .failed)
+                    }
+                } else {
+                    result = SecTrustEvaluateAsync(actualTrust, callbackQueue) { (_, result) in
+                        promise.completeWith(result)
+                    }
+                }
+
+                if result != errSecSuccess {
+                    promise.fail(NIOSSLError.unableToValidateCertificate)
+                }
             }
         } catch {
             promise.fail(error)
+        }
+    }
+}
+
+extension EventLoopPromise where Value == NIOSSLVerificationResult {
+    fileprivate func completeWith(_ result: SecTrustResultType) {
+        switch result {
+        case .proceed, .unspecified:
+            // These two cases mean we have successfully validated the certificate. We're done!
+            self.succeed(.certificateVerified)
+        default:
+            // Oops, we failed.
+            self.succeed(.failed)
         }
     }
 }
