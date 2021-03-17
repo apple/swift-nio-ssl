@@ -295,6 +295,24 @@ extension NIOSSLCertificate {
         return try readCertificatesFromBIO(bio)
     }
 
+    /// Returns the timestamp before which this certificate is not valid.
+    ///
+    /// The value is in seconds since the UNIX epoch.
+    public var notValidBefore: time_t {
+        // This ref is owned by self.
+        let notBefore = CNIOBoringSSL_X509_get0_notBefore(self.ref)!
+        return notBefore.timeSinceEpoch
+    }
+
+    /// Returns the timestamp after which this certificate is not valid.
+    ///
+    /// The value is in seconds since the UNIX epoch.
+    public var notValidAfter: time_t {
+        // This ref is owned by self.
+        let notAfter = CNIOBoringSSL_X509_get0_notAfter(self.ref)!
+        return notAfter.timeSinceEpoch
+    }
+
     /// Reads `NIOSSLCertificate`s from the given BIO.
     private class func readCertificatesFromBIO(_ bio: UnsafeMutablePointer<BIO>) throws -> [NIOSSLCertificate] {
         guard let x509 = CNIOBoringSSL_PEM_read_bio_X509_AUX(bio, nil, nil, nil) else {
@@ -501,5 +519,24 @@ extension NIOSSLCertificate.IPAddress: CustomStringConvertible {
         }
         return String(cString: &dest)
     }
-    
+}
+
+extension UnsafePointer where Pointee == ASN1_TIME {
+    var timeSinceEpoch: time_t {
+        let epochTime = CNIOBoringSSL_ASN1_TIME_new()!
+        defer {
+            CNIOBoringSSL_ASN1_TIME_free(epochTime)
+        }
+
+        // This sets the ASN1_TIME to epoch time.
+        CNIOBoringSSL_ASN1_TIME_set(epochTime, 0)
+        var day = CInt(0)
+        var seconds = CInt(0)
+
+        let rc = CNIOBoringSSL_ASN1_TIME_diff(&day, &seconds, epochTime, self)
+        precondition(rc != 0)
+
+        // 86400 seconds in a day
+        return time_t(day) * 86400 + time_t(seconds)
+    }
 }
