@@ -56,6 +56,9 @@ extension SSLCertificateTest {
                 ("testDumpingDERCert", testDumpingDERCert),
                 ("testPrintingDebugDetailsNoAlternativeNames", testPrintingDebugDetailsNoAlternativeNames),
                 ("testPrintingDebugDetailsWithAlternativeNames", testPrintingDebugDetailsWithAlternativeNames),
+                ("testNotValidBefore", testNotValidBefore),
+                ("testNotValidAfter", testNotValidAfter),
+                ("testNotBeforeAfterGeneratedCert", testNotBeforeAfterGeneratedCert),
            ]
    }
 }
