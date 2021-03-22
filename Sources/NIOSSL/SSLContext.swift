@@ -169,8 +169,12 @@ public final class NIOSSLContext {
         // convert any `additionalTrustRoots` of type `.file` to `.certificates`.
         var configuration = configuration
         configuration.additionalTrustRoots = try configuration.additionalTrustRoots.map { trustRoots in
-            guard case .file(let path) = trustRoots else { return trustRoots }
-            return .certificates(try NIOSSLCertificate.fromPEMFile(path))
+            switch trustRoots {
+            case .file(let path):
+                return .certificates(try NIOSSLCertificate.fromPEMFile(path))
+            default:
+                return trustRoots
+            }
         }
 
         // Configure certificate validation
