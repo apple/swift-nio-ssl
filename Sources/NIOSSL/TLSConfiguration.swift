@@ -489,7 +489,7 @@ public struct TLSConfiguration {
                                  applicationProtocols: [String] = [],
                                  shutdownTimeout: TimeAmount = .seconds(5),
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil,
-                                 renegotiationSupport: NIORenegotiationSupport,
+                                 renegotiationSupport: NIORenegotiationSupport = .none,
                                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots]) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
                                 verifySignatureAlgorithms: verifySignatureAlgorithms,
