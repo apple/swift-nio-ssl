@@ -165,7 +165,7 @@ public final class NIOSSLContext {
         // repeatedly on the request path.
         //
         // However, to avoid closely coupling this code with other parts (e.g. the platform-specific
-        // concerns, and the defauling of `trustRoots` to `.default` when `nil`), we unilaterally
+        // concerns, and the defaulting of `trustRoots` to `.default` when `nil`), we unilaterally
         // convert any `additionalTrustRoots` of type `.file` to `.certificates`.
         var configuration = configuration
         configuration.additionalTrustRoots = try configuration.additionalTrustRoots.map { trustRoots in
