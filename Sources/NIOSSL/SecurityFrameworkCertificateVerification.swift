@@ -53,7 +53,7 @@ extension SSLConnection {
             }
 
             // If there are additional trust roots then we need to add them to the SecTrust as anchors.
-            var additionalAnchorCertificates: [SecCertificate] = try self.parentContext.configuration.additionalTrustRoots.flatMap { trustRoots -> [NIOSSLCertificate] in
+            let additionalAnchorCertificates: [SecCertificate] = try self.parentContext.configuration.additionalTrustRoots.flatMap { trustRoots -> [NIOSSLCertificate] in
                 switch trustRoots {
                 case .file(let path):
                     return try NIOSSLCertificate.fromPEMFile(path)
@@ -75,14 +75,6 @@ extension SSLConnection {
                     }
                 default:
                     break
-                }
-                // We should add our additional anchors to any custom ones that already exist.
-                var existingCustomAnchorCertificates: CFArray? = nil
-                guard SecTrustCopyCustomAnchorCertificates(actualTrust, &existingCustomAnchorCertificates) == errSecSuccess else {
-                    throw NIOSSLError.failedToLoadCertificate
-                }
-                if let existingCustomAnchorCertificates = existingCustomAnchorCertificates as! [SecCertificate]? {
-                    additionalAnchorCertificates.append(contentsOf: existingCustomAnchorCertificates)
                 }
                 guard SecTrustSetAnchorCertificates(actualTrust, additionalAnchorCertificates as CFArray) == errSecSuccess else {
                     throw NIOSSLError.failedToLoadCertificate
