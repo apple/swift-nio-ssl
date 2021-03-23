@@ -28,6 +28,10 @@ import Security
 extension SSLConnection {
     func performSecurityFrameworkValidation(promise: EventLoopPromise<NIOSSLVerificationResult>) {
         do {
+            guard case .default = self.parentContext.configuration.trustRoots ?? .default else {
+                preconditionFailure("This callback should only be used if we are using the system-default trust.")
+            }
+
             // Ok, time to kick off a validation. Let's get some certificate buffers.
             let peerCertificates: [SecCertificate] = try self.withPeerCertificateChainBuffers { buffers in
                 guard let buffers = buffers else {
@@ -54,12 +58,10 @@ extension SSLConnection {
 
             // If there are additional trust roots then we need to add them to the SecTrust as anchors.
             let additionalAnchorCertificates: [SecCertificate] = try self.parentContext.configuration.additionalTrustRoots.flatMap { trustRoots -> [NIOSSLCertificate] in
-                switch trustRoots {
-                case .file(let path):
-                    return try NIOSSLCertificate.fromPEMFile(path)
-                case .certificates(let certs):
-                    return certs
+                guard case .certificates(let certs) = trustRoots else {
+                    preconditionFailure("This callback happens on the request path, file-based additional trust roots should be pre-loaded when creating the SSLContext.")
                 }
+                return certs
             }.map {
                 guard let secCert = SecCertificateCreateWithData(nil, Data(try $0.toDERBytes()) as CFData) else {
                     throw NIOSSLError.failedToLoadCertificate
@@ -68,13 +70,8 @@ extension SSLConnection {
             }
             if !additionalAnchorCertificates.isEmpty {
                 // To use additional anchors _and_ the built-in ones we must reenable the built-in ones expicitly.
-                switch self.parentContext.configuration.trustRoots {
-                case .none, .some(.default):
-                    guard SecTrustSetAnchorCertificatesOnly(actualTrust, false) == errSecSuccess else {
-                        throw NIOSSLError.failedToLoadCertificate
-                    }
-                default:
-                    break
+                guard SecTrustSetAnchorCertificatesOnly(actualTrust, false) == errSecSuccess else {
+                    throw NIOSSLError.failedToLoadCertificate
                 }
                 guard SecTrustSetAnchorCertificates(actualTrust, additionalAnchorCertificates as CFArray) == errSecSuccess else {
                     throw NIOSSLError.failedToLoadCertificate
