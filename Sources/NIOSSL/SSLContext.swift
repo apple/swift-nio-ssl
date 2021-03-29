@@ -159,10 +159,30 @@ public final class NIOSSLContext {
         returnCode = CNIOBoringSSL_SSL_CTX_set_cipher_list(context, configuration.cipherSuites)
         precondition(1 == returnCode)
 
+        // On non-Linux platforms, when using the platform default trust roots, we make use of a
+        // custom verify callback. If we have also been presented with additional trust roots of
+        // type `.file`, we take the opportunity now to load them in memory to avoid doing so
+        // repeatedly on the request path.
+        //
+        // However, to avoid closely coupling this code with other parts (e.g. the platform-specific
+        // concerns, and the defaulting of `trustRoots` to `.default` when `nil`), we unilaterally
+        // convert any `additionalTrustRoots` of type `.file` to `.certificates`.
+        var configuration = configuration
+        configuration.additionalTrustRoots = try configuration.additionalTrustRoots.map { trustRoots in
+            switch trustRoots {
+            case .file(let path):
+                return .certificates(try NIOSSLCertificate.fromPEMFile(path))
+            default:
+                return trustRoots
+            }
+        }
+
         // Configure certificate validation
-        try NIOSSLContext.configureCertificateValidation(context: context,
-                                                      verification: configuration.certificateVerification,
-                                                      trustRoots: configuration.trustRoots)
+        try NIOSSLContext.configureCertificateValidation(
+            context: context,
+            verification: configuration.certificateVerification,
+            trustRoots: configuration.trustRoots,
+            additionalTrustRoots: configuration.additionalTrustRoots)
         
         // Configure verification algorithms
         if let verifySignatureAlgorithms = configuration.verifySignatureAlgorithms {
@@ -189,7 +209,7 @@ public final class NIOSSLContext {
                 throw BoringSSLError.unknownError(errorStack)
             }
         }
-        
+
         // If we were given a certificate chain to use, load it and its associated private key. Before
         // we do, set up a passphrase callback if we need to.
         if let callbackManager = callbackManager {
@@ -383,10 +403,9 @@ extension NIOSSLContext {
     }
 }
 
-
 // Configuring certificate verification
 extension NIOSSLContext {
-    private static func configureCertificateValidation(context: OpaquePointer, verification: CertificateVerification, trustRoots: NIOSSLTrustRoots?) throws {
+    private static func configureCertificateValidation(context: OpaquePointer, verification: CertificateVerification, trustRoots: NIOSSLTrustRoots?, additionalTrustRoots: [NIOSSLAdditionalTrustRoots]) throws {
         // If validation is turned on, set the trust roots and turn on cert validation.
         switch verification {
         case .fullVerification, .noHostnameVerification:
@@ -398,14 +417,18 @@ extension NIOSSLContext {
             let trustParams = CNIOBoringSSL_SSL_CTX_get0_param(context)!
             CNIOBoringSSL_X509_VERIFY_PARAM_set_flags(trustParams, CUnsignedLong(X509_V_FLAG_TRUSTED_FIRST))
 
-            switch trustRoots {
-            case .some(.default), .none:
-                try NIOSSLContext.platformDefaultConfiguration(context: context)
-            case .some(.file(let f)):
-                try NIOSSLContext.loadVerifyLocations(f, context: context)
-            case .some(.certificates(let certs)):
-                try certs.forEach { try NIOSSLContext.addRootCertificate($0, context: context) }
+            func configureTrustRoots(trustRoots: NIOSSLTrustRoots) throws {
+                switch trustRoots {
+                case .default:
+                    try NIOSSLContext.platformDefaultConfiguration(context: context)
+                case .file(let path):
+                    try NIOSSLContext.loadVerifyLocations(path, context: context)
+                case .certificates(let certs):
+                    try certs.forEach { try NIOSSLContext.addRootCertificate($0, context: context) }
+                }
             }
+            try configureTrustRoots(trustRoots: trustRoots ?? .default)
+            try additionalTrustRoots.forEach { try configureTrustRoots(trustRoots: .init(from: $0)) }
         default:
             break
         }

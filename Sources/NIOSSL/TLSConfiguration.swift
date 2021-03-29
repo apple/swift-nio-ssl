@@ -42,9 +42,43 @@ public enum NIOSSLPrivateKeySource {
 
 /// Places NIOSSL can obtain a trust store from.
 public enum NIOSSLTrustRoots {
+    /// Path to either a file of CA certificates in PEM format, or a directory containing CA certificates in PEM format.
+    ///
+    /// If a path to a file is provided, the file can contain several CA certificates identified by
+    ///
+    ///     -----BEGIN CERTIFICATE-----
+    ///     ... (CA certificate in base64 encoding) ...
+    ///     -----END CERTIFICATE-----
+    ///
+    /// sequences. Before, between, and after the certificates, text is allowed which can be used e.g.
+    /// for descriptions of the certificates.
+    ///
+    /// If a path to a directory is provided, the files each contain one CA certificate in PEM format.
     case file(String)
+
+    /// A list of certificates.
     case certificates([NIOSSLCertificate])
+
+    /// The system default root of trust.
     case `default`
+
+    internal init(from trustRoots: NIOSSLAdditionalTrustRoots) {
+        switch trustRoots {
+        case .file(let path):
+            self = .file(path)
+        case .certificates(let certs):
+            self = .certificates(certs)
+        }
+    }
+}
+
+/// Places NIOSSL can obtain additional trust roots from.
+public enum NIOSSLAdditionalTrustRoots {
+    /// See `NIOSSLTrustRoots.file`
+    case file(String)
+
+    /// See `NIOSSLTrustRoots.certificates`
+    case certificates([NIOSSLCertificate])
 }
 
 /// Formats NIOSSL supports for serializing keys and certificates.
@@ -179,7 +213,13 @@ public struct TLSConfiguration {
 
     /// The trust roots to use to validate certificates. This only needs to be provided if you intend to validate
     /// certificates.
+    ///
+    /// - NOTE: If certificate validation is enabled and `trustRoots` is `nil` then the system default root of
+    /// trust is used (as if `trustRoots` had been explicitly set to `.default`).
     public var trustRoots: NIOSSLTrustRoots?
+
+    /// Additional trust roots to use to validate certificates, used in addition to `trustRoots`.
+    public var additionalTrustRoots: [NIOSSLAdditionalTrustRoots]
 
     /// The certificates to offer during negotiation. If not present, no certificates will be offered.
     public var certificateChain: [NIOSSLCertificateSource]
@@ -224,7 +264,8 @@ public struct TLSConfiguration {
                  applicationProtocols: [String],
                  shutdownTimeout: TimeAmount,
                  keyLogCallback: NIOSSLKeyLogCallback?,
-                 renegotiationSupport: NIORenegotiationSupport) {
+                 renegotiationSupport: NIORenegotiationSupport,
+                 additionalTrustRoots: [NIOSSLAdditionalTrustRoots]) {
         self.cipherSuites = cipherSuites
         self.verifySignatureAlgorithms = verifySignatureAlgorithms
         self.signingSignatureAlgorithms = signingSignatureAlgorithms
@@ -232,6 +273,7 @@ public struct TLSConfiguration {
         self.maximumTLSVersion = maximumTLSVersion
         self.certificateVerification = certificateVerification
         self.trustRoots = trustRoots
+        self.additionalTrustRoots = additionalTrustRoots
         self.certificateChain = certificateChain
         self.privateKey = privateKey
         self.encodedApplicationProtocols = []
@@ -267,7 +309,8 @@ public struct TLSConfiguration {
                                 applicationProtocols: applicationProtocols,
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
-                                renegotiationSupport: .none)  // Servers never support renegotiation: there's no point.
+                                renegotiationSupport: .none,  // Servers never support renegotiation: there's no point.
+                                additionalTrustRoots: [])
     }
 
     /// Create a TLS configuration for use with server-side contexts.
@@ -298,7 +341,41 @@ public struct TLSConfiguration {
                                 applicationProtocols: applicationProtocols,
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
-                                renegotiationSupport: .none)  // Servers never support renegotiation: there's no point.
+                                renegotiationSupport: .none,  // Servers never support renegotiation: there's no point.
+                                additionalTrustRoots: [])
+    }
+
+    /// Create a TLS configuration for use with server-side contexts.
+    ///
+    /// This provides sensible defaults while requiring that you provide any data that is necessary
+    /// for server-side function. For client use, try `forClient` instead.
+    public static func forServer(certificateChain: [NIOSSLCertificateSource],
+                                 privateKey: NIOSSLPrivateKeySource,
+                                 cipherSuites: String = defaultCipherSuites,
+                                 verifySignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 signingSignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 minimumTLSVersion: TLSVersion = .tlsv1,
+                                 maximumTLSVersion: TLSVersion? = nil,
+                                 certificateVerification: CertificateVerification = .none,
+                                 trustRoots: NIOSSLTrustRoots = .default,
+                                 applicationProtocols: [String] = [],
+                                 shutdownTimeout: TimeAmount = .seconds(5),
+                                 keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 additionalTrustRoots: [NIOSSLAdditionalTrustRoots]) -> TLSConfiguration {
+        return TLSConfiguration(cipherSuites: cipherSuites,
+                                verifySignatureAlgorithms: verifySignatureAlgorithms,
+                                signingSignatureAlgorithms: signingSignatureAlgorithms,
+                                minimumTLSVersion: minimumTLSVersion,
+                                maximumTLSVersion: maximumTLSVersion,
+                                certificateVerification: certificateVerification,
+                                trustRoots: trustRoots,
+                                certificateChain: certificateChain,
+                                privateKey: privateKey,
+                                applicationProtocols: applicationProtocols,
+                                shutdownTimeout: shutdownTimeout,
+                                keyLogCallback: keyLogCallback,
+                                renegotiationSupport: .none,  // Servers never support renegotiation: there's no point.
+                                additionalTrustRoots: additionalTrustRoots)
     }
 
     /// Creates a TLS configuration for use with client-side contexts.
@@ -327,7 +404,8 @@ public struct TLSConfiguration {
                                 applicationProtocols: applicationProtocols,
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
-                                renegotiationSupport: .none)  // Default value is here for backward-compatibility.
+                                renegotiationSupport: .none,  // Default value is here for backward-compatibility.
+                                additionalTrustRoots: [])
     }
 
 
@@ -358,7 +436,8 @@ public struct TLSConfiguration {
                                 applicationProtocols: applicationProtocols,
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
-                                renegotiationSupport: renegotiationSupport)
+                                renegotiationSupport: renegotiationSupport,
+                                additionalTrustRoots: [])
     }
     
     /// Creates a TLS configuration for use with client-side contexts.
@@ -390,6 +469,41 @@ public struct TLSConfiguration {
                                 applicationProtocols: applicationProtocols,
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
-                                renegotiationSupport: renegotiationSupport)
+                                renegotiationSupport: renegotiationSupport,
+                                additionalTrustRoots: [])
+    }
+
+    /// Creates a TLS configuration for use with client-side contexts.
+    ///
+    /// This provides sensible defaults, and can be used without customisation. For server-side
+    /// contexts, you should use `forServer` instead.
+    public static func forClient(cipherSuites: String = defaultCipherSuites,
+                                 verifySignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 signingSignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 minimumTLSVersion: TLSVersion = .tlsv1,
+                                 maximumTLSVersion: TLSVersion? = nil,
+                                 certificateVerification: CertificateVerification = .fullVerification,
+                                 trustRoots: NIOSSLTrustRoots = .default,
+                                 certificateChain: [NIOSSLCertificateSource] = [],
+                                 privateKey: NIOSSLPrivateKeySource? = nil,
+                                 applicationProtocols: [String] = [],
+                                 shutdownTimeout: TimeAmount = .seconds(5),
+                                 keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 renegotiationSupport: NIORenegotiationSupport = .none,
+                                 additionalTrustRoots: [NIOSSLAdditionalTrustRoots]) -> TLSConfiguration {
+        return TLSConfiguration(cipherSuites: cipherSuites,
+                                verifySignatureAlgorithms: verifySignatureAlgorithms,
+                                signingSignatureAlgorithms: signingSignatureAlgorithms,
+                                minimumTLSVersion: minimumTLSVersion,
+                                maximumTLSVersion: maximumTLSVersion,
+                                certificateVerification: certificateVerification,
+                                trustRoots: trustRoots,
+                                certificateChain: certificateChain,
+                                privateKey: privateKey,
+                                applicationProtocols: applicationProtocols,
+                                shutdownTimeout: shutdownTimeout,
+                                keyLogCallback: keyLogCallback,
+                                renegotiationSupport: renegotiationSupport,
+                                additionalTrustRoots: additionalTrustRoots)
     }
 }
