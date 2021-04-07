@@ -29,8 +29,10 @@ final class ByteBufferBIOTest: XCTestCase {
         }
     }
 
+    /// This leaks on purpose!
     private func retainedBIO() -> UnsafeMutablePointer<BIO> {
         let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator())
+        swiftBIO.close()
         return swiftBIO.retainedBIO()
     }
 
@@ -39,6 +41,7 @@ final class ByteBufferBIOTest: XCTestCase {
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
+            swiftBIO.close()
         }
 
         XCTAssertNil(swiftBIO.outboundCiphertext())
@@ -60,6 +63,7 @@ final class ByteBufferBIOTest: XCTestCase {
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
+            swiftBIO.close()
         }
 
         XCTAssertNil(swiftBIO.outboundCiphertext())
@@ -85,6 +89,7 @@ final class ByteBufferBIOTest: XCTestCase {
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
+            swiftBIO.close()
         }
 
         var targetBuffer = [UInt8](repeating: 0, count: 512)
@@ -100,6 +105,7 @@ final class ByteBufferBIOTest: XCTestCase {
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
+            swiftBIO.close()
         }
 
         var inboundBytes = ByteBufferAllocator().buffer(capacity: 1024)
@@ -129,6 +135,7 @@ final class ByteBufferBIOTest: XCTestCase {
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
+            swiftBIO.close()
         }
 
         var inboundBytes = ByteBufferAllocator().buffer(capacity: 1024)
@@ -181,6 +188,7 @@ final class ByteBufferBIOTest: XCTestCase {
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
+            swiftBIO.close()
         }
 
         var targetBuffer = [UInt8](repeating: 0, count: 512)
@@ -194,6 +202,7 @@ final class ByteBufferBIOTest: XCTestCase {
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
+            swiftBIO.close()
         }
 
         var bytesToWrite: [UInt8] = [1, 2, 3, 4, 5]
@@ -227,6 +236,7 @@ final class ByteBufferBIOTest: XCTestCase {
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
+            swiftBIO.close()
         }
 
         let firstAddress = writeAddress(swiftBIO: swiftBIO, cBIO: cBIO)
@@ -244,6 +254,7 @@ final class ByteBufferBIOTest: XCTestCase {
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
+            swiftBIO.close()
         }
 
         var bytesToWrite: [UInt8] = [1, 2, 3, 4, 5]
@@ -266,6 +277,7 @@ final class ByteBufferBIOTest: XCTestCase {
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
+            swiftBIO.close()
         }
 
         XCTAssertNil(swiftBIO.outboundCiphertext())
@@ -286,6 +298,7 @@ final class ByteBufferBIOTest: XCTestCase {
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
+            swiftBIO.close()
         }
 
         var buffer = ByteBufferAllocator().buffer(capacity: 1024)
@@ -306,6 +319,7 @@ final class ByteBufferBIOTest: XCTestCase {
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
+            swiftBIO.close()
         }
 
         let originalShutdown = CNIOBoringSSL_BIO_ctrl(cBIO, BIO_CTRL_GET_CLOSE, 0, nil)

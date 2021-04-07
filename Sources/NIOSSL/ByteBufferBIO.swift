@@ -217,19 +217,34 @@ final class ByteBufferBIO {
             preconditionFailure("Unable to initialize custom BIO")
         }
 
-        // We now need to complete the BIO initialization. The BIO does not have an owned pointer
-        // to us, as that would create an annoying-to-break reference cycle.
+        // We now need to complete the BIO initialization. The BIO takes an owned reference to self here,
+        // which is broken on close().
         self.bioPtr = bio
-        CNIOBoringSSL_BIO_set_data(self.bioPtr, Unmanaged.passUnretained(self).toOpaque())
+        CNIOBoringSSL_BIO_set_data(self.bioPtr, Unmanaged.passRetained(self).toOpaque())
         CNIOBoringSSL_BIO_set_init(self.bioPtr, 1)
         CNIOBoringSSL_BIO_set_shutdown(self.bioPtr, 1)
     }
 
     deinit {
-        // On deinit we need to drop our reference to the BIO, and also ensure that it doesn't hold any
-        // pointers to this object anymore.
-        CNIOBoringSSL_BIO_set_data(self.bioPtr, nil)
+        // In debug mode we assert that we've been closed.
+        assert(CNIOBoringSSL_BIO_get_data(self.bioPtr) == nil, "must call close() on ByteBufferBIO before deinit")
+
+        // On deinit we need to drop our reference to the BIO.
         CNIOBoringSSL_BIO_free(self.bioPtr)
+    }
+
+    /// Shuts down the BIO, rendering it unable to be used.
+    ///
+    /// This method is idempotent: it is safe to call more than once.
+    internal func close() {
+        guard let selfRef = CNIOBoringSSL_BIO_get_data(self.bioPtr) else {
+            // Shutdown is safe to call more than once.
+            return
+        }
+
+        // We consume the original retain of self, and then nil out the ref in the BIO so that this can't happen again.
+        Unmanaged<ByteBufferBIO>.fromOpaque(selfRef).release()
+        CNIOBoringSSL_BIO_set_data(self.bioPtr, nil)
     }
 
     /// Obtain an owned pointer to the backing BoringSSL BIO object.

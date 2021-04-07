@@ -403,6 +403,9 @@ internal final class SSLConnection {
 
         // Also drop the reference to the parent channel handler, which is a trivial reference cycle.
         self.parentHandler = nil
+
+        // And finally drop the data stored by the bytebuffer BIO
+        self.bio?.close()
     }
 
     /// Retrieves any inbound data that has not been processed by BoringSSL.
