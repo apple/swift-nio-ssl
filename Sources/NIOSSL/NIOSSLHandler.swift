@@ -98,7 +98,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         // keeping track of the state we're in properly before we do anything else.
         let oldState = state
         state = .closed
-        var channelError: NIOSSLError
+        let channelError: NIOSSLError
 
         switch oldState {
         case .closed, .idle:
