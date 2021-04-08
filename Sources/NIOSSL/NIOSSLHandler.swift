@@ -98,25 +98,35 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         // keeping track of the state we're in properly before we do anything else.
         let oldState = state
         state = .closed
+        let channelError: NIOSSLError
 
         switch oldState {
         case .closed, .idle:
             // Nothing to do, but discard any buffered writes we still have.
             discardBufferedWrites(reason: ChannelError.ioOnClosedChannel)
+            // Return early
+            context.fireChannelInactive()
+            return
+        case .handshaking:
+            // In this case the channel is going through the doHandshake steps and
+            // a channelInactive is fired taking down the connection.
+            // This case propogates a .handshakeFailed instead of an .uncleanShutdown.
+            channelError = NIOSSLError.handshakeFailed(.sslError(BoringSSLError.buildErrorStack()))
         default:
             // This is a ragged EOF: we weren't sent a CLOSE_NOTIFY. We want to send a user
             // event to notify about this before we propagate channelInactive. We also want to fail all
             // these writes.
-            let shutdownPromise = self.shutdownPromise
-            self.shutdownPromise = nil
-            let closePromise = self.closePromise
-            self.closePromise = nil
-
-            shutdownPromise?.fail(NIOSSLError.uncleanShutdown)
-            closePromise?.fail(NIOSSLError.uncleanShutdown)
-            context.fireErrorCaught(NIOSSLError.uncleanShutdown)
-            discardBufferedWrites(reason: NIOSSLError.uncleanShutdown)
+            channelError = NIOSSLError.uncleanShutdown
         }
+        let shutdownPromise = self.shutdownPromise
+        self.shutdownPromise = nil
+        let closePromise = self.closePromise
+        self.closePromise = nil
+
+        shutdownPromise?.fail(channelError)
+        closePromise?.fail(channelError)
+        context.fireErrorCaught(channelError)
+        discardBufferedWrites(reason: channelError)
 
         context.fireChannelInactive()
     }
