@@ -445,13 +445,17 @@ class TLSConfigurationTest: XCTestCase {
     func testTheSameHashValue() {
         let config = TLSConfiguration.forServer(certificateChain: [], privateKey: .file("fake.file"), applicationProtocols: ["http/1.1"])
         let theSameConfig  = TLSConfiguration.forServer(certificateChain: [], privateKey: .file("fake.file"), applicationProtocols: ["http/1.1"])
-        XCTAssertEqual(config.hashValue, theSameConfig.hashValue)
-        XCTAssertEqual(config, theSameConfig)
+        var hasher = Hasher()
+        var hasher2 = Hasher()
+        config.bestEffortHash(into: &hasher)
+        theSameConfig.bestEffortHash(into: &hasher2)
+        XCTAssertEqual(hasher.finalize(), hasher2.finalize())
+        XCTAssertTrue(config.bestEffortEquals(theSameConfig))
     }
     
     func testDifferentHashValues() {
         let config = TLSConfiguration.forServer(certificateChain: [], privateKey: .file("fake.file"), applicationProtocols: ["http/1.1"])
         let differentConfig = TLSConfiguration.forServer(certificateChain: [], privateKey: .file("fake2.file"), applicationProtocols: ["http/1.1"])
-        XCTAssertNotEqual(config, differentConfig)
+        XCTAssertFalse(config.bestEffortEquals(differentConfig))
     }
 }

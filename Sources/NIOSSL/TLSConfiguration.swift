@@ -394,25 +394,32 @@ public struct TLSConfiguration {
     }
 }
 
-// MARK: Hashable
-extension TLSConfiguration: Hashable {
-    public static func == (lhs: TLSConfiguration, rhs: TLSConfiguration) -> Bool {
-        lhs.minimumTLSVersion == rhs.minimumTLSVersion &&
-        lhs.maximumTLSVersion == rhs.maximumTLSVersion &&
-        lhs.cipherSuites == rhs.cipherSuites &&
-        lhs.verifySignatureAlgorithms == rhs.verifySignatureAlgorithms &&
-        lhs.signingSignatureAlgorithms == rhs.signingSignatureAlgorithms &&
-        lhs.certificateVerification == rhs.certificateVerification &&
-        lhs.trustRoots == rhs.trustRoots &&
-        lhs.certificateChain == rhs.certificateChain &&
-        lhs.privateKey == rhs.privateKey &&
-        lhs.applicationProtocols == rhs.applicationProtocols &&
-        lhs.encodedApplicationProtocols == rhs.encodedApplicationProtocols &&
-        lhs.shutdownTimeout == rhs.shutdownTimeout &&
-        lhs.renegotiationSupport == rhs.renegotiationSupport
+// MARK: BestEffortHashable
+extension TLSConfiguration {
+    public func bestEffortEquals(_ comparing: TLSConfiguration) -> Bool {
+        let isKeyLoggerCallbacksEqual = withUnsafeBytes(of: self.keyLogCallback) { callbackPointer1 in
+            return withUnsafeBytes(of: comparing.keyLogCallback) { callbackPointer2 in
+                return callbackPointer1.elementsEqual(callbackPointer2)
+            }
+        }
+        
+        return self.minimumTLSVersion == comparing.minimumTLSVersion &&
+            self.maximumTLSVersion == comparing.maximumTLSVersion &&
+            self.cipherSuites == comparing.cipherSuites &&
+            self.verifySignatureAlgorithms == comparing.verifySignatureAlgorithms &&
+            self.signingSignatureAlgorithms == comparing.signingSignatureAlgorithms &&
+            self.certificateVerification == comparing.certificateVerification &&
+            self.trustRoots == comparing.trustRoots &&
+            self.certificateChain == comparing.certificateChain &&
+            self.privateKey == comparing.privateKey &&
+            self.applicationProtocols == comparing.applicationProtocols &&
+            self.encodedApplicationProtocols == comparing.encodedApplicationProtocols &&
+            self.shutdownTimeout == comparing.shutdownTimeout &&
+            isKeyLoggerCallbacksEqual &&
+            self.renegotiationSupport == comparing.renegotiationSupport
     }
     
-    public func hash(into hasher: inout Hasher) {
+    public func bestEffortHash(into hasher: inout Hasher) {
         hasher.combine(minimumTLSVersion)
         hasher.combine(maximumTLSVersion)
         hasher.combine(cipherSuites)
@@ -425,6 +432,9 @@ extension TLSConfiguration: Hashable {
         hasher.combine(applicationProtocols)
         hasher.combine(encodedApplicationProtocols)
         hasher.combine(shutdownTimeout)
+        withUnsafeBytes(of: keyLogCallback) { closureBits in
+            hasher.combine(bytes: closureBits)
+        }
         hasher.combine(renegotiationSupport)
     }
 }
