@@ -458,4 +458,10 @@ class TLSConfigurationTest: XCTestCase {
         let differentConfig = TLSConfiguration.forServer(certificateChain: [], privateKey: .file("fake2.file"), applicationProtocols: ["http/1.1"])
         XCTAssertFalse(config.bestEffortEquals(differentConfig))
     }
+    
+    func testDifferentCallbacksNotEqual() {
+        let config = TLSConfiguration.forServer(certificateChain: [], privateKey: .file("fake.file"), applicationProtocols: ["http/1.1"], keyLogCallback: { _ in })
+        let differentConfig = TLSConfiguration.forServer(certificateChain: [], privateKey: .file("fake.file"), applicationProtocols: ["http/1.1"], keyLogCallback: { _ in })
+        XCTAssertFalse(config.bestEffortEquals(differentConfig))
+    }
 }
