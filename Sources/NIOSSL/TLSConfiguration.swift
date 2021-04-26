@@ -396,6 +396,11 @@ public struct TLSConfiguration {
 
 // MARK: BestEffortHashable
 extension TLSConfiguration {
+    /// Returns a best effort result of whether two `TLSConfiguration` objects are equal.
+    ///
+    /// The "best effort" stems from the fact that we are checking the pointer to the `keyLogCallback` closure.
+    ///
+    /// - warning: You should probably not use this function. This function can return false-negatives, but not false-positives.
     public func bestEffortEquals(_ comparing: TLSConfiguration) -> Bool {
         let isKeyLoggerCallbacksEqual = withUnsafeBytes(of: self.keyLogCallback) { callbackPointer1 in
             return withUnsafeBytes(of: comparing.keyLogCallback) { callbackPointer2 in
@@ -419,6 +424,11 @@ extension TLSConfiguration {
             self.renegotiationSupport == comparing.renegotiationSupport
     }
     
+    /// Returns a best effort hash of this TLS configuration.
+    ///
+    /// The "best effort" stems from the fact that we are hashing the pointer bytes of the `keyLogCallback` closure.
+    ///
+    /// - warning: You should probably not use this function. This function can return false-negatives, but not false-positives.
     public func bestEffortHash(into hasher: inout Hasher) {
         hasher.combine(minimumTLSVersion)
         hasher.combine(maximumTLSVersion)
