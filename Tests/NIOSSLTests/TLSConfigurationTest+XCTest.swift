@@ -43,6 +43,15 @@ extension TLSConfigurationTest {
                 ("testNonexistentFileObject", testNonexistentFileObject),
                 ("testComputedApplicationProtocols", testComputedApplicationProtocols),
                 ("testKeyLogManagerOverlappingAccess", testKeyLogManagerOverlappingAccess),
+                ("testCompatibleCipherSuite", testCompatibleCipherSuite),
+                ("testNonCompatibleCipherSuite", testNonCompatibleCipherSuite),
+                ("testDefaultWithRSACipherSuite", testDefaultWithRSACipherSuite),
+                ("testDefaultWithECDHERSACipherSuite", testDefaultWithECDHERSACipherSuite),
+                ("testStringBasedCipherSuite", testStringBasedCipherSuite),
+                ("testMultipleCompatibleCipherSuites", testMultipleCompatibleCipherSuites),
+                ("testMultipleCompatibleCipherSuitesWithStringBasedCipher", testMultipleCompatibleCipherSuitesWithStringBasedCipher),
+                ("testMultipleClientCipherSuitesWithDefaultCipher", testMultipleClientCipherSuitesWithDefaultCipher),
+                ("testNonCompatibleClientCiphersWithServerStringBasedCiphers", testNonCompatibleClientCiphersWithServerStringBasedCiphers),
            ]
    }
 }

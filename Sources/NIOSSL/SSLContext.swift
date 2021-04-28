@@ -156,7 +156,7 @@ public final class NIOSSLContext {
         precondition(1 == returnCode)
 
         // Cipher suites. We just pass this straight to BoringSSL.
-        returnCode = CNIOBoringSSL_SSL_CTX_set_cipher_list(context, configuration.cipherSuites)
+        returnCode = CNIOBoringSSL_SSL_CTX_set_cipher_list(context, configuration.cipherSuiteFormattedString)
         precondition(1 == returnCode)
 
         // On non-Linux platforms, when using the platform default trust roots, we make use of a

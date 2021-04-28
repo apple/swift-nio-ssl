@@ -81,6 +81,39 @@ public enum NIOSSLAdditionalTrustRoots {
     case certificates([NIOSSLCertificate])
 }
 
+/// Available ciphers to use for TLS instead of a string based representation.
+public struct NIOTLSCipher: RawRepresentable, Hashable {
+    public init(rawValue: UInt16) {
+        self.rawValue = rawValue
+    }
+    
+    public init(_ rawValue: RawValue) {
+        self.rawValue = rawValue
+    }
+    
+    public var rawValue: UInt16
+    public typealias RawValue = UInt16
+    
+    public static let TLS_RSA_WITH_AES_128_CBC_SHA                    = NIOTLSCipher(rawValue: 0x2F)
+    public static let TLS_RSA_WITH_AES_256_CBC_SHA                    = NIOTLSCipher(rawValue: 0x35)
+    public static let TLS_RSA_WITH_AES_128_GCM_SHA256                 = NIOTLSCipher(rawValue: 0x9C)
+    public static let TLS_RSA_WITH_AES_256_GCM_SHA384                 = NIOTLSCipher(rawValue: 0x9D)
+    public static let TLS_AES_128_GCM_SHA256                          = NIOTLSCipher(rawValue: 0x1301)
+    public static let TLS_AES_256_GCM_SHA384                          = NIOTLSCipher(rawValue: 0x1302)
+    public static let TLS_CHACHA20_POLY1305_SHA256                    = NIOTLSCipher(rawValue: 0x1303)
+    public static let TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA            = NIOTLSCipher(rawValue: 0xC009)
+    public static let TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA            = NIOTLSCipher(rawValue: 0xC00A)
+    public static let TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA              = NIOTLSCipher(rawValue: 0xC013)
+    public static let TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA              = NIOTLSCipher(rawValue: 0xC014)
+    public static let TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256         = NIOTLSCipher(rawValue: 0xC02B)
+    public static let TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384         = NIOTLSCipher(rawValue: 0xC02C)
+    public static let TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256           = NIOTLSCipher(rawValue: 0xC02F)
+    public static let TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384           = NIOTLSCipher(rawValue: 0xC030)
+    public static let TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256     = NIOTLSCipher(rawValue: 0xCCA8)
+    public static let TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256   = NIOTLSCipher(rawValue: 0xCCA9)
+    
+}
+
 /// Formats NIOSSL supports for serializing keys and certificates.
 public enum NIOSSLSerializationFormats {
     case pem
@@ -200,7 +233,27 @@ public struct TLSConfiguration {
 
     /// The pre-TLS1.3 cipher suites supported by this handler. This uses the OpenSSL cipher string format.
     /// TLS 1.3 cipher suites cannot be configured.
-    public var cipherSuites: String
+    internal var cipherSuiteFormattedString: String = defaultCipherSuites
+    
+    /// Public property used to set the internal cipherSuiteFormattedString from NIOTLSCipher.
+    public var cipherSuite: [NIOTLSCipher] {
+        get {
+            // Default to a ECDHE_RSA based cipher.
+            return [.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256]
+        }
+        set {
+            // Iterate through an array of provided ciphers
+            var ciphers = ""
+            for cipher in newValue {
+                let cipherValue: UInt16 = cipher.rawValue
+                let boringSSLCipher = CNIOBoringSSL_SSL_get_cipher_by_value(cipherValue)
+                let standardName = String(cString: CNIOBoringSSL_SSL_CIPHER_standard_name(boringSSLCipher))
+                ciphers += "\(standardName):"
+            }
+            ciphers = String(ciphers.dropLast())
+            cipherSuiteFormattedString = ciphers
+        }
+    }
 
     /// Allowed algorithms to verify signatures. Passing nil means, that a built-in set of algorithms will be used.
     public var verifySignatureAlgorithms : [SignatureAlgorithm]?
@@ -266,7 +319,7 @@ public struct TLSConfiguration {
                  keyLogCallback: NIOSSLKeyLogCallback?,
                  renegotiationSupport: NIORenegotiationSupport,
                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots]) {
-        self.cipherSuites = cipherSuites
+        self.cipherSuiteFormattedString = cipherSuites
         self.verifySignatureAlgorithms = verifySignatureAlgorithms
         self.signingSignatureAlgorithms = signingSignatureAlgorithms
         self.minimumTLSVersion = minimumTLSVersion
@@ -281,6 +334,70 @@ public struct TLSConfiguration {
         self.renegotiationSupport = renegotiationSupport
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
+    }
+    
+    private init(cipherSuites: [NIOTLSCipher],
+                 verifySignatureAlgorithms: [SignatureAlgorithm]?,
+                 signingSignatureAlgorithms: [SignatureAlgorithm]?,
+                 minimumTLSVersion: TLSVersion,
+                 maximumTLSVersion: TLSVersion?,
+                 certificateVerification: CertificateVerification,
+                 trustRoots: NIOSSLTrustRoots,
+                 certificateChain: [NIOSSLCertificateSource],
+                 privateKey: NIOSSLPrivateKeySource?,
+                 applicationProtocols: [String],
+                 shutdownTimeout: TimeAmount,
+                 keyLogCallback: NIOSSLKeyLogCallback?,
+                 renegotiationSupport: NIORenegotiationSupport,
+                 additionalTrustRoots: [NIOSSLAdditionalTrustRoots]) {
+        self.verifySignatureAlgorithms = verifySignatureAlgorithms
+        self.signingSignatureAlgorithms = signingSignatureAlgorithms
+        self.minimumTLSVersion = minimumTLSVersion
+        self.maximumTLSVersion = maximumTLSVersion
+        self.certificateVerification = certificateVerification
+        self.trustRoots = trustRoots
+        self.additionalTrustRoots = additionalTrustRoots
+        self.certificateChain = certificateChain
+        self.privateKey = privateKey
+        self.encodedApplicationProtocols = []
+        self.shutdownTimeout = shutdownTimeout
+        self.renegotiationSupport = renegotiationSupport
+        self.applicationProtocols = applicationProtocols
+        self.keyLogCallback = keyLogCallback
+        self.cipherSuite = cipherSuites
+    }
+    
+    /// Create a TLS configuration for use with server-side contexts. This allows setting the `NIOTLSCipher` property specifically.
+    ///
+    /// This provides sensible defaults while requiring that you provide any data that is necessary
+    /// for server-side function. For client use, try `forClient` instead.
+    public static func forServer(certificateChain: [NIOSSLCertificateSource],
+                                 privateKey: NIOSSLPrivateKeySource,
+                                 ciphers: [NIOTLSCipher],
+                                 verifySignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 signingSignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 minimumTLSVersion: TLSVersion = .tlsv1,
+                                 maximumTLSVersion: TLSVersion? = nil,
+                                 certificateVerification: CertificateVerification = .none,
+                                 trustRoots: NIOSSLTrustRoots = .default,
+                                 applicationProtocols: [String] = [],
+                                 shutdownTimeout: TimeAmount = .seconds(5),
+                                 keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 additionalTrustRoots: [NIOSSLAdditionalTrustRoots] = []) -> TLSConfiguration {
+        return TLSConfiguration(cipherSuites: ciphers,
+                                verifySignatureAlgorithms: verifySignatureAlgorithms,
+                                signingSignatureAlgorithms: signingSignatureAlgorithms,
+                                minimumTLSVersion: minimumTLSVersion,
+                                maximumTLSVersion: maximumTLSVersion,
+                                certificateVerification: certificateVerification,
+                                trustRoots: trustRoots,
+                                certificateChain: certificateChain,
+                                privateKey: privateKey,
+                                applicationProtocols: applicationProtocols,
+                                shutdownTimeout: shutdownTimeout,
+                                keyLogCallback: keyLogCallback,
+                                renegotiationSupport: .none,  // Servers never support renegotiation: there's no point.
+                                additionalTrustRoots: additionalTrustRoots)
     }
 
     /// Create a TLS configuration for use with server-side contexts.
@@ -375,6 +492,40 @@ public struct TLSConfiguration {
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
                                 renegotiationSupport: .none,  // Servers never support renegotiation: there's no point.
+                                additionalTrustRoots: additionalTrustRoots)
+    }
+    
+    /// Creates a TLS configuration for use with client-side contexts. This allows setting the `NIOTLSCipher` property specifically.
+    ///
+    /// This provides sensible defaults, and can be used without customisation. For server-side
+    /// contexts, you should use `forServer` instead.
+    public static func forClient(ciphers: [NIOTLSCipher],
+                                 verifySignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 signingSignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 minimumTLSVersion: TLSVersion = .tlsv1,
+                                 maximumTLSVersion: TLSVersion? = nil,
+                                 certificateVerification: CertificateVerification = .fullVerification,
+                                 trustRoots: NIOSSLTrustRoots = .default,
+                                 certificateChain: [NIOSSLCertificateSource] = [],
+                                 privateKey: NIOSSLPrivateKeySource? = nil,
+                                 applicationProtocols: [String] = [],
+                                 shutdownTimeout: TimeAmount = .seconds(5),
+                                 keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 renegotiationSupport: NIORenegotiationSupport = .none,
+                                 additionalTrustRoots: [NIOSSLAdditionalTrustRoots] = []) -> TLSConfiguration {
+        return TLSConfiguration(cipherSuites: ciphers,
+                                verifySignatureAlgorithms: verifySignatureAlgorithms,
+                                signingSignatureAlgorithms: signingSignatureAlgorithms,
+                                minimumTLSVersion: minimumTLSVersion,
+                                maximumTLSVersion: maximumTLSVersion,
+                                certificateVerification: certificateVerification,
+                                trustRoots: trustRoots,
+                                certificateChain: certificateChain,
+                                privateKey: privateKey,
+                                applicationProtocols: applicationProtocols,
+                                shutdownTimeout: shutdownTimeout,
+                                keyLogCallback: keyLogCallback,
+                                renegotiationSupport: renegotiationSupport,
                                 additionalTrustRoots: additionalTrustRoots)
     }
 
