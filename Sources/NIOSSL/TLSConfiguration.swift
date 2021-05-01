@@ -233,16 +233,34 @@ public struct TLSConfiguration {
 
     /// The pre-TLS1.3 cipher suites supported by this handler. This uses the OpenSSL cipher string format.
     /// TLS 1.3 cipher suites cannot be configured.
-    internal var cipherSuiteFormattedString: String = defaultCipherSuites
+    public var cipherSuites: String = defaultCipherSuites
     
     /// Public property used to set the internal cipherSuiteFormattedString from NIOTLSCipher.
     public var cipherSuite: [NIOTLSCipher] {
         get {
-            // Default to a ECDHE_RSA based cipher.
-            return [.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256]
+            // Set a temporary context with the default ciphers from cipherSuites
+            guard let tempContext = CNIOBoringSSL_SSL_CTX_new(CNIOBoringSSL_TLS_method()) else {
+                fatalError("Failed to create new BoringSSL context")
+            }
+            // Set a temporary context to build a set of default ciphers on based upon defaultCipherSuites
+            CNIOBoringSSL_SSL_CTX_set_cipher_list(tempContext, cipherSuites)
+            let bsslCipherStack = CNIOBoringSSL_SSL_CTX_get_ciphers(tempContext)
+            
+            var defaultCiphers: [NIOTLSCipher] = []
+            let cipherStackSize = CNIOBoringSSL_sk_SSL_CIPHER_num(bsslCipherStack)
+            for idx in 0..<cipherStackSize {
+                guard let stackCipherPtr = CNIOBoringSSL_sk_SSL_CIPHER_value(bsslCipherStack, idx) else {
+                    preconditionFailure("Unable to get cipher \(idx) from stack \(String(describing: bsslCipherStack))")
+                }
+                // Create a new cipher based on the NIOTLSCipher type
+                let id = CNIOBoringSSL_SSL_CIPHER_get_protocol_id(stackCipherPtr) as UInt16
+                defaultCiphers.append(NIOTLSCipher(id))
+            }
+            return defaultCiphers
         }
         set {
-            // Iterate through an array of provided ciphers
+            // Iterate through an array of provided ciphers and build out a dynamic cipherSuites
+            // string based on the passed in suites.
             var ciphers = ""
             for cipher in newValue {
                 let cipherValue: UInt16 = cipher.rawValue
@@ -251,7 +269,7 @@ public struct TLSConfiguration {
                 ciphers += "\(standardName):"
             }
             ciphers = String(ciphers.dropLast())
-            cipherSuiteFormattedString = ciphers
+            cipherSuites = ciphers
         }
     }
 
@@ -319,7 +337,7 @@ public struct TLSConfiguration {
                  keyLogCallback: NIOSSLKeyLogCallback?,
                  renegotiationSupport: NIORenegotiationSupport,
                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots]) {
-        self.cipherSuiteFormattedString = cipherSuites
+        self.cipherSuites = cipherSuites
         self.verifySignatureAlgorithms = verifySignatureAlgorithms
         self.signingSignatureAlgorithms = signingSignatureAlgorithms
         self.minimumTLSVersion = minimumTLSVersion
@@ -373,7 +391,7 @@ public struct TLSConfiguration {
     /// for server-side function. For client use, try `forClient` instead.
     public static func forServer(certificateChain: [NIOSSLCertificateSource],
                                  privateKey: NIOSSLPrivateKeySource,
-                                 ciphers: [NIOTLSCipher],
+                                 cipherSuites: [NIOTLSCipher],
                                  verifySignatureAlgorithms: [SignatureAlgorithm]? = nil,
                                  signingSignatureAlgorithms: [SignatureAlgorithm]? = nil,
                                  minimumTLSVersion: TLSVersion = .tlsv1,
@@ -384,7 +402,7 @@ public struct TLSConfiguration {
                                  shutdownTimeout: TimeAmount = .seconds(5),
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil,
                                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots] = []) -> TLSConfiguration {
-        return TLSConfiguration(cipherSuites: ciphers,
+        return TLSConfiguration(cipherSuites: cipherSuites,
                                 verifySignatureAlgorithms: verifySignatureAlgorithms,
                                 signingSignatureAlgorithms: signingSignatureAlgorithms,
                                 minimumTLSVersion: minimumTLSVersion,
@@ -499,7 +517,7 @@ public struct TLSConfiguration {
     ///
     /// This provides sensible defaults, and can be used without customisation. For server-side
     /// contexts, you should use `forServer` instead.
-    public static func forClient(ciphers: [NIOTLSCipher],
+    public static func forClient(cipherSuites: [NIOTLSCipher],
                                  verifySignatureAlgorithms: [SignatureAlgorithm]? = nil,
                                  signingSignatureAlgorithms: [SignatureAlgorithm]? = nil,
                                  minimumTLSVersion: TLSVersion = .tlsv1,
@@ -513,7 +531,7 @@ public struct TLSConfiguration {
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil,
                                  renegotiationSupport: NIORenegotiationSupport = .none,
                                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots] = []) -> TLSConfiguration {
-        return TLSConfiguration(cipherSuites: ciphers,
+        return TLSConfiguration(cipherSuites: cipherSuites,
                                 verifySignatureAlgorithms: verifySignatureAlgorithms,
                                 signingSignatureAlgorithms: signingSignatureAlgorithms,
                                 minimumTLSVersion: minimumTLSVersion,

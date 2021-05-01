@@ -269,12 +269,12 @@ class TLSConfigurationTest: XCTestCase {
     }
 
     func testNonOverlappingCipherSuitesPreTLS13() throws {
-        let clientConfig = TLSConfiguration.forClient(ciphers: [.TLS_RSA_WITH_AES_128_CBC_SHA],
+        let clientConfig = TLSConfiguration.forClient(cipherSuites: [.TLS_RSA_WITH_AES_128_CBC_SHA],
                                                       maximumTLSVersion: .tlsv12,
                                                       trustRoots: .certificates([TLSConfigurationTest.cert1]))
         let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(TLSConfigurationTest.cert1)],
                                                       privateKey: .privateKey(TLSConfigurationTest.key1),
-                                                      ciphers: [.TLS_RSA_WITH_AES_256_CBC_SHA],
+                                                      cipherSuites: [.TLS_RSA_WITH_AES_256_CBC_SHA],
                                                       maximumTLSVersion: .tlsv12)
 
         try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_HANDSHAKE_FAILURE")
@@ -504,7 +504,7 @@ class TLSConfigurationTest: XCTestCase {
     func testCompatibleCipherSuite() throws {
         // ECDHE_RSA is used here because the public key in .cert1 is derived from a RSA private key.
         // These could also be RSA based, but cannot be ECDHE_ECDSA.
-        let clientConfig = TLSConfiguration.forClient(ciphers: [.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256],
+        let clientConfig = TLSConfiguration.forClient(cipherSuites: [.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256],
                                                       maximumTLSVersion: .tlsv12,
                                                       certificateVerification: .noHostnameVerification,
                                                       trustRoots: .certificates([TLSConfigurationTest.cert1]),
@@ -512,7 +512,7 @@ class TLSConfigurationTest: XCTestCase {
         
         let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(TLSConfigurationTest.cert1)],
                                                       privateKey: .privateKey(TLSConfigurationTest.key1),
-                                                      ciphers: [.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256],
+                                                      cipherSuites: [.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256],
                                                       maximumTLSVersion: .tlsv12,
                                                       certificateVerification: .none)
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
@@ -520,7 +520,7 @@ class TLSConfigurationTest: XCTestCase {
     
     func testNonCompatibleCipherSuite() throws {
         // This test fails more importantly because ECDHE_ECDSA is being set with a public key that is RSA based.
-        let clientConfig = TLSConfiguration.forClient(ciphers: [.TLS_RSA_WITH_AES_128_GCM_SHA256],
+        let clientConfig = TLSConfiguration.forClient(cipherSuites: [.TLS_RSA_WITH_AES_128_GCM_SHA256],
                                                       maximumTLSVersion: .tlsv12,
                                                       certificateVerification: .noHostnameVerification,
                                                       trustRoots: .certificates([TLSConfigurationTest.cert1]),
@@ -528,14 +528,14 @@ class TLSConfigurationTest: XCTestCase {
         
         let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(TLSConfigurationTest.cert1)],
                                                       privateKey: .privateKey(TLSConfigurationTest.key1),
-                                                      ciphers: [.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256],
+                                                      cipherSuites: [.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256],
                                                       maximumTLSVersion: .tlsv12,
                                                       certificateVerification: .none)
         try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_HANDSHAKE_FAILURE")
     }
     
     func testDefaultWithRSACipherSuite() throws {
-        let clientConfig = TLSConfiguration.forClient(ciphers: [.TLS_RSA_WITH_AES_128_GCM_SHA256],
+        let clientConfig = TLSConfiguration.forClient(cipherSuites: [.TLS_RSA_WITH_AES_128_GCM_SHA256],
                                                       maximumTLSVersion: .tlsv12,
                                                       certificateVerification: .noHostnameVerification,
                                                       trustRoots: .certificates([TLSConfigurationTest.cert1]),
@@ -550,7 +550,7 @@ class TLSConfigurationTest: XCTestCase {
     }
     
     func testDefaultWithECDHERSACipherSuite() throws {
-        let clientConfig = TLSConfiguration.forClient(ciphers: [.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384],
+        let clientConfig = TLSConfiguration.forClient(cipherSuites: [.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384],
                                                       maximumTLSVersion: .tlsv12,
                                                       certificateVerification: .noHostnameVerification,
                                                       trustRoots: .certificates([TLSConfigurationTest.cert1]),
@@ -579,7 +579,7 @@ class TLSConfigurationTest: XCTestCase {
     
     func testMultipleCompatibleCipherSuites() throws {
         // This test is for multiple ECDHE_RSA based ciphers on the server side.
-        let clientConfig = TLSConfiguration.forClient(ciphers: [.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256],
+        let clientConfig = TLSConfiguration.forClient(cipherSuites: [.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256],
                                                       maximumTLSVersion: .tlsv12,
                                                       certificateVerification: .noHostnameVerification,
                                                       trustRoots: .certificates([TLSConfigurationTest.cert1]),
@@ -587,7 +587,7 @@ class TLSConfigurationTest: XCTestCase {
         
         let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(TLSConfigurationTest.cert1)],
                                                       privateKey: .privateKey(TLSConfigurationTest.key1),
-                                                      ciphers: [.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+                                                      cipherSuites: [.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
                                                                 .TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
                                                                 .TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256],
                                                       maximumTLSVersion: .tlsv12,
@@ -604,7 +604,7 @@ class TLSConfigurationTest: XCTestCase {
         
         let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(TLSConfigurationTest.cert1)],
                                                       privateKey: .privateKey(TLSConfigurationTest.key1),
-                                                      ciphers: [.TLS_RSA_WITH_AES_128_CBC_SHA,
+                                                      cipherSuites: [.TLS_RSA_WITH_AES_128_CBC_SHA,
                                                                 .TLS_RSA_WITH_AES_256_CBC_SHA,
                                                                 .TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
                                                                 .TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA],
@@ -615,7 +615,7 @@ class TLSConfigurationTest: XCTestCase {
     
     func testMultipleClientCipherSuitesWithDefaultCipher() throws {
         // Client ciphers should match one of the default ciphers.
-        let clientConfig = TLSConfiguration.forClient(ciphers: [.TLS_RSA_WITH_AES_128_CBC_SHA,
+        let clientConfig = TLSConfiguration.forClient(cipherSuites: [.TLS_RSA_WITH_AES_128_CBC_SHA,
                                                                 .TLS_RSA_WITH_AES_256_CBC_SHA,
                                                                 .TLS_RSA_WITH_AES_128_GCM_SHA256,
                                                                 .TLS_RSA_WITH_AES_256_GCM_SHA384,
@@ -642,7 +642,7 @@ class TLSConfigurationTest: XCTestCase {
     
     func testNonCompatibleClientCiphersWithServerStringBasedCiphers() throws {
         // This test should fail on client hello negotiation.
-        let clientConfig = TLSConfiguration.forClient(ciphers: [.TLS_AES_128_GCM_SHA256,
+        let clientConfig = TLSConfiguration.forClient(cipherSuites: [.TLS_AES_128_GCM_SHA256,
                                                                 .TLS_AES_256_GCM_SHA384,
                                                                 .TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256],
                                                       maximumTLSVersion: .tlsv12,
