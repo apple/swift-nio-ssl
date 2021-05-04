@@ -963,4 +963,71 @@ final class UnwrappingTests: XCTestCase {
         XCTAssertTrue(serverClosed)
         XCTAssertTrue(unwrapped)
     }
+    
+    func testChannelInactiveDuringHandshake() throws {
+        
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+
+        var serverClosed = false
+        var serverUnwrapped = false
+        defer {
+            // The errors here are expected
+            XCTAssertThrowsError(try serverChannel.finish())
+            XCTAssertThrowsError(try clientChannel.finish())
+        }
+
+        let context = try assertNoThrowWithValue(configuredSSLContext())
+        let serverHandler = try assertNoThrowWithValue(NIOSSLServerHandler(context: context))
+        let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        let handshakeHandler = HandshakeCompletedHandler()
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+
+        serverChannel.closeFuture.whenComplete { _ in
+            serverClosed = true
+        }
+
+        // Place the guts of connectInMemory here to abruptly alter the handshake process
+        let addr = try assertNoThrowWithValue(SocketAddress(unixDomainSocketPath: "/tmp/whatever2"))
+        let _ = clientChannel.connect(to: addr)
+        
+        XCTAssertFalse(serverClosed)
+        
+        serverChannel.pipeline.fireChannelActive()
+        clientChannel.pipeline.fireChannelActive()
+        // doHandshakeStep process should start here out in NIOSSLHandler before fireChannelInactive
+        serverChannel.pipeline.fireChannelInactive()
+        clientChannel.pipeline.fireChannelInactive()
+        
+        // Need to test this error as a BoringSSLError because that means success instead of an uncleanShutdown
+        do {
+            try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
+        } catch {
+            switch error as? NIOSSLError {
+            case .some(.handshakeFailed):
+                // Expected to fall into .handshakeFailed
+                break
+            default:
+                XCTFail("Unexpected error: \(error)")
+            }
+        }
+        clientHandler.stopTLS(promise: nil)
+        
+        // Go through the process of closing and verifying the close on the server side.
+        XCTAssertFalse(serverUnwrapped)
+
+        let serverStopPromise: EventLoopPromise<Void> = serverChannel.eventLoop.makePromise()
+        serverStopPromise.futureResult.whenComplete { _ in
+            serverUnwrapped = true
+        }
+        serverHandler.stopTLS(promise: serverStopPromise)
+        XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
+        
+        (serverChannel.eventLoop as! EmbeddedEventLoop).run()
+
+        XCTAssertTrue(serverClosed)
+        XCTAssertTrue(serverUnwrapped)
+    }
 }

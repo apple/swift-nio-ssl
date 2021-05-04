@@ -174,11 +174,15 @@ class TLSConfigurationTest: XCTestCase {
         }
         try clientChannel.closeFuture.wait()
     }
-    
-    func assertHandshakeSucceeded(withClientConfig clientConfig: TLSConfiguration,
-                                  andServerConfig serverConfig: TLSConfiguration,
-                                  file: StaticString = #file,
-                                  line: UInt = #line) throws {
+
+    /// Performs a connection in memory and validates that the handshake was successful.
+    ///
+    /// - NOTE: This function should only be used when you know that there is no custom verification
+    /// callback in use, otherwise it will not be thread-safe.
+    func assertHandshakeSucceededInMemory(withClientConfig clientConfig: TLSConfiguration,
+                                          andServerConfig serverConfig: TLSConfiguration,
+                                          file: StaticString = #file,
+                                          line: UInt = #line) throws {
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
 
@@ -190,18 +194,65 @@ class TLSConfigurationTest: XCTestCase {
             _ = try? serverChannel.finish()
             _ = try? clientChannel.finish()
         }
-        
+
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext)).wait(), file: (file), line: line)
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil)).wait(), file: (file), line: line)
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait(), file: (file), line: line)
-        
+
         // Connect. This should lead to a completed handshake.
         XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel), file: (file), line: line)
         XCTAssertTrue(handshakeHandler.handshakeSucceeded, file: (file), line: line)
-        
+
         _ = serverChannel.close()
         try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
+    }
+
+    /// Performs a connection using a real event loop and validates that the handshake was successful.
+    ///
+    /// This function is thread-safe in the presence of custom verification callbacks.
+    func assertHandshakeSucceededEventLoop(withClientConfig clientConfig: TLSConfiguration,
+                                           andServerConfig serverConfig: TLSConfiguration,
+                                           file: StaticString = #file,
+                                           line: UInt = #line) throws {
+        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig), file: file, line: line)
+        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig), file: file, line: line)
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let eventHandler = ErrorCatcher<BoringSSLError>()
+        let handshakeHandler = HandshakeCompletedHandler()
+        let handshakeResultPromise = group.next().makePromise(of: Void.self)
+        let handshakeWatcher = WaitForHandshakeHandler(handshakeResultPromise: handshakeResultPromise)
+
+        let serverChannel = try assertNoThrowWithValue(serverTLSChannel(context: serverContext, handlers: [], group: group), file: file, line: line)
+        let clientChannel = try assertNoThrowWithValue(clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeWatcher, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!), file: file, line: line)
+
+        handshakeWatcher.handshakeResult.whenComplete { c in
+            _ = clientChannel.close()
+        }
+
+        clientChannel.closeFuture.whenComplete { _ in
+            XCTAssertEqual(eventHandler.errors.count, 0, file: file, line: line)
+            XCTAssertTrue(handshakeHandler.handshakeSucceeded, file: file, line: line)
+        }
+        try clientChannel.closeFuture.wait()
+    }
+
+    func assertHandshakeSucceeded(withClientConfig clientConfig: TLSConfiguration,
+                                  andServerConfig serverConfig: TLSConfiguration,
+                                  file: StaticString = #file,
+                                  line: UInt = #line) throws {
+        // The only use of a custom callback is on Darwin...
+        #if os(Linux)
+        return try assertHandshakeSucceededInMemory(withClientConfig: clientConfig, andServerConfig: serverConfig, file: file, line: line)
+
+        #else
+        return try assertHandshakeSucceededEventLoop(withClientConfig: clientConfig, andServerConfig: serverConfig, file: file, line: line)
+        #endif
     }
 
     func testNonOverlappingTLSVersions() throws {
@@ -262,48 +313,6 @@ class TLSConfigurationTest: XCTestCase {
                                                       certificateVerification: .noHostnameVerification)
 
         try assertPostHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["ALERT_UNKNOWN_CA", "ALERT_CERTIFICATE_UNKNOWN"])
-    }
-
-    func testMutualValidation() throws {
-        let clientConfig = TLSConfiguration.forClient(trustRoots: .certificates([TLSConfigurationTest.cert1]),
-                                                      certificateChain: [.certificate(TLSConfigurationTest.cert2)],
-                                                      privateKey: .privateKey(TLSConfigurationTest.key2))
-        let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(TLSConfigurationTest.cert1)],
-                                                      privateKey: .privateKey(TLSConfigurationTest.key1),
-                                                      certificateVerification: .noHostnameVerification,
-                                                      trustRoots: .certificates([TLSConfigurationTest.cert2]))
-
-        let clientContext = try NIOSSLContext(configuration: clientConfig)
-        let serverContext = try NIOSSLContext(configuration: serverConfig)
-
-        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try group.syncShutdownGracefully())
-        }
-
-        let eventHandler = EventRecorderHandler<TLSUserEvent>()
-        let serverChannel = try serverTLSChannel(context: serverContext, handlers: [], group: group)
-        let clientChannel = try clientTLSChannel(context: clientContext, preHandlers: [], postHandlers: [eventHandler], group: group, connectingTo: serverChannel.localAddress!, serverHostname: "localhost")
-
-        // Wait for a successful flush: that indicates the channel is up.
-        var buf = clientChannel.allocator.buffer(capacity: 5)
-        buf.writeString("hello")
-
-        // Check that we got a handshakeComplete message indicating mutual validation.
-        let flushFuture = clientChannel.writeAndFlush(buf)
-        flushFuture.whenComplete { _ in
-            let handshakeEvents = eventHandler.events.filter {
-                switch $0 {
-                case .UserEvent(.handshakeCompleted):
-                    return true
-                default:
-                    return false
-                }
-            }
-
-            XCTAssertEqual(handshakeEvents.count, 1)
-        }
-        try flushFuture.wait()
     }
 
     func testMutualValidationRequiresClientCertificatePreTLS13() throws {
@@ -385,6 +394,52 @@ class TLSConfigurationTest: XCTestCase {
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
 
+
+    func testMutualValidationSuccessNoAdditionalTrustRoots() throws {
+        let clientConfig = TLSConfiguration.forClient(
+            certificateVerification:.noHostnameVerification,
+            trustRoots: .certificates([TLSConfigurationTest.cert1]),
+            renegotiationSupport: .none)
+
+        let serverConfig = TLSConfiguration.forServer(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1))
+
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    func testMutualValidationSuccessWithDefaultAndAdditionalTrustRoots() throws {
+        let clientConfig = TLSConfiguration.forClient(
+            certificateVerification:.noHostnameVerification,
+            trustRoots: .default,
+            renegotiationSupport: .none,
+            additionalTrustRoots: [.certificates([TLSConfigurationTest.cert1])])
+
+        let serverConfig = TLSConfiguration.forServer(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1),
+            trustRoots: .default,
+            additionalTrustRoots: [.certificates([TLSConfigurationTest.cert2])])
+
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    func testMutualValidationSuccessWithOnlyAdditionalTrustRoots() throws {
+        let clientConfig = TLSConfiguration.forClient(
+            certificateVerification:.noHostnameVerification,
+            trustRoots: .certificates([]),
+            renegotiationSupport: .none,
+            additionalTrustRoots: [.certificates([TLSConfigurationTest.cert1])])
+
+        let serverConfig = TLSConfiguration.forServer(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1),
+            trustRoots: .certificates([]),
+            additionalTrustRoots: [.certificates([TLSConfigurationTest.cert2])])
+
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
     func testNonexistentFileObject() throws {
         let clientConfig = TLSConfiguration.forClient(trustRoots: .file("/thispathbetternotexist/bogus.foo"))
 
@@ -392,7 +447,7 @@ class TLSConfigurationTest: XCTestCase {
             XCTAssertEqual(.noSuchFilesystemObject, error as? NIOSSLError)
         }
     }
-    
+
     func testComputedApplicationProtocols() throws {
         var config = TLSConfiguration.forServer(certificateChain: [], privateKey: .file("fake.file"), applicationProtocols: ["http/1.1"])
         XCTAssertEqual(config.applicationProtocols, ["http/1.1"])

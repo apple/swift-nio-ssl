@@ -54,70 +54,46 @@
  * copied and put under another distribution licence
  * [including the GNU Public Licence.] */
 
-#include <CNIOBoringSSL_asn1.h>
+#ifndef OPENSSL_HEADER_EVP_ERRORS_H
+#define OPENSSL_HEADER_EVP_ERRORS_H
 
-#include <CNIOBoringSSL_err.h>
-#include <CNIOBoringSSL_mem.h>
+#define EVP_R_BUFFER_TOO_SMALL 100
+#define EVP_R_COMMAND_NOT_SUPPORTED 101
+#define EVP_R_DECODE_ERROR 102
+#define EVP_R_DIFFERENT_KEY_TYPES 103
+#define EVP_R_DIFFERENT_PARAMETERS 104
+#define EVP_R_ENCODE_ERROR 105
+#define EVP_R_EXPECTING_AN_EC_KEY_KEY 106
+#define EVP_R_EXPECTING_AN_RSA_KEY 107
+#define EVP_R_EXPECTING_A_DSA_KEY 108
+#define EVP_R_ILLEGAL_OR_UNSUPPORTED_PADDING_MODE 109
+#define EVP_R_INVALID_DIGEST_LENGTH 110
+#define EVP_R_INVALID_DIGEST_TYPE 111
+#define EVP_R_INVALID_KEYBITS 112
+#define EVP_R_INVALID_MGF1_MD 113
+#define EVP_R_INVALID_OPERATION 114
+#define EVP_R_INVALID_PADDING_MODE 115
+#define EVP_R_INVALID_PSS_SALTLEN 116
+#define EVP_R_KEYS_NOT_SET 117
+#define EVP_R_MISSING_PARAMETERS 118
+#define EVP_R_NO_DEFAULT_DIGEST 119
+#define EVP_R_NO_KEY_SET 120
+#define EVP_R_NO_MDC2_SUPPORT 121
+#define EVP_R_NO_NID_FOR_CURVE 122
+#define EVP_R_NO_OPERATION_SET 123
+#define EVP_R_NO_PARAMETERS_SET 124
+#define EVP_R_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE 125
+#define EVP_R_OPERATON_NOT_INITIALIZED 126
+#define EVP_R_UNKNOWN_PUBLIC_KEY_TYPE 127
+#define EVP_R_UNSUPPORTED_ALGORITHM 128
+#define EVP_R_UNSUPPORTED_PUBLIC_KEY_TYPE 129
+#define EVP_R_NOT_A_PRIVATE_KEY 130
+#define EVP_R_INVALID_SIGNATURE 131
+#define EVP_R_MEMORY_LIMIT_EXCEEDED 132
+#define EVP_R_INVALID_PARAMETERS 133
+#define EVP_R_INVALID_PEER_KEY 134
+#define EVP_R_NOT_XOF_OR_INVALID_LENGTH 135
+#define EVP_R_EMPTY_PSK 136
+#define EVP_R_INVALID_BUFFER_SIZE 137
 
-int i2d_ASN1_BOOLEAN(int a, unsigned char **pp)
-{
-    int r;
-    unsigned char *p, *allocated = NULL;
-
-    r = ASN1_object_size(0, 1, V_ASN1_BOOLEAN);
-    if (pp == NULL)
-        return (r);
-
-    if (*pp == NULL) {
-        if ((p = allocated = OPENSSL_malloc(r)) == NULL) {
-            OPENSSL_PUT_ERROR(ASN1, ERR_R_MALLOC_FAILURE);
-            return 0;
-        }
-    } else {
-        p = *pp;
-    }
-
-    ASN1_put_object(&p, 0, 1, V_ASN1_BOOLEAN, V_ASN1_UNIVERSAL);
-    *p = a ? 0xff : 0x00;
-
-    /*
-     * If a new buffer was allocated, just return it back.
-     * If not, return the incremented buffer pointer.
-     */
-    *pp = allocated != NULL ? allocated : p + 1;
-    return r;
-}
-
-int d2i_ASN1_BOOLEAN(int *a, const unsigned char **pp, long length)
-{
-    int ret = -1;
-    const unsigned char *p;
-    long len;
-    int inf, tag, xclass;
-    int i = 0;
-
-    p = *pp;
-    inf = ASN1_get_object(&p, &len, &tag, &xclass, length);
-    if (inf & 0x80) {
-        i = ASN1_R_BAD_OBJECT_HEADER;
-        goto err;
-    }
-
-    if (tag != V_ASN1_BOOLEAN) {
-        i = ASN1_R_EXPECTING_A_BOOLEAN;
-        goto err;
-    }
-
-    if (len != 1) {
-        i = ASN1_R_BOOLEAN_IS_WRONG_LENGTH;
-        goto err;
-    }
-    ret = (int)*(p++);
-    if (a != NULL)
-        (*a) = ret;
-    *pp = p;
-    return (ret);
- err:
-    OPENSSL_PUT_ERROR(ASN1, i);
-    return (ret);
-}
+#endif  // OPENSSL_HEADER_EVP_ERRORS_H

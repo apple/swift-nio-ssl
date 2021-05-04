@@ -43,6 +43,7 @@ extension UnwrappingTests {
                 ("testUnwrappingTimeout", testUnwrappingTimeout),
                 ("testSuccessfulUnwrapCancelsTimeout", testSuccessfulUnwrapCancelsTimeout),
                 ("testUnwrappingAndClosingShareATimeout", testUnwrappingAndClosingShareATimeout),
+                ("testChannelInactiveDuringHandshake", testChannelInactiveDuringHandshake),
            ]
    }
 }

@@ -153,6 +153,19 @@ class SSLCertificateTest: XCTestCase {
         }
     }
 
+    private func dateFromComponents(year: Int, month: Int, day: Int, hour: Int, minute: Int, second: Int) -> Date {
+        var date = DateComponents()
+        date.calendar = Calendar(identifier: .gregorian)
+        date.year = year
+        date.month = month
+        date.day = day
+        date.hour = hour
+        date.minute = minute
+        date.second = second
+        date.timeZone = TimeZone(abbreviation: "UTC")
+        return date.date!
+    }
+
     func testLoadingPemCertFromFile() throws {
         let cert1 = try NIOSSLCertificate(file: SSLCertificateTest.pemCertFilePath, format: .pem)
         let cert2 = try NIOSSLCertificate(file: SSLCertificateTest.pemCertFilePath, format: .pem)
@@ -395,5 +408,35 @@ class SSLCertificateTest: XCTestCase {
         let debugString = String(describing: cert)
 
         XCTAssertEqual(debugString, expectedDebugDescription)
+    }
+
+    func testNotValidBefore() throws {
+        let cert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
+        let notValidBeforeSeconds = cert.notValidBefore
+
+        let expectedDate = self.dateFromComponents(year: 2017, month: 10, day: 16, hour: 21, minute: 01, second: 02)
+        let expectedSeconds = time_t(expectedDate.timeIntervalSince1970)
+        XCTAssertEqual(notValidBeforeSeconds, expectedSeconds)
+    }
+
+    func testNotValidAfter() throws {
+        let cert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
+        let notValidBeforeSeconds = cert.notValidAfter
+
+        let expectedDate = self.dateFromComponents(year: 2047, month: 10, day: 9, hour: 21, minute: 01, second: 02)
+        let expectedSeconds = time_t(expectedDate.timeIntervalSince1970)
+        XCTAssertEqual(notValidBeforeSeconds, expectedSeconds)
+    }
+
+    func testNotBeforeAfterGeneratedCert() throws {
+        let notBefore = SSLCertificateTest.dynamicallyGeneratedCert.notValidBefore
+        let notAfter = SSLCertificateTest.dynamicallyGeneratedCert.notValidAfter
+
+        // Clock movement is tricky so we can't necessarily assert what the delta is in
+        // the notBefore and now, but we know now has to be between the two values, and
+        // that the two values are 1 hour apart.
+        let secondsNow = time_t(Date().timeIntervalSince1970)
+        XCTAssertTrue((notBefore..<notAfter).contains(secondsNow))
+        XCTAssertEqual(notAfter - notBefore, 60 * 60)
     }
 }
