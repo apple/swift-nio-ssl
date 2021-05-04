@@ -41,6 +41,9 @@ extension TLSConfigurationTest {
                 ("testNonexistentFileObject", testNonexistentFileObject),
                 ("testComputedApplicationProtocols", testComputedApplicationProtocols),
                 ("testKeyLogManagerOverlappingAccess", testKeyLogManagerOverlappingAccess),
+                ("testTheSameHashValue", testTheSameHashValue),
+                ("testDifferentHashValues", testDifferentHashValues),
+                ("testDifferentCallbacksNotEqual", testDifferentCallbacksNotEqual),
            ]
    }
 }
