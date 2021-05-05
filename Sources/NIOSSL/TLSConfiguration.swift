@@ -28,20 +28,20 @@ public enum TLSVersion {
 }
 
 /// Places NIOSSL can obtain certificates from.
-public enum NIOSSLCertificateSource {
+public enum NIOSSLCertificateSource: Hashable {
     @available(*, deprecated, message: "Use 'NIOSSLCertificate.fromPEMFile(_:)' to load the certificate(s) and use the '.certificate(NIOSSLCertificate)' case to provide them as a source")
     case file(String)
     case certificate(NIOSSLCertificate)
 }
 
 /// Places NIOSSL can obtain private keys from.
-public enum NIOSSLPrivateKeySource {
+public enum NIOSSLPrivateKeySource: Hashable {
     case file(String)
     case privateKey(NIOSSLPrivateKey)
 }
 
 /// Places NIOSSL can obtain a trust store from.
-public enum NIOSSLTrustRoots {
+public enum NIOSSLTrustRoots: Hashable {
     /// Path to either a file of CA certificates in PEM format, or a directory containing CA certificates in PEM format.
     ///
     /// If a path to a file is provided, the file can contain several CA certificates identified by
@@ -505,5 +505,60 @@ public struct TLSConfiguration {
                                 keyLogCallback: keyLogCallback,
                                 renegotiationSupport: renegotiationSupport,
                                 additionalTrustRoots: additionalTrustRoots)
+    }
+}
+
+// MARK: BestEffortHashable
+extension TLSConfiguration {
+    /// Returns a best effort result of whether two `TLSConfiguration` objects are equal.
+    ///
+    /// The "best effort" stems from the fact that we are checking the pointer to the `keyLogCallback` closure.
+    ///
+    /// - warning: You should probably not use this function. This function can return false-negatives, but not false-positives.
+    public func bestEffortEquals(_ comparing: TLSConfiguration) -> Bool {
+        let isKeyLoggerCallbacksEqual = withUnsafeBytes(of: self.keyLogCallback) { callbackPointer1 in
+            return withUnsafeBytes(of: comparing.keyLogCallback) { callbackPointer2 in
+                return callbackPointer1.elementsEqual(callbackPointer2)
+            }
+        }
+        
+        return self.minimumTLSVersion == comparing.minimumTLSVersion &&
+            self.maximumTLSVersion == comparing.maximumTLSVersion &&
+            self.cipherSuites == comparing.cipherSuites &&
+            self.verifySignatureAlgorithms == comparing.verifySignatureAlgorithms &&
+            self.signingSignatureAlgorithms == comparing.signingSignatureAlgorithms &&
+            self.certificateVerification == comparing.certificateVerification &&
+            self.trustRoots == comparing.trustRoots &&
+            self.certificateChain == comparing.certificateChain &&
+            self.privateKey == comparing.privateKey &&
+            self.applicationProtocols == comparing.applicationProtocols &&
+            self.encodedApplicationProtocols == comparing.encodedApplicationProtocols &&
+            self.shutdownTimeout == comparing.shutdownTimeout &&
+            isKeyLoggerCallbacksEqual &&
+            self.renegotiationSupport == comparing.renegotiationSupport
+    }
+    
+    /// Returns a best effort hash of this TLS configuration.
+    ///
+    /// The "best effort" stems from the fact that we are hashing the pointer bytes of the `keyLogCallback` closure.
+    ///
+    /// - warning: You should probably not use this function. This function can return false-negatives, but not false-positives.
+    public func bestEffortHash(into hasher: inout Hasher) {
+        hasher.combine(minimumTLSVersion)
+        hasher.combine(maximumTLSVersion)
+        hasher.combine(cipherSuites)
+        hasher.combine(verifySignatureAlgorithms)
+        hasher.combine(signingSignatureAlgorithms)
+        hasher.combine(certificateVerification)
+        hasher.combine(trustRoots)
+        hasher.combine(certificateChain)
+        hasher.combine(privateKey)
+        hasher.combine(applicationProtocols)
+        hasher.combine(encodedApplicationProtocols)
+        hasher.combine(shutdownTimeout)
+        withUnsafeBytes(of: keyLogCallback) { closureBits in
+            hasher.combine(bytes: closureBits)
+        }
+        hasher.combine(renegotiationSupport)
     }
 }

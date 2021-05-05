@@ -496,4 +496,27 @@ class TLSConfigurationTest: XCTestCase {
         group.wait()
         XCTAssertEqual([true, true], completionsQueue.sync { completions })
     }
+    
+    func testTheSameHashValue() {
+        let config = TLSConfiguration.forServer(certificateChain: [], privateKey: .file("fake.file"), applicationProtocols: ["http/1.1"])
+        let theSameConfig  = TLSConfiguration.forServer(certificateChain: [], privateKey: .file("fake.file"), applicationProtocols: ["http/1.1"])
+        var hasher = Hasher()
+        var hasher2 = Hasher()
+        config.bestEffortHash(into: &hasher)
+        theSameConfig.bestEffortHash(into: &hasher2)
+        XCTAssertEqual(hasher.finalize(), hasher2.finalize())
+        XCTAssertTrue(config.bestEffortEquals(theSameConfig))
+    }
+    
+    func testDifferentHashValues() {
+        let config = TLSConfiguration.forServer(certificateChain: [], privateKey: .file("fake.file"), applicationProtocols: ["http/1.1"])
+        let differentConfig = TLSConfiguration.forServer(certificateChain: [], privateKey: .file("fake2.file"), applicationProtocols: ["http/1.1"])
+        XCTAssertFalse(config.bestEffortEquals(differentConfig))
+    }
+    
+    func testDifferentCallbacksNotEqual() {
+        let config = TLSConfiguration.forServer(certificateChain: [], privateKey: .file("fake.file"), applicationProtocols: ["http/1.1"], keyLogCallback: { _ in })
+        let differentConfig = TLSConfiguration.forServer(certificateChain: [], privateKey: .file("fake.file"), applicationProtocols: ["http/1.1"], keyLogCallback: { _ in })
+        XCTAssertFalse(config.bestEffortEquals(differentConfig))
+    }
 }
