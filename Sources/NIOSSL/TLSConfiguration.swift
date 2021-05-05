@@ -112,6 +112,12 @@ public struct NIOTLSCipher: RawRepresentable, Hashable {
     public static let TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256     = NIOTLSCipher(rawValue: 0xCCA8)
     public static let TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256   = NIOTLSCipher(rawValue: 0xCCA9)
     
+    var standardName: String {
+        get {
+            let boringSSLCipher = CNIOBoringSSL_SSL_get_cipher_by_value(self.rawValue)
+            return String(cString: CNIOBoringSSL_SSL_CIPHER_standard_name(boringSSLCipher))
+        }
+    }
 }
 
 /// Formats NIOSSL supports for serializing keys and certificates.
@@ -238,38 +244,14 @@ public struct TLSConfiguration {
     /// Public property used to set the internal cipherSuiteFormattedString from NIOTLSCipher.
     public var cipherSuite: [NIOTLSCipher] {
         get {
-            // Set a temporary context with the default ciphers from cipherSuites
-            guard let tempContext = CNIOBoringSSL_SSL_CTX_new(CNIOBoringSSL_TLS_method()) else {
-                fatalError("Failed to create new BoringSSL context")
+            guard let sslConext = try? NIOSSLContext(configuration: self) else {
+                return []
             }
-            // Set a temporary context to build a set of default ciphers on based upon defaultCipherSuites
-            CNIOBoringSSL_SSL_CTX_set_cipher_list(tempContext, cipherSuites)
-            let bsslCipherStack = CNIOBoringSSL_SSL_CTX_get_ciphers(tempContext)
-            
-            var defaultCiphers: [NIOTLSCipher] = []
-            let cipherStackSize = CNIOBoringSSL_sk_SSL_CIPHER_num(bsslCipherStack)
-            for idx in 0..<cipherStackSize {
-                guard let stackCipherPtr = CNIOBoringSSL_sk_SSL_CIPHER_value(bsslCipherStack, idx) else {
-                    preconditionFailure("Unable to get cipher \(idx) from stack \(String(describing: bsslCipherStack))")
-                }
-                // Create a new cipher based on the NIOTLSCipher type
-                let id = CNIOBoringSSL_SSL_CIPHER_get_protocol_id(stackCipherPtr) as UInt16
-                defaultCiphers.append(NIOTLSCipher(id))
-            }
-            return defaultCiphers
+            return sslConext.cipherSuites
         }
         set {
-            // Iterate through an array of provided ciphers and build out a dynamic cipherSuites
-            // string based on the passed in suites.
-            var ciphers = ""
-            for cipher in newValue {
-                let cipherValue: UInt16 = cipher.rawValue
-                let boringSSLCipher = CNIOBoringSSL_SSL_get_cipher_by_value(cipherValue)
-                let standardName = String(cString: CNIOBoringSSL_SSL_CIPHER_standard_name(boringSSLCipher))
-                ciphers += "\(standardName):"
-            }
-            ciphers = String(ciphers.dropLast())
-            cipherSuites = ciphers
+            let assignedCiphers = newValue.map { $0.standardName }
+            cipherSuites = assignedCiphers.joined(separator: ":")
         }
     }
 
