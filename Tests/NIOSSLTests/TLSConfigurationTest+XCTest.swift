@@ -46,6 +46,15 @@ extension TLSConfigurationTest {
                 ("testTheSameHashValue", testTheSameHashValue),
                 ("testDifferentHashValues", testDifferentHashValues),
                 ("testDifferentCallbacksNotEqual", testDifferentCallbacksNotEqual),
+                ("testCompatibleCipherSuite", testCompatibleCipherSuite),
+                ("testNonCompatibleCipherSuite", testNonCompatibleCipherSuite),
+                ("testDefaultWithRSACipherSuite", testDefaultWithRSACipherSuite),
+                ("testDefaultWithECDHERSACipherSuite", testDefaultWithECDHERSACipherSuite),
+                ("testStringBasedCipherSuite", testStringBasedCipherSuite),
+                ("testMultipleCompatibleCipherSuites", testMultipleCompatibleCipherSuites),
+                ("testMultipleCompatibleCipherSuitesWithStringBasedCipher", testMultipleCompatibleCipherSuitesWithStringBasedCipher),
+                ("testMultipleClientCipherSuitesWithDefaultCipher", testMultipleClientCipherSuitesWithDefaultCipher),
+                ("testNonCompatibleClientCiphersWithServerStringBasedCiphers", testNonCompatibleClientCiphersWithServerStringBasedCiphers),
            ]
    }
 }
