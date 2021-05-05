@@ -113,10 +113,8 @@ public struct NIOTLSCipher: RawRepresentable, Hashable {
     public static let TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256   = NIOTLSCipher(rawValue: 0xCCA9)
     
     var standardName: String {
-        get {
-            let boringSSLCipher = CNIOBoringSSL_SSL_get_cipher_by_value(self.rawValue)
-            return String(cString: CNIOBoringSSL_SSL_CIPHER_standard_name(boringSSLCipher))
-        }
+        let boringSSLCipher = CNIOBoringSSL_SSL_get_cipher_by_value(self.rawValue)
+        return String(cString: CNIOBoringSSL_SSL_CIPHER_standard_name(boringSSLCipher))
     }
 }
 
@@ -242,16 +240,16 @@ public struct TLSConfiguration {
     public var cipherSuites: String = defaultCipherSuites
     
     /// Public property used to set the internal cipherSuiteFormattedString from NIOTLSCipher.
-    public var cipherSuite: [NIOTLSCipher] {
+    public var cipherSuiteValues: [NIOTLSCipher] {
         get {
-            guard let sslConext = try? NIOSSLContext(configuration: self) else {
+            guard let sslContext = try? NIOSSLContext(configuration: self) else {
                 return []
             }
-            return sslConext.cipherSuites
+            return sslContext.cipherSuites
         }
         set {
             let assignedCiphers = newValue.map { $0.standardName }
-            cipherSuites = assignedCiphers.joined(separator: ":")
+            self.cipherSuites = assignedCiphers.joined(separator: ":")
         }
     }
 
@@ -364,7 +362,7 @@ public struct TLSConfiguration {
         self.renegotiationSupport = renegotiationSupport
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
-        self.cipherSuite = cipherSuites
+        self.cipherSuiteValues = cipherSuites
     }
     
     /// Create a TLS configuration for use with server-side contexts. This allows setting the `NIOTLSCipher` property specifically.

@@ -118,13 +118,6 @@ public final class NIOSSLContext {
     private let callbackManager: CallbackManagerProtocol?
     private var keyLogManager: KeyLogCallbackManager?
     internal let configuration: TLSConfiguration
-    
-    /// Access cipher suites applied to the context
-    public var cipherSuites: [NIOTLSCipher] {
-        get {
-            return self.stackOfCipherSuites()
-        }
-    }
 
     /// Initialize a context that will create multiple connections, all with the same
     /// configuration.
@@ -524,20 +517,20 @@ extension NIOSSLContext {
     ///
     /// The pointers are only guaranteed to be valid for the duration of this call.  This method aligns with the RandomAccessCollection protocol
     /// to access UInt16 pointers at a specific index.  This pointer is used to safely access id values of the cipher to create a new NIOTLSCipher.
-    func withStackOfCipherSuiteBuffers<Result>(_ body: (NIOTLSCipherBuffers?) throws -> Result) rethrows -> Result {
+    fileprivate func withStackOfCipherSuiteBuffers<Result>(_ body: (NIOTLSCipherBuffers?) throws -> Result) rethrows -> Result {
         guard let stackPointer = CNIOBoringSSL_SSL_CTX_get_ciphers(self.sslContext) else {
             return try body(nil)
         }
         return try body(NIOTLSCipherBuffers(basePointer: stackPointer))
     }
 
-    /// Cipher suites derived from the default ciphers on the SSLContext matched against the available ciphers in NIOTLSCipher.
-    func stackOfCipherSuites() -> [NIOTLSCipher] {
+    /// Access cipher suites applied to the context
+    internal var cipherSuites: [NIOTLSCipher] {
         return self.withStackOfCipherSuiteBuffers { buffers in
             guard let buffers = buffers else {
                 return []
             }
-            return buffers.map { NIOTLSCipher($0) }
+            return buffers.map { $0 }
         }
     }
 }
@@ -568,7 +561,7 @@ extension NIOSSLContext.NIOTLSCipherBuffers: RandomAccessCollection {
         }
     }
 
-    typealias Element = UInt16
+    typealias Element = NIOTLSCipher
 
     var startIndex: Index {
         return Index(0)
@@ -582,13 +575,14 @@ extension NIOSSLContext.NIOTLSCipherBuffers: RandomAccessCollection {
         return CNIOBoringSSL_sk_SSL_CIPHER_num(self.basePointer)
     }
     
-    subscript(position: Index) -> UInt16 {
+    subscript(position: Index) -> NIOTLSCipher {
         precondition(position < self.endIndex)
+        precondition(position >= self.startIndex)
         guard let ptr = CNIOBoringSSL_sk_SSL_CIPHER_value(self.basePointer, position.index) else {
             preconditionFailure("Unable to locate backing pointer.")
         }
-        let cipherID = CNIOBoringSSL_SSL_CIPHER_get_protocol_id(ptr) as UInt16
-        return cipherID
+        let cipherID = CNIOBoringSSL_SSL_CIPHER_get_protocol_id(ptr)
+        return NIOTLSCipher(cipherID)
     }
 }
 
