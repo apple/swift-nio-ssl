@@ -239,7 +239,7 @@ public struct TLSConfiguration {
     /// TLS 1.3 cipher suites cannot be configured.
     public var cipherSuites: String = defaultCipherSuites
     
-    /// Public property used to set the internal cipherSuiteFormattedString from NIOTLSCipher.
+    /// Public property used to set the internal cipherSuites from NIOTLSCipher.
     public var cipherSuiteValues: [NIOTLSCipher] {
         get {
             guard let sslContext = try? NIOSSLContext(configuration: self) else {
@@ -303,7 +303,8 @@ public struct TLSConfiguration {
     /// Whether renegotiation is supported.
     public var renegotiationSupport: NIORenegotiationSupport
 
-    private init(cipherSuites: String,
+    private init(cipherSuiteValues: [NIOTLSCipher] = [],
+                 cipherSuites: String = defaultCipherSuites,
                  verifySignatureAlgorithms: [SignatureAlgorithm]?,
                  signingSignatureAlgorithms: [SignatureAlgorithm]?,
                  minimumTLSVersion: TLSVersion,
@@ -332,37 +333,9 @@ public struct TLSConfiguration {
         self.renegotiationSupport = renegotiationSupport
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
-    }
-    
-    private init(cipherSuites: [NIOTLSCipher],
-                 verifySignatureAlgorithms: [SignatureAlgorithm]?,
-                 signingSignatureAlgorithms: [SignatureAlgorithm]?,
-                 minimumTLSVersion: TLSVersion,
-                 maximumTLSVersion: TLSVersion?,
-                 certificateVerification: CertificateVerification,
-                 trustRoots: NIOSSLTrustRoots,
-                 certificateChain: [NIOSSLCertificateSource],
-                 privateKey: NIOSSLPrivateKeySource?,
-                 applicationProtocols: [String],
-                 shutdownTimeout: TimeAmount,
-                 keyLogCallback: NIOSSLKeyLogCallback?,
-                 renegotiationSupport: NIORenegotiationSupport,
-                 additionalTrustRoots: [NIOSSLAdditionalTrustRoots]) {
-        self.verifySignatureAlgorithms = verifySignatureAlgorithms
-        self.signingSignatureAlgorithms = signingSignatureAlgorithms
-        self.minimumTLSVersion = minimumTLSVersion
-        self.maximumTLSVersion = maximumTLSVersion
-        self.certificateVerification = certificateVerification
-        self.trustRoots = trustRoots
-        self.additionalTrustRoots = additionalTrustRoots
-        self.certificateChain = certificateChain
-        self.privateKey = privateKey
-        self.encodedApplicationProtocols = []
-        self.shutdownTimeout = shutdownTimeout
-        self.renegotiationSupport = renegotiationSupport
-        self.applicationProtocols = applicationProtocols
-        self.keyLogCallback = keyLogCallback
-        self.cipherSuiteValues = cipherSuites
+        if !cipherSuiteValues.isEmpty {
+            self.cipherSuiteValues = cipherSuiteValues
+        }
     }
     
     /// Create a TLS configuration for use with server-side contexts. This allows setting the `NIOTLSCipher` property specifically.
@@ -382,7 +355,7 @@ public struct TLSConfiguration {
                                  shutdownTimeout: TimeAmount = .seconds(5),
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil,
                                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots] = []) -> TLSConfiguration {
-        return TLSConfiguration(cipherSuites: cipherSuites,
+        return TLSConfiguration(cipherSuiteValues: cipherSuites,
                                 verifySignatureAlgorithms: verifySignatureAlgorithms,
                                 signingSignatureAlgorithms: signingSignatureAlgorithms,
                                 minimumTLSVersion: minimumTLSVersion,
@@ -511,7 +484,7 @@ public struct TLSConfiguration {
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil,
                                  renegotiationSupport: NIORenegotiationSupport = .none,
                                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots] = []) -> TLSConfiguration {
-        return TLSConfiguration(cipherSuites: cipherSuites,
+        return TLSConfiguration(cipherSuiteValues: cipherSuites,
                                 verifySignatureAlgorithms: verifySignatureAlgorithms,
                                 signingSignatureAlgorithms: signingSignatureAlgorithms,
                                 minimumTLSVersion: minimumTLSVersion,
