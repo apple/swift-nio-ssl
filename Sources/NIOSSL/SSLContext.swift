@@ -530,7 +530,7 @@ extension NIOSSLContext {
             guard let buffers = buffers else {
                 return []
             }
-            return buffers.map { $0 }
+            return Array(buffers)
         }
     }
 }

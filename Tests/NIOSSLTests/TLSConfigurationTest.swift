@@ -410,7 +410,6 @@ class TLSConfigurationTest: XCTestCase {
 
     func testMutualValidationSuccessWithDefaultAndAdditionalTrustRoots() throws {
         let clientConfig = TLSConfiguration.forClient(
-            cipherSuites: defaultCipherSuites,
             certificateVerification:.noHostnameVerification,
             trustRoots: .default,
             renegotiationSupport: .none,
@@ -419,7 +418,6 @@ class TLSConfigurationTest: XCTestCase {
         let serverConfig = TLSConfiguration.forServer(
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
             privateKey: .privateKey(TLSConfigurationTest.key1),
-            cipherSuites: defaultCipherSuites,
             trustRoots: .default,
             additionalTrustRoots: [.certificates([TLSConfigurationTest.cert2])])
 
@@ -428,7 +426,6 @@ class TLSConfigurationTest: XCTestCase {
 
     func testMutualValidationSuccessWithOnlyAdditionalTrustRoots() throws {
         let clientConfig = TLSConfiguration.forClient(
-            cipherSuites: defaultCipherSuites,
             certificateVerification:.noHostnameVerification,
             trustRoots: .certificates([]),
             renegotiationSupport: .none,
@@ -437,7 +434,6 @@ class TLSConfigurationTest: XCTestCase {
         let serverConfig = TLSConfiguration.forServer(
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
             privateKey: .privateKey(TLSConfigurationTest.key1),
-            cipherSuites: defaultCipherSuites,
             trustRoots: .certificates([]),
             additionalTrustRoots: [.certificates([TLSConfigurationTest.cert2])])
 
@@ -678,5 +674,44 @@ class TLSConfigurationTest: XCTestCase {
                                                       cipherSuites: "AES256",
                                                       maximumTLSVersion: .tlsv12)
         try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_HANDSHAKE_FAILURE")
+    }
+    
+    func testSettingCiphersWithCipherSuiteValues() {
+        let clientConfig = TLSConfiguration.forClient(cipherSuites: [.TLS_AES_128_GCM_SHA256,
+                                                                .TLS_AES_256_GCM_SHA384,
+                                                                .TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256],
+                                                      maximumTLSVersion: .tlsv12,
+                                                      certificateVerification: .noHostnameVerification,
+                                                      trustRoots: .certificates([TLSConfigurationTest.cert1]),
+                                                      renegotiationSupport: .none)
+        print("clientConfig.cipherSuites: \(clientConfig.cipherSuites)")
+        XCTAssertEqual(clientConfig.cipherSuites, "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256")
+    }
+    
+    func testSettingCiphersWithCipherSuitesString() {
+        let clientConfig = TLSConfiguration.forClient(cipherSuites: "AES256",
+                                                      maximumTLSVersion: .tlsv12,
+                                                      certificateVerification: .noHostnameVerification,
+                                                      trustRoots: .certificates([TLSConfigurationTest.cert1]))
+        
+        let assignedCiphers = clientConfig.cipherSuiteValues.map { $0.standardName }
+        let createdCipherSuiteValuesFromString = assignedCiphers.joined(separator: ":")
+        // Note that this includes the PSK values as well.
+        XCTAssertEqual(createdCipherSuiteValuesFromString, "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA:TLS_RSA_WITH_AES_256_GCM_SHA384:TLS_RSA_WITH_AES_256_CBC_SHA:TLS_PSK_WITH_AES_256_CBC_SHA")
+    }
+    
+    func testDefaultCipherSuiteValues() {
+        
+        let clientConfig = TLSConfiguration.forClient(
+            certificateVerification:.noHostnameVerification,
+            trustRoots: .certificates([]),
+            renegotiationSupport: .none,
+            additionalTrustRoots: [.certificates([TLSConfigurationTest.cert1])])
+        XCTAssertEqual(clientConfig.cipherSuites, defaultCipherSuites)
+        
+        let assignedCiphers = clientConfig.cipherSuiteValues.map { $0.standardName }
+        let defaultCipherSuiteValuesFromString = assignedCiphers.joined(separator: ":")
+        // Note that this includes the PSK values as well.
+        XCTAssertEqual(defaultCipherSuiteValuesFromString, "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA:TLS_RSA_WITH_AES_128_GCM_SHA256:TLS_RSA_WITH_AES_256_GCM_SHA384:TLS_RSA_WITH_AES_128_CBC_SHA:TLS_RSA_WITH_AES_256_CBC_SHA")
     }
 }

@@ -55,6 +55,9 @@ extension TLSConfigurationTest {
                 ("testMultipleCompatibleCipherSuitesWithStringBasedCipher", testMultipleCompatibleCipherSuitesWithStringBasedCipher),
                 ("testMultipleClientCipherSuitesWithDefaultCipher", testMultipleClientCipherSuitesWithDefaultCipher),
                 ("testNonCompatibleClientCiphersWithServerStringBasedCiphers", testNonCompatibleClientCiphersWithServerStringBasedCiphers),
+                ("testSettingCiphersWithCipherSuiteValues", testSettingCiphersWithCipherSuiteValues),
+                ("testSettingCiphersWithCipherSuitesString", testSettingCiphersWithCipherSuitesString),
+                ("testDefaultCipherSuiteValues", testDefaultCipherSuiteValues),
            ]
    }
 }
