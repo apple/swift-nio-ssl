@@ -20,6 +20,11 @@ import CNIOBoringSSL
 import CNIOBoringSSLShims
 #endif
 import NIO
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+import struct Darwin.time_t
+#elseif canImport(Glibc)
+import struct Glibc.time_t
+#endif
 
 /// A reference to a BoringSSL Certificate object (`X509 *`).
 ///
