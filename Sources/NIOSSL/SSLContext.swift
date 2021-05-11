@@ -502,6 +502,90 @@ extension NIOSSLContext {
     }
 }
 
+// For accessing STACK_OF(SSL_CIPHER) from a SSLContext
+extension NIOSSLContext {
+    /// A collection of buffers representing a STACK_OF(SSL_CIPHER)
+    struct NIOTLSCipherBuffers {
+        private let basePointer: OpaquePointer
+
+        fileprivate init(basePointer: OpaquePointer) {
+            self.basePointer = basePointer
+        }
+    }
+
+    /// Invokes a block with a collection of pointers to STACK_OF(SSL_CIPHER).
+    ///
+    /// The pointers are only guaranteed to be valid for the duration of this call.  This method aligns with the RandomAccessCollection protocol
+    /// to access UInt16 pointers at a specific index.  This pointer is used to safely access id values of the cipher to create a new NIOTLSCipher.
+    fileprivate func withStackOfCipherSuiteBuffers<Result>(_ body: (NIOTLSCipherBuffers?) throws -> Result) rethrows -> Result {
+        guard let stackPointer = CNIOBoringSSL_SSL_CTX_get_ciphers(self.sslContext) else {
+            return try body(nil)
+        }
+        return try body(NIOTLSCipherBuffers(basePointer: stackPointer))
+    }
+
+    /// Access cipher suites applied to the context
+    internal var cipherSuites: [NIOTLSCipher] {
+        return self.withStackOfCipherSuiteBuffers { buffers in
+            guard let buffers = buffers else {
+                return []
+            }
+            return Array(buffers)
+        }
+    }
+}
+
+extension NIOSSLContext.NIOTLSCipherBuffers: RandomAccessCollection {
+    
+    struct Index: Hashable, Comparable, Strideable {
+        typealias Stride = Int
+
+        fileprivate var index: Int
+
+        fileprivate init(_ index: Int) {
+            self.index = index
+        }
+
+        static func < (lhs: Index, rhs: Index) -> Bool {
+            return lhs.index < rhs.index
+        }
+
+        func advanced(by n: NIOSSLContext.NIOTLSCipherBuffers.Index.Stride) -> NIOSSLContext.NIOTLSCipherBuffers.Index {
+            var result = self
+            result.index += n
+            return result
+        }
+
+        func distance(to other: NIOSSLContext.NIOTLSCipherBuffers.Index) -> NIOSSLContext.NIOTLSCipherBuffers.Index.Stride {
+            return other.index - self.index
+        }
+    }
+
+    typealias Element = NIOTLSCipher
+
+    var startIndex: Index {
+        return Index(0)
+    }
+
+    var endIndex: Index {
+        return Index(self.count)
+    }
+
+    var count: Int {
+        return CNIOBoringSSL_sk_SSL_CIPHER_num(self.basePointer)
+    }
+    
+    subscript(position: Index) -> NIOTLSCipher {
+        precondition(position < self.endIndex)
+        precondition(position >= self.startIndex)
+        guard let ptr = CNIOBoringSSL_sk_SSL_CIPHER_value(self.basePointer, position.index) else {
+            preconditionFailure("Unable to locate backing pointer.")
+        }
+        let cipherID = CNIOBoringSSL_SSL_CIPHER_get_protocol_id(ptr)
+        return NIOTLSCipher(cipherID)
+    }
+}
+
 extension Optional where Wrapped == String {
     internal func withCString<Result>(_ body: (UnsafePointer<CChar>?) throws -> Result) rethrows -> Result {
         switch self {
