@@ -73,7 +73,7 @@ public enum NIOSSLTrustRoots: Hashable {
 }
 
 /// Places NIOSSL can obtain additional trust roots from.
-public enum NIOSSLAdditionalTrustRoots {
+public enum NIOSSLAdditionalTrustRoots: Hashable {
     /// See `NIOSSLTrustRoots.file`
     case file(String)
 
@@ -651,9 +651,9 @@ extension TLSConfiguration {
             self.signingSignatureAlgorithms == comparing.signingSignatureAlgorithms &&
             self.certificateVerification == comparing.certificateVerification &&
             self.trustRoots == comparing.trustRoots &&
+            self.additionalTrustRoots == comparing.additionalTrustRoots &&
             self.certificateChain == comparing.certificateChain &&
             self.privateKey == comparing.privateKey &&
-            self.applicationProtocols == comparing.applicationProtocols &&
             self.encodedApplicationProtocols == comparing.encodedApplicationProtocols &&
             self.shutdownTimeout == comparing.shutdownTimeout &&
             isKeyLoggerCallbacksEqual &&
@@ -673,9 +673,9 @@ extension TLSConfiguration {
         hasher.combine(signingSignatureAlgorithms)
         hasher.combine(certificateVerification)
         hasher.combine(trustRoots)
+        hasher.combine(additionalTrustRoots)
         hasher.combine(certificateChain)
         hasher.combine(privateKey)
-        hasher.combine(applicationProtocols)
         hasher.combine(encodedApplicationProtocols)
         hasher.combine(shutdownTimeout)
         withUnsafeBytes(of: keyLogCallback) { closureBits in

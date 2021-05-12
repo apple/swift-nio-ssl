@@ -714,4 +714,45 @@ class TLSConfigurationTest: XCTestCase {
         // Note that this includes the PSK values as well.
         XCTAssertEqual(defaultCipherSuiteValuesFromString, "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA:TLS_RSA_WITH_AES_128_GCM_SHA256:TLS_RSA_WITH_AES_256_GCM_SHA384:TLS_RSA_WITH_AES_128_CBC_SHA:TLS_RSA_WITH_AES_256_CBC_SHA")
     }
+
+    func testBestEffortEquatableHashableDifferences() {
+        let first = TLSConfiguration.forClient()
+
+        let transforms: [(inout TLSConfiguration) -> Void] = [
+            { $0.minimumTLSVersion = .tlsv13 },
+            { $0.maximumTLSVersion = .tlsv12 },
+            { $0.cipherSuites = "AES" },
+            { $0.cipherSuiteValues = [.TLS_RSA_WITH_AES_256_CBC_SHA] },
+            { $0.verifySignatureAlgorithms = [.ed25519] },
+            { $0.signingSignatureAlgorithms = [.ed25519] },
+            { $0.certificateVerification = .noHostnameVerification },
+            { $0.trustRoots = .certificates([TLSConfigurationTest.cert1]) },
+            { $0.additionalTrustRoots = [.certificates([TLSConfigurationTest.cert1])] },
+            { $0.certificateChain = [.certificate(TLSConfigurationTest.cert1)] },
+            { $0.privateKey = .privateKey(TLSConfigurationTest.key1) },
+            { $0.applicationProtocols = ["h2"] },
+            { $0.shutdownTimeout = .seconds((60 * 24 * 24) + 1) },
+            { $0.keyLogCallback = { _ in } },
+            { $0.renegotiationSupport = .always },
+        ]
+
+        for (index, transform) in transforms.enumerated() {
+            var transformed = first
+            transform(&transformed)
+            XCTAssertNotEqual(Wrapper(config: first), Wrapper(config: transformed), "Should have compared not equal in index \(index)")
+            XCTAssertEqual(Set([Wrapper(config: first), Wrapper(config: transformed)]).count, 2, "Should have hashed non-equal in index \(index)")
+        }
+    }
+}
+
+struct Wrapper: Hashable {
+    var config: TLSConfiguration
+
+    static func ==(lhs: Wrapper, rhs: Wrapper) -> Bool {
+        return lhs.config.bestEffortEquals(rhs.config)
+    }
+
+    func hash(into hasher: inout Hasher) {
+        self.config.bestEffortHash(into: &hasher)
+    }
 }
