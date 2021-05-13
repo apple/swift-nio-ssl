@@ -275,8 +275,6 @@ class TLSConfigurationTest: XCTestCase {
         clientConfig.cipherSuiteValues = [.TLS_RSA_WITH_AES_128_CBC_SHA]
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
-
-
         var serverConfig = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
             privateKey: .privateKey(TLSConfigurationTest.key1)
