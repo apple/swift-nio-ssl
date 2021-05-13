@@ -352,7 +352,7 @@ class SSLCertificateTest: XCTestCase {
     }
 
     func testCommonNameForGeneratedCert() throws {
-        XCTAssertEqual([UInt8]("localhost".utf8), SSLCertificateTest.dynamicallyGeneratedCert.commonName()!)
+        XCTAssertEqual([UInt8]("camembert".utf8), SSLCertificateTest.dynamicallyGeneratedCert.commonName()!)
     }
 
     func testMultipleCommonNames() throws {

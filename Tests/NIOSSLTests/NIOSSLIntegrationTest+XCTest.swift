@@ -64,6 +64,8 @@ extension NIOSSLIntegrationTest {
                 ("testLoadsOfCloses", testLoadsOfCloses),
                 ("testWriteFromFailureOfWrite", testWriteFromFailureOfWrite),
                 ("testTrustedFirst", testTrustedFirst),
+                ("testCommonNameFails", testCommonNameFails),
+                ("testCommonNameSucceedsIfOverrideApplied", testCommonNameSucceedsIfOverrideApplied),
            ]
    }
 }

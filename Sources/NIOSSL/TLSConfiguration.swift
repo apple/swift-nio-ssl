@@ -303,6 +303,18 @@ public struct TLSConfiguration {
     /// Whether renegotiation is supported.
     public var renegotiationSupport: NIORenegotiationSupport
 
+    /// Whether to trust the commonName field when validating certificate hostnames.
+    ///
+    /// The commonName field of certificates has been deprecated for use as a validation source
+    /// for nearly two decades. As browsers and the WebPKI now forbid the usage of common names
+    /// in certificates, swift-nio-ssl defaults to this strict level of enforcement as well.
+    ///
+    /// However, some older infrastructure does not issue certificates with valid subject alternative
+    /// name fields. For this reason, we currently allow an override for trusting the common name. This
+    /// is a temporary measure to allow users to work around these limitations, but we will remove this
+    /// functionality in future.
+    public var trustCommonName: Bool
+
     private init(cipherSuiteValues: [NIOTLSCipher] = [],
                  cipherSuites: String = defaultCipherSuites,
                  verifySignatureAlgorithms: [SignatureAlgorithm]?,
@@ -317,7 +329,8 @@ public struct TLSConfiguration {
                  shutdownTimeout: TimeAmount,
                  keyLogCallback: NIOSSLKeyLogCallback?,
                  renegotiationSupport: NIORenegotiationSupport,
-                 additionalTrustRoots: [NIOSSLAdditionalTrustRoots]) {
+                 additionalTrustRoots: [NIOSSLAdditionalTrustRoots],
+                 trustCommonName: Bool) {
         self.cipherSuites = cipherSuites
         self.verifySignatureAlgorithms = verifySignatureAlgorithms
         self.signingSignatureAlgorithms = signingSignatureAlgorithms
@@ -331,6 +344,7 @@ public struct TLSConfiguration {
         self.encodedApplicationProtocols = []
         self.shutdownTimeout = shutdownTimeout
         self.renegotiationSupport = renegotiationSupport
+        self.trustCommonName = trustCommonName
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
         if !cipherSuiteValues.isEmpty {
@@ -368,7 +382,8 @@ public struct TLSConfiguration {
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
                                 renegotiationSupport: .none,  // Servers never support renegotiation: there's no point.
-                                additionalTrustRoots: additionalTrustRoots)
+                                additionalTrustRoots: additionalTrustRoots,
+                                trustCommonName: false)
     }
 
     /// Create a TLS configuration for use with server-side contexts.
@@ -398,7 +413,8 @@ public struct TLSConfiguration {
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
                                 renegotiationSupport: .none,  // Servers never support renegotiation: there's no point.
-                                additionalTrustRoots: [])
+                                additionalTrustRoots: [],
+                                trustCommonName: false)
     }
 
     /// Create a TLS configuration for use with server-side contexts.
@@ -430,7 +446,8 @@ public struct TLSConfiguration {
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
                                 renegotiationSupport: .none,  // Servers never support renegotiation: there's no point.
-                                additionalTrustRoots: [])
+                                additionalTrustRoots: [],
+                                trustCommonName: false)
     }
 
     /// Create a TLS configuration for use with server-side contexts.
@@ -463,7 +480,43 @@ public struct TLSConfiguration {
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
                                 renegotiationSupport: .none,  // Servers never support renegotiation: there's no point.
-                                additionalTrustRoots: additionalTrustRoots)
+                                additionalTrustRoots: additionalTrustRoots,
+                                trustCommonName: false)
+    }
+
+    /// Create a TLS configuration for use with server-side contexts.
+    ///
+    /// This provides sensible defaults while requiring that you provide any data that is necessary
+    /// for server-side function. For client use, try `forClient` instead.
+    public static func forServer(certificateChain: [NIOSSLCertificateSource],
+                                 privateKey: NIOSSLPrivateKeySource,
+                                 cipherSuites: String = defaultCipherSuites,
+                                 verifySignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 signingSignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 minimumTLSVersion: TLSVersion = .tlsv1,
+                                 maximumTLSVersion: TLSVersion? = nil,
+                                 certificateVerification: CertificateVerification = .none,
+                                 trustRoots: NIOSSLTrustRoots = .default,
+                                 applicationProtocols: [String] = [],
+                                 shutdownTimeout: TimeAmount = .seconds(5),
+                                 keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 additionalTrustRoots: [NIOSSLAdditionalTrustRoots] = [],
+                                 trustCommonName: Bool) -> TLSConfiguration {
+        return TLSConfiguration(cipherSuites: cipherSuites,
+                                verifySignatureAlgorithms: verifySignatureAlgorithms,
+                                signingSignatureAlgorithms: signingSignatureAlgorithms,
+                                minimumTLSVersion: minimumTLSVersion,
+                                maximumTLSVersion: maximumTLSVersion,
+                                certificateVerification: certificateVerification,
+                                trustRoots: trustRoots,
+                                certificateChain: certificateChain,
+                                privateKey: privateKey,
+                                applicationProtocols: applicationProtocols,
+                                shutdownTimeout: shutdownTimeout,
+                                keyLogCallback: keyLogCallback,
+                                renegotiationSupport: .none,  // Servers never support renegotiation: there's no point.
+                                additionalTrustRoots: additionalTrustRoots,
+                                trustCommonName: trustCommonName)
     }
     
     /// Creates a TLS configuration for use with client-side contexts. This allows setting the `NIOTLSCipher` property specifically.
@@ -497,7 +550,8 @@ public struct TLSConfiguration {
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
                                 renegotiationSupport: renegotiationSupport,
-                                additionalTrustRoots: additionalTrustRoots)
+                                additionalTrustRoots: additionalTrustRoots,
+                                trustCommonName: false)
     }
 
     /// Creates a TLS configuration for use with client-side contexts.
@@ -527,7 +581,8 @@ public struct TLSConfiguration {
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
                                 renegotiationSupport: .none,  // Default value is here for backward-compatibility.
-                                additionalTrustRoots: [])
+                                additionalTrustRoots: [],
+                                trustCommonName: false)
     }
 
 
@@ -559,7 +614,8 @@ public struct TLSConfiguration {
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
                                 renegotiationSupport: renegotiationSupport,
-                                additionalTrustRoots: [])
+                                additionalTrustRoots: [],
+                                trustCommonName: false)
     }
     
     /// Creates a TLS configuration for use with client-side contexts.
@@ -592,7 +648,8 @@ public struct TLSConfiguration {
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
                                 renegotiationSupport: renegotiationSupport,
-                                additionalTrustRoots: [])
+                                additionalTrustRoots: [],
+                                trustCommonName: false)
     }
 
     /// Creates a TLS configuration for use with client-side contexts.
@@ -626,7 +683,44 @@ public struct TLSConfiguration {
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
                                 renegotiationSupport: renegotiationSupport,
-                                additionalTrustRoots: additionalTrustRoots)
+                                additionalTrustRoots: additionalTrustRoots,
+                                trustCommonName: false)
+    }
+
+    /// Creates a TLS configuration for use with client-side contexts. This allows setting the `NIOTLSCipher` property specifically.
+    ///
+    /// This provides sensible defaults, and can be used without customisation. For server-side
+    /// contexts, you should use `forServer` instead.
+    public static func forClient(cipherSuites: String = defaultCipherSuites,
+                                 verifySignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 signingSignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 minimumTLSVersion: TLSVersion = .tlsv1,
+                                 maximumTLSVersion: TLSVersion? = nil,
+                                 certificateVerification: CertificateVerification = .fullVerification,
+                                 trustRoots: NIOSSLTrustRoots = .default,
+                                 certificateChain: [NIOSSLCertificateSource] = [],
+                                 privateKey: NIOSSLPrivateKeySource? = nil,
+                                 applicationProtocols: [String] = [],
+                                 shutdownTimeout: TimeAmount = .seconds(5),
+                                 keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 renegotiationSupport: NIORenegotiationSupport = .none,
+                                 additionalTrustRoots: [NIOSSLAdditionalTrustRoots] = [],
+                                 trustCommonName: Bool) -> TLSConfiguration {
+        return TLSConfiguration(cipherSuites: cipherSuites,
+                                verifySignatureAlgorithms: verifySignatureAlgorithms,
+                                signingSignatureAlgorithms: signingSignatureAlgorithms,
+                                minimumTLSVersion: minimumTLSVersion,
+                                maximumTLSVersion: maximumTLSVersion,
+                                certificateVerification: certificateVerification,
+                                trustRoots: trustRoots,
+                                certificateChain: certificateChain,
+                                privateKey: privateKey,
+                                applicationProtocols: applicationProtocols,
+                                shutdownTimeout: shutdownTimeout,
+                                keyLogCallback: keyLogCallback,
+                                renegotiationSupport: renegotiationSupport,
+                                additionalTrustRoots: additionalTrustRoots,
+                                trustCommonName: trustCommonName)
     }
 }
 
@@ -657,7 +751,8 @@ extension TLSConfiguration {
             self.encodedApplicationProtocols == comparing.encodedApplicationProtocols &&
             self.shutdownTimeout == comparing.shutdownTimeout &&
             isKeyLoggerCallbacksEqual &&
-            self.renegotiationSupport == comparing.renegotiationSupport
+            self.renegotiationSupport == comparing.renegotiationSupport &&
+            self.trustCommonName == comparing.trustCommonName
     }
     
     /// Returns a best effort hash of this TLS configuration.
@@ -682,5 +777,6 @@ extension TLSConfiguration {
             hasher.combine(bytes: closureBits)
         }
         hasher.combine(renegotiationSupport)
+        hasher.combine(trustCommonName)
     }
 }

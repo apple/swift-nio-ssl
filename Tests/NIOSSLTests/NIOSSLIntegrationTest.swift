@@ -407,6 +407,8 @@ fileprivate func _clientTLSChannel<TLS: NIOClientTLSProvider>(context: NIOSSLCon
 class NIOSSLIntegrationTest: XCTestCase {
     static var cert: NIOSSLCertificate!
     static var key: NIOSSLPrivateKey!
+    static var noSANCert: NIOSSLCertificate!
+    static var noSANKey: NIOSSLPrivateKey!
     static var encryptedKeyPath: String!
     
     override class func setUp() {
@@ -416,6 +418,9 @@ class NIOSSLIntegrationTest: XCTestCase {
         NIOSSLIntegrationTest.cert = cert
         NIOSSLIntegrationTest.key = key
         NIOSSLIntegrationTest.encryptedKeyPath = keyInFile(key: NIOSSLIntegrationTest.key, passphrase: "thisisagreatpassword")
+        let (noSANCert, noSANKey) = generateSelfSignedCert(withSAN: false)
+        NIOSSLIntegrationTest.noSANCert = noSANCert
+        NIOSSLIntegrationTest.noSANKey = noSANKey
     }
 
     override class func tearDown() {
@@ -2078,5 +2083,71 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let newBuffer = try completionPromise.futureResult.wait()
         XCTAssertEqual(newBuffer, originalBuffer)
+    }
+
+    func testCommonNameFails() throws {
+        let config = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.noSANCert)],
+                                                privateKey: .privateKey(NIOSSLIntegrationTest.noSANKey))
+        let context = try assertNoThrowWithValue(NIOSSLContext(configuration: config))
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let serverChannel: Channel = try serverTLSChannel(context: context, handlers: [], group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let handshakeResultPromise = group.next().makePromise(of: Void.self)
+        let handshakeWatcher = WaitForHandshakeHandler(handshakeResultPromise: handshakeResultPromise)
+        let clientChannel = try clientTLSChannel(context: try configuredClientContext(),
+                                                 preHandlers: [],
+                                                 postHandlers: [handshakeWatcher],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!,
+                                                 serverHostname: "camembert")
+        defer {
+            // Ignore errors here, the channel should be closed already by the time this happens.
+            try? clientChannel.close().wait()
+        }
+
+        XCTAssertThrowsError(try handshakeResultPromise.futureResult.wait())
+    }
+
+    func testCommonNameSucceedsIfOverrideApplied() throws {
+        let config = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.noSANCert)],
+                                                privateKey: .privateKey(NIOSSLIntegrationTest.noSANKey))
+        let context = try assertNoThrowWithValue(NIOSSLContext(configuration: config))
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let serverChannel: Channel = try serverTLSChannel(context: context, handlers: [], group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let clientConfig = TLSConfiguration.forClient(trustRoots: .certificates([NIOSSLIntegrationTest.noSANCert]),
+                                                      trustCommonName: true)
+        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
+
+        let handshakeResultPromise = group.next().makePromise(of: Void.self)
+        let handshakeWatcher = WaitForHandshakeHandler(handshakeResultPromise: handshakeResultPromise)
+        let clientChannel = try clientTLSChannel(context: clientContext,
+                                                 preHandlers: [],
+                                                 postHandlers: [handshakeWatcher],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!,
+                                                 serverHostname: "camembert")
+        defer {
+            // Ignore errors here, the channel should be closed already by the time this happens.
+            try? clientChannel.close().wait()
+        }
+
+        XCTAssertNoThrow(try handshakeResultPromise.futureResult.wait())
     }
 }
