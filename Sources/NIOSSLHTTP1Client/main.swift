@@ -94,7 +94,12 @@ defer {
     try! eventLoopGroup.syncShutdownGracefully()
 }
 
-let tlsConfiguration = TLSConfiguration.forClient(trustRoots: trustRoot, certificateChain: cert, privateKey: key, renegotiationSupport: .once)
+var tlsConfiguration = TLSConfiguration.makeClientConfiguration()
+tlsConfiguration.trustRoots = trustRoot
+tlsConfiguration.certificateChain = cert
+tlsConfiguration.privateKey = key
+tlsConfiguration.renegotiationSupport = .once
+
 let sslContext = try! NIOSSLContext(configuration: tlsConfiguration)
 
 let bootstrap = ClientBootstrap(group: eventLoopGroup)

@@ -16,15 +16,21 @@ import NIO
 import NIOSSL
 
 func run(identifier: String) {
-    let serverContext = try! NIOSSLContext(configuration: .forServer(certificateChain: [.certificate(.forTesting())], privateKey: .privateKey(.forTesting())))
-    let clientContext = try! NIOSSLContext(configuration: .forClient(trustRoots: .certificates([.forTesting()])))
+    let serverContext = try! NIOSSLContext(configuration: .makeServerConfiguration(
+        certificateChain: [.certificate(.forTesting())],
+        privateKey: .privateKey(.forTesting())
+    ))
+
+    var clientConfig = TLSConfiguration.makeClientConfiguration()
+    clientConfig.trustRoots = try! .certificates([.forTesting()])
+    let clientContext = try! NIOSSLContext(configuration: clientConfig)
 
     let dummyAddress = try! SocketAddress(ipAddress: "1.2.3.4", port: 5678)
 
     measure(identifier: identifier) {
         for _ in 0..<1000 {
             let backToBack = BackToBackEmbeddedChannel()
-            let serverHandler = try! NIOSSLServerHandler(context: serverContext)
+            let serverHandler = NIOSSLServerHandler(context: serverContext)
             let clientHandler = try! NIOSSLClientHandler(context: clientContext, serverHostname: "localhost")
             try! backToBack.client.pipeline.addHandler(clientHandler).wait()
             try! backToBack.server.pipeline.addHandler(serverHandler).wait()

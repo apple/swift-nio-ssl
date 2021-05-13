@@ -61,9 +61,11 @@ final class UnwrappingTests: XCTestCase {
     }
 
     private func configuredSSLContext(file: StaticString = #file, line: UInt = #line) throws -> NIOSSLContext {
-        let config = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
-                                                privateKey: .privateKey(NIOSSLIntegrationTest.key),
-                                                trustRoots: .certificates([NIOSSLIntegrationTest.cert]))
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+            privateKey: .privateKey(NIOSSLIntegrationTest.key)
+        )
+        config.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
         return try assertNoThrowWithValue(NIOSSLContext(configuration: config), file: file, line: line)
     }
 

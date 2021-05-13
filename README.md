@@ -17,8 +17,10 @@ To secure a server connection, you will need a X.509 certificate chain in a file
 For example:
 
 ```swift
-let configuration = TLSConfiguration.forServer(certificateChain: try NIOSSLCertificate.fromPEMFile("cert.pem").map { .certificate($0) },
-                                               privateKey: .file("key.pem"))
+let configuration = TLSConfiguration.makeServerConfiguration(
+    certificateChain: try NIOSSLCertificate.fromPEMFile("cert.pem").map { .certificate($0) },
+    privateKey: .file("key.pem")
+)
 let sslContext = try NIOSSLContext(configuration: configuration)
 
 let server = ServerBootstrap(group: group)
@@ -35,7 +37,7 @@ let server = ServerBootstrap(group: group)
 For clients, it is a bit simpler as there is no need to have a certificate chain or private key (though clients *may* have these things). Setup for clients may be done like this:
 
 ```swift
-let configuration = TLSConfiguration.forClient()
+let configuration = TLSConfiguration.makeClientConfiguration()
 let sslContext = try NIOSSLContext(configuration: configuration)
 
 let client = ClientBootstrap(group: group)

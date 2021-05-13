@@ -19,7 +19,7 @@ import NIO
 /// Example:
 ///
 ///     // TLS setup.
-///     let configuration = TLSConfiguration.forClient()
+///     let configuration = TLSConfiguration.makeClientConfiguration()
 ///     let sslContext = try NIOSSLContext(configuration: configuration)
 ///
 ///     // Creating the "universal bootstrap" with the `NIOSSLClientTLSProvider`.

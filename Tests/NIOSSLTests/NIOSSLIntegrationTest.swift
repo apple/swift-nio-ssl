@@ -423,24 +423,29 @@ class NIOSSLIntegrationTest: XCTestCase {
     }
 
     private func configuredSSLContext(keyLogCallback: NIOSSLKeyLogCallback? = nil, file: StaticString = #file, line: UInt = #line) throws -> NIOSSLContext {
-        let config = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
-                                                privateKey: .privateKey(NIOSSLIntegrationTest.key),
-                                                trustRoots: .certificates([NIOSSLIntegrationTest.cert]),
-                                                keyLogCallback: keyLogCallback)
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+            privateKey: .privateKey(NIOSSLIntegrationTest.key)
+        )
+        config.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
+        config.keyLogCallback = keyLogCallback
         return try assertNoThrowWithValue(NIOSSLContext(configuration: config), file: file, line: line)
     }
 
     private func configuredSSLContext<T: Collection>(passphraseCallback: @escaping NIOSSLPassphraseCallback<T>,
                                                      file: StaticString = #file, line: UInt = #line) throws -> NIOSSLContext
                                                      where T.Element == UInt8 {
-        let config = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
-                                                privateKey: .file(NIOSSLIntegrationTest.encryptedKeyPath),
-                                                trustRoots: .certificates([NIOSSLIntegrationTest.cert]))
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+            privateKey: .file(NIOSSLIntegrationTest.encryptedKeyPath)
+        )
+        config.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
         return try assertNoThrowWithValue(NIOSSLContext(configuration: config, passphraseCallback: passphraseCallback), file: file, line: line)
     }
 
     private func configuredClientContext(file: StaticString = #file, line: UInt = #line) throws -> NIOSSLContext {
-        let config = TLSConfiguration.forClient(trustRoots: .certificates([NIOSSLIntegrationTest.cert]))
+        var config = TLSConfiguration.makeClientConfiguration()
+        config.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
         return try assertNoThrowWithValue(NIOSSLContext(configuration: config), file: file, line: line)
     }
 
@@ -954,11 +959,13 @@ class NIOSSLIntegrationTest: XCTestCase {
     func testTrustStoreOnDisk() throws {
         var tempFile: String? = nil
         let serverCtx = try configuredSSLContext()
-        let config = try withTrustBundleInFile(tempFile: &tempFile) {
-            return TLSConfiguration.forClient(certificateVerification: .noHostnameVerification,
-                                              trustRoots: .file($0),
-                                              certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
-                                              privateKey: .privateKey(NIOSSLIntegrationTest.key))
+        let config: TLSConfiguration = try withTrustBundleInFile(tempFile: &tempFile) {
+            var config = TLSConfiguration.makeClientConfiguration()
+            config.certificateVerification = .noHostnameVerification
+            config.trustRoots = .file($0)
+            config.certificateChain = [.certificate(NIOSSLIntegrationTest.cert)]
+            config.privateKey = .privateKey(NIOSSLIntegrationTest.key)
+            return config
         }
         defer {
             precondition(.some(0) == tempFile.map { unlink($0) }, "couldn't remove temp file \(tempFile.debugDescription)")
@@ -995,10 +1002,11 @@ class NIOSSLIntegrationTest: XCTestCase {
 
     func testChecksTrustStoreOnDisk() throws {
         let serverCtx = try configuredSSLContext()
-        let clientConfig = TLSConfiguration.forClient(certificateVerification: .noHostnameVerification,
-                                                      trustRoots: .file("/tmp"),
-                                                      certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
-                                                      privateKey: .privateKey(NIOSSLIntegrationTest.key))
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .file("/tmp")
+        clientConfig.certificateChain = [.certificate(NIOSSLIntegrationTest.cert)]
+        clientConfig.privateKey = .privateKey(NIOSSLIntegrationTest.key)
         let clientCtx = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
@@ -1541,9 +1549,13 @@ class NIOSSLIntegrationTest: XCTestCase {
 
     func testNewCallbackCombinedWithDefaultTrustStore() throws {
         // This test is mostly useful on macOS, where it previously failed due to an excessive assertion.
-        let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
-                                                      privateKey: .privateKey(NIOSSLIntegrationTest.key))
-        let clientConfig = TLSConfiguration.forClient(certificateVerification: .fullVerification, trustRoots: .default)
+        let serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+            privateKey: .privateKey(NIOSSLIntegrationTest.key)
+        )
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .fullVerification
+        clientConfig.trustRoots = .default
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
 
@@ -1581,9 +1593,13 @@ class NIOSSLIntegrationTest: XCTestCase {
     func testMacOSVerificationCallbackIsNotUsedIfVerificationDisabled() throws {
         // This test is mostly useful on macOS, where it validates that disabling verification actually, well,
         // disables verification.
-        let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
-                                                      privateKey: .privateKey(NIOSSLIntegrationTest.key))
-        let clientConfig = TLSConfiguration.forClient(certificateVerification: .none, trustRoots: .default)
+        let serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+            privateKey: .privateKey(NIOSSLIntegrationTest.key)
+        )
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .none
+        clientConfig.trustRoots = .default
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
 
@@ -1613,10 +1629,12 @@ class NIOSSLIntegrationTest: XCTestCase {
     }
 
     func testServerHasNewCallbackCalledToo() throws {
-        let config = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
-                                                privateKey: .privateKey(NIOSSLIntegrationTest.key),
-                                                certificateVerification: .fullVerification,
-                                                trustRoots: .default)
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+            privateKey: .privateKey(NIOSSLIntegrationTest.key)
+        )
+        config.certificateVerification = .fullVerification
+        config.trustRoots = .default
         let context = try assertNoThrowWithValue(NIOSSLContext(configuration: config))
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
@@ -2044,8 +2062,12 @@ class NIOSSLIntegrationTest: XCTestCase {
         let newCA = try NIOSSLCertificate(bytes: Array(sampleIntermediateAsRootCA.utf8), format: .pem)
         let serverCert = try NIOSSLCertificate(bytes: Array(sampleClientOfIntermediateCA.utf8), format: .pem)
         let serverKey = try NIOSSLPrivateKey(bytes: Array(sampleKeyForCertificateOfClientOfIntermediateCA.utf8), format: .pem)
-        let clientConfig = TLSConfiguration.forClient(trustRoots: .certificates([newCA, oldCA]))
-        let serverConfig = TLSConfiguration.forServer(certificateChain: [.certificate(serverCert), .certificate(oldIntermediate), .certificate(oldCA)], privateKey: .privateKey(serverKey))
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.trustRoots = .certificates([newCA, oldCA])
+        let serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(serverCert), .certificate(oldIntermediate), .certificate(oldCA)],
+            privateKey: .privateKey(serverKey)
+        )
 
         let clientContext = try NIOSSLContext(configuration: clientConfig)
         let serverContext = try NIOSSLContext(configuration: serverConfig)
