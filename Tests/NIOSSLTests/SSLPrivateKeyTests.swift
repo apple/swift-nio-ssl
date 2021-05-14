@@ -238,8 +238,10 @@ class SSLPrivateKeyTest: XCTestCase {
     }
 
     func testMissingPassword() {
-        let configuration = TLSConfiguration.forServer(certificateChain: [],
-                                                       privateKey: .file(SSLPrivateKeyTest.passwordPemKeyFilePath))
+        let configuration = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [],
+            privateKey: .file(SSLPrivateKeyTest.passwordPemKeyFilePath)
+        )
 
         XCTAssertThrowsError(try NIOSSLContext(configuration: configuration)) { error in
             XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)

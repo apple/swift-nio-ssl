@@ -30,9 +30,11 @@ class ClientSNITests: XCTestCase {
     }
 
     private func configuredSSLContext() throws -> NIOSSLContext {
-        let config = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
-                                                privateKey: .privateKey(NIOSSLIntegrationTest.key),
-                                                trustRoots: .certificates([NIOSSLIntegrationTest.cert]))
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+            privateKey: .privateKey(NIOSSLIntegrationTest.key)
+        )
+        config.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
         let context = try NIOSSLContext(configuration: config)
         return context
     }

@@ -23,9 +23,15 @@ final class BenchRepeatedHandshakes: Benchmark {
 
     init(loopCount: Int) throws {
         self.loopCount = loopCount
-        self.serverContext = try NIOSSLContext(configuration: .forServer(certificateChain: [.certificate(.forTesting())], privateKey: .privateKey(.forTesting())))
-        self.clientContext = try NIOSSLContext(configuration: .forClient(trustRoots: .certificates([.forTesting()])))
         self.dummyAddress = try SocketAddress(ipAddress: "1.2.3.4", port: 5678)
+        self.serverContext = try NIOSSLContext(configuration: .makeServerConfiguration(
+            certificateChain: [.certificate(.forTesting())],
+            privateKey: .privateKey(.forTesting())
+        ))
+
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.trustRoots = try .certificates([.forTesting()])
+        self.clientContext = try NIOSSLContext(configuration: clientConfig)
     }
 
     func setUp() { }

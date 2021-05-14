@@ -35,10 +35,12 @@ class NIOSSLALPNTest: XCTestCase {
     }
 
     private func configuredSSLContextWithAlpnProtocols(protocols: [String]) throws -> NIOSSLContext {
-        let config = TLSConfiguration.forServer(certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
-                                                privateKey: .privateKey(NIOSSLIntegrationTest.key),
-                                                trustRoots: .certificates([NIOSSLIntegrationTest.cert]),
-                                                applicationProtocols: protocols)
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+            privateKey: .privateKey(NIOSSLIntegrationTest.key)
+        )
+        config.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
+        config.applicationProtocols = protocols
         return try NIOSSLContext(configuration: config)
     }
 

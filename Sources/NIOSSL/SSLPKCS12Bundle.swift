@@ -37,8 +37,10 @@ import NIO
 /// If you have a PKCS12 bundle, you configure a `TLSConfiguration` like this:
 ///
 ///     let p12Bundle = NIOSSLPKCS12Bundle(file: pathToMyP12)
-///     let config = TLSConfiguration.forServer(certificateChain: p12Bundle.certificateChain,
-///                                             privateKey: p12Bundle.privateKey)
+///     let config = TLSConfiguration.makeServerConfiguration(
+///         certificateChain: p12Bundle.certificateChain,
+///         privateKey: p12Bundle.privateKey
+///     )
 ///
 /// The created `TLSConfiguration` can then be safely used for your endpoint.
 public struct NIOSSLPKCS12Bundle {
