@@ -104,7 +104,7 @@ i5PCcPYi39q101UIxV/WokS0mqHx/XuTYTwhWYd/C49OnM8MLZOUJd8w0VvS0ItY
 """
 
 func makeTemporaryFile(fileExtension: String = "") -> String {
-    let template = "/tmp/niotestXXXXXXX\(fileExtension)"
+    let template = "\(FileManager.default.temporaryDirectory.path)/niotestXXXXXXX\(fileExtension)"
     var templateBytes = template.utf8 + [0]
     let fd = templateBytes.withUnsafeMutableBufferPointer { ptr in
         ptr.baseAddress!.withMemoryRebound(to: Int8.self, capacity: ptr.count) { (ptr: UnsafeMutablePointer<Int8>) in
