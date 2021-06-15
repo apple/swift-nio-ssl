@@ -1004,7 +1004,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         let serverCtx = try configuredSSLContext()
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.certificateVerification = .noHostnameVerification
-        clientConfig.trustRoots = .file("/tmp")
+        clientConfig.trustRoots = .file(FileManager.default.temporaryDirectory.path)
         clientConfig.certificateChain = [.certificate(NIOSSLIntegrationTest.cert)]
         clientConfig.privateKey = .privateKey(NIOSSLIntegrationTest.key)
         let clientCtx = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
