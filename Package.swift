@@ -71,6 +71,7 @@ MANGLE_END */
         .target(
             name: "NIOSSLPerformanceTester",
             dependencies: [
+                "NIOSSL",
                 .product(name: "NIO", package: "swift-nio"),
                 .product(name: "NIOTLS", package: "swift-nio"),
             ]),
