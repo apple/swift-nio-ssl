@@ -50,3 +50,4 @@ let client = ClientBootstrap(group: group)
         [...]
     }
 ```
+Note that SwiftNIO SSL currently requires Swift 5.2 and above. Release 2.13.x and prior support Swift 5.0 and 5.1
