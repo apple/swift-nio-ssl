@@ -1,4 +1,4 @@
-// swift-tools-version:5.0
+// swift-tools-version:5.2
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the SwiftNIO open source project
@@ -39,13 +39,48 @@ MANGLE_END */
     ],
     targets: [
         .target(name: "CNIOBoringSSL"),
-        .target(name: "CNIOBoringSSLShims", dependencies: ["CNIOBoringSSL"]),
-        .target(name: "NIOSSL",
-                dependencies: ["NIO", "NIOConcurrencyHelpers", "CNIOBoringSSL", "CNIOBoringSSLShims", "NIOTLS"]),
-        .target(name: "NIOTLSServer", dependencies: ["NIO", "NIOSSL", "NIOConcurrencyHelpers"]),
-        .target(name: "NIOSSLHTTP1Client", dependencies: ["NIO", "NIOHTTP1", "NIOSSL", "NIOFoundationCompat"]),
-        .target(name: "NIOSSLPerformanceTester", dependencies: ["NIO", "NIOSSL"]),
-        .testTarget(name: "NIOSSLTests", dependencies: ["NIOTLS", "NIOSSL"]),
+        .target(
+            name: "CNIOBoringSSLShims",
+            dependencies: [
+                "CNIOBoringSSL"
+            ]),
+        .target(
+            name: "NIOSSL",
+            dependencies: [
+                "CNIOBoringSSL",
+                "CNIOBoringSSLShims",
+                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
+                .product(name: "NIOTLS", package: "swift-nio"),
+            ]),
+        .target(
+            name: "NIOTLSServer",
+            dependencies: [
+                "NIOSSL",
+                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
+            ]),
+        .target(
+            name: "NIOSSLHTTP1Client",
+            dependencies: [
+                "NIOSSL",
+                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "NIOHTTP1", package: "swift-nio"),
+                .product(name: "NIOFoundationCompat", package: "swift-nio"),
+            ]),
+        .target(
+            name: "NIOSSLPerformanceTester",
+            dependencies: [
+                "NIOSSL",
+                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "NIOTLS", package: "swift-nio"),
+            ]),
+        .testTarget(
+            name: "NIOSSLTests",
+            dependencies: [
+                "NIOSSL",
+                .product(name: "NIOTLS", package: "swift-nio"),
+            ]),
     ],
     cxxLanguageStandard: .cxx14
 )
