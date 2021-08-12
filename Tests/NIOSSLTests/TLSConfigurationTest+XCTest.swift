@@ -40,6 +40,7 @@ extension TLSConfigurationTest {
                 ("testMutualValidationSuccessNoAdditionalTrustRoots", testMutualValidationSuccessNoAdditionalTrustRoots),
                 ("testMutualValidationSuccessWithDefaultAndAdditionalTrustRoots", testMutualValidationSuccessWithDefaultAndAdditionalTrustRoots),
                 ("testMutualValidationSuccessWithOnlyAdditionalTrustRoots", testMutualValidationSuccessWithOnlyAdditionalTrustRoots),
+                ("testFullVerificationWithCANames", testFullVerificationWithCANames),
                 ("testNonexistentFileObject", testNonexistentFileObject),
                 ("testComputedApplicationProtocols", testComputedApplicationProtocols),
                 ("testKeyLogManagerOverlappingAccess", testKeyLogManagerOverlappingAccess),

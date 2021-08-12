@@ -464,6 +464,117 @@ class TLSConfigurationTest: XCTestCase {
 
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
+    
+    func testFullVerificationWithCANames() throws {
+        // Custom certificates for TLS and client authentication.
+        let root = try NIOSSLCertificate(bytes: .init(customCARoot.utf8), format: .pem)
+        
+        let leaf = try NIOSSLCertificate(bytes: .init(leafCertificateForTLSIssuedFromCustomCARoot.utf8), format: .pem)
+        let leaf_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForLeafCertificate.utf8), format: .pem)
+        
+        let client_cert = try NIOSSLCertificate(bytes: .init(leafCertificateForClientAuthenticationIssuedFromCustomCARoot.utf8), format: .pem)
+        let client_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForClientAuthentication.utf8), format: .pem)
+        
+        // Client Configuration.
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.renegotiationSupport = .none
+        clientConfig.certificateChain = [.certificate(client_cert)]
+        clientConfig.privateKey = .privateKey(client_privateKey)
+        
+        // Server Configuration
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(leaf)],
+            privateKey: .privateKey(leaf_privateKey)
+        )
+        serverConfig.trustRoots = .certificates([root])
+        serverConfig.certificateVerification = .fullVerification
+        
+        // Pulling in the logic for assertHandshakeSucceededEventLoop because there needs to be some custom handling
+        // due to the IP address and the potential for `CERTIFICATE_VERIFY_FAILED`.
+        var clientContext: NIOSSLContext!
+        var serverContext: NIOSSLContext!
+        
+        XCTAssertNoThrow(clientContext = try NIOSSLContext(configuration: clientConfig))
+        XCTAssertNoThrow(serverContext = try NIOSSLContext(configuration: serverConfig))
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let eventHandler = ErrorCatcher<NIOSSLError>()
+        let handshakeHandler = HandshakeCompletedHandler()
+        let handshakeResultPromise = group.next().makePromise(of: Void.self)
+
+        let handshakeWatcher = WaitForHandshakeHandler(handshakeResultPromise: handshakeResultPromise)
+
+        var serverChannel: Channel!
+        var clientChannel: Channel!
+
+        XCTAssertNoThrow(serverChannel = try serverTLSChannel(context: serverContext, handlers: [], group: group))
+ 
+        // Validation that the CA names are being sent here
+        // This is essentially the heart of this unit test.
+        let countAfter = serverContext.getX509NameListCount()
+        XCTAssertEqual(countAfter, 1, "CA Name List should be 1 after the Server Context is created")
+        
+        XCTAssertNoThrow(clientChannel = try clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeWatcher, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!))
+
+        // Make sure the actual handshake does succeed in this instance.
+        handshakeWatcher.handshakeResult.whenComplete { c in
+            switch c {
+            case .success:
+                XCTAssertTrue(true)
+            case .failure(let err):
+                XCTFail("Unexpected error: \(err.localizedDescription)")
+            }
+            _ = clientChannel.close()
+        }
+        
+        clientChannel.closeFuture.whenComplete { _ in
+            XCTAssertEqual(eventHandler.errors.count, 1)
+            
+            guard let error = eventHandler.errors.first else {
+                XCTFail("Could not unwrapp expected .uncleanShutdown error")
+                return
+            }
+            
+            var handshakeSucceed = false
+            let expectedError = "CERTIFICATE_VERIFY_FAILED"
+            
+            // This is very unorthodox but essentially the handshakeSucceed flag is variable depending upon the situation.
+            // Either one of these two situations should apply:
+            //
+            // 1. If the `customCARoot` IS installed and trusted on the system's trust store then an unclean shutdown
+            //    will be triggered below when validateHostname is run because this test is run with a local IP address.
+            //    The important thing to note here is that this happens AFTER the handshake does actually succeed.
+            //    When the doHandshakeStep .complete case is run, this error is thrown and so it is caught below.
+            
+            // 2. If the `customCARoot` IS NOT installed and trusted on the system's trust store, which will most likely be the case
+            //    in every run of this test, the standard `CERTIFICATE_VERIFY_FAILED` error is thrown because BoringSSL cannot validate
+            //    the chain of trust with a self signed root.
+            //
+            switch error {
+            case .uncleanShutdown:
+                // Expected to fail into .uncleanShutdown because an IP address is not provided to setServerName() because it
+                // cannot be used for SNI. (Currently, the only server names supported are DNS hostnames; RFC 4366)
+                //
+                // In this case client authentication is being performed over a localhost address and when `validateHostname`
+                // is called in the complete case for doHandshakeStep this will throw an error for a localhost address because
+                // there is not an expectedHostname set in SSLConnection.
+                handshakeSucceed = true
+                break
+            default:
+                // If this test is run on a remote system where `customCARoot` is not in the trust store or something like /etc/ssl/cert.pem
+                // then this handshake will fail with `CERTIFICATE_VERIFY_FAILED` because of the chain of trust cannot be established.
+                XCTAssertTrue(eventHandler.errors.description.contains(expectedError))
+                
+            }
+            XCTAssertEqual(handshakeHandler.handshakeSucceeded, handshakeSucceed)
+        }
+        try clientChannel.closeFuture.wait()
+        XCTAssertTrue(true)
+    }
 
     func testNonexistentFileObject() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
