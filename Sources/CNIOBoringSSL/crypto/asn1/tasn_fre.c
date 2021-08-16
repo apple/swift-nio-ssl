@@ -61,7 +61,7 @@
 #include <CNIOBoringSSL_asn1t.h>
 #include <CNIOBoringSSL_mem.h>
 
-#include "asn1_locl.h"
+#include "internal.h"
 
 /* Free up an ASN1 structure */
 

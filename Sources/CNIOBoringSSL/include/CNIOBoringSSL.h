@@ -40,6 +40,7 @@
 #include "CNIOBoringSSL_evp.h"
 #include "CNIOBoringSSL_hkdf.h"
 #include "CNIOBoringSSL_hmac.h"
+#include "CNIOBoringSSL_hpke.h"
 #include "CNIOBoringSSL_hrss.h"
 #include "CNIOBoringSSL_md4.h"
 #include "CNIOBoringSSL_md5.h"
