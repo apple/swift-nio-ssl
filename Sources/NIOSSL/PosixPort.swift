@@ -22,10 +22,16 @@
 // can lift anything missing from there and move it over without change.
 import NIO
 
-private let sysFopen: @convention(c) (UnsafePointer<CChar>?, UnsafePointer<CChar>?) -> UnsafeMutablePointer<FILE>? = fopen
+#if os(Android)
+internal typealias FILEPointer = OpaquePointer
+#else
+internal typealias FILEPointer = UnsafeMutablePointer<FILE>
+#endif
+
+private let sysFopen: @convention(c) (UnsafePointer<CChar>?, UnsafePointer<CChar>?) -> FILEPointer? = fopen
 private let sysMlock: @convention(c) (UnsafeRawPointer?, size_t) -> CInt = mlock
 private let sysMunlock: @convention(c) (UnsafeRawPointer?, size_t) -> CInt = munlock
-private let sysFclose: @convention(c) (UnsafeMutablePointer<FILE>?) -> CInt = fclose
+private let sysFclose: @convention(c) (FILEPointer?) -> CInt = fclose
 
 // Sadly, stat has different signatures with glibc and macOS libc.
 #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS) || os(Android)
@@ -81,14 +87,14 @@ internal func wrapErrorIsNullReturnCall<T>(where function: String = #function, _
 // MARK:- Our functions
 internal enum Posix {
     @inline(never)
-    internal static func fopen(file: UnsafePointer<CChar>, mode: UnsafePointer<CChar>) throws -> UnsafeMutablePointer<FILE> {
+    internal static func fopen(file: UnsafePointer<CChar>, mode: UnsafePointer<CChar>) throws -> FILEPointer {
         return try wrapErrorIsNullReturnCall {
             sysFopen(file, mode)
         }
     }
 
     @inline(never)
-    internal static func fclose(file: UnsafeMutablePointer<FILE>) throws -> CInt {
+    internal static func fclose(file: FILEPointer) throws -> CInt {
         return try wrapSyscall {
             sysFclose(file)
         }

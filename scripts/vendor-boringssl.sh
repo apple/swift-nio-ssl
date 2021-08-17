@@ -91,7 +91,7 @@ function mangle_symbols {
 
         # Now build for iOS. We use xcodebuild for this because SwiftPM doesn't
         # meaningfully support it. Unfortunately we must archive ourselves.
-        xcodebuild -sdk iphoneos -scheme CNIOBoringSSL -derivedDataPath "${TMPDIR}/iphoneos-deriveddata"
+        xcodebuild -sdk iphoneos -scheme CNIOBoringSSL -derivedDataPath "${TMPDIR}/iphoneos-deriveddata" -destination generic/platform=iOS
         lipo -extract armv7 -output "${TMPDIR}/CNIOBoringSSL-iosarmv7.o" "${TMPDIR}/iphoneos-deriveddata/Build/Products/Debug-iphoneos/CNIOBoringSSL.o"
         lipo -extract arm64 -output "${TMPDIR}/CNIOBoringSSL-iosarm64.o" "${TMPDIR}/iphoneos-deriveddata/Build/Products/Debug-iphoneos/CNIOBoringSSL.o"
         ar -r "${TMPDIR}/libCNIOBoringSSL-iosarmv7.a" "${TMPDIR}/CNIOBoringSSL-iosarmv7.o"
@@ -367,6 +367,7 @@ cat << EOF > "$DSTROOT/include/CNIOBoringSSL.h"
 #include "CNIOBoringSSL_evp.h"
 #include "CNIOBoringSSL_hkdf.h"
 #include "CNIOBoringSSL_hmac.h"
+#include "CNIOBoringSSL_hpke.h"
 #include "CNIOBoringSSL_hrss.h"
 #include "CNIOBoringSSL_md4.h"
 #include "CNIOBoringSSL_md5.h"
