@@ -434,30 +434,19 @@ extension NIOSSLContext {
             // This is get0 so we can just ignore the pointer, we don't have an owned ref.
             let trustParams = CNIOBoringSSL_SSL_CTX_get0_param(context)!
             CNIOBoringSSL_X509_VERIFY_PARAM_set_flags(trustParams, CUnsignedLong(X509_V_FLAG_TRUSTED_FIRST))
-            
-            func loadCACertificate(certificate: NIOSSLCertificate) throws {
-                // Adds the CA name extracted from cert to the list of CAs sent to the client when requesting a client certificate.
-                guard 1 == CNIOBoringSSL_SSL_CTX_add_client_CA(context, certificate.ref) else {
-                    throw NIOSSLError.failedToLoadCertificate
-                }
-            }
 
             func configureTrustRoots(trustRoots: NIOSSLTrustRoots) throws {
                 switch trustRoots {
                 case .default:
                     try NIOSSLContext.platformDefaultConfiguration(context: context)
                 case .file(let path):
-                    try NIOSSLContext.loadVerifyLocations(path, context: context)
-                    // Add the CA name from the trust root
-                    if sendCANames {
-                        try loadCACertificate(certificate: NIOSSLCertificate(file: path, format: .pem))
-                    }
+                    try NIOSSLContext.loadVerifyLocations(path, context: context, sendCANames: sendCANames)
                 case .certificates(let certs):
-                    try certs.forEach {
-                        try NIOSSLContext.addRootCertificate($0, context: context)
+                    for cert in certs {
+                        try NIOSSLContext.addRootCertificate(cert, context: context)
                         // Add the CA name from the trust root
                         if sendCANames {
-                            try loadCACertificate(certificate: $0)
+                            try NIOSSLContext.addCACertificateNameToList(context: context, certificate: cert)
                         }
                     }
                 }
@@ -468,8 +457,15 @@ extension NIOSSLContext {
             break
         }
     }
+    
+    private static func addCACertificateNameToList(context: OpaquePointer, certificate: NIOSSLCertificate) throws {
+        // Adds the CA name extracted from cert to the list of CAs sent to the client when requesting a client certificate.
+        guard 1 == CNIOBoringSSL_SSL_CTX_add_client_CA(context, certificate.ref) else {
+            throw NIOSSLError.failedToLoadCertificate
+        }
+    }
 
-    private static func loadVerifyLocations(_ path: String, context: OpaquePointer) throws {
+    private static func loadVerifyLocations(_ path: String, context: OpaquePointer, sendCANames: Bool) throws {
         let isDirectory: Bool
         switch FileSystemObject.pathType(path: path) {
         case .some(.directory):
@@ -489,6 +485,48 @@ extension NIOSSLContext {
         if result == 0 {
             let errorStack = BoringSSLError.buildErrorStack()
             throw BoringSSLError.unknownError(errorStack)
+        } else if sendCANames, !isDirectory {
+            // For single CA file, add the CA name from the trust root.
+            // This could be from a location like /etc/ssl/cert.pem as an example.
+            CNIOBoringSSL_SSL_CTX_set_client_CA_list(context, CNIOBoringSSL_SSL_load_client_CA_file(path))
+        } else if sendCANames, isDirectory {
+            // If the path that is passed in is a directory, scan the directory and gather up the PEM files.
+            var pemFilePaths: [String] = []
+            if let dir = opendir(path) {
+                var dirent = readdir(dir)
+                repeat {
+                    guard let pointee = dirent?.pointee  else {
+                        dirent = readdir(dir)
+                        continue
+                    }
+                    let dirName = pointee.d_name
+
+                    var buffer: [CChar] = []
+                    let mirror = Mirror(reflecting: dirName)
+                    let elements = Array(mirror.children.map({ return $0.value as? Int8}))
+                    for i in 0..<elements.count {
+                        if let elem = elements[Int(i)] {
+                            buffer.append(elem)
+                        }
+                    }
+                    buffer.append(0)
+                    let name = String(cString: buffer)
+                    let ext = name.suffix(4)
+                    if ext == ".pem" {
+                        pemFilePaths.append(path + name)
+                    }
+                    dirent = readdir(dir)
+                } while dirent != nil
+                closedir(dir)
+            }
+            // Load the PEM files one by one and perform the following functions:
+            // 1. addRootCertificate to the context.
+            // 2. addCACertificateNameToList to send the CA names during the handshake.
+            for path in pemFilePaths {
+                let cert = try NIOSSLCertificate(file: path, format: .pem)
+                try NIOSSLContext.addRootCertificate(cert, context: context)
+                try addCACertificateNameToList(context: context, certificate: cert)
+            }
         }
     }
 
@@ -538,76 +576,14 @@ extension NIOSSLContext {
 }
 
 extension NIOSSLContext {
-    /// A collection of buffers representing a STACK_OF(X509_NAME)
-    struct NIOX509NameListBuffers {
-        private let basePointer: OpaquePointer
-
-        fileprivate init(basePointer: OpaquePointer) {
-            self.basePointer = basePointer
-        }
-    }
-    
+    /// Exposes the CA Name list count from BoringSSL's STACK_OF(X509_NAME)
     func getX509NameListCount() -> Int {
         guard let caNameList = CNIOBoringSSL_SSL_CTX_get_client_CA_list(self.sslContext) else {
             return 0
         }
-        let x509NameList = NIOX509NameListBuffers(basePointer: caNameList)
-        return x509NameList.count
+        return CNIOBoringSSL_sk_X509_NAME_num(caNameList)
     }
 }
-
-extension NIOSSLContext.NIOX509NameListBuffers: RandomAccessCollection {
-
-    struct Index: Hashable, Comparable, Strideable {
-        typealias Stride = Int
-
-        fileprivate var index: Int
-
-        fileprivate init(_ index: Int) {
-            self.index = index
-        }
-
-        static func < (lhs: Index, rhs: Index) -> Bool {
-            return lhs.index < rhs.index
-        }
-
-        func advanced(by n: NIOSSLContext.NIOX509NameListBuffers.Index.Stride) -> NIOSSLContext.NIOX509NameListBuffers.Index {
-            var result = self
-            result.index += n
-            return result
-        }
-
-        func distance(to other: NIOSSLContext.NIOX509NameListBuffers.Index) -> NIOSSLContext.NIOX509NameListBuffers.Index.Stride {
-            return other.index - self.index
-        }
-    }
-
-    typealias Element = X509_NAME
-
-    var startIndex: Index {
-        return Index(0)
-    }
-
-    var endIndex: Index {
-        return Index(self.count)
-    }
-
-    var count: Int {
-        return CNIOBoringSSL_sk_X509_NAME_num(self.basePointer)
-    }
-
-    subscript(position: Index) -> X509_NAME {
-        precondition(position < self.endIndex)
-        precondition(position >= self.startIndex)
-        guard let x509_NamePtr = CNIOBoringSSL_sk_X509_NAME_value(self.basePointer, position.index) else {
-            preconditionFailure("Unable to locate backing pointer.")
-        }
-        return x509_NamePtr.pointee
-    }
-}
-
-
-
 
 // For accessing STACK_OF(SSL_CIPHER) from a SSLContext
 extension NIOSSLContext {

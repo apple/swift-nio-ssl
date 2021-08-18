@@ -481,6 +481,31 @@ WEGz8RfeuoKswoB627yAT97QbQ4=
 -----END PRIVATE KEY-----
 """
 
+// This is a root certificate used to setup and test sending CA names to
+// a client during client authentication.
+// This certificate is used to test having multiple root certificates in a directory.
+let secondaryRootCertificateForClientAuthentication = """
+-----BEGIN CERTIFICATE-----
+MIIDBDCCAeygAwIBAgIBATANBgkqhkiG9w0BAQsFADAnMRgwFgYDVQQDDA9TYW1w
+bGVQcm9qZWN0Q0ExCzAJBgNVBAYTAlVTMB4XDTIxMDEyMjE0NTcyNFoXDTIyMDEy
+MjE0NTcyNFowJzEYMBYGA1UEAwwPU2FtcGxlUHJvamVjdENBMQswCQYDVQQGEwJV
+UzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALpQ6rCiy6vtan1tb4Mj
+T7QSgv4sqDeV2OaXK/kEOcL8kUkflQ2rCG2YV4zSLI3T4tuqJyKecn8Zm0oXHLhb
+N3z0y+jIzcs6FkHaIKQYT15nPp8bKSEolBxDUZR8aX646vAYo620SRwNhSfbJA7A
+aV/ZEZUJi66vay/OXJ8ScwVv7sCF+oELnN3xV9HMaNzi1VySgGNGEuxSChYvwLzR
+h8zSAejsJEOxN6022oxCsdoEL1ki2iRSrqfBVRPY4neV+lTTMPtYkh60ac5GqWhN
+3mcsCa8RXy9jYGe5kzDoUdWnYvVCNWcp2iQ8vCictrRN2fww9dXnjOCZkXqvDshX
+y0kCAwEAAaM7MDkwDwYDVR0TAQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAqQwFgYD
+VR0lAQH/BAwwCgYIKwYBBQUHAwEwDQYJKoZIhvcNAQELBQADggEBADobYdPIhAAV
+UK7MUI24+xUx3QRQXGUhbjOnVN2H71hrzWdrZbrJXGxM61Z65eAehNK1pDK65AAP
+uq+rtFeEGjoOjrIETZd7oAvQ/Db8vWTFEfo+RZYE5UhcnVzC3iJLnfmQMhDJLgEf
+aK5bkwkywPXHClu4KGCT4q8832NsqPQdfTMx3P4HRYaa8sXifvA81WZ5y317wqbb
+xjvyaPh+4O+jPgEZQPOozPlwCB+jFaL7+kt6xRApIpAMl21mdW/uh4/xMgGCVSBX
+sg/EX3nBQSLySMcMuXa7oafAEiier2mPq/Q4QRnd7rJLG2uDUCKmcTSLlCaDfEs2
+lRLt7jejU3k=
+-----END CERTIFICATE-----
+"""
+
 let samplePemCerts = "\(samplePemCert)\n\(samplePemCert)"
 let sampleDerCert = pemToDer(samplePemCert)
 let sampleDerKey = pemToDer(samplePemKey)

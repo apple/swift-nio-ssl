@@ -305,7 +305,7 @@ public struct TLSConfiguration {
     
     /// Send the CA names derived from the `trustRoots`  for client authentication.
     /// This instructs the client which identities can be used by evaluating what CA the identity certificate was issued from.
-    public var sendCANameList: Bool = true
+    public var sendCANameList: Bool
 
     private init(cipherSuiteValues: [NIOTLSCipher] = [],
                  cipherSuites: String = defaultCipherSuites,
@@ -322,7 +322,7 @@ public struct TLSConfiguration {
                  keyLogCallback: NIOSSLKeyLogCallback?,
                  renegotiationSupport: NIORenegotiationSupport,
                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots],
-                 sendCANameList: Bool = true) {
+                 sendCANameList: Bool = false) {
         self.cipherSuites = cipherSuites
         self.verifySignatureAlgorithms = verifySignatureAlgorithms
         self.signingSignatureAlgorithms = signingSignatureAlgorithms
@@ -336,12 +336,12 @@ public struct TLSConfiguration {
         self.encodedApplicationProtocols = []
         self.shutdownTimeout = shutdownTimeout
         self.renegotiationSupport = renegotiationSupport
+        self.sendCANameList = sendCANameList
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
         if !cipherSuiteValues.isEmpty {
             self.cipherSuiteValues = cipherSuiteValues
         }
-        self.sendCANameList = sendCANameList
     }
 }
 
@@ -447,7 +447,7 @@ extension TLSConfiguration {
                                 keyLogCallback: nil,
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
-                                sendCANameList: true)
+                                sendCANameList: false)
     }
 }
 
