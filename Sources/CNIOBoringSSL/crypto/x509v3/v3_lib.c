@@ -66,6 +66,8 @@
 #include <CNIOBoringSSL_obj.h>
 #include <CNIOBoringSSL_x509v3.h>
 
+#include "../x509/internal.h"
+
 #include "ext_dat.h"
 static STACK_OF(X509V3_EXT_METHOD) *ext_list = NULL;
 

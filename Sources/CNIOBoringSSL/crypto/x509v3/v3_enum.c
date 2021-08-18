@@ -61,6 +61,11 @@
 #include <CNIOBoringSSL_mem.h>
 #include <CNIOBoringSSL_x509v3.h>
 
+#include "internal.h"
+
+
+typedef BIT_STRING_BITNAME ENUMERATED_NAMES;
+
 static const ENUMERATED_NAMES crl_reasons[] = {
     {CRL_REASON_UNSPECIFIED, "Unspecified", "unspecified"},
     {CRL_REASON_KEY_COMPROMISE, "Key Compromise", "keyCompromise"},
