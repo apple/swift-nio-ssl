@@ -493,30 +493,14 @@ extension NIOSSLContext {
             // If the path that is passed in is a directory, scan the directory and gather up the PEM files.
             var pemFilePaths: [String] = []
             if let dir = opendir(path) {
-                var dirent = readdir(dir)
-                repeat {
-                    guard let pointee = dirent?.pointee  else {
-                        dirent = readdir(dir)
-                        continue
+                while let dirent: UnsafeMutablePointer<dirent> = readdir(dir) {
+                    let fileName = withUnsafePointer(to: &dirent.pointee.d_name) { (ptr) -> String in
+                        return ptr.withMemoryRebound(to: CChar.self, capacity: Int(ptr.pointee.0) + 1) { String(cString: $0) }
                     }
-                    let dirName = pointee.d_name
-
-                    var buffer: [CChar] = []
-                    let mirror = Mirror(reflecting: dirName)
-                    let elements = Array(mirror.children.map({ return $0.value as? Int8}))
-                    for i in 0..<elements.count {
-                        if let elem = elements[Int(i)] {
-                            buffer.append(elem)
-                        }
+                    if fileName.suffix(4) == ".pem" {
+                        pemFilePaths.append(path + fileName)
                     }
-                    buffer.append(0)
-                    let name = String(cString: buffer)
-                    let ext = name.suffix(4)
-                    if ext == ".pem" {
-                        pemFilePaths.append(path + name)
-                    }
-                    dirent = readdir(dir)
-                } while dirent != nil
+                }
                 closedir(dir)
             }
             // Load the PEM files one by one and perform the following functions:
