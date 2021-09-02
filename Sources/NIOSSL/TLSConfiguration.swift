@@ -300,6 +300,9 @@ public struct TLSConfiguration {
     /// A callback that can be used to implement `SSLKEYLOGFILE` support.
     public var keyLogCallback: NIOSSLKeyLogCallback?
 
+    /// A callback that can be used to respond to TLS client hello SNI extensions.
+    public var sniCallback : NIOSSLSniCallback?
+    
     /// Whether renegotiation is supported.
     public var renegotiationSupport: NIORenegotiationSupport
 
@@ -316,6 +319,7 @@ public struct TLSConfiguration {
                  applicationProtocols: [String],
                  shutdownTimeout: TimeAmount,
                  keyLogCallback: NIOSSLKeyLogCallback?,
+                 sniCallback : NIOSSLSniCallback?,
                  renegotiationSupport: NIORenegotiationSupport,
                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots]) {
         self.cipherSuites = cipherSuites
@@ -333,6 +337,7 @@ public struct TLSConfiguration {
         self.renegotiationSupport = renegotiationSupport
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
+        self.sniCallback = sniCallback
         if !cipherSuiteValues.isEmpty {
             self.cipherSuiteValues = cipherSuiteValues
         }
@@ -353,6 +358,12 @@ extension TLSConfiguration {
             }
         }
         
+        let isSniCallbacksEqual = withUnsafeBytes(of: self.sniCallback) { callbackPointer1 in
+            return withUnsafeBytes(of: comparing.sniCallback) { callbackPointer2 in
+                return callbackPointer1.elementsEqual(callbackPointer2)
+            }
+        }
+        
         return self.minimumTLSVersion == comparing.minimumTLSVersion &&
             self.maximumTLSVersion == comparing.maximumTLSVersion &&
             self.cipherSuites == comparing.cipherSuites &&
@@ -366,12 +377,13 @@ extension TLSConfiguration {
             self.encodedApplicationProtocols == comparing.encodedApplicationProtocols &&
             self.shutdownTimeout == comparing.shutdownTimeout &&
             isKeyLoggerCallbacksEqual &&
+            isSniCallbacksEqual &&
             self.renegotiationSupport == comparing.renegotiationSupport
     }
     
     /// Returns a best effort hash of this TLS configuration.
     ///
-    /// The "best effort" stems from the fact that we are hashing the pointer bytes of the `keyLogCallback` closure.
+    /// The "best effort" stems from the fact that we are hashing the pointer bytes of the `keyLogCallback` and `sniCallback` closures.
     ///
     /// - warning: You should probably not use this function. This function can return false-negatives, but not false-positives.
     public func bestEffortHash(into hasher: inout Hasher) {
@@ -388,6 +400,9 @@ extension TLSConfiguration {
         hasher.combine(encodedApplicationProtocols)
         hasher.combine(shutdownTimeout)
         withUnsafeBytes(of: keyLogCallback) { closureBits in
+            hasher.combine(bytes: closureBits)
+        }
+        withUnsafeBytes(of: sniCallback) { closureBits in
             hasher.combine(bytes: closureBits)
         }
         hasher.combine(renegotiationSupport)
@@ -412,6 +427,7 @@ extension TLSConfiguration {
                                 applicationProtocols: [],
                                 shutdownTimeout: .seconds(5),
                                 keyLogCallback: nil,
+                                sniCallback: nil,
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [])
     }
@@ -438,6 +454,33 @@ extension TLSConfiguration {
                                 applicationProtocols: [],
                                 shutdownTimeout: .seconds(5),
                                 keyLogCallback: nil,
+                                sniCallback: nil,
+                                renegotiationSupport: .none,
+                                additionalTrustRoots: [])
+    }
+    
+    /// Create a TLS configuration for dynamically generating server-size contexts with SNI.
+    ///
+    /// This provides sensible defaults while requiring that you provide any data that is necessary
+    /// for server-side function. For client use, try `makeClientConfiguration` instead.
+    ///
+    /// For customising fields, modify the returned TLSConfiguration object.
+    public static func makeServerConfiguration(
+        sniCallback: @escaping NIOSSLSniCallback
+    ) -> TLSConfiguration {
+        return TLSConfiguration(cipherSuites: defaultCipherSuites,
+                                verifySignatureAlgorithms: nil,
+                                signingSignatureAlgorithms: nil,
+                                minimumTLSVersion: .tlsv1,
+                                maximumTLSVersion: nil,
+                                certificateVerification: .none,
+                                trustRoots: .default,
+                                certificateChain: [],
+                                privateKey: nil,
+                                applicationProtocols: [],
+                                shutdownTimeout: .seconds(5),
+                                keyLogCallback: nil,
+                                sniCallback: sniCallback,
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [])
     }
@@ -463,6 +506,7 @@ extension TLSConfiguration {
                                  applicationProtocols: [String] = [],
                                  shutdownTimeout: TimeAmount = .seconds(5),
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 sniCallback: NIOSSLSniCallback? = nil,
                                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots] = []) -> TLSConfiguration {
         return TLSConfiguration(cipherSuiteValues: cipherSuites,
                                 verifySignatureAlgorithms: verifySignatureAlgorithms,
@@ -476,6 +520,7 @@ extension TLSConfiguration {
                                 applicationProtocols: applicationProtocols,
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
+                                sniCallback: sniCallback,
                                 renegotiationSupport: .none,  // Servers never support renegotiation: there's no point.
                                 additionalTrustRoots: additionalTrustRoots)
     }
@@ -494,7 +539,8 @@ extension TLSConfiguration {
                                  trustRoots: NIOSSLTrustRoots = .default,
                                  applicationProtocols: [String] = [],
                                  shutdownTimeout: TimeAmount = .seconds(5),
-                                 keyLogCallback: NIOSSLKeyLogCallback? = nil) -> TLSConfiguration {
+                                 keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 sniCallback: NIOSSLSniCallback? = nil) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
                                 verifySignatureAlgorithms: nil,
                                 signingSignatureAlgorithms: nil,
@@ -507,39 +553,7 @@ extension TLSConfiguration {
                                 applicationProtocols: applicationProtocols,
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
-                                renegotiationSupport: .none,  // Servers never support renegotiation: there's no point.
-                                additionalTrustRoots: [])
-    }
-
-    /// Create a TLS configuration for use with server-side contexts.
-    ///
-    /// This provides sensible defaults while requiring that you provide any data that is necessary
-    /// for server-side function. For client use, try `makeClientConfiguration` instead.
-    @available(*, deprecated, renamed: "makeServerConfiguration(certificateChain:privateKey:)")
-    public static func forServer(certificateChain: [NIOSSLCertificateSource],
-                                 privateKey: NIOSSLPrivateKeySource,
-                                 cipherSuites: String = defaultCipherSuites,
-                                 verifySignatureAlgorithms: [SignatureAlgorithm]? = nil,
-                                 signingSignatureAlgorithms: [SignatureAlgorithm]? = nil,
-                                 minimumTLSVersion: TLSVersion = .tlsv1,
-                                 maximumTLSVersion: TLSVersion? = nil,
-                                 certificateVerification: CertificateVerification = .none,
-                                 trustRoots: NIOSSLTrustRoots = .default,
-                                 applicationProtocols: [String] = [],
-                                 shutdownTimeout: TimeAmount = .seconds(5),
-                                 keyLogCallback: NIOSSLKeyLogCallback? = nil) -> TLSConfiguration {
-        return TLSConfiguration(cipherSuites: cipherSuites,
-                                verifySignatureAlgorithms: verifySignatureAlgorithms,
-                                signingSignatureAlgorithms: signingSignatureAlgorithms,
-                                minimumTLSVersion: minimumTLSVersion,
-                                maximumTLSVersion: maximumTLSVersion,
-                                certificateVerification: certificateVerification,
-                                trustRoots: trustRoots,
-                                certificateChain: certificateChain,
-                                privateKey: privateKey,
-                                applicationProtocols: applicationProtocols,
-                                shutdownTimeout: shutdownTimeout,
-                                keyLogCallback: keyLogCallback,
+                                sniCallback: sniCallback,
                                 renegotiationSupport: .none,  // Servers never support renegotiation: there's no point.
                                 additionalTrustRoots: [])
     }
@@ -561,6 +575,42 @@ extension TLSConfiguration {
                                  applicationProtocols: [String] = [],
                                  shutdownTimeout: TimeAmount = .seconds(5),
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 sniCallback: NIOSSLSniCallback? = nil) -> TLSConfiguration {
+        return TLSConfiguration(cipherSuites: cipherSuites,
+                                verifySignatureAlgorithms: verifySignatureAlgorithms,
+                                signingSignatureAlgorithms: signingSignatureAlgorithms,
+                                minimumTLSVersion: minimumTLSVersion,
+                                maximumTLSVersion: maximumTLSVersion,
+                                certificateVerification: certificateVerification,
+                                trustRoots: trustRoots,
+                                certificateChain: certificateChain,
+                                privateKey: privateKey,
+                                applicationProtocols: applicationProtocols,
+                                shutdownTimeout: shutdownTimeout,
+                                keyLogCallback: keyLogCallback,
+                                sniCallback: sniCallback,
+                                renegotiationSupport: .none,  // Servers never support renegotiation: there's no point.
+                                additionalTrustRoots: [])
+    }
+
+    /// Create a TLS configuration for use with server-side contexts.
+    ///
+    /// This provides sensible defaults while requiring that you provide any data that is necessary
+    /// for server-side function. For client use, try `makeClientConfiguration` instead.
+    @available(*, deprecated, renamed: "makeServerConfiguration(certificateChain:privateKey:)")
+    public static func forServer(certificateChain: [NIOSSLCertificateSource],
+                                 privateKey: NIOSSLPrivateKeySource,
+                                 cipherSuites: String = defaultCipherSuites,
+                                 verifySignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 signingSignatureAlgorithms: [SignatureAlgorithm]? = nil,
+                                 minimumTLSVersion: TLSVersion = .tlsv1,
+                                 maximumTLSVersion: TLSVersion? = nil,
+                                 certificateVerification: CertificateVerification = .none,
+                                 trustRoots: NIOSSLTrustRoots = .default,
+                                 applicationProtocols: [String] = [],
+                                 shutdownTimeout: TimeAmount = .seconds(5),
+                                 keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 sniCallback: NIOSSLSniCallback? = nil,
                                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots]) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
                                 verifySignatureAlgorithms: verifySignatureAlgorithms,
@@ -574,6 +624,7 @@ extension TLSConfiguration {
                                 applicationProtocols: applicationProtocols,
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
+                                sniCallback: sniCallback,
                                 renegotiationSupport: .none,  // Servers never support renegotiation: there's no point.
                                 additionalTrustRoots: additionalTrustRoots)
     }
@@ -595,6 +646,7 @@ extension TLSConfiguration {
                                  applicationProtocols: [String] = [],
                                  shutdownTimeout: TimeAmount = .seconds(5),
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 sniCallback: NIOSSLSniCallback? = nil,
                                  renegotiationSupport: NIORenegotiationSupport = .none,
                                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots] = []) -> TLSConfiguration {
         return TLSConfiguration(cipherSuiteValues: cipherSuites,
@@ -609,6 +661,7 @@ extension TLSConfiguration {
                                 applicationProtocols: applicationProtocols,
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
+                                sniCallback : sniCallback,
                                 renegotiationSupport: renegotiationSupport,
                                 additionalTrustRoots: additionalTrustRoots)
     }
@@ -627,7 +680,8 @@ extension TLSConfiguration {
                                  privateKey: NIOSSLPrivateKeySource? = nil,
                                  applicationProtocols: [String] = [],
                                  shutdownTimeout: TimeAmount = .seconds(5),
-                                 keyLogCallback: NIOSSLKeyLogCallback? = nil) -> TLSConfiguration {
+                                 keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 sniCallback: NIOSSLSniCallback? = nil) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
                                 verifySignatureAlgorithms: nil,
                                 signingSignatureAlgorithms: nil,
@@ -640,6 +694,7 @@ extension TLSConfiguration {
                                 applicationProtocols: applicationProtocols,
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
+                                sniCallback : sniCallback,
                                 renegotiationSupport: .none,  // Default value is here for backward-compatibility.
                                 additionalTrustRoots: [])
     }
@@ -660,6 +715,7 @@ extension TLSConfiguration {
                                  applicationProtocols: [String] = [],
                                  shutdownTimeout: TimeAmount = .seconds(5),
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 sniCallback: NIOSSLSniCallback? = nil,
                                  renegotiationSupport: NIORenegotiationSupport) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
                                 verifySignatureAlgorithms: nil,
@@ -673,6 +729,7 @@ extension TLSConfiguration {
                                 applicationProtocols: applicationProtocols,
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
+                                sniCallback: sniCallback,
                                 renegotiationSupport: renegotiationSupport,
                                 additionalTrustRoots: [])
     }
@@ -694,6 +751,7 @@ extension TLSConfiguration {
                                  applicationProtocols: [String] = [],
                                  shutdownTimeout: TimeAmount = .seconds(5),
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 sniCallback: NIOSSLSniCallback? = nil,
                                  renegotiationSupport: NIORenegotiationSupport) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
                                 verifySignatureAlgorithms: verifySignatureAlgorithms,
@@ -707,6 +765,7 @@ extension TLSConfiguration {
                                 applicationProtocols: applicationProtocols,
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
+                                sniCallback: sniCallback,
                                 renegotiationSupport: renegotiationSupport,
                                 additionalTrustRoots: [])
     }
@@ -728,6 +787,7 @@ extension TLSConfiguration {
                                  applicationProtocols: [String] = [],
                                  shutdownTimeout: TimeAmount = .seconds(5),
                                  keyLogCallback: NIOSSLKeyLogCallback? = nil,
+                                 sniCallback: NIOSSLSniCallback? = nil,
                                  renegotiationSupport: NIORenegotiationSupport = .none,
                                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots]) -> TLSConfiguration {
         return TLSConfiguration(cipherSuites: cipherSuites,
@@ -742,6 +802,7 @@ extension TLSConfiguration {
                                 applicationProtocols: applicationProtocols,
                                 shutdownTimeout: shutdownTimeout,
                                 keyLogCallback: keyLogCallback,
+                                sniCallback: sniCallback,
                                 renegotiationSupport: renegotiationSupport,
                                 additionalTrustRoots: additionalTrustRoots)
     }

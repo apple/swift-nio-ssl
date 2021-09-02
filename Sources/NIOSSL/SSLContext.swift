@@ -123,6 +123,7 @@ public final class NIOSSLContext {
     private let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
     private var keyLogManager: KeyLogCallbackManager?
+    private var sniManager: SniCallbackManager?
     internal let configuration: TLSConfiguration
 
     /// Initialize a context that will create multiple connections, all with the same
@@ -259,6 +260,13 @@ public final class NIOSSLContext {
             try NIOSSLContext.setKeylogCallback(context: context)
         } else {
             self.keyLogManager = nil
+        }
+        
+        if let sniCallback = configuration.sniCallback {
+            self.sniManager = SniCallbackManager(callback: sniCallback)
+            try NIOSSLContext.setSniCallback(context: context)
+        } else {
+            self.sniManager = nil
         }
 
         self.sslContext = context
@@ -397,7 +405,6 @@ extension NIOSSLContext {
         }
     }
     
-
     private static func setAlpnProtocols(_ protocols: [[UInt8]], context: OpaquePointer) throws {
         // This copy should be done infrequently, so we don't worry too much about it.
         let protoBuf = protocols.reduce([UInt8](), +)
@@ -411,7 +418,7 @@ extension NIOSSLContext {
             throw BoringSSLError.failedToSetALPN(errorStack)
         }
     }
-
+    
     private static func setAlpnCallback(context: OpaquePointer) {
         // This extra closure here is very silly, but it exists to allow us to avoid writing down the type of the first
         // argument. Combined with the helper above, the compiler will be able to solve its way to success here.
@@ -519,6 +526,83 @@ extension NIOSSLContext {
         }
     }
 }
+
+// For utilizing SNI callbacks from a SSLContext
+extension NIOSSLContext {
+    
+    private static func setSniCallback(context: OpaquePointer) throws {
+        
+        CNIOBoringSSL_SSL_CTX_set_tlsext_servername_callback(context) { (ssl, adPointer, argPointer) in
+            guard let ssl = ssl else {
+                return SSL_TLSEXT_ERR_NOACK
+            }
+
+            // Make sure we get the server name extracted.
+            guard let servername = CNIOBoringSSL_SSL_get_servername(ssl, CNIOBoringSSL.TLSEXT_NAMETYPE_host_name) else
+            {
+                return SSL_TLSEXT_ERR_NOACK
+            }
+            
+            let serverNameString = String(cString: servername)
+            
+            // Can do nothing about empty indicators.
+            if (serverNameString.isEmpty)
+            {
+                return SSL_TLSEXT_ERR_NOACK
+            }
+            
+            // We want to take the SSL pointer and extract the parent Swift object. These force-unwraps are for
+            // safety: a correct NIO program can never fail to set these pointers, and if it does failing loudly is
+            // more useful than failing quietly.
+            let parentCtx = CNIOBoringSSL_SSL_get_SSL_CTX(ssl)!
+            let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
+            let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
+
+            // Similarly, this force-unwrap is safe because a correct NIO program can never fail to unwrap this entry
+            // either.
+            guard let userChosenContext = parentSwiftContext.sniManager!.sniInicated(hostname: serverNameString, context: parentSwiftContext) else
+            {
+                return SSL_TLSEXT_ERR_NOACK
+            }
+            
+            // The user may or may not retain a reference to the NIOSSLContext
+            // that they return here, if they provide one. The NIOSSLContext finalizer
+            // explicitly decrements the reference count on the underlying SSL_CTX.
+            //
+            // However, SSL_set_SSL_CTX explicitly increases the reference count and
+            // will decrement the count when the SSL* object is destroyed, thus finally
+            // freeing the raw SSL_CTX object, even if the swift reference is orphaned.
+            //
+            // As such, no memory should be leaked or freed too early in the event that
+            // the user fails to retain their created and return NIOSSLContext. In the
+            // event that they do retain it, the reference count will remain at at-least
+            // 1 and thus they can re-use the same context for multiple connections.
+            
+            guard let nativeReturnVal = CNIOBoringSSL_SSL_set_SSL_CTX(ssl, userChosenContext.sslContext) else
+            {
+                return SSL_TLSEXT_ERR_NOACK
+            }
+            
+            // CNIOBoringSSL_SSL_set_SSL_CTX should return a pointer to the very same context it was
+            // told to assign on success. On error, this will not happen, so we check for equality
+            // here and handle any such errors by signaling the connection to fail.
+            if nativeReturnVal != userChosenContext.sslContext
+            {
+                return SSL_TLSEXT_ERR_NOACK
+            }
+            
+            // If no action was taken, we indicate that this current context can be used
+            // to attempt to complete the handshake. Given that the user has indicated
+            // that they want control of setting the context when SNI is indicated, if this
+            // indication turns out to be false, the SSL/TLS connection will fail with an
+            // appropriate error and the user will be made aware of it.
+            return SSL_TLSEXT_ERR_OK
+        }
+    }
+    
+    
+}
+
 
 // For accessing STACK_OF(SSL_CIPHER) from a SSLContext
 extension NIOSSLContext {

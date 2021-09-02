@@ -85,7 +85,6 @@ public typealias NIOSSLVerificationCallback = (NIOSSLVerificationResult, NIOSSLC
 /// Note that setting this callback will override _all_ verification logic that BoringSSL provides.
 public typealias NIOSSLCustomVerificationCallback = ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) -> Void
 
-
 /// A callback that can be used to implement `SSLKEYLOGFILE` support.
 ///
 /// Wireshark can decrypt packet captures that contain encrypted TLS connections if they have access to the
@@ -101,6 +100,33 @@ public typealias NIOSSLCustomVerificationCallback = ([NIOSSLCertificate], EventL
 ///
 public typealias NIOSSLKeyLogCallback = (ByteBuffer) -> Void
 
+/// A callback that can used to support multiple or dynamic TLS hosts.
+///
+/// When set, this callback will be invoked once per TLS hello. The provided `String` will contain the
+/// host name indicated in the TLS client hello, while the provided `NIOSSLContext` will be the current
+/// server context being used for the handshake.
+///
+/// Within this callback, the user can create and return a new server `NIOSSLContext` for the given host,
+/// return the same context provided if it is sufficient to complete the handshake, or return `nil` in the event
+/// of an exception.
+///
+public typealias NIOSSLSniCallback = (String, NIOSSLContext) -> NIOSSLContext?
+
+/// An object that provides helpers for working with a NIOSSLSniCallback
+internal struct SniCallbackManager {
+    private var callback: NIOSSLSniCallback
+    
+    init(callback: @escaping NIOSSLSniCallback) {
+        self.callback = callback
+    }
+}
+
+extension SniCallbackManager {
+    /// Called to indicate the hostname in the SNI extension to the user.
+    func sniInicated(hostname: String, context: NIOSSLContext) -> NIOSSLContext? {
+        return self.callback(hostname, context)
+    }
+}
 
 /// An object that provides helpers for working with a NIOSSLKeyLogCallback
 internal struct KeyLogCallbackManager {

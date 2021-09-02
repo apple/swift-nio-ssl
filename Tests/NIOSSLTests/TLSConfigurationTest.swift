@@ -542,14 +542,27 @@ class TLSConfigurationTest: XCTestCase {
         var differentConfig = config
         differentConfig.privateKey = .file("fake2.file")
         XCTAssertFalse(config.bestEffortEquals(differentConfig))
-    }
+    }	
     
-    func testDifferentCallbacksNotEqual() {
+    func testDifferentKeylogCallbacksNotEqual() {
         var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .file("fake.file"))
         config.applicationProtocols = ["http/1.1"]
         config.keyLogCallback = { _ in }
         var differentConfig = config
         differentConfig.keyLogCallback = { _ in }
+        XCTAssertFalse(config.bestEffortEquals(differentConfig))
+    }
+    
+    func testDifferentSniCallbacksNotEqual() {
+        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .file("fake.file"))
+        config.applicationProtocols = ["http/1.1"]
+        config.sniCallback = { (hostname : String, ctx: NIOSSLContext) -> NIOSSLContext? in
+            return ctx
+        }
+        var differentConfig = config
+        differentConfig.sniCallback = { (hostname : String, ctx: NIOSSLContext) -> NIOSSLContext? in
+            return ctx
+        }
         XCTAssertFalse(config.bestEffortEquals(differentConfig))
     }
     
@@ -810,6 +823,9 @@ class TLSConfigurationTest: XCTestCase {
             { $0.applicationProtocols = ["h2"] },
             { $0.shutdownTimeout = .seconds((60 * 24 * 24) + 1) },
             { $0.keyLogCallback = { _ in } },
+            { $0.sniCallback = { (hostname : String, ctx: NIOSSLContext) -> NIOSSLContext? in
+                return ctx
+            }},
             { $0.renegotiationSupport = .always },
         ]
 
