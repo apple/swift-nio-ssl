@@ -15,6 +15,10 @@
 
 import PackageDescription
 
+// Used only for environment variables, does not make its way
+// into the product code.
+import class Foundation.ProcessInfo
+
 // This package contains a vendored copy of BoringSSL. For ease of tracking
 // down problems with the copy of BoringSSL in use, we include a copy of the
 // commit hash of the revision of BoringSSL included in the given release.
@@ -23,6 +27,23 @@ import PackageDescription
 // https://boringssl.googlesource.com/boringssl.
 //
 // BoringSSL Commit: 2e68a05c9943a8dec1758d4a393b2ae906fd3295
+
+/// This function generates the dependencies we want to express.
+///
+/// Importantly, it tolerates the possibility that we are being used as part
+/// of the Swift toolchain, and so need to use local checkouts of our
+/// dependencies.
+func generateDependencies() -> [Dependency] {
+    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+        return [
+            .package(url: "https://github.com/apple/swift-nio.git", from: "2.30.0"),
+        ]
+    } else {
+        return [
+            .package(path: "../swift-nio"),
+        ]
+    }
+}
 
 let package = Package(
     name: "swift-nio-ssl",
@@ -34,9 +55,7 @@ let package = Package(
         .library(name: "CNIOBoringSSL", type: .static, targets: ["CNIOBoringSSL"]),
 MANGLE_END */
     ],
-    dependencies: [
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.30.0"),
-    ],
+    dependencies: generateDependencies(),
     targets: [
         .target(name: "CNIOBoringSSL"),
         .target(
