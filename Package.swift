@@ -33,7 +33,7 @@ import class Foundation.ProcessInfo
 /// Importantly, it tolerates the possibility that we are being used as part
 /// of the Swift toolchain, and so need to use local checkouts of our
 /// dependencies.
-func generateDependencies() -> [Dependency] {
+func generateDependencies() -> [Package.Dependency] {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         return [
             .package(url: "https://github.com/apple/swift-nio.git", from: "2.30.0"),
