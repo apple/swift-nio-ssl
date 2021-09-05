@@ -274,7 +274,7 @@ class TLSConfigurationTest: XCTestCase {
             XCTAssertEqual(eventHandler.errors.count, 1)
             
             guard let error = eventHandler.errors.first else {
-                XCTFail("Could not unwrapp expected .uncleanShutdown error")
+                XCTFail("Could not unwrap expected .uncleanShutdown error")
                 return
             }
             
@@ -659,10 +659,18 @@ class TLSConfigurationTest: XCTestCase {
         
         // Custom certificates for TLS and client authentication.
         // In this test create two root certificates in the tmp directory and send the CA names from both on the handshake.
-        // This exercised the loadVerifyLocations directory code path out in SSLContext.
-        // This code path should scan the everything in this directory for a .pem file to load
+        // This exercises the loadVerifyLocations directory code path out in SSLContext.
+        // This code path should scan the everything in this directory for a .pem and a .cer file to load
         let rootCAPathOne = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem")
-        let rootCAPathTwo = try dumpToFile(data: .init(secondaryRootCertificateForClientAuthentication.utf8), fileExtension: ".pem")
+        
+        // NOTE: that while the above creates the initial .pem file as a base64 representation, this cannot be done with a DER file
+        //       as this is a binary representation of a certificate.  So, the `NIOSSLCertificate` is loaded and the PEM wrapper is stripped
+        //       off to create an actual DER certificate.  Otherwise this will fail when `CNIOBoringSSL_d2i_X509_fp` tries to read it.
+        
+        let rootCATwo = try NIOSSLCertificate(bytes: .init(secondaryRootCertificateForClientAuthentication.utf8), format: .pem)
+        let derRepresentation = Data(try rootCATwo.toDERBytes())
+        let rootCAPathTwo = try dumpToFile(data: derRepresentation, fileExtension: ".cer")
+        
         // Pass in a directory to scan out in SSLContext
         let tempFileDir = FileManager.default.temporaryDirectory.path + "/"
         
@@ -677,6 +685,10 @@ class TLSConfigurationTest: XCTestCase {
         clientConfig.renegotiationSupport = .none
         clientConfig.certificateChain = [.certificate(client_cert)]
         clientConfig.privateKey = .privateKey(client_privateKey)
+        // Shim for an oddity that takes place when a client is using self sign root and client authentication identity
+        // only in the directory scan context.  CNIOBoringSSL_SSL_CTX_load_verify_locations may have something to do with this issue,
+        // but nothing was found conclusively.
+        clientConfig.trustRoots = .certificates([])
         
         // Server Configuration
         var serverConfig = TLSConfiguration.makeServerConfiguration(

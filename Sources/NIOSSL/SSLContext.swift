@@ -460,8 +460,10 @@ extension NIOSSLContext {
     
     private static func addCACertificateNameToList(context: OpaquePointer, certificate: NIOSSLCertificate) throws {
         // Adds the CA name extracted from cert to the list of CAs sent to the client when requesting a client certificate.
-        guard 1 == CNIOBoringSSL_SSL_CTX_add_client_CA(context, certificate.ref) else {
-            throw NIOSSLError.failedToLoadCertificate
+        try withExtendedLifetime(certificate) {
+            guard 1 == CNIOBoringSSL_SSL_CTX_add_client_CA(context, certificate.ref) else {
+                throw NIOSSLError.failedToLoadCertificate
+            }
         }
     }
 
@@ -490,25 +492,16 @@ extension NIOSSLContext {
             // This could be from a location like /etc/ssl/cert.pem as an example.
             CNIOBoringSSL_SSL_CTX_set_client_CA_list(context, CNIOBoringSSL_SSL_load_client_CA_file(path))
         } else if sendCANames, isDirectory {
-            // If the path that is passed in is a directory, scan the directory and gather up the PEM files.
-            var pemFilePaths: [String] = []
-            if let dir = opendir(path) {
-                while let dirent: UnsafeMutablePointer<dirent> = readdir(dir) {
-                    let fileName = withUnsafePointer(to: &dirent.pointee.d_name) { (ptr) -> String in
-                        return ptr.withMemoryRebound(to: CChar.self, capacity: Int(ptr.pointee.0) + 1) { String(cString: $0) }
-                    }
-                    if fileName.suffix(4) == ".pem" {
-                        pemFilePaths.append(path + fileName)
-                    }
-                }
-                closedir(dir)
-            }
-            // Load the PEM files one by one and perform the following functions:
-            // 1. addRootCertificate to the context.
-            // 2. addCACertificateNameToList to send the CA names during the handshake.
+            // If the path that is passed in is a directory, scan the directory and gather up the PEM or DER files.
+            let pemFilePaths = DirectoryContents(path: path).filter { $0.suffix(4) == ".pem" || $0.suffix(4) == ".cer" }
+            // Create the PEM files one by one and use `addCACertificateNameToList` to add the CA name to the STACK_OF(X509_NAME).
             for path in pemFilePaths {
-                let cert = try NIOSSLCertificate(file: path, format: .pem)
-                try NIOSSLContext.addRootCertificate(cert, context: context)
+                let cert: NIOSSLCertificate
+                if path.suffix(4) == ".pem" {
+                    cert = try NIOSSLCertificate(file: path, format: .pem)
+                } else {
+                    cert = try NIOSSLCertificate(file: path, format: .der)
+                }
                 try addCACertificateNameToList(context: context, certificate: cert)
             }
         }
@@ -661,5 +654,37 @@ extension Optional where Wrapped == String {
         case .none:
             return try body(nil)
         }
+    }
+}
+
+internal class DirectoryContents: Sequence, IteratorProtocol {
+    
+    typealias Element = String
+    let path: String
+    // Used to account between the differences of DIR being defined on Darwin.
+    // Otherwise an OpaquePointer needs to be used to account for the non-defined type in glibc.
+    #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+    let dir: UnsafeMutablePointer<DIR>
+    #else
+    let dir: OpaquePointer
+    #endif
+    
+    init(path: String) {
+        self.path = path
+        self.dir = opendir(path)
+    }
+    
+    func next() -> String? {
+        if let dirent: UnsafeMutablePointer<dirent> = readdir(self.dir) {
+            let name = withUnsafePointer(to: &dirent.pointee.d_name) { (ptr) -> String in
+                return ptr.withMemoryRebound(to: CChar.self, capacity: Int(ptr.pointee.0) + 1) { String(cString: $0) }
+            }
+            return self.path + name
+        }
+        return nil
+    }
+    
+    deinit {
+        closedir(dir)
     }
 }
