@@ -93,9 +93,7 @@ private func alpnCallback(ssl: OpaquePointer?,
     }
 
     // We want to take the SSL pointer and extract the parent Swift object.
-    let parentCtx = CNIOBoringSSL_SSL_get_SSL_CTX(ssl)!
-    let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
-    let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
+    let parentSwiftContext: NIOSSLContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl)
 
     let offeredProtocols = UnsafeBufferPointer(start: `in`, count: Int(inlen))
     guard let (index, length) = parentSwiftContext.alpnSelectCallback(offeredProtocols: offeredProtocols) else {
@@ -350,6 +348,20 @@ public final class NIOSSLContext {
     }
 }
 
+// Internal helpers.
+class NIOSSLContextHelpers {
+    
+    fileprivate static func getContextFromRawContextAppData(ssl: OpaquePointer) -> NIOSSLContext {
+        // We want to take the SSL pointer and extract the parent Swift object. These force-unwraps are for
+        // safety: a correct NIO program can never fail to set these pointers, and if it does failing loudly is
+        // more useful than failing quietly.
+        let parentCtx = CNIOBoringSSL_SSL_get_SSL_CTX(ssl)!
+        let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
+        let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
+        return parentSwiftContext
+    }
+    
+}
 
 extension NIOSSLContext {
     private static func useCertificateChainFile(_ path: String, context: OpaquePointer) {
@@ -512,13 +524,9 @@ extension NIOSSLContext {
             guard let ssl = ssl, let linePointer = linePointer else {
                 return
             }
-
-            // We want to take the SSL pointer and extract the parent Swift object. These force-unwraps are for
-            // safety: a correct NIO program can never fail to set these pointers, and if it does failing loudly is
-            // more useful than failing quietly.
-            let parentCtx = CNIOBoringSSL_SSL_get_SSL_CTX(ssl)!
-            let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
-            let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
+            
+            let parentSwiftContext: NIOSSLContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl)
+            
 
             // Similarly, this force-unwrap is safe because a correct NIO program can never fail to unwrap this entry
             // either.
@@ -554,9 +562,7 @@ extension NIOSSLContext {
             // We want to take the SSL pointer and extract the parent Swift object. These force-unwraps are for
             // safety: a correct NIO program can never fail to set these pointers, and if it does failing loudly is
             // more useful than failing quietly.
-            let parentCtx = CNIOBoringSSL_SSL_get_SSL_CTX(ssl)!
-            let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
-            let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
+            let parentSwiftContext: NIOSSLContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl)
 
             // Similarly, this force-unwrap is safe because a correct NIO program can never fail to unwrap this entry
             // either.
