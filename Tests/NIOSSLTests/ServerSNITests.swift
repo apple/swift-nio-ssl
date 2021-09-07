@@ -138,7 +138,7 @@ class ServerSNITests: XCTestCase {
     }
 
     func testNoSNILeadsToNoSNI() throws {
-        try assertSniResult(sniField: nil, expectedResult: String())
+        try assertSniResult(sniField: nil, expectedResult: "")
     }
 
     func testSNIIsNotRejectedForAnyOfTheFirst1000CodeUnits() throws {
