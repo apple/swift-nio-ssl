@@ -677,7 +677,10 @@ internal class DirectoryContents: Sequence, IteratorProtocol {
     func next() -> String? {
         if let dirent: UnsafeMutablePointer<dirent> = readdir(self.dir) {
             let name = withUnsafePointer(to: &dirent.pointee.d_name) { (ptr) -> String in
-                return ptr.withMemoryRebound(to: CChar.self, capacity: Int(ptr.pointee.0) + 1) { String(cString: $0) }
+                // Pointers to homogeneous tuples in Swift are always bound to both the tuple type and the element type,
+                // so the assumption below is safe.
+                let elementPointer = UnsafeRawPointer(ptr).assumingMemoryBound(to: CChar.self)
+                return String(cString: elementPointer)
             }
             return self.path + name
         }

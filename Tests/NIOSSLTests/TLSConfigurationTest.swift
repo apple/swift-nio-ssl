@@ -255,6 +255,15 @@ class TLSConfigurationTest: XCTestCase {
         #endif
     }
     
+    func setupTLSLeafandClientIdentitiesFromCustomCARoot() throws -> (NIOSSLCertificate, NIOSSLPrivateKey , NIOSSLCertificate, NIOSSLPrivateKey) {
+        let leaf = try NIOSSLCertificate(bytes: .init(leafCertificateForTLSIssuedFromCustomCARoot.utf8), format: .pem)
+        let leaf_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForLeafCertificate.utf8), format: .pem)
+        
+        let client_cert = try NIOSSLCertificate(bytes: .init(leafCertificateForClientAuthenticationIssuedFromCustomCARoot.utf8), format: .pem)
+        let client_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForClientAuthentication.utf8), format: .pem)
+        return (leaf, leaf_privateKey, client_cert, client_privateKey)
+    }
+    
     func finishHandshakeForCANameTests(handshakeWatcher: WaitForHandshakeHandler,
                                        clientChannel: Channel,
                                        handshakeHandler: HandshakeCompletedHandler,
@@ -269,7 +278,7 @@ class TLSConfigurationTest: XCTestCase {
             }
             _ = clientChannel.close()
         }
-        
+        var handshakeSucceed = false
         clientChannel.closeFuture.whenComplete { _ in
             XCTAssertEqual(eventHandler.errors.count, 1)
             
@@ -278,7 +287,6 @@ class TLSConfigurationTest: XCTestCase {
                 return
             }
             
-            var handshakeSucceed = false
             let expectedError = "CERTIFICATE_VERIFY_FAILED"
             
             // This is very unorthodox but essentially the handshakeSucceed flag is variable depending upon the situation.
@@ -312,8 +320,7 @@ class TLSConfigurationTest: XCTestCase {
             XCTAssertEqual(handshakeHandler.handshakeSucceeded, handshakeSucceed)
         }
         try clientChannel.closeFuture.wait()
-        // If we have made it here, return true
-        return true
+        return handshakeSucceed
     }
 
     func testNonOverlappingTLSVersions() throws {
@@ -530,22 +537,18 @@ class TLSConfigurationTest: XCTestCase {
         // Custom certificates for TLS and client authentication.
         let root = try NIOSSLCertificate(bytes: .init(customCARoot.utf8), format: .pem)
         
-        let leaf = try NIOSSLCertificate(bytes: .init(leafCertificateForTLSIssuedFromCustomCARoot.utf8), format: .pem)
-        let leaf_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForLeafCertificate.utf8), format: .pem)
-        
-        let client_cert = try NIOSSLCertificate(bytes: .init(leafCertificateForClientAuthenticationIssuedFromCustomCARoot.utf8), format: .pem)
-        let client_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForClientAuthentication.utf8), format: .pem)
+        let digital_identities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
         
         // Client Configuration.
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.renegotiationSupport = .none
-        clientConfig.certificateChain = [.certificate(client_cert)]
-        clientConfig.privateKey = .privateKey(client_privateKey)
+        clientConfig.certificateChain = [.certificate(digital_identities.2)]
+        clientConfig.privateKey = .privateKey(digital_identities.3)
         
         // Server Configuration
         var serverConfig = TLSConfiguration.makeServerConfiguration(
-            certificateChain: [.certificate(leaf)],
-            privateKey: .privateKey(leaf_privateKey)
+            certificateChain: [.certificate(digital_identities.0)],
+            privateKey: .privateKey(digital_identities.1)
         )
         serverConfig.sendCANameList = true
         serverConfig.trustRoots = .certificates([root])
@@ -582,10 +585,10 @@ class TLSConfigurationTest: XCTestCase {
         
         XCTAssertNoThrow(clientChannel = try clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeWatcher, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!))
 
-        XCTAssertTrue(try finishHandshakeForCANameTests(handshakeWatcher: handshakeWatcher,
-                                                    clientChannel: clientChannel,
-                                                    handshakeHandler: handshakeHandler,
-                                                    eventHandler: eventHandler))
+        XCTAssertFalse(try finishHandshakeForCANameTests(handshakeWatcher: handshakeWatcher,
+                                                        clientChannel: clientChannel,
+                                                        handshakeHandler: handshakeHandler,
+                                                        eventHandler: eventHandler))
     }
     
     func testFullVerificationWithCANamesFromFile() throws {
@@ -595,22 +598,18 @@ class TLSConfigurationTest: XCTestCase {
         // This exercised the loadVerifyLocations file code path out in SSLContext
         let rootPath = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem")
         
-        let leaf = try NIOSSLCertificate(bytes: .init(leafCertificateForTLSIssuedFromCustomCARoot.utf8), format: .pem)
-        let leaf_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForLeafCertificate.utf8), format: .pem)
-        
-        let client_cert = try NIOSSLCertificate(bytes: .init(leafCertificateForClientAuthenticationIssuedFromCustomCARoot.utf8), format: .pem)
-        let client_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForClientAuthentication.utf8), format: .pem)
+        let digital_identities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
         
         // Client Configuration.
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.renegotiationSupport = .none
-        clientConfig.certificateChain = [.certificate(client_cert)]
-        clientConfig.privateKey = .privateKey(client_privateKey)
+        clientConfig.certificateChain = [.certificate(digital_identities.2)]
+        clientConfig.privateKey = .privateKey(digital_identities.3)
         
         // Server Configuration
         var serverConfig = TLSConfiguration.makeServerConfiguration(
-            certificateChain: [.certificate(leaf)],
-            privateKey: .privateKey(leaf_privateKey)
+            certificateChain: [.certificate(digital_identities.0)],
+            privateKey: .privateKey(digital_identities.1)
         )
         serverConfig.sendCANameList = true
         serverConfig.trustRoots = .file(rootPath)
@@ -647,10 +646,10 @@ class TLSConfigurationTest: XCTestCase {
         
         XCTAssertNoThrow(clientChannel = try clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeWatcher, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!))
         
-        XCTAssertTrue(try finishHandshakeForCANameTests(handshakeWatcher: handshakeWatcher,
-                                                    clientChannel: clientChannel,
-                                                    handshakeHandler: handshakeHandler,
-                                                    eventHandler: eventHandler))
+        XCTAssertFalse(try finishHandshakeForCANameTests(handshakeWatcher: handshakeWatcher,
+                                                        clientChannel: clientChannel,
+                                                        handshakeHandler: handshakeHandler,
+                                                        eventHandler: eventHandler))
         
         XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rootPath)!))
     }
@@ -674,17 +673,13 @@ class TLSConfigurationTest: XCTestCase {
         // Pass in a directory to scan out in SSLContext
         let tempFileDir = FileManager.default.temporaryDirectory.path + "/"
         
-        let leaf = try NIOSSLCertificate(bytes: .init(leafCertificateForTLSIssuedFromCustomCARoot.utf8), format: .pem)
-        let leaf_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForLeafCertificate.utf8), format: .pem)
-        
-        let client_cert = try NIOSSLCertificate(bytes: .init(leafCertificateForClientAuthenticationIssuedFromCustomCARoot.utf8), format: .pem)
-        let client_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForClientAuthentication.utf8), format: .pem)
+        let digital_identities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
         
         // Client Configuration.
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.renegotiationSupport = .none
-        clientConfig.certificateChain = [.certificate(client_cert)]
-        clientConfig.privateKey = .privateKey(client_privateKey)
+        clientConfig.certificateChain = [.certificate(digital_identities.2)]
+        clientConfig.privateKey = .privateKey(digital_identities.3)
         // Shim for an oddity that takes place when a client is using self sign root and client authentication identity
         // only in the directory scan context.  CNIOBoringSSL_SSL_CTX_load_verify_locations may have something to do with this issue,
         // but nothing was found conclusively.
@@ -692,8 +687,8 @@ class TLSConfigurationTest: XCTestCase {
         
         // Server Configuration
         var serverConfig = TLSConfiguration.makeServerConfiguration(
-            certificateChain: [.certificate(leaf)],
-            privateKey: .privateKey(leaf_privateKey)
+            certificateChain: [.certificate(digital_identities.0)],
+            privateKey: .privateKey(digital_identities.1)
         )
         serverConfig.sendCANameList = true
         serverConfig.trustRoots = .file(tempFileDir) // Directory path.
@@ -731,10 +726,10 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertNoThrow(clientChannel = try clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeWatcher, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!))
         
 
-        XCTAssertTrue(try finishHandshakeForCANameTests(handshakeWatcher: handshakeWatcher,
-                                                    clientChannel: clientChannel,
-                                                    handshakeHandler: handshakeHandler,
-                                                    eventHandler: eventHandler))
+        XCTAssertFalse(try finishHandshakeForCANameTests(handshakeWatcher: handshakeWatcher,
+                                                        clientChannel: clientChannel,
+                                                        handshakeHandler: handshakeHandler,
+                                                        eventHandler: eventHandler))
         
         XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rootCAPathOne)!))
         XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rootCAPathTwo)!))
