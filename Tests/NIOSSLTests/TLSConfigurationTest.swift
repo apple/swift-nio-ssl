@@ -542,7 +542,7 @@ class TLSConfigurationTest: XCTestCase {
         var differentConfig = config
         differentConfig.privateKey = .file("fake2.file")
         XCTAssertFalse(config.bestEffortEquals(differentConfig))
-    }	
+    }
     
     func testDifferentKeylogCallbacksNotEqual() {
         var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .file("fake.file"))
