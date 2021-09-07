@@ -578,7 +578,12 @@ extension NIOSSLContext {
             // event that they do retain it, the reference count will remain at at-least
             // 1 and thus they can re-use the same context for multiple connections.
             
-            guard let nativeReturnVal = CNIOBoringSSL_SSL_set_SSL_CTX(ssl, userChosenContext.sslContext) else
+            let nativeReturnVal = withExtendedLifetime(userChosenContext)
+            {
+                return CNIOBoringSSL_SSL_set_SSL_CTX(ssl, userChosenContext.sslContext)
+            }
+            
+            if nativeReturnVal == nil
             {
                 return SSL_TLSEXT_ERR_NOACK
             }
