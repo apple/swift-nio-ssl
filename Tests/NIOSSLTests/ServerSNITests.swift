@@ -22,7 +22,7 @@ class ServerSNITests: XCTestCase {
     
     class SniServerContext {
     
-        private var _tlsConfig : TLSConfiguration?;
+        private var _tlsConfig : TLSConfiguration?
         
         private var _ctx : NIOSSLContext?
         
