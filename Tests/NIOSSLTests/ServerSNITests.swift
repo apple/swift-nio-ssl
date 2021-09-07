@@ -142,7 +142,7 @@ class ServerSNITests: XCTestCase {
     }
 
     func testSNIIsNotRejectedForAnyOfTheFirst1000CodeUnits() throws {
-        for testString in (1...Int(1000)).compactMap({ UnicodeScalar($0).map { String($0) } }) {
+        for testString in (1...Int(1000)).map({ String($0, radix: 10)! }) {
             try assertSniResult(sniField: testString, expectedResult:testString)
         }
     }
