@@ -26,7 +26,7 @@ class ServerSNITests: XCTestCase {
         
         private var _ctx : NIOSSLContext?
         
-        private(set) var SniExpectation : XCTestExpectation
+        private(set) var sniExpectation : XCTestExpectation
         
         public var SSLContext : NIOSSLContext
         {
