@@ -188,7 +188,8 @@ public final class NIOSSLContext {
             context: context,
             verification: configuration.certificateVerification,
             trustRoots: configuration.trustRoots,
-            additionalTrustRoots: configuration.additionalTrustRoots)
+            additionalTrustRoots: configuration.additionalTrustRoots,
+            sendCANames: configuration.sendCANameList)
         
         // Configure verification algorithms
         if let verifySignatureAlgorithms = configuration.verifySignatureAlgorithms {
@@ -397,7 +398,6 @@ extension NIOSSLContext {
         }
     }
     
-
     private static func setAlpnProtocols(_ protocols: [[UInt8]], context: OpaquePointer) throws {
         // This copy should be done infrequently, so we don't worry too much about it.
         let protoBuf = protocols.reduce([UInt8](), +)
@@ -423,7 +423,7 @@ extension NIOSSLContext {
 
 // Configuring certificate verification
 extension NIOSSLContext {
-    private static func configureCertificateValidation(context: OpaquePointer, verification: CertificateVerification, trustRoots: NIOSSLTrustRoots?, additionalTrustRoots: [NIOSSLAdditionalTrustRoots]) throws {
+    private static func configureCertificateValidation(context: OpaquePointer, verification: CertificateVerification, trustRoots: NIOSSLTrustRoots?, additionalTrustRoots: [NIOSSLAdditionalTrustRoots], sendCANames: Bool) throws {
         // If validation is turned on, set the trust roots and turn on cert validation.
         switch verification {
         case .fullVerification, .noHostnameVerification:
@@ -440,9 +440,15 @@ extension NIOSSLContext {
                 case .default:
                     try NIOSSLContext.platformDefaultConfiguration(context: context)
                 case .file(let path):
-                    try NIOSSLContext.loadVerifyLocations(path, context: context)
+                    try NIOSSLContext.loadVerifyLocations(path, context: context, sendCANames: sendCANames)
                 case .certificates(let certs):
-                    try certs.forEach { try NIOSSLContext.addRootCertificate($0, context: context) }
+                    for cert in certs {
+                        try NIOSSLContext.addRootCertificate(cert, context: context)
+                        // Add the CA name from the trust root
+                        if sendCANames {
+                            try NIOSSLContext.addCACertificateNameToList(context: context, certificate: cert)
+                        }
+                    }
                 }
             }
             try configureTrustRoots(trustRoots: trustRoots ?? .default)
@@ -451,8 +457,17 @@ extension NIOSSLContext {
             break
         }
     }
+    
+    private static func addCACertificateNameToList(context: OpaquePointer, certificate: NIOSSLCertificate) throws {
+        // Adds the CA name extracted from cert to the list of CAs sent to the client when requesting a client certificate.
+        try withExtendedLifetime(certificate) {
+            guard 1 == CNIOBoringSSL_SSL_CTX_add_client_CA(context, certificate.ref) else {
+                throw NIOSSLError.failedToLoadCertificate
+            }
+        }
+    }
 
-    private static func loadVerifyLocations(_ path: String, context: OpaquePointer) throws {
+    private static func loadVerifyLocations(_ path: String, context: OpaquePointer, sendCANames: Bool) throws {
         let isDirectory: Bool
         switch FileSystemObject.pathType(path: path) {
         case .some(.directory):
@@ -472,6 +487,23 @@ extension NIOSSLContext {
         if result == 0 {
             let errorStack = BoringSSLError.buildErrorStack()
             throw BoringSSLError.unknownError(errorStack)
+        } else if sendCANames, !isDirectory {
+            // For single CA file, add the CA name from the trust root.
+            // This could be from a location like /etc/ssl/cert.pem as an example.
+            CNIOBoringSSL_SSL_CTX_set_client_CA_list(context, CNIOBoringSSL_SSL_load_client_CA_file(path))
+        } else if sendCANames, isDirectory {
+            // If the path that is passed in is a directory, scan the directory and gather up the PEM or DER files.
+            let pemFilePaths = DirectoryContents(path: path).filter { $0.suffix(4) == ".pem" || $0.suffix(4) == ".cer" }
+            // Create the PEM files one by one and use `addCACertificateNameToList` to add the CA name to the STACK_OF(X509_NAME).
+            for path in pemFilePaths {
+                let cert: NIOSSLCertificate
+                if path.suffix(4) == ".pem" {
+                    cert = try NIOSSLCertificate(file: path, format: .pem)
+                } else {
+                    cert = try NIOSSLCertificate(file: path, format: .der)
+                }
+                try addCACertificateNameToList(context: context, certificate: cert)
+            }
         }
     }
 
@@ -517,6 +549,16 @@ extension NIOSSLContext {
             // either.
             parentSwiftContext.keyLogManager!.log(linePointer)
         }
+    }
+}
+
+extension NIOSSLContext {
+    /// Exposes the CA Name list count from BoringSSL's STACK_OF(X509_NAME)
+    func getX509NameListCount() -> Int {
+        guard let caNameList = CNIOBoringSSL_SSL_CTX_get_client_CA_list(self.sslContext) else {
+            return 0
+        }
+        return CNIOBoringSSL_sk_X509_NAME_num(caNameList)
     }
 }
 
@@ -612,5 +654,40 @@ extension Optional where Wrapped == String {
         case .none:
             return try body(nil)
         }
+    }
+}
+
+internal class DirectoryContents: Sequence, IteratorProtocol {
+    
+    typealias Element = String
+    let path: String
+    // Used to account between the differences of DIR being defined on Darwin.
+    // Otherwise an OpaquePointer needs to be used to account for the non-defined type in glibc.
+    #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+    let dir: UnsafeMutablePointer<DIR>
+    #else
+    let dir: OpaquePointer
+    #endif
+    
+    init(path: String) {
+        self.path = path
+        self.dir = opendir(path)
+    }
+    
+    func next() -> String? {
+        if let dirent: UnsafeMutablePointer<dirent> = readdir(self.dir) {
+            let name = withUnsafePointer(to: &dirent.pointee.d_name) { (ptr) -> String in
+                // Pointers to homogeneous tuples in Swift are always bound to both the tuple type and the element type,
+                // so the assumption below is safe.
+                let elementPointer = UnsafeRawPointer(ptr).assumingMemoryBound(to: CChar.self)
+                return String(cString: elementPointer)
+            }
+            return self.path + name
+        }
+        return nil
+    }
+    
+    deinit {
+        closedir(dir)
     }
 }

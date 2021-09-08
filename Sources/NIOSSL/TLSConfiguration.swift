@@ -302,6 +302,10 @@ public struct TLSConfiguration {
 
     /// Whether renegotiation is supported.
     public var renegotiationSupport: NIORenegotiationSupport
+    
+    /// Send the CA names derived from the `trustRoots`  for client authentication.
+    /// This instructs the client which identities can be used by evaluating what CA the identity certificate was issued from.
+    public var sendCANameList: Bool
 
     private init(cipherSuiteValues: [NIOTLSCipher] = [],
                  cipherSuites: String = defaultCipherSuites,
@@ -317,7 +321,8 @@ public struct TLSConfiguration {
                  shutdownTimeout: TimeAmount,
                  keyLogCallback: NIOSSLKeyLogCallback?,
                  renegotiationSupport: NIORenegotiationSupport,
-                 additionalTrustRoots: [NIOSSLAdditionalTrustRoots]) {
+                 additionalTrustRoots: [NIOSSLAdditionalTrustRoots],
+                 sendCANameList: Bool = false) {
         self.cipherSuites = cipherSuites
         self.verifySignatureAlgorithms = verifySignatureAlgorithms
         self.signingSignatureAlgorithms = signingSignatureAlgorithms
@@ -331,6 +336,7 @@ public struct TLSConfiguration {
         self.encodedApplicationProtocols = []
         self.shutdownTimeout = shutdownTimeout
         self.renegotiationSupport = renegotiationSupport
+        self.sendCANameList = sendCANameList
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
         if !cipherSuiteValues.isEmpty {
@@ -413,7 +419,8 @@ extension TLSConfiguration {
                                 shutdownTimeout: .seconds(5),
                                 keyLogCallback: nil,
                                 renegotiationSupport: .none,
-                                additionalTrustRoots: [])
+                                additionalTrustRoots: [],
+                                sendCANameList: false)
     }
 
     /// Create a TLS configuration for use with server-side contexts.
@@ -439,7 +446,8 @@ extension TLSConfiguration {
                                 shutdownTimeout: .seconds(5),
                                 keyLogCallback: nil,
                                 renegotiationSupport: .none,
-                                additionalTrustRoots: [])
+                                additionalTrustRoots: [],
+                                sendCANameList: false)
     }
 }
 

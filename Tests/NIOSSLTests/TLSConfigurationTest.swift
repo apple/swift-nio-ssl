@@ -254,6 +254,16 @@ class TLSConfigurationTest: XCTestCase {
         return try assertHandshakeSucceededEventLoop(withClientConfig: clientConfig, andServerConfig: serverConfig, file: file, line: line)
         #endif
     }
+    
+    func setupTLSLeafandClientIdentitiesFromCustomCARoot() throws -> (leafCert: NIOSSLCertificate, leafKey: NIOSSLPrivateKey ,
+                                                                      clientCert: NIOSSLCertificate, clientKey:  NIOSSLPrivateKey) {
+        let leaf = try NIOSSLCertificate(bytes: .init(leafCertificateForTLSIssuedFromCustomCARoot.utf8), format: .pem)
+        let leaf_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForLeafCertificate.utf8), format: .pem)
+        
+        let client_cert = try NIOSSLCertificate(bytes: .init(leafCertificateForClientAuthenticationIssuedFromCustomCARoot.utf8), format: .pem)
+        let client_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForClientAuthentication.utf8), format: .pem)
+        return (leaf, leaf_privateKey, client_cert, client_privateKey)
+    }
 
     func testNonOverlappingTLSVersions() throws {
         var clientConfig = TLSConfiguration.clientDefault
@@ -463,6 +473,247 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.additionalTrustRoots = [.certificates([TLSConfigurationTest.cert2])]
 
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+    
+    func testFullVerificationWithCANamesFromCertificate() throws {
+        // Custom certificates for TLS and client authentication.
+        let root = try NIOSSLCertificate(bytes: .init(customCARoot.utf8), format: .pem)
+        
+        let digitalIdentities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
+        
+        // Client Configuration.
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.renegotiationSupport = .none
+        clientConfig.certificateChain = [.certificate(digitalIdentities.clientCert)]
+        clientConfig.privateKey = .privateKey(digitalIdentities.clientKey)
+        
+        // Server Configuration
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(digitalIdentities.leafCert)],
+            privateKey: .privateKey(digitalIdentities.leafKey)
+        )
+        serverConfig.sendCANameList = true
+        serverConfig.trustRoots = .certificates([root])
+        serverConfig.certificateVerification = .fullVerification
+        
+        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
+        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
+
+        // Validation that the CA names are being sent here
+        // This is essentially the heart of this unit test.
+        let countAfter = serverContext.getX509NameListCount()
+        XCTAssertEqual(countAfter, 1, "CA Name List should be 1 after the Server Context is created")
+        
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+
+        defer {
+            // We expect the server case to throw
+            _ = try? serverChannel.finish()
+            _ = try? clientChannel.finish()
+        }
+        
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil)).wait())
+        let handshakeHandler = HandshakeCompletedHandler()
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+
+        // Connect. This should lead to a failed handshake.
+        let addr = try assertNoThrowWithValue(SocketAddress(unixDomainSocketPath: "/tmp/whatever2"))
+        let connectFuture = clientChannel.connect(to: addr)
+        serverChannel.pipeline.fireChannelActive()
+        XCTAssertThrowsError(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
+        XCTAssertNoThrow(try connectFuture.wait())
+        XCTAssertFalse(handshakeHandler.handshakeSucceeded)
+
+        _ = serverChannel.close()
+    }
+    
+    func testFullVerificationWithCANamesFromFile() throws {
+        
+        // Custom certificates for TLS and client authentication.
+        // In this test create the root certificate in the tmp directory and use it here to send the CA names.
+        // This exercised the loadVerifyLocations file code path out in SSLContext
+        let rootPath = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem")
+        
+        let digitalIdentities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
+        
+        // Client Configuration.
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.renegotiationSupport = .none
+        clientConfig.certificateChain = [.certificate(digitalIdentities.clientCert)]
+        clientConfig.privateKey = .privateKey(digitalIdentities.clientKey)
+        
+        // Server Configuration
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(digitalIdentities.leafCert)],
+            privateKey: .privateKey(digitalIdentities.leafKey)
+        )
+        serverConfig.sendCANameList = true
+        serverConfig.trustRoots = .file(rootPath)
+        serverConfig.certificateVerification = .fullVerification
+        
+        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
+        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
+
+        // Validation that the CA names are being sent here
+        // This is essentially the heart of this unit test.
+        let countAfter = serverContext.getX509NameListCount()
+        XCTAssertEqual(countAfter, 1, "CA Name List should be 1 after the Server Context is created")
+        
+        let serverChannel = EmbeddedChannel()
+        let clientChannel = EmbeddedChannel()
+
+        defer {
+            // We expect the server case to throw
+            _ = try? serverChannel.finish()
+            _ = try? clientChannel.finish()
+        }
+        
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext)).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil)).wait())
+        let handshakeHandler = HandshakeCompletedHandler()
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+
+        // Connect. This should lead to a completed handshake.
+        let addr = try assertNoThrowWithValue(SocketAddress(unixDomainSocketPath: "/tmp/whatever2"))
+        let connectFuture = clientChannel.connect(to: addr)
+        serverChannel.pipeline.fireChannelActive()
+        XCTAssertThrowsError(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
+        XCTAssertNoThrow(try connectFuture.wait())
+        
+        XCTAssertFalse(handshakeHandler.handshakeSucceeded)
+
+        _ = serverChannel.close()
+        XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rootPath)!))
+    }
+    
+    func testFullVerificationWithCANamesFromDirectory() throws {
+        
+        // Custom certificates for TLS and client authentication.
+        // In this test create two root certificates in the tmp directory and send the CA names from both on the handshake.
+        // This exercises the loadVerifyLocations directory code path out in SSLContext.
+        // This code path should scan the everything in this directory for a .pem and a .cer file to load
+        let rootCAPathOne = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem")
+        
+        // NOTE: that while the above creates the initial .pem file as a base64 representation, this cannot be done with a DER file
+        //       as this is a binary representation of a certificate.  So, the `NIOSSLCertificate` is loaded and the PEM wrapper is stripped
+        //       off to create an actual DER certificate.  Otherwise this will fail when `CNIOBoringSSL_d2i_X509_fp` tries to read it.
+        
+        let rootCATwo = try NIOSSLCertificate(bytes: .init(secondaryRootCertificateForClientAuthentication.utf8), format: .pem)
+        let derRepresentation = Data(try rootCATwo.toDERBytes())
+        let rootCAPathTwo = try dumpToFile(data: derRepresentation, fileExtension: ".cer")
+        
+        // Pass in a directory to scan out in SSLContext
+        let tempFileDir = FileManager.default.temporaryDirectory.path + "/"
+        
+        let digitalIdentities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
+        
+        // Client Configuration.
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.renegotiationSupport = .none
+        clientConfig.certificateChain = [.certificate(digitalIdentities.clientCert)]
+        clientConfig.privateKey = .privateKey(digitalIdentities.clientKey)
+        // Shim for an oddity that takes place when a client is using self sign root and client authentication identity
+        // only in the directory scan context.  CNIOBoringSSL_SSL_CTX_load_verify_locations may have something to do with this issue,
+        // but nothing was found conclusively.
+        clientConfig.trustRoots = .certificates([])
+        
+        // Server Configuration
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(digitalIdentities.leafCert)],
+            privateKey: .privateKey(digitalIdentities.leafKey)
+        )
+        serverConfig.sendCANameList = true
+        serverConfig.trustRoots = .file(tempFileDir) // Directory path.
+        serverConfig.certificateVerification = .fullVerification
+        
+        // Pulling in the logic for assertHandshakeSucceededEventLoop because there needs to be some custom handling
+        // due to the IP address and the potential for `CERTIFICATE_VERIFY_FAILED`.
+        var clientContext: NIOSSLContext!
+        var serverContext: NIOSSLContext!
+        
+        XCTAssertNoThrow(clientContext = try NIOSSLContext(configuration: clientConfig))
+        XCTAssertNoThrow(serverContext = try NIOSSLContext(configuration: serverConfig))
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let eventHandler = ErrorCatcher<NIOSSLError>()
+        let handshakeHandler = HandshakeCompletedHandler()
+        let handshakeResultPromise = group.next().makePromise(of: Void.self)
+
+        let handshakeWatcher = WaitForHandshakeHandler(handshakeResultPromise: handshakeResultPromise)
+
+        var serverChannel: Channel!
+        var clientChannel: Channel!
+
+        XCTAssertNoThrow(serverChannel = try serverTLSChannel(context: serverContext, handlers: [], group: group))
+ 
+        // Validation that the CA names are being sent here
+        // This is essentially the heart of this unit test.
+        let countAfter = serverContext.getX509NameListCount()
+        XCTAssertEqual(countAfter, 2, "CA Name List should be 2 after the Server Context is created")
+        
+        XCTAssertNoThrow(clientChannel = try clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeWatcher, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!))
+        
+        // Make sure the actual handshake does succeed in this instance.
+        handshakeWatcher.handshakeResult.whenComplete { c in
+            switch c {
+            case .success:
+                XCTAssertTrue(true)
+            case .failure(let err):
+                XCTFail("Unexpected error: \(err.localizedDescription)")
+            }
+            _ = clientChannel.close()
+        }
+        var handshakeSucceed = false
+        clientChannel.closeFuture.whenComplete { _ in
+            XCTAssertEqual(eventHandler.errors.count, 1)
+            
+            guard let error = eventHandler.errors.first else {
+                XCTFail("Could not unwrap expected .uncleanShutdown error")
+                return
+            }
+            
+            let expectedError = "CERTIFICATE_VERIFY_FAILED"
+            
+            // This is very unorthodox but essentially the handshakeSucceed flag is variable depending upon the situation.
+            // Either one of these two situations should apply:
+            //
+            // 1. If the `customCARoot` IS installed and trusted on the system's trust store then an unclean shutdown
+            //    will be triggered below when validateHostname is run because this test is run with a local IP address.
+            //    The important thing to note here is that this happens AFTER the handshake does actually succeed.
+            //    When the doHandshakeStep .complete case is run, this error is thrown and so it is caught below.
+            
+            // 2. If the `customCARoot` IS NOT installed and trusted on the system's trust store, which will most likely be the case
+            //    in every run of this test, the standard `CERTIFICATE_VERIFY_FAILED` error is thrown because BoringSSL cannot validate
+            //    the chain of trust with a self signed root.
+            //
+            switch error {
+            case .uncleanShutdown:
+                // Expected to fail into .uncleanShutdown because an IP address is not provided to setServerName() because it
+                // cannot be used for SNI. (Currently, the only server names supported are DNS hostnames; RFC 4366)
+                //
+                // In this case client authentication is being performed over a localhost address and when `validateHostname`
+                // is called in the complete case for doHandshakeStep this will throw an error for a localhost address because
+                // there is not an expectedHostname set in SSLConnection.
+                handshakeSucceed = true
+                break
+            default:
+                // If this test is run on a remote system where `customCARoot` is not in the trust store or something like /etc/ssl/cert.pem
+                // then this handshake will fail with `CERTIFICATE_VERIFY_FAILED` because of the chain of trust cannot be established.
+                XCTAssertTrue(eventHandler.errors.description.contains(expectedError))
+                
+            }
+            XCTAssertEqual(handshakeHandler.handshakeSucceeded, handshakeSucceed)
+        }
+        try clientChannel.closeFuture.wait()
+        XCTAssertFalse(handshakeSucceed)
+        XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rootCAPathOne)!))
+        XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rootCAPathTwo)!))
     }
 
     func testNonexistentFileObject() throws {
