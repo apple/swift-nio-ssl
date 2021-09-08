@@ -255,7 +255,8 @@ class TLSConfigurationTest: XCTestCase {
         #endif
     }
     
-    func setupTLSLeafandClientIdentitiesFromCustomCARoot() throws -> (NIOSSLCertificate, NIOSSLPrivateKey , NIOSSLCertificate, NIOSSLPrivateKey) {
+    func setupTLSLeafandClientIdentitiesFromCustomCARoot() throws -> (leafCert: NIOSSLCertificate, leafKey: NIOSSLPrivateKey ,
+                                                                      clientCert: NIOSSLCertificate, clientKey:  NIOSSLPrivateKey) {
         let leaf = try NIOSSLCertificate(bytes: .init(leafCertificateForTLSIssuedFromCustomCARoot.utf8), format: .pem)
         let leaf_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForLeafCertificate.utf8), format: .pem)
         
@@ -478,18 +479,18 @@ class TLSConfigurationTest: XCTestCase {
         // Custom certificates for TLS and client authentication.
         let root = try NIOSSLCertificate(bytes: .init(customCARoot.utf8), format: .pem)
         
-        let digital_identities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
+        let digitalIdentities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
         
         // Client Configuration.
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.renegotiationSupport = .none
-        clientConfig.certificateChain = [.certificate(digital_identities.2)]
-        clientConfig.privateKey = .privateKey(digital_identities.3)
+        clientConfig.certificateChain = [.certificate(digitalIdentities.clientCert)]
+        clientConfig.privateKey = .privateKey(digitalIdentities.clientKey)
         
         // Server Configuration
         var serverConfig = TLSConfiguration.makeServerConfiguration(
-            certificateChain: [.certificate(digital_identities.0)],
-            privateKey: .privateKey(digital_identities.1)
+            certificateChain: [.certificate(digitalIdentities.leafCert)],
+            privateKey: .privateKey(digitalIdentities.leafKey)
         )
         serverConfig.sendCANameList = true
         serverConfig.trustRoots = .certificates([root])
@@ -535,18 +536,18 @@ class TLSConfigurationTest: XCTestCase {
         // This exercised the loadVerifyLocations file code path out in SSLContext
         let rootPath = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem")
         
-        let digital_identities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
+        let digitalIdentities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
         
         // Client Configuration.
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.renegotiationSupport = .none
-        clientConfig.certificateChain = [.certificate(digital_identities.2)]
-        clientConfig.privateKey = .privateKey(digital_identities.3)
+        clientConfig.certificateChain = [.certificate(digitalIdentities.clientCert)]
+        clientConfig.privateKey = .privateKey(digitalIdentities.clientKey)
         
         // Server Configuration
         var serverConfig = TLSConfiguration.makeServerConfiguration(
-            certificateChain: [.certificate(digital_identities.0)],
-            privateKey: .privateKey(digital_identities.1)
+            certificateChain: [.certificate(digitalIdentities.leafCert)],
+            privateKey: .privateKey(digitalIdentities.leafKey)
         )
         serverConfig.sendCANameList = true
         serverConfig.trustRoots = .file(rootPath)
@@ -606,13 +607,13 @@ class TLSConfigurationTest: XCTestCase {
         // Pass in a directory to scan out in SSLContext
         let tempFileDir = FileManager.default.temporaryDirectory.path + "/"
         
-        let digital_identities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
+        let digitalIdentities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
         
         // Client Configuration.
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.renegotiationSupport = .none
-        clientConfig.certificateChain = [.certificate(digital_identities.2)]
-        clientConfig.privateKey = .privateKey(digital_identities.3)
+        clientConfig.certificateChain = [.certificate(digitalIdentities.clientCert)]
+        clientConfig.privateKey = .privateKey(digitalIdentities.clientKey)
         // Shim for an oddity that takes place when a client is using self sign root and client authentication identity
         // only in the directory scan context.  CNIOBoringSSL_SSL_CTX_load_verify_locations may have something to do with this issue,
         // but nothing was found conclusively.
@@ -620,8 +621,8 @@ class TLSConfigurationTest: XCTestCase {
         
         // Server Configuration
         var serverConfig = TLSConfiguration.makeServerConfiguration(
-            certificateChain: [.certificate(digital_identities.0)],
-            privateKey: .privateKey(digital_identities.1)
+            certificateChain: [.certificate(digitalIdentities.leafCert)],
+            privateKey: .privateKey(digitalIdentities.leafKey)
         )
         serverConfig.sendCANameList = true
         serverConfig.trustRoots = .file(tempFileDir) // Directory path.
