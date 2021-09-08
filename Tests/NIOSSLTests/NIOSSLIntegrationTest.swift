@@ -478,7 +478,9 @@ class NIOSSLIntegrationTest: XCTestCase {
         let fileBio = CNIOBoringSSL_BIO_new_fp(fdopen(tempFile, "w+"), BIO_CLOSE)
         precondition(fileBio != nil)
 
-        let rc = CNIOBoringSSL_PEM_write_bio_X509(fileBio, NIOSSLIntegrationTest.cert.ref)
+        let rc = NIOSSLIntegrationTest.cert.withUnsafeMutableX509Pointer { ref in
+            CNIOBoringSSL_PEM_write_bio_X509(fileBio, ref)
+        }
         CNIOBoringSSL_BIO_free(fileBio)
         precondition(rc == 1)
         return try fn(fileName)
