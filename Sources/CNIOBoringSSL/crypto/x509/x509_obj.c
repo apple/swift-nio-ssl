@@ -64,6 +64,7 @@
 #include <CNIOBoringSSL_x509.h>
 
 #include "../internal.h"
+#include "internal.h"
 
 
 /*

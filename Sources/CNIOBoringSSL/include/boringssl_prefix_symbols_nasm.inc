@@ -464,6 +464,7 @@
 %xdefine _CBB_add_u64le _ %+ BORINGSSL_PREFIX %+ _CBB_add_u64le
 %xdefine _CBB_add_u8 _ %+ BORINGSSL_PREFIX %+ _CBB_add_u8
 %xdefine _CBB_add_u8_length_prefixed _ %+ BORINGSSL_PREFIX %+ _CBB_add_u8_length_prefixed
+%xdefine _CBB_add_zeros _ %+ BORINGSSL_PREFIX %+ _CBB_add_zeros
 %xdefine _CBB_cleanup _ %+ BORINGSSL_PREFIX %+ _CBB_cleanup
 %xdefine _CBB_data _ %+ BORINGSSL_PREFIX %+ _CBB_data
 %xdefine _CBB_did_write _ %+ BORINGSSL_PREFIX %+ _CBB_did_write
@@ -509,6 +510,7 @@
 %xdefine _CBS_get_u64le _ %+ BORINGSSL_PREFIX %+ _CBS_get_u64le
 %xdefine _CBS_get_u8 _ %+ BORINGSSL_PREFIX %+ _CBS_get_u8
 %xdefine _CBS_get_u8_length_prefixed _ %+ BORINGSSL_PREFIX %+ _CBS_get_u8_length_prefixed
+%xdefine _CBS_get_until_first _ %+ BORINGSSL_PREFIX %+ _CBS_get_until_first
 %xdefine _CBS_init _ %+ BORINGSSL_PREFIX %+ _CBS_init
 %xdefine _CBS_is_unsigned_asn1_integer _ %+ BORINGSSL_PREFIX %+ _CBS_is_unsigned_asn1_integer
 %xdefine _CBS_is_valid_asn1_bitstring _ %+ BORINGSSL_PREFIX %+ _CBS_is_valid_asn1_bitstring
@@ -2083,7 +2085,6 @@
 %xdefine _SSL_set_verify _ %+ BORINGSSL_PREFIX %+ _SSL_set_verify
 %xdefine _SSL_set_verify_algorithm_prefs _ %+ BORINGSSL_PREFIX %+ _SSL_set_verify_algorithm_prefs
 %xdefine _SSL_set_verify_depth _ %+ BORINGSSL_PREFIX %+ _SSL_set_verify_depth
-%xdefine _SSL_set_verify_result _ %+ BORINGSSL_PREFIX %+ _SSL_set_verify_result
 %xdefine _SSL_set_wfd _ %+ BORINGSSL_PREFIX %+ _SSL_set_wfd
 %xdefine _SSL_shutdown _ %+ BORINGSSL_PREFIX %+ _SSL_shutdown
 %xdefine _SSL_state _ %+ BORINGSSL_PREFIX %+ _SSL_state
@@ -2741,6 +2742,7 @@
 %xdefine _asn1_generalizedtime_to_tm _ %+ BORINGSSL_PREFIX %+ _asn1_generalizedtime_to_tm
 %xdefine _asn1_get_choice_selector _ %+ BORINGSSL_PREFIX %+ _asn1_get_choice_selector
 %xdefine _asn1_get_field_ptr _ %+ BORINGSSL_PREFIX %+ _asn1_get_field_ptr
+%xdefine _asn1_is_printable _ %+ BORINGSSL_PREFIX %+ _asn1_is_printable
 %xdefine _asn1_item_combine_free _ %+ BORINGSSL_PREFIX %+ _asn1_item_combine_free
 %xdefine _asn1_refcount_dec_and_test_zero _ %+ BORINGSSL_PREFIX %+ _asn1_refcount_dec_and_test_zero
 %xdefine _asn1_refcount_set_one _ %+ BORINGSSL_PREFIX %+ _asn1_refcount_set_one
@@ -3401,6 +3403,7 @@
 %xdefine _x25519_ge_tobytes _ %+ BORINGSSL_PREFIX %+ _x25519_ge_tobytes
 %xdefine _x25519_pkey_meth _ %+ BORINGSSL_PREFIX %+ _x25519_pkey_meth
 %xdefine _x25519_sc_reduce _ %+ BORINGSSL_PREFIX %+ _x25519_sc_reduce
+%xdefine _x509V3_add_value_asn1_string _ %+ BORINGSSL_PREFIX %+ _x509V3_add_value_asn1_string
 %xdefine _x509_digest_sign_algorithm _ %+ BORINGSSL_PREFIX %+ _x509_digest_sign_algorithm
 %xdefine _x509_digest_verify_init _ %+ BORINGSSL_PREFIX %+ _x509_digest_verify_init
 %xdefine _x509_print_rsa_pss_params _ %+ BORINGSSL_PREFIX %+ _x509_print_rsa_pss_params
@@ -3863,6 +3866,7 @@
 %xdefine CBB_add_u64le BORINGSSL_PREFIX %+ _CBB_add_u64le
 %xdefine CBB_add_u8 BORINGSSL_PREFIX %+ _CBB_add_u8
 %xdefine CBB_add_u8_length_prefixed BORINGSSL_PREFIX %+ _CBB_add_u8_length_prefixed
+%xdefine CBB_add_zeros BORINGSSL_PREFIX %+ _CBB_add_zeros
 %xdefine CBB_cleanup BORINGSSL_PREFIX %+ _CBB_cleanup
 %xdefine CBB_data BORINGSSL_PREFIX %+ _CBB_data
 %xdefine CBB_did_write BORINGSSL_PREFIX %+ _CBB_did_write
@@ -3908,6 +3912,7 @@
 %xdefine CBS_get_u64le BORINGSSL_PREFIX %+ _CBS_get_u64le
 %xdefine CBS_get_u8 BORINGSSL_PREFIX %+ _CBS_get_u8
 %xdefine CBS_get_u8_length_prefixed BORINGSSL_PREFIX %+ _CBS_get_u8_length_prefixed
+%xdefine CBS_get_until_first BORINGSSL_PREFIX %+ _CBS_get_until_first
 %xdefine CBS_init BORINGSSL_PREFIX %+ _CBS_init
 %xdefine CBS_is_unsigned_asn1_integer BORINGSSL_PREFIX %+ _CBS_is_unsigned_asn1_integer
 %xdefine CBS_is_valid_asn1_bitstring BORINGSSL_PREFIX %+ _CBS_is_valid_asn1_bitstring
@@ -5482,7 +5487,6 @@
 %xdefine SSL_set_verify BORINGSSL_PREFIX %+ _SSL_set_verify
 %xdefine SSL_set_verify_algorithm_prefs BORINGSSL_PREFIX %+ _SSL_set_verify_algorithm_prefs
 %xdefine SSL_set_verify_depth BORINGSSL_PREFIX %+ _SSL_set_verify_depth
-%xdefine SSL_set_verify_result BORINGSSL_PREFIX %+ _SSL_set_verify_result
 %xdefine SSL_set_wfd BORINGSSL_PREFIX %+ _SSL_set_wfd
 %xdefine SSL_shutdown BORINGSSL_PREFIX %+ _SSL_shutdown
 %xdefine SSL_state BORINGSSL_PREFIX %+ _SSL_state
@@ -6140,6 +6144,7 @@
 %xdefine asn1_generalizedtime_to_tm BORINGSSL_PREFIX %+ _asn1_generalizedtime_to_tm
 %xdefine asn1_get_choice_selector BORINGSSL_PREFIX %+ _asn1_get_choice_selector
 %xdefine asn1_get_field_ptr BORINGSSL_PREFIX %+ _asn1_get_field_ptr
+%xdefine asn1_is_printable BORINGSSL_PREFIX %+ _asn1_is_printable
 %xdefine asn1_item_combine_free BORINGSSL_PREFIX %+ _asn1_item_combine_free
 %xdefine asn1_refcount_dec_and_test_zero BORINGSSL_PREFIX %+ _asn1_refcount_dec_and_test_zero
 %xdefine asn1_refcount_set_one BORINGSSL_PREFIX %+ _asn1_refcount_set_one
@@ -6800,6 +6805,7 @@
 %xdefine x25519_ge_tobytes BORINGSSL_PREFIX %+ _x25519_ge_tobytes
 %xdefine x25519_pkey_meth BORINGSSL_PREFIX %+ _x25519_pkey_meth
 %xdefine x25519_sc_reduce BORINGSSL_PREFIX %+ _x25519_sc_reduce
+%xdefine x509V3_add_value_asn1_string BORINGSSL_PREFIX %+ _x509V3_add_value_asn1_string
 %xdefine x509_digest_sign_algorithm BORINGSSL_PREFIX %+ _x509_digest_sign_algorithm
 %xdefine x509_digest_verify_init BORINGSSL_PREFIX %+ _x509_digest_verify_init
 %xdefine x509_print_rsa_pss_params BORINGSSL_PREFIX %+ _x509_print_rsa_pss_params
