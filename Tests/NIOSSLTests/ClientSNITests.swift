@@ -143,7 +143,7 @@ class ClientSNITests: XCTestCase {
     func testSNIIsNotRejectedForAnyOfTheFirst1000CodeUnits() throws {
         let context = try configuredSSLContext()
 
-        for testString in (1...Int(1000)).compactMap({ UnicodeScalar($0).map { String($0) } }) {
+        for testString in (1...Int(1000)).compactMap({ UnicodeScalar($0).map({ String($0) })}) {
             XCTAssertNoThrow(try NIOSSLClientHandler(context: context, serverHostname: testString))
             XCTAssertNoThrow(try NIOSSLClientTLSProvider<ClientBootstrap>(context: context, serverHostname: testString))
         }
