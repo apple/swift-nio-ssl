@@ -61,6 +61,8 @@
 #include <CNIOBoringSSL_pem.h>
 #include <CNIOBoringSSL_thread.h>
 
+#include "internal.h"
+
 #ifndef OPENSSL_NO_STDIO
 
 static int by_file_ctrl(X509_LOOKUP *ctx, int cmd, const char *argc,

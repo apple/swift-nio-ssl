@@ -593,7 +593,7 @@ func generateRSAPrivateKey() -> UnsafeMutablePointer<EVP_PKEY> {
     return pkey
 }
 
-func addExtension(x509: UnsafeMutablePointer<X509>, nid: CInt, value: String) {
+func addExtension(x509: OpaquePointer, nid: CInt, value: String) {
     var extensionContext = X509V3_CTX()
     
     CNIOBoringSSL_X509V3_set_ctx(&extensionContext, x509, x509, nil, nil, 0)

@@ -246,8 +246,7 @@ static enum ssl_hs_wait_t do_select_parameters(SSL_HANDSHAKE *hs) {
     return ssl_hs_error;
   }
 
-  // The PRF hash is now known. Set up the key schedule and hash the
-  // ClientHello.
+  // The PRF hash is now known.
   if (!hs->transcript.InitHash(ssl_protocol_version(ssl), hs->new_cipher)) {
     return ssl_hs_error;
   }
@@ -270,7 +269,7 @@ static enum ssl_ticket_aead_result_t select_session(
     return ssl_ticket_aead_ignore_ticket;
   }
 
-  // Per RFC8446, section 4.2.9, servers MUST abort the handshake if the client
+  // Per RFC 8446, section 4.2.9, servers MUST abort the handshake if the client
   // sends pre_shared_key without psk_key_exchange_modes.
   CBS unused;
   if (!ssl_client_hello_get_extension(client_hello, &unused,
@@ -571,12 +570,34 @@ static enum ssl_hs_wait_t do_send_hello_retry_request(SSL_HANDSHAKE *hs) {
       !CBB_add_u16(&extensions, ssl->version) ||
       !CBB_add_u16(&extensions, TLSEXT_TYPE_key_share) ||
       !CBB_add_u16(&extensions, 2 /* length */) ||
-      !CBB_add_u16(&extensions, group_id) ||
-      !ssl_add_message_cbb(ssl, cbb.get())) {
+      !CBB_add_u16(&extensions, group_id)) {
     return ssl_hs_error;
   }
+  if (hs->ech_is_inner) {
+    // Fill a placeholder for the ECH confirmation value.
+    if (!CBB_add_u16(&extensions, TLSEXT_TYPE_encrypted_client_hello) ||
+        !CBB_add_u16(&extensions, ECH_CONFIRMATION_SIGNAL_LEN) ||
+        !CBB_add_zeros(&extensions, ECH_CONFIRMATION_SIGNAL_LEN)) {
+      return ssl_hs_error;
+    }
+  }
+  Array<uint8_t> hrr;
+  if (!ssl->method->finish_message(ssl, cbb.get(), &hrr)) {
+    return ssl_hs_error;
+  }
+  if (hs->ech_is_inner) {
+    // Now that the message is encoded, fill in the whole value.
+    size_t offset = hrr.size() - ECH_CONFIRMATION_SIGNAL_LEN;
+    if (!ssl_ech_accept_confirmation(
+            hs, MakeSpan(hrr).last(ECH_CONFIRMATION_SIGNAL_LEN),
+            ssl->s3->client_random, hs->transcript, /*is_hrr=*/true, hrr,
+            offset)) {
+      return ssl_hs_error;
+    }
+  }
 
-  if (!ssl->method->add_change_cipher_spec(ssl)) {
+  if (!ssl->method->add_message(ssl, std::move(hrr)) ||
+      !ssl->method->add_change_cipher_spec(ssl)) {
     return ssl_hs_error;
   }
 
@@ -602,8 +623,8 @@ static enum ssl_hs_wait_t do_read_second_client_hello(SSL_HANDSHAKE *hs) {
   }
 
   if (ssl->s3->ech_status == ssl_ech_accepted) {
-    // If we previously accepted the ClientHelloInner, check that the second
-    // ClientHello contains an encrypted_client_hello extension.
+    // If we previously accepted the ClientHelloInner, the second ClientHello
+    // must contain an outer encrypted_client_hello extension.
     CBS ech_body;
     if (!ssl_client_hello_get_extension(&client_hello, &ech_body,
                                         TLSEXT_TYPE_encrypted_client_hello)) {
@@ -611,12 +632,12 @@ static enum ssl_hs_wait_t do_read_second_client_hello(SSL_HANDSHAKE *hs) {
       ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_MISSING_EXTENSION);
       return ssl_hs_error;
     }
-
-    // Parse a ClientECH out of the extension body.
     uint16_t kdf_id, aead_id;
-    uint8_t config_id;
+    uint8_t type, config_id;
     CBS enc, payload;
-    if (!CBS_get_u16(&ech_body, &kdf_id) ||  //
+    if (!CBS_get_u8(&ech_body, &type) ||     //
+        type != ECH_CLIENT_OUTER ||          //
+        !CBS_get_u16(&ech_body, &kdf_id) ||  //
         !CBS_get_u16(&ech_body, &aead_id) ||
         !CBS_get_u8(&ech_body, &config_id) ||
         !CBS_get_u16_length_prefixed(&ech_body, &enc) ||
@@ -627,8 +648,6 @@ static enum ssl_hs_wait_t do_read_second_client_hello(SSL_HANDSHAKE *hs) {
       return ssl_hs_error;
     }
 
-    // Check that ClientECH.cipher_suite is unchanged and that
-    // ClientECH.enc is empty.
     if (kdf_id != EVP_HPKE_KDF_id(EVP_HPKE_CTX_kdf(hs->ech_hpke_ctx.get())) ||
         aead_id !=
             EVP_HPKE_AEAD_id(EVP_HPKE_CTX_aead(hs->ech_hpke_ctx.get())) ||
@@ -641,9 +660,9 @@ static enum ssl_hs_wait_t do_read_second_client_hello(SSL_HANDSHAKE *hs) {
     // Decrypt the payload with the HPKE context from the first ClientHello.
     Array<uint8_t> encoded_client_hello_inner;
     bool unused;
-    if (!ssl_client_hello_decrypt(
-            hs->ech_hpke_ctx.get(), &encoded_client_hello_inner, &unused,
-            &client_hello, kdf_id, aead_id, config_id, enc, payload)) {
+    if (!ssl_client_hello_decrypt(hs->ech_hpke_ctx.get(),
+                                  &encoded_client_hello_inner, &unused,
+                                  &client_hello, payload)) {
       // Decryption failure is fatal in the second ClientHello.
       OPENSSL_PUT_ERROR(SSL, SSL_R_DECRYPTION_FAILED);
       ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_DECRYPT_ERROR);
@@ -761,18 +780,18 @@ static enum ssl_hs_wait_t do_send_server_hello(SSL_HANDSHAKE *hs) {
     return ssl_hs_error;
   }
 
-  assert(ssl->s3->ech_status != ssl_ech_accepted || hs->ech_is_inner_present);
-  if (hs->ech_is_inner_present) {
+  assert(ssl->s3->ech_status != ssl_ech_accepted || hs->ech_is_inner);
+  if (hs->ech_is_inner) {
     // Fill in the ECH confirmation signal.
-    Span<uint8_t> random_suffix =
-        random.subspan(SSL3_RANDOM_SIZE - ECH_CONFIRMATION_SIGNAL_LEN);
-    if (!ssl_ech_accept_confirmation(hs, random_suffix, hs->transcript,
-                                     server_hello)) {
+    const size_t offset = ssl_ech_confirmation_signal_hello_offset(ssl);
+    Span<uint8_t> random_suffix = random.last(ECH_CONFIRMATION_SIGNAL_LEN);
+    if (!ssl_ech_accept_confirmation(hs, random_suffix, ssl->s3->client_random,
+                                     hs->transcript,
+                                     /*is_hrr=*/false, server_hello, offset)) {
       return ssl_hs_error;
     }
 
     // Update |server_hello|.
-    const size_t offset = ssl_ech_confirmation_signal_hello_offset(ssl);
     Span<uint8_t> server_hello_out =
         MakeSpan(server_hello).subspan(offset, ECH_CONFIRMATION_SIGNAL_LEN);
     OPENSSL_memcpy(server_hello_out.data(), random_suffix.data(),
@@ -1041,20 +1060,15 @@ static enum ssl_hs_wait_t do_read_client_encrypted_extensions(
       return ssl_hs_error;
     }
 
-    // Parse out the extensions.
-    bool have_application_settings = false;
-    CBS application_settings;
-    SSL_EXTENSION_TYPE ext_types[] = {{TLSEXT_TYPE_application_settings,
-                                       &have_application_settings,
-                                       &application_settings}};
+    SSLExtension application_settings(TLSEXT_TYPE_application_settings);
     uint8_t alert = SSL_AD_DECODE_ERROR;
-    if (!ssl_parse_extensions(&extensions, &alert, ext_types,
+    if (!ssl_parse_extensions(&extensions, &alert, {&application_settings},
                               /*ignore_unknown=*/false)) {
       ssl_send_alert(ssl, SSL3_AL_FATAL, alert);
       return ssl_hs_error;
     }
 
-    if (!have_application_settings) {
+    if (!application_settings.present) {
       OPENSSL_PUT_ERROR(SSL, SSL_R_MISSING_EXTENSION);
       ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_MISSING_EXTENSION);
       return ssl_hs_error;
@@ -1063,7 +1077,7 @@ static enum ssl_hs_wait_t do_read_client_encrypted_extensions(
     // Note that, if 0-RTT was accepted, these values will already have been
     // initialized earlier.
     if (!hs->new_session->peer_application_settings.CopyFrom(
-            application_settings) ||
+            application_settings.data) ||
         !ssl_hash_message(hs, msg)) {
       ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_INTERNAL_ERROR);
       return ssl_hs_error;

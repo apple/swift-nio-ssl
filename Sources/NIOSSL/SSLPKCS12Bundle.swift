@@ -49,7 +49,7 @@ public struct NIOSSLPKCS12Bundle {
 
     private init<Bytes: Collection>(ref: OpaquePointer, passphrase: Bytes?) throws where Bytes.Element == UInt8 {
         var pkey: UnsafeMutablePointer<EVP_PKEY>? = nil
-        var cert: UnsafeMutablePointer<X509>? = nil
+        var cert: OpaquePointer?/*<X509>*/ = nil
         var caCerts: OpaquePointer? = nil
 
         let rc = try passphrase.withSecureCString { passphrase in

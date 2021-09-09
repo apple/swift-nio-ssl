@@ -146,6 +146,7 @@
 
 #include <stdlib.h>
 
+#include <initializer_list>
 #include <limits>
 #include <new>
 #include <type_traits>
@@ -693,7 +694,8 @@ class SSLTranscript {
   // InitHash initializes the handshake hash based on the PRF and contents of
   // the handshake transcript. Subsequent calls to |Update| will update the
   // rolling hash. It returns one on success and zero on failure. It is an error
-  // to call this function after the handshake buffer is released.
+  // to call this function after the handshake buffer is released. This may be
+  // called multiple times to change the hash function.
   bool InitHash(uint16_t version, const SSL_CIPHER *cipher);
 
   // UpdateForHelloRetryRequest resets the rolling hash with the
@@ -1449,7 +1451,7 @@ struct ECHConfig {
   Span<const uint8_t> public_name;
   Span<const uint8_t> cipher_suites;
   uint16_t kem_id = 0;
-  uint16_t maximum_name_length = 0;
+  uint8_t maximum_name_length = 0;
   uint8_t config_id = 0;
 };
 
@@ -1486,6 +1488,10 @@ enum ssl_client_hello_type_t {
   ssl_client_hello_outer,
 };
 
+// ECH_CLIENT_* are types for the ClientHello encrypted_client_hello extension.
+#define ECH_CLIENT_OUTER 0
+#define ECH_CLIENT_INNER 1
+
 // ssl_decode_client_hello_inner recovers the full ClientHelloInner from the
 // EncodedClientHelloInner |encoded_client_hello_inner| by replacing its
 // outer_extensions extension with the referenced extensions from the
@@ -1497,18 +1503,13 @@ OPENSSL_EXPORT bool ssl_decode_client_hello_inner(
     Span<const uint8_t> encoded_client_hello_inner,
     const SSL_CLIENT_HELLO *client_hello_outer);
 
-// ssl_client_hello_decrypt attempts to decrypt the given |payload| into
-// |out_encoded_client_hello_inner|. The decrypted value should be an
-// EncodedClientHelloInner. It returns false if any fatal errors occur and true
-// otherwise, regardless of whether the decrypt was successful. It sets
-// |out_encoded_client_hello_inner| to true if the decryption fails, and false
-// otherwise.
-bool ssl_client_hello_decrypt(EVP_HPKE_CTX *hpke_ctx,
-                              Array<uint8_t> *out_encoded_client_hello_inner,
+// ssl_client_hello_decrypt attempts to decrypt the |payload| and writes the
+// result to |*out|. |payload| must point into |client_hello_outer|. It returns
+// true on success and false on error. On error, it sets |*out_is_decrypt_error|
+// to whether the failure was due to a bad ciphertext.
+bool ssl_client_hello_decrypt(EVP_HPKE_CTX *hpke_ctx, Array<uint8_t> *out,
                               bool *out_is_decrypt_error,
                               const SSL_CLIENT_HELLO *client_hello_outer,
-                              uint16_t kdf_id, uint16_t aead_id,
-                              uint8_t config_id, Span<const uint8_t> enc,
                               Span<const uint8_t> payload);
 
 #define ECH_CONFIRMATION_SIGNAL_LEN 8
@@ -1518,13 +1519,14 @@ bool ssl_client_hello_decrypt(EVP_HPKE_CTX *hpke_ctx,
 size_t ssl_ech_confirmation_signal_hello_offset(const SSL *ssl);
 
 // ssl_ech_accept_confirmation computes the server's ECH acceptance signal,
-// writing it to |out|. The signal is computed by concatenating |transcript|
-// with |server_hello|. This function handles the fact that eight bytes of
-// |server_hello| need to be replaced with zeros before hashing. It returns true
-// on success, and false on failure.
+// writing it to |out|. The transcript portion is the concatenation of
+// |transcript| with |msg|. The |ECH_CONFIRMATION_SIGNAL_LEN| bytes from
+// |offset| in |msg| are replaced with zeros before hashing. This function
+// returns true on success, and false on failure.
 bool ssl_ech_accept_confirmation(const SSL_HANDSHAKE *hs, Span<uint8_t> out,
-                                 const SSLTranscript &transcript,
-                                 Span<const uint8_t> server_hello);
+                                 Span<const uint8_t> client_random,
+                                 const SSLTranscript &transcript, bool is_hrr,
+                                 Span<const uint8_t> msg, size_t offset);
 
 // ssl_is_valid_ech_public_name returns true if |public_name| is a valid ECH
 // public name and false otherwise. It is exported for testing.
@@ -1830,8 +1832,9 @@ struct SSL_HANDSHAKE {
   // cookie is the value of the cookie received from the server, if any.
   Array<uint8_t> cookie;
 
-  // ech_client_bytes contains the ECH extension to send in the ClientHello.
-  Array<uint8_t> ech_client_bytes;
+  // ech_client_outer contains the outer ECH extension to send in the
+  // ClientHello, excluding the header and type byte.
+  Array<uint8_t> ech_client_outer;
 
   // ech_retry_configs, on the client, contains the retry configs from the
   // server as a serialized ECHConfigList.
@@ -1939,13 +1942,9 @@ struct SSL_HANDSHAKE {
   // influence the handshake on match.
   UniquePtr<SSL_HANDSHAKE_HINTS> hints;
 
-  // ech_present, on the server, indicates whether the ClientHello contained an
-  // encrypted_client_hello extension.
-  bool ech_present : 1;
-
-  // ech_is_inner_present, on the server, indicates whether the ClientHello
-  // contained an ech_is_inner extension.
-  bool ech_is_inner_present : 1;
+  // ech_is_inner, on the server, indicates whether the ClientHello contained an
+  // inner ECH extension.
+  bool ech_is_inner : 1;
 
   // ech_authenticated_reject, on the client, indicates whether an ECH rejection
   // handshake has been authenticated.
@@ -2163,6 +2162,22 @@ bool ssl_write_client_hello_without_extensions(const SSL_HANDSHAKE *hs,
 // flight. It returns true on success and false on error.
 bool ssl_add_client_hello(SSL_HANDSHAKE *hs);
 
+struct ParsedServerHello {
+  CBS raw;
+  uint16_t legacy_version = 0;
+  CBS random;
+  CBS session_id;
+  uint16_t cipher_suite = 0;
+  uint8_t compression_method = 0;
+  CBS extensions;
+};
+
+// ssl_parse_server_hello parses |msg| as a ServerHello. On success, it writes
+// the result to |*out| and returns true. Otherwise, it returns false and sets
+// |*out_alert| to an alert to send to the peer.
+bool ssl_parse_server_hello(ParsedServerHello *out, uint8_t *out_alert,
+                            const SSLMessage &msg);
+
 enum ssl_cert_verify_context_t {
   ssl_cert_verify_server,
   ssl_cert_verify_client,
@@ -2204,19 +2219,25 @@ bool ssl_get_local_application_settings(const SSL_HANDSHAKE *hs,
 bool ssl_negotiate_alps(SSL_HANDSHAKE *hs, uint8_t *out_alert,
                         const SSL_CLIENT_HELLO *client_hello);
 
-struct SSL_EXTENSION_TYPE {
+struct SSLExtension {
+  SSLExtension(uint16_t type_arg, bool allowed_arg = true)
+      : type(type_arg), allowed(allowed_arg), present(false) {
+    CBS_init(&data, nullptr, 0);
+  }
+
   uint16_t type;
-  bool *out_present;
-  CBS *out_data;
+  bool allowed;
+  bool present;
+  CBS data;
 };
 
 // ssl_parse_extensions parses a TLS extensions block out of |cbs| and advances
-// it. It writes the parsed extensions to pointers denoted by |ext_types|. On
-// success, it fills in the |out_present| and |out_data| fields and returns
-// true. Otherwise, it sets |*out_alert| to an alert to send and returns false.
-// Unknown extensions are rejected unless |ignore_unknown| is true.
+// it. It writes the parsed extensions to pointers in |extensions|. On success,
+// it fills in the |present| and |data| fields and returns true. Otherwise, it
+// sets |*out_alert| to an alert to send and returns false. Unknown extensions
+// are rejected unless |ignore_unknown| is true.
 bool ssl_parse_extensions(const CBS *cbs, uint8_t *out_alert,
-                          Span<const SSL_EXTENSION_TYPE> ext_types,
+                          std::initializer_list<SSLExtension *> extensions,
                           bool ignore_unknown);
 
 // ssl_verify_peer_cert verifies the peer certificate for |hs|.
@@ -2254,6 +2275,9 @@ bool ssl_log_secret(const SSL *ssl, const char *label,
 // and false on error. This function is exported for testing.
 OPENSSL_EXPORT bool ssl_client_hello_init(const SSL *ssl, SSL_CLIENT_HELLO *out,
                                           Span<const uint8_t> body);
+
+bool ssl_parse_client_hello_with_trailing_data(const SSL *ssl, CBS *cbs,
+                                               SSL_CLIENT_HELLO *out);
 
 bool ssl_client_hello_get_extension(const SSL_CLIENT_HELLO *client_hello,
                                     CBS *out, uint16_t extension_type);
@@ -2315,7 +2339,7 @@ bool tls12_check_peer_sigalg(const SSL_HANDSHAKE *hs, uint8_t *out_alert,
 
 #define TLSEXT_CHANNEL_ID_SIZE 128
 
-// From RFC4492, used in encoding the curve type in ECParameters
+// From RFC 4492, used in encoding the curve type in ECParameters
 #define NAMED_CURVE_TYPE 3
 
 struct CERT {
@@ -3292,19 +3316,15 @@ bool tls1_set_curves_list(Array<uint16_t> *out_group_ids, const char *curves);
 // ClientHello extension was the pre_shared_key extension and needs a PSK binder
 // filled in. The caller should then update |out| and, if applicable,
 // |out_encoded| with the binder after completing the whole message.
-//
-// If |omit_ech_len| is non-zero, the ECH extension is omitted, but padding is
-// computed as if there were an extension of length |omit_ech_len|. This is used
-// to compute ClientHelloOuterAAD.
 bool ssl_add_clienthello_tlsext(SSL_HANDSHAKE *hs, CBB *out, CBB *out_encoded,
                                 bool *out_needs_psk_binder,
-                                ssl_client_hello_type_t type, size_t header_len,
-                                size_t omit_ech_len);
+                                ssl_client_hello_type_t type,
+                                size_t header_len);
 
 bool ssl_add_serverhello_tlsext(SSL_HANDSHAKE *hs, CBB *out);
 bool ssl_parse_clienthello_tlsext(SSL_HANDSHAKE *hs,
                                   const SSL_CLIENT_HELLO *client_hello);
-bool ssl_parse_serverhello_tlsext(SSL_HANDSHAKE *hs, CBS *cbs);
+bool ssl_parse_serverhello_tlsext(SSL_HANDSHAKE *hs, const CBS *extensions);
 
 #define tlsext_tick_md EVP_sha256
 

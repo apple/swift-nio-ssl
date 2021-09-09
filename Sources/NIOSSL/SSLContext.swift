@@ -357,14 +357,19 @@ extension NIOSSLContext {
     }
 
     private static func setLeafCertificate(_ cert: NIOSSLCertificate, context: OpaquePointer) throws {
-        let rc = CNIOBoringSSL_SSL_CTX_use_certificate(context, cert.ref)
+        let rc = cert.withUnsafeMutableX509Pointer { ref in
+            CNIOBoringSSL_SSL_CTX_use_certificate(context, ref)
+        }
         guard rc == 1 else {
             throw NIOSSLError.failedToLoadCertificate
         }
     }
     
     private static func addAdditionalChainCertificate(_ cert: NIOSSLCertificate, context: OpaquePointer) throws {
-        guard 1 == CNIOBoringSSL_SSL_CTX_add1_chain_cert(context, cert.ref) else {
+        let rc = cert.withUnsafeMutableX509Pointer { ref in
+            CNIOBoringSSL_SSL_CTX_add1_chain_cert(context, ref)
+        }
+        guard rc == 1 else {
             throw NIOSSLError.failedToLoadCertificate
         }
     }
@@ -460,8 +465,8 @@ extension NIOSSLContext {
     
     private static func addCACertificateNameToList(context: OpaquePointer, certificate: NIOSSLCertificate) throws {
         // Adds the CA name extracted from cert to the list of CAs sent to the client when requesting a client certificate.
-        try withExtendedLifetime(certificate) {
-            guard 1 == CNIOBoringSSL_SSL_CTX_add_client_CA(context, certificate.ref) else {
+        try certificate.withUnsafeMutableX509Pointer { ref in
+            guard 1 == CNIOBoringSSL_SSL_CTX_add_client_CA(context, ref) else {
                 throw NIOSSLError.failedToLoadCertificate
             }
         }
@@ -509,7 +514,10 @@ extension NIOSSLContext {
 
     private static func addRootCertificate(_ cert: NIOSSLCertificate, context: OpaquePointer) throws {
         let store = CNIOBoringSSL_SSL_CTX_get_cert_store(context)!
-        if 0 == CNIOBoringSSL_X509_STORE_add_cert(store, cert.ref) {
+        let rc = cert.withUnsafeMutableX509Pointer { ref in
+            CNIOBoringSSL_X509_STORE_add_cert(store, ref)
+        }
+        if 0 == rc {
             throw NIOSSLError.failedToLoadCertificate
         }
     }
