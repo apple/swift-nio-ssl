@@ -26,7 +26,7 @@ import Darwin.C
 #elseif os(Linux) || os(FreeBSD) || os(Android)
 import Glibc
 #else
-let badOS = { fatalError("unsupported OS") }()
+#error("unsupported os")
 #endif
 
 // This is a neat trick. Swift lazily initializes module-globals based on when they're first

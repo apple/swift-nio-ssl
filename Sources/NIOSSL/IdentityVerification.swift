@@ -19,7 +19,7 @@ import Darwin.C
 #elseif os(Linux) || os(FreeBSD) || os(Android)
 import Glibc
 #else
-let badOS = { fatalError("unsupported OS") }()
+#error("unsupported os")
 #endif
 
 
