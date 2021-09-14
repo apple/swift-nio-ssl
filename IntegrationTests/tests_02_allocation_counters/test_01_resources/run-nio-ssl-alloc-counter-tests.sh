@@ -47,7 +47,7 @@ fi
     -p "$here/../../.." \
     -m NIOCore \
     -m NIOPosix \
-    -m NIOEmbedded
+    -m NIOEmbedded \
     -m NIOSSL \
     -s "$here/shared.swift" \
     -t "$tmp_dir" \
