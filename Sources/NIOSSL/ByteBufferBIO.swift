@@ -19,6 +19,14 @@ import NIOCore
 import CNIOBoringSSL
 #endif
 
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+import Darwin.C
+#elseif os(Linux) || os(FreeBSD) || os(Android)
+import Glibc
+#else
+#error("unsupported os")
+#endif
+
 
 /// The BoringSSL entry point to write to the `ByteBufferBIO`. This thunk unwraps the user data
 /// and then passes the call on to the specific BIO reference.
