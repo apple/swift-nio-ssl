@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftNIO open source project
 //
-// Copyright (c) 2017-2018 Apple Inc. and the SwiftNIO project authors
+// Copyright (c) 2017-2021 Apple Inc. and the SwiftNIO project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -12,13 +12,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-import NIO
+import NIOCore
 #if compiler(>=5.1)
 @_implementationOnly import CNIOBoringSSL
 @_implementationOnly import CNIOBoringSSLShims
 #else
 import CNIOBoringSSL
 import CNIOBoringSSLShims
+#endif
+
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+import Darwin.C
+#elseif os(Linux) || os(FreeBSD) || os(Android)
+import Glibc
+#else
+#error("unsupported os")
 #endif
 
 // This is a neat trick. Swift lazily initializes module-globals based on when they're first

@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftNIO open source project
 //
-// Copyright (c) 2017-2018 Apple Inc. and the SwiftNIO project authors
+// Copyright (c) 2017-2021 Apple Inc. and the SwiftNIO project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -12,7 +12,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-import NIO
+import NIOCore
+
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+import Darwin.C
+#elseif os(Linux) || os(FreeBSD) || os(Android)
+import Glibc
+#else
+#error("unsupported os")
+#endif
 
 
 private let asciiIDNAIdentifier: ArraySlice<UInt8> = Array("xn--".utf8)[...]

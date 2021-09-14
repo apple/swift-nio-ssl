@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftNIO open source project
 //
-// Copyright (c) 2017-2018 Apple Inc. and the SwiftNIO project authors
+// Copyright (c) 2017-2021 Apple Inc. and the SwiftNIO project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -19,11 +19,14 @@
 import CNIOBoringSSL
 import CNIOBoringSSLShims
 #endif
-import NIO
+import NIOCore
+
 #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
-import struct Darwin.time_t
-#elseif canImport(Glibc)
-import struct Glibc.time_t
+import Darwin.C
+#elseif os(Linux) || os(FreeBSD) || os(Android)
+import Glibc
+#else
+#error("unsupported os")
 #endif
 
 /// A reference to a BoringSSL Certificate object (`X509 *`).
