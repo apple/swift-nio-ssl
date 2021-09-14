@@ -19,6 +19,14 @@ import CNIOBoringSSL
 #endif
 import NIOCore
 
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+import Darwin.C
+#elseif os(Linux) || os(FreeBSD) || os(Android)
+import Glibc
+#else
+#error("unsupported os")
+#endif
+
 /// The result of an attempt to verify an X.509 certificate.
 public enum NIOSSLVerificationResult {
     /// The certificate was successfully verified.
