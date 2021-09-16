@@ -13,11 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import NIOCore
-#if compiler(>=5.1)
 @_implementationOnly import CNIOBoringSSL
-#else
-import CNIOBoringSSL
-#endif
 
 internal let SSL_MAX_RECORD_SIZE = 16 * 1024
 

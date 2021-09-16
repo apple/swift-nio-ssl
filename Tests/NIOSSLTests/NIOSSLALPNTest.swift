@@ -13,11 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
-#if compiler(>=5.1)
 @_implementationOnly import CNIOBoringSSL
-#else
-import CNIOBoringSSL
-#endif
 import NIOCore
 import NIOPosix
 import NIOTLS

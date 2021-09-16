@@ -13,13 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 import NIOCore
-#if compiler(>=5.1)
 @_implementationOnly import CNIOBoringSSL
 @_implementationOnly import CNIOBoringSSLShims
-#else
-import CNIOBoringSSL
-import CNIOBoringSSLShims
-#endif
 
 #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
 import Darwin.C
