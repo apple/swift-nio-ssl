@@ -12,13 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if compiler(>=5.1)
 @_implementationOnly import CNIOBoringSSL
 @_implementationOnly import CNIOBoringSSLShims
-#else
-import CNIOBoringSSL
-import CNIOBoringSSLShims
-#endif
 import NIOCore
 
 #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)

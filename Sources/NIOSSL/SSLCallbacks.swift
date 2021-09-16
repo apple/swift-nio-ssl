@@ -12,11 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if compiler(>=5.1)
 @_implementationOnly import CNIOBoringSSL
-#else
-import CNIOBoringSSL
-#endif
 import NIOCore
 
 #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
