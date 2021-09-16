@@ -484,6 +484,11 @@ class TLSConfigurationTest: XCTestCase {
         let digitalIdentities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
         
         // Client Configuration.
+        //
+        // This configuration disables hostname verification because the hostname verification
+        // code requires IP addresses, which we don't have in EmbeddedChannel. We override the
+        // trust roots to prevent execution of the SecurityFramework verification code, which doesn't
+        // work with EmbeddedChannel.
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.renegotiationSupport = .none
         clientConfig.certificateChain = [.certificate(digitalIdentities.clientCert)]
@@ -492,6 +497,11 @@ class TLSConfigurationTest: XCTestCase {
         clientConfig.certificateVerification = .noHostnameVerification
         
         // Server Configuration
+        //
+        // This configuration disables hostname verification because the hostname verification
+        // code requires IP addresses, which we don't have in EmbeddedChannel. We override the
+        // trust roots to prevent execution of the SecurityFramework verification code, which doesn't
+        // work with EmbeddedChannel.
         var serverConfig = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(digitalIdentities.leafCert)],
             privateKey: .privateKey(digitalIdentities.leafKey)
@@ -543,6 +553,11 @@ class TLSConfigurationTest: XCTestCase {
         let digitalIdentities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
         
         // Client Configuration.
+        //
+        // This configuration disables hostname verification because the hostname verification
+        // code requires IP addresses, which we don't have in EmbeddedChannel. We override the
+        // trust roots to prevent execution of the SecurityFramework verification code, which doesn't
+        // work with EmbeddedChannel.
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.renegotiationSupport = .none
         clientConfig.certificateChain = [.certificate(digitalIdentities.clientCert)]
@@ -551,6 +566,11 @@ class TLSConfigurationTest: XCTestCase {
         clientConfig.certificateVerification = .noHostnameVerification
         
         // Server Configuration
+        //
+        // This configuration disables hostname verification because the hostname verification
+        // code requires IP addresses, which we don't have in EmbeddedChannel. We override the
+        // trust roots to prevent execution of the SecurityFramework verification code, which doesn't
+        // work with EmbeddedChannel.
         var serverConfig = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(digitalIdentities.leafCert)],
             privateKey: .privateKey(digitalIdentities.leafKey)
