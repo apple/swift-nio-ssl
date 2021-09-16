@@ -488,6 +488,8 @@ class TLSConfigurationTest: XCTestCase {
         clientConfig.renegotiationSupport = .none
         clientConfig.certificateChain = [.certificate(digitalIdentities.clientCert)]
         clientConfig.privateKey = .privateKey(digitalIdentities.clientKey)
+        clientConfig.trustRoots = .certificates([root])
+        clientConfig.certificateVerification = .noHostnameVerification
         
         // Server Configuration
         var serverConfig = TLSConfiguration.makeServerConfiguration(
@@ -496,7 +498,7 @@ class TLSConfigurationTest: XCTestCase {
         )
         serverConfig.sendCANameList = true
         serverConfig.trustRoots = .certificates([root])
-        serverConfig.certificateVerification = .fullVerification
+        serverConfig.certificateVerification = .noHostnameVerification
         
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
@@ -514,25 +516,25 @@ class TLSConfigurationTest: XCTestCase {
             _ = try? serverChannel.finish()
             _ = try? clientChannel.finish()
         }
-        
+
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext)).wait())
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil)).wait())
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
-        // Connect. This should lead to a failed handshake.
+        // Connect. This should lead to a successful handshake.
         let addr = try assertNoThrowWithValue(SocketAddress(unixDomainSocketPath: "/tmp/whatever2"))
-        let connectFuture = clientChannel.connect(to: addr)
+        clientChannel.connect(to: addr, promise: nil)
         serverChannel.pipeline.fireChannelActive()
-        XCTAssertThrowsError(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
-        XCTAssertNoThrow(try connectFuture.wait())
-        XCTAssertFalse(handshakeHandler.handshakeSucceeded)
+        XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
+        XCTAssertTrue(handshakeHandler.handshakeSucceeded)
 
-        _ = serverChannel.close()
+        serverChannel.close(promise: nil)
+        XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
+
     }
     
     func testFullVerificationWithCANamesFromFile() throws {
-        
         // Custom certificates for TLS and client authentication.
         // In this test create the root certificate in the tmp directory and use it here to send the CA names.
         // This exercised the loadVerifyLocations file code path out in SSLContext
@@ -545,6 +547,8 @@ class TLSConfigurationTest: XCTestCase {
         clientConfig.renegotiationSupport = .none
         clientConfig.certificateChain = [.certificate(digitalIdentities.clientCert)]
         clientConfig.privateKey = .privateKey(digitalIdentities.clientKey)
+        clientConfig.trustRoots = .file(rootPath)
+        clientConfig.certificateVerification = .noHostnameVerification
         
         // Server Configuration
         var serverConfig = TLSConfiguration.makeServerConfiguration(
@@ -553,7 +557,7 @@ class TLSConfigurationTest: XCTestCase {
         )
         serverConfig.sendCANameList = true
         serverConfig.trustRoots = .file(rootPath)
-        serverConfig.certificateVerification = .fullVerification
+        serverConfig.certificateVerification = .noHostnameVerification
         
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
@@ -579,14 +583,14 @@ class TLSConfigurationTest: XCTestCase {
 
         // Connect. This should lead to a completed handshake.
         let addr = try assertNoThrowWithValue(SocketAddress(unixDomainSocketPath: "/tmp/whatever2"))
-        let connectFuture = clientChannel.connect(to: addr)
+        clientChannel.connect(to: addr, promise: nil)
         serverChannel.pipeline.fireChannelActive()
-        XCTAssertThrowsError(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
-        XCTAssertNoThrow(try connectFuture.wait())
+        XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
         
-        XCTAssertFalse(handshakeHandler.handshakeSucceeded)
+        XCTAssertTrue(handshakeHandler.handshakeSucceeded)
 
-        _ = serverChannel.close()
+        serverChannel.close(promise: nil)
+        XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
         XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rootPath)!))
     }
     
