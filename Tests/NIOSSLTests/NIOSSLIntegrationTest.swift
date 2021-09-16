@@ -457,7 +457,9 @@ class NIOSSLIntegrationTest: XCTestCase {
         let manager = BoringSSLPassphraseCallbackManager { closure in closure(passphrase.utf8) }
         let rc = withExtendedLifetime(manager) { manager -> CInt in
             let userData = Unmanaged.passUnretained(manager).toOpaque()
-            return CNIOBoringSSL_PEM_write_bio_PrivateKey(fileBio, key.ref, CNIOBoringSSL_EVP_aes_256_cbc(), nil, 0, globalBoringSSLPassphraseCallback, userData)
+            return key.withUnsafeMutableEVPPKEYPointer { ref in
+                return CNIOBoringSSL_PEM_write_bio_PrivateKey(fileBio, ref, CNIOBoringSSL_EVP_aes_256_cbc(), nil, 0, globalBoringSSLPassphraseCallback, userData)
+            }
         }
         CNIOBoringSSL_BIO_free(fileBio)
         precondition(rc == 1)

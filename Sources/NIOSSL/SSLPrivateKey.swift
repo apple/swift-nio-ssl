@@ -112,14 +112,25 @@ func globalBoringSSLPassphraseCallback(buf: UnsafeMutablePointer<CChar>?,
 /// to obtain an in-memory representation of a key from a buffer of
 /// bytes or from a file path.
 public class NIOSSLPrivateKey {
-    internal let _ref: UnsafeMutableRawPointer /*<EVP_PKEY>*/
+    @usableFromInline
+    internal enum Representation {
+        case native(UnsafeMutableRawPointer /*<EVP_PKEY*/)
+        case custom(AnyNIOSSLCustomPrivateKey)
+    }
 
-    internal var ref: UnsafeMutablePointer<EVP_PKEY> {
-        return self._ref.assumingMemoryBound(to: EVP_PKEY.self)
+    @usableFromInline
+    internal let representation: Representation
+
+    internal func withUnsafeMutableEVPPKEYPointer<ReturnType>(_ body: (UnsafeMutablePointer<EVP_PKEY>) throws -> ReturnType) rethrows -> ReturnType {
+        guard case .native(let pointer) = self.representation else {
+            preconditionFailure()
+        }
+
+        return try body(pointer.assumingMemoryBound(to: EVP_PKEY.self))
     }
 
     private init(withReference ref: UnsafeMutablePointer<EVP_PKEY>) {
-        self._ref = UnsafeMutableRawPointer(ref) // erasing the type for @_implementationOnly import CNIOBoringSSL
+        self.representation = .native(UnsafeMutableRawPointer(ref)) // erasing the type for @_implementationOnly import CNIOBoringSSL
     }
 
     /// A delegating initializer for `init(file:format:passphraseCallback)` and `init(file:format:)`.
@@ -266,6 +277,18 @@ public class NIOSSLPrivateKey {
         try self.init(bytes: bytes, format: format, callbackManager: manager)
     }
 
+    /// Create a `NIOSSLPrivateKey` from a custom private key callback.
+    ///
+    /// The private key, in addition to needing to conform to `NIOSSLCustomPrivateKey`,
+    /// is also required to be `Hashable`. This is because `NIOSSLPrivateKey`s are `Hashable`.
+    ///
+    /// - parameters:
+    ///     - customPrivateKey: The custom private key to use with the TLS certificate.
+    @inlinable
+    public init<CustomKey: NIOSSLCustomPrivateKey & Hashable>(customPrivateKey: CustomKey) {
+        self.representation = .custom(AnyNIOSSLCustomPrivateKey(customPrivateKey))
+    }
+
     /// Create an NIOSSLPrivateKey wrapping a pointer into BoringSSL.
     ///
     /// This is a function that should be avoided as much as possible because it plays poorly with
@@ -281,7 +304,13 @@ public class NIOSSLPrivateKey {
     }
 
     deinit {
-        CNIOBoringSSL_EVP_PKEY_free(self.ref)
+        switch self.representation {
+        case .native(let ref):
+            CNIOBoringSSL_EVP_PKEY_free(ref.assumingMemoryBound(to: EVP_PKEY.self))
+        case .custom:
+            // Merely dropping the ref is enough.
+            ()
+        }
     }
 }
 
@@ -293,7 +322,9 @@ extension NIOSSLPrivateKey {
     /// X509 API in BoringSSL.
     ///
     /// The pointer provided to the closure is not valid beyond the lifetime of this method call.
-    private func withUnsafeDERBuffer<T>(_ body: (UnsafeRawBufferPointer) throws -> T) throws -> T {
+    ///
+    /// This method is only safe to call on native private keys.
+    private static func withUnsafeDERBuffer<T>(of ref: UnsafeMutablePointer<EVP_PKEY>, _ body: (UnsafeRawBufferPointer) throws -> T) throws -> T {
         guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_mem()) else {
             fatalError("Failed to malloc for a BIO handler")
         }
@@ -302,7 +333,7 @@ extension NIOSSLPrivateKey {
             CNIOBoringSSL_BIO_free(bio)
         }
 
-        let rc = CNIOBoringSSL_i2d_PrivateKey_bio(bio, self.ref)
+        let rc = CNIOBoringSSL_i2d_PrivateKey_bio(bio, ref)
         guard rc == 1 else {
             let errorStack = BoringSSLError.buildErrorStack()
             throw BoringSSLError.unknownError(errorStack)
@@ -317,25 +348,57 @@ extension NIOSSLPrivateKey {
 
         return try body(bytes)
     }
+
+    /// The custom signing algorithms required by this private key, if any.
+    ///
+    /// Is `nil` when the key is a native key, as this is handled by BoringSSL.
+    internal var customSigningAlgorithms: [SignatureAlgorithm]? {
+        switch self.representation {
+        case .native:
+            return nil
+        case .custom(let customKey):
+            return customKey.signatureAlgorithms
+        }
+    }
 }
 
 
 extension NIOSSLPrivateKey: Equatable {
     public static func ==(lhs: NIOSSLPrivateKey, rhs: NIOSSLPrivateKey) -> Bool {
-        // Annoyingly, EVP_PKEY_cmp does not have a traditional return value pattern. 1 means equal, 0 means non-equal,
-        // negative means error. Here we treat "error" as "not equal", because we have no error reporting mechanism from this call site,
-        // and anyway, BoringSSL considers "these keys aren't of the same type" to be an error, which is in my mind pretty ludicrous.
-        return CNIOBoringSSL_EVP_PKEY_cmp(lhs.ref, rhs.ref) == 1
+        switch (lhs.representation, rhs.representation) {
+        case (.native, .native):
+            // Annoyingly, EVP_PKEY_cmp does not have a traditional return value pattern. 1 means equal, 0 means non-equal,
+            // negative means error. Here we treat "error" as "not equal", because we have no error reporting mechanism from this call site,
+            // and anyway, BoringSSL considers "these keys aren't of the same type" to be an error, which is in my mind pretty ludicrous.
+            return lhs.withUnsafeMutableEVPPKEYPointer { lhsRef in
+                rhs.withUnsafeMutableEVPPKEYPointer { rhsRef in
+                    CNIOBoringSSL_EVP_PKEY_cmp(lhsRef, rhsRef) == 1
+                }
+            }
+
+        case (.custom(let lhsCustom), .custom(let rhsCustom)):
+            return lhsCustom == rhsCustom
+
+        case (.native, .custom), (.custom, .native):
+            return false
+        }
     }
 }
 
 
 extension NIOSSLPrivateKey: Hashable {
     public func hash(into hasher: inout Hasher) {
-        // Sadly, BoringSSL doesn't provide us with a nice key hashing function. We therefore have only two options:
-        // we can either serialize the key into DER and feed that into the hasher, or we can attempt to hash the key parameters directly.
-        // We could attempt the latter, but frankly it causes a lot of pain for minimal gain, so we don't bother. This incurs an allocation,
-        // but that's ok. We crash if we hit an error here, as there is no way to recover.
-        try! self.withUnsafeDERBuffer { hasher.combine(bytes: $0) }
+        switch self.representation {
+        case .native(let ref):
+            // Sadly, BoringSSL doesn't provide us with a nice key hashing function. We therefore have only two options:
+            // we can either serialize the key into DER and feed that into the hasher, or we can attempt to hash the key parameters directly.
+            // We could attempt the latter, but frankly it causes a lot of pain for minimal gain, so we don't bother. This incurs an allocation,
+            // but that's ok. We crash if we hit an error here, as there is no way to recover.
+            hasher.combine(0)
+            try! NIOSSLPrivateKey.withUnsafeDERBuffer(of: ref.assumingMemoryBound(to: EVP_PKEY.self)) { hasher.combine(bytes: $0) }
+        case .custom(let custom):
+            hasher.combine(1)
+            custom.hash(into: &hasher)
+        }
     }
 }

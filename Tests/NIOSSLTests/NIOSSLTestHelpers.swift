@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftNIO open source project
 //
-// Copyright (c) 2017-2018 Apple Inc. and the SwiftNIO project authors
+// Copyright (c) 2017-2021 Apple Inc. and the SwiftNIO project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -14,6 +14,8 @@
 
 import Foundation
 @_implementationOnly import CNIOBoringSSL
+import NIOCore
+import NIOEmbedded
 @testable import NIOSSL
 
 let samplePemCert = """
@@ -589,6 +591,21 @@ func generateRSAPrivateKey() -> UnsafeMutablePointer<EVP_PKEY> {
     return pkey
 }
 
+func generateECPrivateKey(curveNID: CInt = NID_X9_62_prime256v1) -> UnsafeMutablePointer<EVP_PKEY> {
+    let ctx = CNIOBoringSSL_EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nil)!
+    defer {
+        CNIOBoringSSL_EVP_PKEY_CTX_free(ctx)
+    }
+
+    precondition(CNIOBoringSSL_EVP_PKEY_keygen_init(ctx) == 1)
+    precondition(CNIOBoringSSL_EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, curveNID) == 1)
+
+    var pkey: UnsafeMutablePointer<EVP_PKEY>? = nil
+    precondition(CNIOBoringSSL_EVP_PKEY_keygen(ctx, &pkey) == 1)
+
+    return pkey!
+}
+
 func addExtension(x509: OpaquePointer, nid: CInt, value: String) {
     var extensionContext = X509V3_CTX()
     
@@ -600,8 +617,8 @@ func addExtension(x509: OpaquePointer, nid: CInt, value: String) {
     CNIOBoringSSL_X509_EXTENSION_free(ext)
 }
 
-func generateSelfSignedCert() -> (NIOSSLCertificate, NIOSSLPrivateKey) {
-    let pkey = generateRSAPrivateKey()
+func generateSelfSignedCert(keygenFunction: () -> UnsafeMutablePointer<EVP_PKEY> = generateRSAPrivateKey) -> (NIOSSLCertificate, NIOSSLPrivateKey) {
+    let pkey = keygenFunction()
     let x = CNIOBoringSSL_X509_new()!
     CNIOBoringSSL_X509_set_version(x, 2)
 
@@ -647,4 +664,55 @@ func generateSelfSignedCert() -> (NIOSSLCertificate, NIOSSLPrivateKey) {
     CNIOBoringSSL_X509_sign(x, pkey, CNIOBoringSSL_EVP_sha256())
     
     return (NIOSSLCertificate.fromUnsafePointer(takingOwnership: x), NIOSSLPrivateKey.fromUnsafePointer(takingOwnership: pkey))
+}
+
+final class BackToBackEmbeddedChannel {
+    private(set) var client: EmbeddedChannel
+    private(set) var server: EmbeddedChannel
+    private var loop: EmbeddedEventLoop
+
+
+    init() {
+        self.loop = EmbeddedEventLoop()
+        self.client = EmbeddedChannel(loop: self.loop)
+        self.server = EmbeddedChannel(loop: self.loop)
+    }
+
+    func run() {
+        self.loop.run()
+    }
+
+    func connectInMemory() throws {
+        let addr = try assertNoThrowWithValue(SocketAddress(unixDomainSocketPath: "/tmp/whatever2"))
+        let connectFuture = self.client.connect(to: addr)
+        self.server.pipeline.fireChannelActive()
+        try self.interactInMemory()
+        try connectFuture.wait()
+    }
+
+    func interactInMemory() throws {
+        var workToDo = true
+
+        while workToDo {
+            workToDo = false
+
+            self.loop.run()
+            let clientDatum = try self.client.readOutbound(as: IOData.self)
+            let serverDatum = try self.server.readOutbound(as: IOData.self)
+
+            // Reads may trigger errors. The write case is automatic.
+            try self.client.throwIfErrorCaught()
+            try self.server.throwIfErrorCaught()
+
+            if let clientMsg = clientDatum {
+                try self.server.writeInbound(clientMsg)
+                workToDo = true
+            }
+
+            if let serverMsg = serverDatum {
+                try self.client.writeInbound(serverMsg)
+                workToDo = true
+            }
+        }
+    }
 }
