@@ -13,11 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import NIOCore
-#if compiler(>=5.1)
 @_implementationOnly import CNIOBoringSSL
-#else
-import CNIOBoringSSL
-#endif
 import NIOTLS
 
 /// The base class for all NIOSSL handlers. This class cannot actually be instantiated by

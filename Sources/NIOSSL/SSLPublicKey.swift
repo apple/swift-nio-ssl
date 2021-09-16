@@ -12,11 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if compiler(>=5.1)
 @_implementationOnly import CNIOBoringSSL
-#else
-import CNIOBoringSSL
-#endif
 
 /// An `NIOSSLPublicKey` is an abstract handle to a public key owned by BoringSSL.
 ///

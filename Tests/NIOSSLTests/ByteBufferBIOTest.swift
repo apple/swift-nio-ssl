@@ -14,11 +14,7 @@
 
 import XCTest
 import NIOCore
-#if compiler(>=5.1)
 @_implementationOnly import CNIOBoringSSL
-#else
-import CNIOBoringSSL
-#endif
 @testable import NIOSSL
 
 
