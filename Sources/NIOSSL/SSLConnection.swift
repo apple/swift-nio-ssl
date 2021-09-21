@@ -52,6 +52,7 @@ internal final class SSLConnection {
     /// Deprecated in favour of customVerificationManager
     private var verificationCallback: NIOSSLVerificationCallback?
     internal var customVerificationManager: CustomVerifyManager?
+    internal var customPrivateKeyResult: Result<ByteBuffer, Error>?
 
     /// Whether certificate hostnames should be validated.
     var validateHostnames: Bool {
@@ -140,13 +141,7 @@ internal final class SSLConnection {
             guard let ssl = CNIOBoringSSL_X509_STORE_CTX_get_ex_data(storeContext, CNIOBoringSSL_SSL_get_ex_data_X509_STORE_CTX_idx()) else {
                 preconditionFailure("Unable to obtain SSL * from X509_STORE_CTX * \(String(describing: storeContext))")
             }
-            guard let connectionPointer = CNIOBoringSSL_SSL_get_ex_data(OpaquePointer(ssl), sslConnectionExDataIndex) else {
-                // Uh-ok, our application state is gone. Don't let this error silently pass, go bang.
-                preconditionFailure("Unable to find application data from SSL * \(ssl), index \(sslConnectionExDataIndex)")
-            }
-
-            // Grab a connection
-            let connection = Unmanaged<SSLConnection>.fromOpaque(connectionPointer).takeUnretainedValue()
+            let connection = SSLConnection.loadConnectionFromSSL(OpaquePointer(ssl))
             switch connection.verificationCallback!(verificationResult, cert) {
             case .certificateVerified:
                 return 1
@@ -172,12 +167,7 @@ internal final class SSLConnection {
             }
 
             // Ok, this call may be a resumption of a previous negotiation. We need to check if our connection object has a pre-existing verifiation state.
-            guard let connectionPointer = CNIOBoringSSL_SSL_get_ex_data(unwrappedSSL, sslConnectionExDataIndex) else {
-                // Uh-ok, our application state is gone. Don't let this error silently pass, go bang.
-                preconditionFailure("Unable to find application data from SSL * \(unwrappedSSL), index \(sslConnectionExDataIndex)")
-            }
-
-            let connection = Unmanaged<SSLConnection>.fromOpaque(connectionPointer).takeUnretainedValue()
+            let connection = SSLConnection.loadConnectionFromSSL(unwrappedSSL)
 
             // We force unwrap the custom verification manager because for it to not be set is a programmer error.
             return connection.customVerificationManager!.process(on: connection)
@@ -519,5 +509,18 @@ extension SSLConnection.PeerCertificateChainBuffers: RandomAccessCollection {
         // We want an UnsafeRawBufferPointer here, so we need to erase the pointer type.
         let bufferDataPointer = UnsafeBufferPointer(start: dataPointer, count: byteCount)
         return UnsafeRawBufferPointer(bufferDataPointer)
+    }
+}
+
+// MARK: Helpers for managing ex_data
+extension SSLConnection {
+    // Loads an SSLConnection from an SSL*. Does not take ownership of the pointer.
+    static func loadConnectionFromSSL(_ ssl: OpaquePointer) -> SSLConnection {
+        guard let connectionPointer = CNIOBoringSSL_SSL_get_ex_data(ssl, sslConnectionExDataIndex) else {
+            // Uh-ok, our application state is gone. Don't let this error silently pass, go bang.
+            preconditionFailure("Unable to find application data from SSL * \(ssl), index \(sslConnectionExDataIndex)")
+        }
+
+        return Unmanaged<SSLConnection>.fromOpaque(connectionPointer).takeUnretainedValue()
     }
 }

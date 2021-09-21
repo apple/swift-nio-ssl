@@ -37,6 +37,7 @@ class LinuxMainRunnerImpl: LinuxMainRunner {
              testCase(ByteBufferBIOTest.allTests),
              testCase(CertificateVerificationTests.allTests),
              testCase(ClientSNITests.allTests),
+             testCase(CustomPrivateKeyTests.allTests),
              testCase(IdentityVerificationTest.allTests),
              testCase(NIOSSLALPNTest.allTests),
              testCase(NIOSSLIntegrationTest.allTests),

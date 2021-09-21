@@ -195,7 +195,7 @@ extension CustomVerifyManager {
                 // escape the mutable ownership of self.
                 precondition(connection.customVerificationManager == nil || connection.customVerificationManager?.result == .some(.pendingResult))
                 connection.customVerificationManager?.result = .complete(NIOSSLVerificationResult(result))
-                connection.parentHandler?.asynchronousCertificateVerificationComplete()
+                connection.parentHandler?.resumeHandshake()
             }
         }
 

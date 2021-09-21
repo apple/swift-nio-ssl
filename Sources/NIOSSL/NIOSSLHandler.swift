@@ -49,6 +49,10 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private var didDeliverData: Bool = false
     private var storedContext: ChannelHandlerContext? = nil
     private var shutdownTimeout: TimeAmount
+
+    internal var channel: Channel? {
+        return self.storedContext?.channel
+    }
     
     internal init(connection: SSLConnection, shutdownTimeout: TimeAmount) {
         self.connection = connection
@@ -251,7 +255,11 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         case .failed(let err):
             writeDataToNetwork(context: context, promise: nil)
             
-            // TODO(cory): This event should probably fire out of the BoringSSL info callback.
+            // If there's a failed private key operation, we fire both errors.
+            if case .failure(let privateKeyError) = self.connection.customPrivateKeyResult {
+                context.fireErrorCaught(privateKeyError)
+            }
+
             context.fireErrorCaught(NIOSSLError.handshakeFailed(err))
             channelClose(context: context, reason: NIOSSLError.handshakeFailed(err))
         }
@@ -715,7 +723,7 @@ fileprivate extension Array where Element == EventLoopPromise<Void> {
 
 // MARK:- Code for handling asynchronous handshake resumption.
 extension NIOSSLHandler {
-    internal func asynchronousCertificateVerificationComplete() {
+    internal func resumeHandshake() {
         guard let storedContext = self.storedContext else {
             // Oh well, the connection is dead. Do nothing.
             return

@@ -104,6 +104,10 @@ internal extension BoringSSLError {
             return .wantX509Lookup
         case SSL_ERROR_SYSCALL:
             return .syscallError
+        case SSL_ERROR_WANT_PRIVATE_KEY_OPERATION:
+            // This is a terrible hack: we can't add cases to this enum, so we can't represent
+            // this directly. In all cases this should be the same as wantCertificateVerify, so we'll just use that.
+            return .wantCertificateVerify
         case SSL_ERROR_SSL:
             return .sslError(buildErrorStack())
         default:

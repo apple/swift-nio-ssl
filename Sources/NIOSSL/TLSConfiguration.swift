@@ -750,3 +750,53 @@ extension TLSConfiguration {
                                 additionalTrustRoots: additionalTrustRoots)
     }
 }
+
+extension TLSConfiguration {
+    /// Provides the resolved signature algorithms for signing, if any.
+    ///
+    /// Users can override the signature algorithms in two ways. Firstly, they can provide a
+    /// value for the `signingSignatureAlgorithms` field in the `TLSConfiguration` structure.
+    /// This acts as an artificial limiter, preventing certain algorithms from being used even
+    /// though a key might nominally support them.
+    ///
+    /// Secondly, users can provide a custom key. This custom key is only capable of using
+    /// certain signing algorithms.
+    ///
+    /// This property resolves these two into a single unified set by diffing them together.
+    /// If there is no override (i.e. a native key and no override of the
+    /// `signingSignatureAlgorithms` field then this returns `nil`.
+    internal var resolvedSigningSignatureAlgorithms: [SignatureAlgorithm]? {
+        switch (self.signingSignatureAlgorithms, self.privateKey?.customSigningAlgorithms) {
+        case (.none, .none):
+            // No overrides.
+            return nil
+
+        case (.some(let manualOverrides), .none):
+            return manualOverrides
+
+        case (.none, .some(let keyRequirements)):
+            return keyRequirements
+
+        case (.some(let manualOverrides), .some(let keyRequirements)):
+            // Here we have to filter the set. We assume the two lists are small, and so we
+            // just use `Array.filter` instead of composing into a Set. Note that the order
+            // here is _semantic_: we have to filter the manual overrides array becuase
+            // that order was specified by the user, and we want to honor it.
+            return manualOverrides.filter { keyRequirements.contains($0) }
+        }
+    }
+}
+
+extension NIOSSLPrivateKeySource {
+    /// The custom signing algorithms required by this private key, if any.
+    ///
+    /// Is `nil` when the key is a file-backed key, as this is handled by BoringSSL as a native key.
+    fileprivate var customSigningAlgorithms: [SignatureAlgorithm]? {
+        switch self {
+        case .file:
+            return nil
+        case .privateKey(let key):
+            return key.customSigningAlgorithms
+        }
+    }
+}
