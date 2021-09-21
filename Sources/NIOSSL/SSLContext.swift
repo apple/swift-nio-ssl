@@ -208,7 +208,7 @@ public final class NIOSSLContext {
         }
         
         // Configure signing algorithms
-        if let signingSignatureAlgorithms = configuration.signingSignatureAlgorithms {
+        if let signingSignatureAlgorithms = configuration.resolvedSigningSignatureAlgorithms {
             returnCode = signingSignatureAlgorithms
                 .map { $0.rawValue }
                 .withUnsafeBufferPointer { algo in
@@ -378,8 +378,16 @@ extension NIOSSLContext {
     }
     
     private static func setPrivateKey(_ key: NIOSSLPrivateKey, context: OpaquePointer) throws {
-        guard 1 == CNIOBoringSSL_SSL_CTX_use_PrivateKey(context, key.ref) else {
-            throw NIOSSLError.failedToLoadPrivateKey
+        switch key.representation {
+        case .native:
+            let rc = key.withUnsafeMutableEVPPKEYPointer { ref in
+                CNIOBoringSSL_SSL_CTX_use_PrivateKey(context, ref)
+            }
+            guard 1 == rc else {
+                throw NIOSSLError.failedToLoadPrivateKey
+            }
+        case .custom:
+            CNIOBoringSSL_SSL_CTX_set_private_key_method(context, customPrivateKeyMethod)
         }
     }
 
