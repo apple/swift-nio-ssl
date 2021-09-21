@@ -379,8 +379,13 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
             case .failed(BoringSSLError.zeroReturn):
                 switch self.state {
-                case .idle, .closed, .unwrapped, .handshaking:
+                case .idle, .handshaking:
                     preconditionFailure("Should not get zeroReturn in \(self.state)")
+                case .closed, .unwrapped:
+                    // This is an unexpected place to be, but it's not totally impossible. Assume this
+                    // is the result of a wonky I/O pattern and just ignore it.
+                    self.plaintextReadBuffer = receiveBuffer
+                    break readLoop
                 case .active:
                     self.state = .closing(self.scheduleTimedOutShutdown(context: context))
                 case .unwrapping, .closing:

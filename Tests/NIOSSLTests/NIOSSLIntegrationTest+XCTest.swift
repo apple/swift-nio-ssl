@@ -63,6 +63,7 @@ extension NIOSSLIntegrationTest {
                 ("testKeyLoggingClientAndServer", testKeyLoggingClientAndServer),
                 ("testLoadsOfCloses", testLoadsOfCloses),
                 ("testWriteFromFailureOfWrite", testWriteFromFailureOfWrite),
+                ("testChannelInactiveDuringHandshakeSucceeded", testChannelInactiveDuringHandshakeSucceeded),
                 ("testTrustedFirst", testTrustedFirst),
            ]
    }
