@@ -256,6 +256,13 @@ extension NIOSSLCertificate {
     public func toDERBytes() throws -> [UInt8] {
         return try self.withUnsafeDERCertificateBuffer { Array($0) }
     }
+    
+    /// Extracts the SHA1 hash of the subject name before it has been truncated.
+    ///
+    /// - returns: Numeric hash of the subject name.
+    public func getSubjectNameHash() -> UInt {
+        return CNIOBoringSSL_X509_subject_name_hash(self.ref)
+    }
 
     /// Create an array of `NIOSSLCertificate`s from a buffer of bytes in PEM format.
     ///

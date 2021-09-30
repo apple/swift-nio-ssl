@@ -263,6 +263,9 @@ public struct TLSConfiguration {
     ///
     /// - NOTE: If certificate validation is enabled and `trustRoots` is `nil` then the system default root of
     /// trust is used (as if `trustRoots` had been explicitly set to `.default`).
+    ///
+    /// - NOTE: If a directory path is used here to load a directory of certificates into a configuration, then the
+    ///         certificates in this directory must be formatted by c_rehash to create the rehash file format of HHHHHHHH.D with a symlink.
     public var trustRoots: NIOSSLTrustRoots?
 
     /// Additional trust roots to use to validate certificates, used in addition to `trustRoots`.

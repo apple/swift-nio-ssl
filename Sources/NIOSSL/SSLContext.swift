@@ -508,15 +508,28 @@ extension NIOSSLContext {
             // This could be from a location like /etc/ssl/cert.pem as an example.
             CNIOBoringSSL_SSL_CTX_set_client_CA_list(context, CNIOBoringSSL_SSL_load_client_CA_file(path))
         } else if sendCANames, isDirectory {
-            // If the path that is passed in is a directory, scan the directory and gather up the PEM or DER files.
-            let pemFilePaths = DirectoryContents(path: path).filter { $0.suffix(4) == ".pem" || $0.suffix(4) == ".cer" }
-            // Create the PEM files one by one and use `addCACertificateNameToList` to add the CA name to the STACK_OF(X509_NAME).
-            for path in pemFilePaths {
+            // Match the c_rehash directory format and load the certificate based on this criteria.
+            let certificateFilePaths = DirectoryContents(path: path).filter {
+                self.isRehashFormat(path: $0)
+            }
+            // Load only the certificates that resolve to an existing certificate in the directory.
+            for symPath in certificateFilePaths {
+                let bufSize = Int(PATH_MAX)
+                // Resolve the symlink, and load the contents into an NIOSSLCertificate
+                let resolvedPathBuffer = UnsafeMutablePointer<CChar>.allocate(capacity: bufSize + 1)
+                let bytesRead = readlink(symPath, resolvedPathBuffer, bufSize)
+                guard bytesRead > 0 else { continue }
+                resolvedPathBuffer[bytesRead] = Int8(0)
+                // NOTE: appending the original path here is needed because the
+                //       behavior of c_rehash is to do a symlink in-directory and not include the full path.
+                let certPath = path + String(cString: resolvedPathBuffer)
+                
                 let cert: NIOSSLCertificate
-                if path.suffix(4) == ".pem" {
-                    cert = try NIOSSLCertificate(file: path, format: .pem)
+                // Add the Certificate CA name to the list
+                if certPath.suffix(4) == ".pem" {
+                    cert = try NIOSSLCertificate(file: certPath, format: .pem)
                 } else {
-                    cert = try NIOSSLCertificate(file: path, format: .der)
+                    cert = try NIOSSLCertificate(file: certPath, format: .der)
                 }
                 try addCACertificateNameToList(context: context, certificate: cert)
             }
@@ -569,6 +582,39 @@ extension NIOSSLContext {
             parentSwiftContext.keyLogManager!.log(linePointer)
         }
     }
+    /// Takes a path and determines if the file at this path is of c_rehash format .
+    private static func isRehashFormat(path: String) -> Bool {
+        // Check if the element’s name matches the c_rehash symlink name format.
+        // Note that `lastPathComponent` is not available here.
+        guard let lastPathComponent = path.split(separator: "/").last else { return false }
+        let filenameElements = lastPathComponent.split(separator: ".")
+        
+        guard filenameElements.count == 2,
+              let filenameElement = filenameElements.first,
+              let fileExtensionElement = filenameElements.last else {
+            return false
+        }
+        
+        // The links created are of the form HHHHHHHH.D, where each H is a hexadecimal character and D is a single decimal digit.
+        let filename = String(filenameElement)
+        let fileExtension = Int(fileExtensionElement)
+        
+        // Double check that the extension did not fail to cast to an integer.
+        // Make sure that the filename is an 8 character hex based file name.
+        guard fileExtension != nil,
+              filename.count == 8,
+            filename.allSatisfy(\.isHexDigit) else { return false }
+        
+        // Check if the element is a symlink. If it is not, return false.
+        var buffer = stat()
+        let _ = lstat(path, &buffer)
+        // Check the mode to make sure this is a symlink
+        if (buffer.st_mode & S_IFMT) != S_IFLNK { return false }
+
+        // Return true at this point because the file format is considered to be in rehash format and a symlink.
+        // Rehash format being "%08lx.%d" or HHHHHHHH.D
+        return true
+    }
 }
 
 extension NIOSSLContext {
@@ -578,6 +624,10 @@ extension NIOSSLContext {
             return 0
         }
         return CNIOBoringSSL_sk_X509_NAME_num(caNameList)
+    }
+    /// Testing stub to expose the rehash format.
+    static func getRehashFormatResult(path: String) -> Bool {
+        return NIOSSLContext.isRehashFormat(path: path)
     }
 }
 
