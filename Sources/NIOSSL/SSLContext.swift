@@ -509,20 +509,15 @@ extension NIOSSLContext {
             CNIOBoringSSL_SSL_CTX_set_client_CA_list(context, CNIOBoringSSL_SSL_load_client_CA_file(path))
         } else if sendCANames, isDirectory {
             // Match the c_rehash directory format and load the certificate based on this criteria.
-            let certificateFilePaths = DirectoryContents(path: path).filter {
-                self.isRehashFormat(path: $0)
+            let certificateFilePaths = try DirectoryContents(path: path).filter {
+                try self._isRehashFormat(path: $0)
             }
             // Load only the certificates that resolve to an existing certificate in the directory.
             for symPath in certificateFilePaths {
-                let bufSize = Int(PATH_MAX)
-                // Resolve the symlink, and load the contents into an NIOSSLCertificate
-                let resolvedPathBuffer = UnsafeMutablePointer<CChar>.allocate(capacity: bufSize + 1)
-                let bytesRead = readlink(symPath, resolvedPathBuffer, bufSize)
-                guard bytesRead > 0 else { continue }
-                resolvedPathBuffer[bytesRead] = Int8(0)
+                guard let resolvedPath = try self.resolveSymlink(path: symPath) else { continue }
                 // NOTE: appending the original path here is needed because the
                 //       behavior of c_rehash is to do a symlink in-directory and not include the full path.
-                let certPath = path + String(cString: resolvedPathBuffer)
+                let certPath = path + resolvedPath
                 
                 let cert: NIOSSLCertificate
                 // Add the Certificate CA name to the list
@@ -582,8 +577,23 @@ extension NIOSSLContext {
             parentSwiftContext.keyLogManager!.log(linePointer)
         }
     }
+    
+    private static func resolveSymlink(path: String) throws -> String? {
+        let bufSize = Int(PATH_MAX)
+        // Resolve the symlink, and load the contents into an NIOSSLCertificate
+        let resolvedPathBufferPtr = UnsafeMutablePointer<CChar>.allocate(capacity: bufSize + 1)
+        let bytesRead = try Posix.readlink(path: path, buf: resolvedPathBufferPtr, bufSize: bufSize)
+        guard bytesRead > 0 else { return nil } // This should force the continue
+        resolvedPathBufferPtr[bytesRead] = Int8(0)
+        defer {
+            // Deinit the allocate call above
+            resolvedPathBufferPtr.deinitialize(count: bufSize)
+        }
+        return String(cString: resolvedPathBufferPtr)
+    }
+    
     /// Takes a path and determines if the file at this path is of c_rehash format .
-    private static func isRehashFormat(path: String) -> Bool {
+    internal static func _isRehashFormat(path: String) throws -> Bool {
         // Check if the element’s name matches the c_rehash symlink name format.
         // Note that `lastPathComponent` is not available here.
         guard let lastPathComponent = path.split(separator: "/").last else { return false }
@@ -603,11 +613,11 @@ extension NIOSSLContext {
         // Make sure that the filename is an 8 character hex based file name.
         guard fileExtension != nil,
               filename.count == 8,
-            filename.allSatisfy(\.isHexDigit) else { return false }
+              filename.utf8.allSatisfy( { Character(UnicodeScalar($0)).isHexDigit }) else { return false }
         
         // Check if the element is a symlink. If it is not, return false.
         var buffer = stat()
-        let _ = lstat(path, &buffer)
+        let _ = try Posix.lstat(path: path, buf: &buffer)
         // Check the mode to make sure this is a symlink
         if (buffer.st_mode & S_IFMT) != S_IFLNK { return false }
 
@@ -624,10 +634,6 @@ extension NIOSSLContext {
             return 0
         }
         return CNIOBoringSSL_sk_X509_NAME_num(caNameList)
-    }
-    /// Testing stub to expose the rehash format.
-    static func getRehashFormatResult(path: String) -> Bool {
-        return NIOSSLContext.isRehashFormat(path: path)
     }
 }
 

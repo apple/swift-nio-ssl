@@ -181,6 +181,13 @@ public class NIOSSLCertificate {
         }
         return SubjectAltNameSequence(nameStack: OpaquePointer(sanExtension))
     }
+    
+    /// Extracts the SHA1 hash of the subject name before it has been truncated.
+    ///
+    /// - returns: Numeric hash of the subject name.
+    internal func getSubjectNameHash() -> UInt {
+        return CNIOBoringSSL_X509_subject_name_hash(self.ref)
+    }
 
     /// Returns the commonName field in the Subject of this certificate.
     ///
@@ -255,13 +262,6 @@ extension NIOSSLCertificate {
     /// - throws: If an error occurred while serializing the certificate.
     public func toDERBytes() throws -> [UInt8] {
         return try self.withUnsafeDERCertificateBuffer { Array($0) }
-    }
-    
-    /// Extracts the SHA1 hash of the subject name before it has been truncated.
-    ///
-    /// - returns: Numeric hash of the subject name.
-    public func getSubjectNameHash() -> UInt {
-        return CNIOBoringSSL_X509_subject_name_hash(self.ref)
     }
 
     /// Create an array of `NIOSSLCertificate`s from a buffer of bytes in PEM format.

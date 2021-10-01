@@ -275,7 +275,7 @@ class TLSConfigurationTest: XCTestCase {
         }
         // Create a rehash format filename to symlink the hard file above to.
         let originalSubjectName = cert.getSubjectNameHash()
-        let truncatedHash = String(format: "%08lx.%d", originalSubjectName, 0)
+        let truncatedHash = String(format: "%08lx.0", originalSubjectName)
         // Constr
         let tempDirPath = FileManager.default.temporaryDirectory.path + "/"
         return tempDirPath + truncatedHash
@@ -684,16 +684,21 @@ class TLSConfigurationTest: XCTestCase {
         // Note that CRLs are not supported, only PEM and DER representations of certificates.
         
         // Not a valid path.
-        let badPath = NIOSSLContext.getRehashFormatResult(path: "")
+        let badPath = try NIOSSLContext._isRehashFormat(path: "")
         XCTAssertFalse(badPath)
         // Filename is not in rehash format.
-        let acceptablePathBadFilename = NIOSSLContext.getRehashFormatResult(path: "/etc/ssl/certs/myFile.pem")
+        let acceptablePathBadFilename = try NIOSSLContext._isRehashFormat(path: "/etc/ssl/certs/myFile.pem")
         XCTAssertFalse(acceptablePathBadFilename)
         // Filename is in bad rehash format.
-        let acceptablePathBadRehashFormat = NIOSSLContext.getRehashFormatResult(path: "/etc/ssl/certs/7f44456a.z")
+        let acceptablePathBadRehashFormat = try NIOSSLContext._isRehashFormat(path: "/etc/ssl/certs/7f44456a.z")
         XCTAssertFalse(acceptablePathBadRehashFormat)
+        
+        // Test with an actual file, but no symlink.
+        let dummyFile = try dumpToFile(data: Data(), fileExtension: ".txt")
+        let newPath = FileManager.default.temporaryDirectory.path + "/7f44456a.1"
+        let _ = try FileManager.default.moveItem(atPath: dummyFile, toPath: newPath)
         // Filename is in rehash format, but not a symlink.
-        let acceptablePathAndRehashFormatButNoSymlink = NIOSSLContext.getRehashFormatResult(path: "/etc/ssl/certs/7f44456a.1")
+        let acceptablePathAndRehashFormatButNoSymlink = try NIOSSLContext._isRehashFormat(path: newPath)
         XCTAssertFalse(acceptablePathAndRehashFormatButNoSymlink)
         
         // Test actual symlink
@@ -707,11 +712,12 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertNoThrow(try FileManager.default.createSymbolicLink(atPath: rehashSymlinkName, withDestinationPath: rootCAFilenameOne))
         
         // Test the success case for the symlink
-        let successSymlink = NIOSSLContext.getRehashFormatResult(path: rehashSymlinkName)
+        let successSymlink = try NIOSSLContext._isRehashFormat(path: rehashSymlinkName)
         XCTAssertTrue(successSymlink)
         // Delete all files that were created for this test.
         XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rootCAPathOne)!))
         XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rehashSymlinkName)!))
+        XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + newPath)!))
     }
 
     func testNonexistentFileObject() throws {
