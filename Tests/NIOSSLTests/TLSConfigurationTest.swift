@@ -629,12 +629,9 @@ class TLSConfigurationTest: XCTestCase {
     }
     
     func testRehashFormatToPopulateCANamesFromDirectory() throws {
-        // Create PEM based cert
+        // Create 2 PEM based certs
         let rootCAPathOne = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem")
-        // Create DER based cert
-        let rootCATwo = try NIOSSLCertificate(bytes: .init(secondaryRootCertificateForClientAuthentication.utf8), format: .pem)
-        let derRepresentation = Data(try rootCATwo.toDERBytes())
-        let rootCAPathTwo = try dumpToFile(data: derRepresentation, fileExtension: ".cer")
+        let rootCAPathTwo = try dumpToFile(data: .init(secondaryRootCertificateForClientAuthentication.utf8), fileExtension: ".pem")
         
         // Create a rehash formatted name of both certificate's subject name that was created above.
         // Take these rehash certificate names and format a symlink with them below with createSymbolicLink.

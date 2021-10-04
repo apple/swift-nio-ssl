@@ -514,18 +514,8 @@ extension NIOSSLContext {
             }
             // Load only the certificates that resolve to an existing certificate in the directory.
             for symPath in certificateFilePaths {
-                guard let resolvedPath = try self.resolveSymlink(path: symPath) else { continue }
-                // NOTE: appending the original path here is needed because the
-                //       behavior of c_rehash is to do a symlink in-directory and not include the full path.
-                let certPath = path + resolvedPath
-                
-                let cert: NIOSSLCertificate
-                // Add the Certificate CA name to the list
-                if certPath.suffix(4) == ".pem" {
-                    cert = try NIOSSLCertificate(file: certPath, format: .pem)
-                } else {
-                    cert = try NIOSSLCertificate(file: certPath, format: .der)
-                }
+                // c_rehash only support pem files.
+                let cert = try NIOSSLCertificate(file: symPath, format: .pem)
                 try addCACertificateNameToList(context: context, certificate: cert)
             }
         }
@@ -576,20 +566,6 @@ extension NIOSSLContext {
             // either.
             parentSwiftContext.keyLogManager!.log(linePointer)
         }
-    }
-    
-    private static func resolveSymlink(path: String) throws -> String? {
-        let bufSize = Int(PATH_MAX)
-        // Resolve the symlink, and load the contents into an NIOSSLCertificate
-        let resolvedPathBufferPtr = UnsafeMutablePointer<CChar>.allocate(capacity: bufSize + 1)
-        let bytesRead = try Posix.readlink(path: path, buf: resolvedPathBufferPtr, bufSize: bufSize)
-        guard bytesRead > 0 else { return nil } // This should force the continue
-        resolvedPathBufferPtr[bytesRead] = Int8(0)
-        defer {
-            // Deinit the allocate call above
-            resolvedPathBufferPtr.deinitialize(count: bufSize)
-        }
-        return String(cString: resolvedPathBufferPtr)
     }
     
     /// Takes a path and determines if the file at this path is of c_rehash format .
