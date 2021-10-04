@@ -650,6 +650,14 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertNoThrow(try FileManager.default.createSymbolicLink(atPath: rehashSymlinkNameOne, withDestinationPath: rootCAFilenameOne))
         XCTAssertNoThrow(try FileManager.default.createSymbolicLink(atPath: rehashSymlinkNameTwo, withDestinationPath: rootCAFilenameTwo))
         
+        defer {
+            // Delete all files that were created for this test.
+            XCTAssertNoThrow(try FileManager.default.removeItem(at: rootCAURLOne))
+            XCTAssertNoThrow(try FileManager.default.removeItem(at: rootCAURLTwo))
+            XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rehashSymlinkNameOne)!))
+            XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rehashSymlinkNameTwo)!))
+        }
+        
         let tempFileDir = FileManager.default.temporaryDirectory.path + "/"
         let digitalIdentities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
         
@@ -667,12 +675,6 @@ class TLSConfigurationTest: XCTestCase {
         // Only setup the serverContext here to define that our two certificate CA names were populated to the SSL_CTX.
         let countAfter = serverContext.getX509NameListCount()
         XCTAssertEqual(countAfter, 2, "CA Name List should be 2 after the Server Context is created")
-        
-        // Delete all files that were created for this test.
-        XCTAssertNoThrow(try FileManager.default.removeItem(at: rootCAURLOne))
-        XCTAssertNoThrow(try FileManager.default.removeItem(at: rootCAURLTwo))
-        XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rehashSymlinkNameOne)!))
-        XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rehashSymlinkNameTwo)!))
     }
     
     func testRehashFormat() throws {
@@ -708,13 +710,16 @@ class TLSConfigurationTest: XCTestCase {
 
         XCTAssertNoThrow(try FileManager.default.createSymbolicLink(atPath: rehashSymlinkName, withDestinationPath: rootCAFilenameOne))
         
+        defer {
+            // Delete all files that were created for this test.
+            XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rootCAPathOne)!))
+            XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rehashSymlinkName)!))
+            XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + newPath)!))
+        }
+        
         // Test the success case for the symlink
         let successSymlink = try NIOSSLContext._isRehashFormat(path: rehashSymlinkName)
         XCTAssertTrue(successSymlink)
-        // Delete all files that were created for this test.
-        XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rootCAPathOne)!))
-        XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rehashSymlinkName)!))
-        XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + newPath)!))
     }
 
     func testNonexistentFileObject() throws {

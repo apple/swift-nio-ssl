@@ -583,13 +583,12 @@ extension NIOSSLContext {
         
         // The links created are of the form HHHHHHHH.D, where each H is a hexadecimal character and D is a single decimal digit.
         let filename = String(filenameElement)
-        let fileExtension = Int(fileExtensionElement)
         
         // Double check that the extension did not fail to cast to an integer.
         // Make sure that the filename is an 8 character hex based file name.
-        guard fileExtension != nil,
+        guard fileExtensionElement == "0",
               filename.count == 8,
-              filename.utf8.allSatisfy( { Character(UnicodeScalar($0)).isHexDigit }) else { return false }
+              filename.utf8.allSatisfy( { $0.isHexDigit }) else { return false }
         
         // Check if the element is a symlink. If it is not, return false.
         var buffer = stat()
@@ -740,5 +739,26 @@ internal class DirectoryContents: Sequence, IteratorProtocol {
     
     deinit {
         closedir(dir)
+    }
+}
+
+// Used as part of the `_isRehashFormat` format to determine if the filename is a hexadecimal filename.
+extension UTF8.CodeUnit {
+    private static let asciiZero = UInt8(ascii: "0")
+    private static let asciiNine = UInt8(ascii: "9")
+    private static let asciiLowercaseA = UInt8(ascii: "a")
+    private static let asciiLowercaseF = UInt8(ascii: "f")
+    private static let asciiUppercaseA = UInt8(ascii: "A")
+    private static let asciiUppercaseF = UInt8(ascii: "F")
+
+    var isHexDigit: Bool {
+        switch self {
+        case (.asciiZero)...(.asciiNine),
+             (.asciiLowercaseA)...(.asciiLowercaseF),
+             (.asciiUppercaseA)...(.asciiUppercaseF):
+            return true
+        default:
+            return false
+        }
     }
 }
