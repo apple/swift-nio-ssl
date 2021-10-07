@@ -577,13 +577,15 @@ extension NIOSSLContext {
         if utf8PathView.count < 10 { return false }
         // With 10 units verified, extract the last 10 bytes from the view
         let filenameUF8View = utf8PathView.suffix(10)
-        let subFileExtension = filenameUF8View.suffix(1)
-        let subFilename = filenameUF8View.prefix(8)
+        let filenameParts = filenameUF8View.split(separator: UInt8(ascii: "."))
         
         // Double check that the extension did not fail to cast to an integer.
         // Make sure that the filename is an 8 character hex based file name.
-        guard subFileExtension.first == UInt8(ascii: "0"),
-              subFilename.allSatisfy({ $0.isHexDigit }) else { return false }
+        guard filenameParts.count == 2,
+              let filename = filenameParts.first,
+              let fileExtension = filenameParts.last,
+              filename.allSatisfy({ $0.isHexDigit }),
+              fileExtension.first == UInt8(ascii: "0") else { return false }
         
         // Check if the element is a symlink. If it is not, return false.
         var buffer = stat()
