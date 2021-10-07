@@ -573,11 +573,13 @@ extension NIOSSLContext {
         // Check if the element’s name matches the c_rehash symlink name format.
         // The links created are of the form HHHHHHHH.D, where each H is a hexadecimal character and D is a single decimal digit.
         let utf8PathView = path.utf8
+        let utf8PathSplitView = utf8PathView.split(separator: UInt8(ascii: "/"))
+        
         // Make sure the path is at least 10 units long
-        if utf8PathView.count < 10 { return false }
-        // With 10 units verified, extract the last 10 bytes from the view
-        let filenameUF8View = utf8PathView.suffix(10)
-        let filenameParts = filenameUF8View.split(separator: UInt8(ascii: "."))
+        guard let lastPathComponent = utf8PathSplitView.last,
+              lastPathComponent.count == 10 else { return false }
+        // Split into filename parts HHHHHHHH.D -> [[HHHHHHHH], [D]]
+        let filenameParts = lastPathComponent.split(separator: UInt8(ascii: "."))
         
         // Double check that the extension did not fail to cast to an integer.
         // Make sure that the filename is an 8 character hex based file name.
