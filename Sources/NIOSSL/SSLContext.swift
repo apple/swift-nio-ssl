@@ -586,6 +586,8 @@ extension NIOSSLContext {
         guard filenameParts.count == 2,
               let filename = filenameParts.first,
               let fileExtension = filenameParts.last,
+              fileExtension.count == 1,
+              filename.count == 8,
               filename.allSatisfy({ $0.isHexDigit }),
               fileExtension.first == UInt8(ascii: "0") else { return false }
         
