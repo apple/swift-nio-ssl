@@ -508,16 +508,14 @@ extension NIOSSLContext {
             // This could be from a location like /etc/ssl/cert.pem as an example.
             CNIOBoringSSL_SSL_CTX_set_client_CA_list(context, CNIOBoringSSL_SSL_load_client_CA_file(path))
         } else if sendCANames, isDirectory {
-            // If the path that is passed in is a directory, scan the directory and gather up the PEM or DER files.
-            let pemFilePaths = DirectoryContents(path: path).filter { $0.suffix(4) == ".pem" || $0.suffix(4) == ".cer" }
-            // Create the PEM files one by one and use `addCACertificateNameToList` to add the CA name to the STACK_OF(X509_NAME).
-            for path in pemFilePaths {
-                let cert: NIOSSLCertificate
-                if path.suffix(4) == ".pem" {
-                    cert = try NIOSSLCertificate(file: path, format: .pem)
-                } else {
-                    cert = try NIOSSLCertificate(file: path, format: .der)
-                }
+            // Match the c_rehash directory format and load the certificate based on this criteria.
+            let certificateFilePaths = try DirectoryContents(path: path).filter {
+                try self._isRehashFormat(path: $0)
+            }
+            // Load only the certificates that resolve to an existing certificate in the directory.
+            for symPath in certificateFilePaths {
+                // c_rehash only support pem files.
+                let cert = try NIOSSLCertificate(file: symPath, format: .pem)
                 try addCACertificateNameToList(context: context, certificate: cert)
             }
         }
@@ -568,6 +566,40 @@ extension NIOSSLContext {
             // either.
             parentSwiftContext.keyLogManager!.log(linePointer)
         }
+    }
+    
+    /// Takes a path and determines if the file at this path is of c_rehash format .
+    internal static func _isRehashFormat(path: String) throws -> Bool {
+        // Check if the element’s name matches the c_rehash symlink name format.
+        // The links created are of the form HHHHHHHH.D, where each H is a hexadecimal character and D is a single decimal digit.
+        let utf8PathView = path.utf8
+        let utf8PathSplitView = utf8PathView.split(separator: UInt8(ascii: "/"))
+        
+        // Make sure the path is at least 10 units long
+        guard let lastPathComponent = utf8PathSplitView.last,
+              lastPathComponent.count == 10 else { return false }
+        // Split into filename parts HHHHHHHH.D -> [[HHHHHHHH], [D]]
+        let filenameParts = lastPathComponent.split(separator: UInt8(ascii: "."))
+        
+        // Double check that the extension did not fail to cast to an integer.
+        // Make sure that the filename is an 8 character hex based file name.
+        guard filenameParts.count == 2,
+              let filename = filenameParts.first,
+              let fileExtension = filenameParts.last,
+              fileExtension.count == 1,
+              filename.count == 8,
+              filename.allSatisfy({ $0.isHexDigit }),
+              fileExtension.first == UInt8(ascii: "0") else { return false }
+        
+        // Check if the element is a symlink. If it is not, return false.
+        var buffer = stat()
+        let _ = try Posix.lstat(path: path, buf: &buffer)
+        // Check the mode to make sure this is a symlink
+        if (buffer.st_mode & S_IFMT) != S_IFLNK { return false }
+
+        // Return true at this point because the file format is considered to be in rehash format and a symlink.
+        // Rehash format being "%08lx.%d" or HHHHHHHH.D
+        return true
     }
 }
 
@@ -708,5 +740,26 @@ internal class DirectoryContents: Sequence, IteratorProtocol {
     
     deinit {
         closedir(dir)
+    }
+}
+
+// Used as part of the `_isRehashFormat` format to determine if the filename is a hexadecimal filename.
+extension UTF8.CodeUnit {
+    private static let asciiZero = UInt8(ascii: "0")
+    private static let asciiNine = UInt8(ascii: "9")
+    private static let asciiLowercaseA = UInt8(ascii: "a")
+    private static let asciiLowercaseF = UInt8(ascii: "f")
+    private static let asciiUppercaseA = UInt8(ascii: "A")
+    private static let asciiUppercaseF = UInt8(ascii: "F")
+
+    var isHexDigit: Bool {
+        switch self {
+        case (.asciiZero)...(.asciiNine),
+             (.asciiLowercaseA)...(.asciiLowercaseF),
+             (.asciiUppercaseA)...(.asciiUppercaseF):
+            return true
+        default:
+            return false
+        }
     }
 }
