@@ -1649,6 +1649,11 @@ OPENSSL_EXPORT int SSL_export_keying_material(
 // abbreviated handshake. It is reference-counted and immutable. Once
 // established, an |SSL_SESSION| may be shared by multiple |SSL| objects on
 // different threads and must not be modified.
+//
+// Note the TLS notion of "session" is not suitable for application-level
+// session state. It is an optional caching mechanism for the handshake. Not all
+// connections within an application-level session will reuse TLS sessions. TLS
+// sessions may be dropped by the client or ignored by the server at any time.
 
 DECLARE_PEM_rw(SSL_SESSION, SSL_SESSION)
 
@@ -1703,6 +1708,19 @@ OPENSSL_EXPORT int SSL_SESSION_set_protocol_version(SSL_SESSION *session,
 
 // SSL_SESSION_get_id returns a pointer to a buffer containing |session|'s
 // session ID and sets |*out_len| to its length.
+//
+// This function should only be used for implementing a TLS session cache. TLS
+// sessions are not suitable for application-level session state, and a session
+// ID is an implementation detail of the TLS resumption handshake mechanism. Not
+// all resumption flows use session IDs, and not all connections within an
+// application-level session will reuse TLS sessions.
+//
+// To determine if resumption occurred, use |SSL_session_reused| instead.
+// Comparing session IDs will not give the right result in all cases.
+//
+// As a workaround for some broken applications, BoringSSL sometimes synthesizes
+// arbitrary session IDs for non-ID-based sessions. This behavior may be
+// removed in the future.
 OPENSSL_EXPORT const uint8_t *SSL_SESSION_get_id(const SSL_SESSION *session,
                                                  unsigned *out_len);
 
@@ -3869,6 +3887,10 @@ OPENSSL_EXPORT uint64_t SSL_get_read_sequence(const SSL *ssl);
 // two most significant bytes.
 OPENSSL_EXPORT uint64_t SSL_get_write_sequence(const SSL *ssl);
 
+// SSL_CTX_set_record_protocol_version returns whether |version| is zero.
+OPENSSL_EXPORT int SSL_CTX_set_record_protocol_version(SSL_CTX *ctx,
+                                                       int version);
+
 
 // Handshake hints.
 //
@@ -4140,7 +4162,7 @@ OPENSSL_EXPORT int SSL_set_max_send_fragment(SSL *ssl,
 // callbacks that are called very early on during the server handshake. At this
 // point, much of the SSL* hasn't been filled out and only the ClientHello can
 // be depended on.
-typedef struct ssl_early_callback_ctx {
+struct ssl_early_callback_ctx {
   SSL *ssl;
   const uint8_t *client_hello;
   size_t client_hello_len;
@@ -4155,7 +4177,7 @@ typedef struct ssl_early_callback_ctx {
   size_t compression_methods_len;
   const uint8_t *extensions;
   size_t extensions_len;
-} SSL_CLIENT_HELLO;
+} /* SSL_CLIENT_HELLO */;
 
 // ssl_select_cert_result_t enumerates the possible results from selecting a
 // certificate with |select_certificate_cb|.
@@ -4557,20 +4579,13 @@ OPENSSL_EXPORT int SSL_get_shared_sigalgs(SSL *ssl, int idx, int *psign,
 // SSL_MODE_HANDSHAKE_CUTTHROUGH is the same as SSL_MODE_ENABLE_FALSE_START.
 #define SSL_MODE_HANDSHAKE_CUTTHROUGH SSL_MODE_ENABLE_FALSE_START
 
-// i2d_SSL_SESSION serializes |in| to the bytes pointed to by |*pp|. On success,
-// it returns the number of bytes written and advances |*pp| by that many bytes.
-// On failure, it returns -1. If |pp| is NULL, no bytes are written and only the
-// length is returned.
+// i2d_SSL_SESSION serializes |in|, as described in |i2d_SAMPLE|.
 //
 // Use |SSL_SESSION_to_bytes| instead.
 OPENSSL_EXPORT int i2d_SSL_SESSION(SSL_SESSION *in, uint8_t **pp);
 
 // d2i_SSL_SESSION parses a serialized session from the |length| bytes pointed
-// to by |*pp|. It returns the new |SSL_SESSION| and advances |*pp| by the
-// number of bytes consumed on success and NULL on failure. The caller takes
-// ownership of the new session and must call |SSL_SESSION_free| when done.
-//
-// If |a| is non-NULL, |*a| is released and set the new |SSL_SESSION|.
+// to by |*pp|, as described in |d2i_SAMPLE|.
 //
 // Use |SSL_SESSION_from_bytes| instead.
 OPENSSL_EXPORT SSL_SESSION *d2i_SSL_SESSION(SSL_SESSION **a, const uint8_t **pp,

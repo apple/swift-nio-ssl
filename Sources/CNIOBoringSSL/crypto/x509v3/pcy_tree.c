@@ -65,9 +65,9 @@
 #include <CNIOBoringSSL_x509.h>
 #include <CNIOBoringSSL_x509v3.h>
 
-#include "pcy_int.h"
 #include "../internal.h"
 #include "../x509/internal.h"
+#include "internal.h"
 
 /*
  * Enable this to print out the complete policy tree at various point during

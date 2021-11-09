@@ -149,7 +149,6 @@
 #include <CNIOBoringSSL_stack.h>
 #include <CNIOBoringSSL_x509.h>
 #include <CNIOBoringSSL_x509v3.h>
-#include <CNIOBoringSSL_x509_vfy.h>
 
 #include "internal.h"
 #include "../crypto/internal.h"
