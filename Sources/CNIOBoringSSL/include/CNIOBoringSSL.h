@@ -60,6 +60,7 @@
 #include "CNIOBoringSSL_srtp.h"
 #include "CNIOBoringSSL_ssl.h"
 #include "CNIOBoringSSL_trust_token.h"
+#include "CNIOBoringSSL_x509_vfy.h"
 #include "CNIOBoringSSL_x509v3.h"
 
 #endif  // C_NIO_BORINGSSL_H
