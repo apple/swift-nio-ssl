@@ -321,7 +321,13 @@ public final class NIOSSLContext {
         #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
         switch self.configuration.trustRoots {
         case .some(.default), .none:
-            conn.setCustomVerificationCallback(CustomVerifyManager(callback: { conn.performSecurityFrameworkValidation(promise: $0) }))
+            conn.setCustomVerificationCallback(CustomVerifyManager(callback: {
+                do {
+                    conn.performSecurityFrameworkValidation(promise: $0, peerCertificates: try conn.getPeerCertificatesAsSecCertificate())
+                } catch {
+                    $0.fail(error)
+                }
+            }))
         case .some(.certificates), .some(.file):
             break
         }
