@@ -44,6 +44,7 @@ class LinuxMainRunnerImpl: LinuxMainRunner {
              testCase(SSLCertificateTest.allTests),
              testCase(SSLPKCS12BundleTest.allTests),
              testCase(SSLPrivateKeyTest.allTests),
+             testCase(SecurityFrameworkVerificationTests.allTests),
              testCase(TLSConfigurationTest.allTests),
              testCase(UnwrappingTests.allTests),
         ])

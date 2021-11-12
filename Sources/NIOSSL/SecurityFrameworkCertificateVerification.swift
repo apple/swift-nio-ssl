@@ -21,25 +21,10 @@ import Foundation
 import Security
 
 extension SSLConnection {
-    func performSecurityFrameworkValidation(promise: EventLoopPromise<NIOSSLVerificationResult>) {
+    func performSecurityFrameworkValidation(promise: EventLoopPromise<NIOSSLVerificationResult>, peerCertificates: [SecCertificate]) {
         do {
             guard case .default = self.parentContext.configuration.trustRoots ?? .default else {
                 preconditionFailure("This callback should only be used if we are using the system-default trust.")
-            }
-
-            // Ok, time to kick off a validation. Let's get some certificate buffers.
-            let peerCertificates: [SecCertificate] = try self.withPeerCertificateChainBuffers { buffers in
-                guard let buffers = buffers else {
-                    throw NIOSSLError.unableToValidateCertificate
-                }
-
-                return try buffers.map { buffer in
-                    let data = Data(bytes: buffer.baseAddress!, count: buffer.count)
-                    guard let cert = SecCertificateCreateWithData(nil, data as CFData) else {
-                        throw NIOSSLError.unableToValidateCertificate
-                    }
-                    return cert
-                }
             }
 
             // This force-unwrap is safe as we must have decided if we're a client or a server before validation.
@@ -64,11 +49,11 @@ extension SSLConnection {
                 return secCert
             }
             if !additionalAnchorCertificates.isEmpty {
-                // To use additional anchors _and_ the built-in ones we must reenable the built-in ones expicitly.
-                guard SecTrustSetAnchorCertificatesOnly(actualTrust, false) == errSecSuccess else {
+                guard SecTrustSetAnchorCertificates(actualTrust, additionalAnchorCertificates as CFArray) == errSecSuccess else {
                     throw NIOSSLError.failedToLoadCertificate
                 }
-                guard SecTrustSetAnchorCertificates(actualTrust, additionalAnchorCertificates as CFArray) == errSecSuccess else {
+                // To use additional anchors _and_ the built-in ones we must reenable the built-in ones expicitly.
+                guard SecTrustSetAnchorCertificatesOnly(actualTrust, false) == errSecSuccess else {
                     throw NIOSSLError.failedToLoadCertificate
                 }
             }
@@ -110,6 +95,24 @@ extension EventLoopPromise where Value == NIOSSLVerificationResult {
         default:
             // Oops, we failed.
             self.succeed(.failed)
+        }
+    }
+}
+
+extension SSLConnection {
+    func getPeerCertificatesAsSecCertificate() throws -> [SecCertificate] {
+        try self.withPeerCertificateChainBuffers { buffers in
+            guard let buffers = buffers else {
+                throw NIOSSLError.unableToValidateCertificate
+            }
+
+            return try buffers.map { buffer in
+                let data = Data(bytes: buffer.baseAddress!, count: buffer.count)
+                guard let cert = SecCertificateCreateWithData(nil, data as CFData) else {
+                    throw NIOSSLError.unableToValidateCertificate
+                }
+                return cert
+            }
         }
     }
 }
