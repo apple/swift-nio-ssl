@@ -111,7 +111,9 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             // In this case the channel is going through the doHandshake steps and
             // a channelInactive is fired taking down the connection.
             // This case propogates a .handshakeFailed instead of an .uncleanShutdown.
-            channelError = NIOSSLError.handshakeFailed(.sslError(BoringSSLError.buildErrorStack()))
+            // We use a synthetic error here as the error stack will be empty, and we should try to
+            // provide some diagnostic help.
+            channelError = NIOSSLError.handshakeFailed(.sslError([.eofDuringHandshake]))
         default:
             // This is a ragged EOF: we weren't sent a CLOSE_NOTIFY. We want to send a user
             // event to notify about this before we propagate channelInactive. We also want to fail all
