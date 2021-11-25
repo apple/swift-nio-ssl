@@ -686,9 +686,11 @@
 %xdefine _DIST_POINT_new _ %+ BORINGSSL_PREFIX %+ _DIST_POINT_new
 %xdefine _DIST_POINT_set_dpname _ %+ BORINGSSL_PREFIX %+ _DIST_POINT_set_dpname
 %xdefine _DSA_SIG_free _ %+ BORINGSSL_PREFIX %+ _DSA_SIG_free
+%xdefine _DSA_SIG_get0 _ %+ BORINGSSL_PREFIX %+ _DSA_SIG_get0
 %xdefine _DSA_SIG_marshal _ %+ BORINGSSL_PREFIX %+ _DSA_SIG_marshal
 %xdefine _DSA_SIG_new _ %+ BORINGSSL_PREFIX %+ _DSA_SIG_new
 %xdefine _DSA_SIG_parse _ %+ BORINGSSL_PREFIX %+ _DSA_SIG_parse
+%xdefine _DSA_SIG_set0 _ %+ BORINGSSL_PREFIX %+ _DSA_SIG_set0
 %xdefine _DSA_check_signature _ %+ BORINGSSL_PREFIX %+ _DSA_check_signature
 %xdefine _DSA_do_check_signature _ %+ BORINGSSL_PREFIX %+ _DSA_do_check_signature
 %xdefine _DSA_do_sign _ %+ BORINGSSL_PREFIX %+ _DSA_do_sign
@@ -930,6 +932,7 @@
 %xdefine _EVP_CIPHER_mode _ %+ BORINGSSL_PREFIX %+ _EVP_CIPHER_mode
 %xdefine _EVP_CIPHER_nid _ %+ BORINGSSL_PREFIX %+ _EVP_CIPHER_nid
 %xdefine _EVP_Cipher _ %+ BORINGSSL_PREFIX %+ _EVP_Cipher
+%xdefine _EVP_CipherFinal _ %+ BORINGSSL_PREFIX %+ _EVP_CipherFinal
 %xdefine _EVP_CipherFinal_ex _ %+ BORINGSSL_PREFIX %+ _EVP_CipherFinal_ex
 %xdefine _EVP_CipherInit _ %+ BORINGSSL_PREFIX %+ _EVP_CipherInit
 %xdefine _EVP_CipherInit_ex _ %+ BORINGSSL_PREFIX %+ _EVP_CipherInit_ex
@@ -940,6 +943,7 @@
 %xdefine _EVP_DecodeInit _ %+ BORINGSSL_PREFIX %+ _EVP_DecodeInit
 %xdefine _EVP_DecodeUpdate _ %+ BORINGSSL_PREFIX %+ _EVP_DecodeUpdate
 %xdefine _EVP_DecodedLength _ %+ BORINGSSL_PREFIX %+ _EVP_DecodedLength
+%xdefine _EVP_DecryptFinal _ %+ BORINGSSL_PREFIX %+ _EVP_DecryptFinal
 %xdefine _EVP_DecryptFinal_ex _ %+ BORINGSSL_PREFIX %+ _EVP_DecryptFinal_ex
 %xdefine _EVP_DecryptInit _ %+ BORINGSSL_PREFIX %+ _EVP_DecryptInit
 %xdefine _EVP_DecryptInit_ex _ %+ BORINGSSL_PREFIX %+ _EVP_DecryptInit_ex
@@ -959,11 +963,14 @@
 %xdefine _EVP_DigestVerifyFinal _ %+ BORINGSSL_PREFIX %+ _EVP_DigestVerifyFinal
 %xdefine _EVP_DigestVerifyInit _ %+ BORINGSSL_PREFIX %+ _EVP_DigestVerifyInit
 %xdefine _EVP_DigestVerifyUpdate _ %+ BORINGSSL_PREFIX %+ _EVP_DigestVerifyUpdate
+%xdefine _EVP_ENCODE_CTX_free _ %+ BORINGSSL_PREFIX %+ _EVP_ENCODE_CTX_free
+%xdefine _EVP_ENCODE_CTX_new _ %+ BORINGSSL_PREFIX %+ _EVP_ENCODE_CTX_new
 %xdefine _EVP_EncodeBlock _ %+ BORINGSSL_PREFIX %+ _EVP_EncodeBlock
 %xdefine _EVP_EncodeFinal _ %+ BORINGSSL_PREFIX %+ _EVP_EncodeFinal
 %xdefine _EVP_EncodeInit _ %+ BORINGSSL_PREFIX %+ _EVP_EncodeInit
 %xdefine _EVP_EncodeUpdate _ %+ BORINGSSL_PREFIX %+ _EVP_EncodeUpdate
 %xdefine _EVP_EncodedLength _ %+ BORINGSSL_PREFIX %+ _EVP_EncodedLength
+%xdefine _EVP_EncryptFinal _ %+ BORINGSSL_PREFIX %+ _EVP_EncryptFinal
 %xdefine _EVP_EncryptFinal_ex _ %+ BORINGSSL_PREFIX %+ _EVP_EncryptFinal_ex
 %xdefine _EVP_EncryptInit _ %+ BORINGSSL_PREFIX %+ _EVP_EncryptInit
 %xdefine _EVP_EncryptInit_ex _ %+ BORINGSSL_PREFIX %+ _EVP_EncryptInit_ex
@@ -1457,6 +1464,7 @@
 %xdefine _PKCS5_pbe2_encrypt_init _ %+ BORINGSSL_PREFIX %+ _PKCS5_pbe2_encrypt_init
 %xdefine _PKCS7_bundle_CRLs _ %+ BORINGSSL_PREFIX %+ _PKCS7_bundle_CRLs
 %xdefine _PKCS7_bundle_certificates _ %+ BORINGSSL_PREFIX %+ _PKCS7_bundle_certificates
+%xdefine _PKCS7_bundle_raw_certificates _ %+ BORINGSSL_PREFIX %+ _PKCS7_bundle_raw_certificates
 %xdefine _PKCS7_free _ %+ BORINGSSL_PREFIX %+ _PKCS7_free
 %xdefine _PKCS7_get_CRLs _ %+ BORINGSSL_PREFIX %+ _PKCS7_get_CRLs
 %xdefine _PKCS7_get_PEM_CRLs _ %+ BORINGSSL_PREFIX %+ _PKCS7_get_PEM_CRLs
@@ -1974,6 +1982,7 @@
 %xdefine _SSL_get_wfd _ %+ BORINGSSL_PREFIX %+ _SSL_get_wfd
 %xdefine _SSL_get_write_sequence _ %+ BORINGSSL_PREFIX %+ _SSL_get_write_sequence
 %xdefine _SSL_has_application_settings _ %+ BORINGSSL_PREFIX %+ _SSL_has_application_settings
+%xdefine _SSL_has_pending _ %+ BORINGSSL_PREFIX %+ _SSL_has_pending
 %xdefine _SSL_in_early_data _ %+ BORINGSSL_PREFIX %+ _SSL_in_early_data
 %xdefine _SSL_in_false_start _ %+ BORINGSSL_PREFIX %+ _SSL_in_false_start
 %xdefine _SSL_in_init _ %+ BORINGSSL_PREFIX %+ _SSL_in_init
@@ -4093,9 +4102,11 @@
 %xdefine DIST_POINT_new BORINGSSL_PREFIX %+ _DIST_POINT_new
 %xdefine DIST_POINT_set_dpname BORINGSSL_PREFIX %+ _DIST_POINT_set_dpname
 %xdefine DSA_SIG_free BORINGSSL_PREFIX %+ _DSA_SIG_free
+%xdefine DSA_SIG_get0 BORINGSSL_PREFIX %+ _DSA_SIG_get0
 %xdefine DSA_SIG_marshal BORINGSSL_PREFIX %+ _DSA_SIG_marshal
 %xdefine DSA_SIG_new BORINGSSL_PREFIX %+ _DSA_SIG_new
 %xdefine DSA_SIG_parse BORINGSSL_PREFIX %+ _DSA_SIG_parse
+%xdefine DSA_SIG_set0 BORINGSSL_PREFIX %+ _DSA_SIG_set0
 %xdefine DSA_check_signature BORINGSSL_PREFIX %+ _DSA_check_signature
 %xdefine DSA_do_check_signature BORINGSSL_PREFIX %+ _DSA_do_check_signature
 %xdefine DSA_do_sign BORINGSSL_PREFIX %+ _DSA_do_sign
@@ -4337,6 +4348,7 @@
 %xdefine EVP_CIPHER_mode BORINGSSL_PREFIX %+ _EVP_CIPHER_mode
 %xdefine EVP_CIPHER_nid BORINGSSL_PREFIX %+ _EVP_CIPHER_nid
 %xdefine EVP_Cipher BORINGSSL_PREFIX %+ _EVP_Cipher
+%xdefine EVP_CipherFinal BORINGSSL_PREFIX %+ _EVP_CipherFinal
 %xdefine EVP_CipherFinal_ex BORINGSSL_PREFIX %+ _EVP_CipherFinal_ex
 %xdefine EVP_CipherInit BORINGSSL_PREFIX %+ _EVP_CipherInit
 %xdefine EVP_CipherInit_ex BORINGSSL_PREFIX %+ _EVP_CipherInit_ex
@@ -4347,6 +4359,7 @@
 %xdefine EVP_DecodeInit BORINGSSL_PREFIX %+ _EVP_DecodeInit
 %xdefine EVP_DecodeUpdate BORINGSSL_PREFIX %+ _EVP_DecodeUpdate
 %xdefine EVP_DecodedLength BORINGSSL_PREFIX %+ _EVP_DecodedLength
+%xdefine EVP_DecryptFinal BORINGSSL_PREFIX %+ _EVP_DecryptFinal
 %xdefine EVP_DecryptFinal_ex BORINGSSL_PREFIX %+ _EVP_DecryptFinal_ex
 %xdefine EVP_DecryptInit BORINGSSL_PREFIX %+ _EVP_DecryptInit
 %xdefine EVP_DecryptInit_ex BORINGSSL_PREFIX %+ _EVP_DecryptInit_ex
@@ -4366,11 +4379,14 @@
 %xdefine EVP_DigestVerifyFinal BORINGSSL_PREFIX %+ _EVP_DigestVerifyFinal
 %xdefine EVP_DigestVerifyInit BORINGSSL_PREFIX %+ _EVP_DigestVerifyInit
 %xdefine EVP_DigestVerifyUpdate BORINGSSL_PREFIX %+ _EVP_DigestVerifyUpdate
+%xdefine EVP_ENCODE_CTX_free BORINGSSL_PREFIX %+ _EVP_ENCODE_CTX_free
+%xdefine EVP_ENCODE_CTX_new BORINGSSL_PREFIX %+ _EVP_ENCODE_CTX_new
 %xdefine EVP_EncodeBlock BORINGSSL_PREFIX %+ _EVP_EncodeBlock
 %xdefine EVP_EncodeFinal BORINGSSL_PREFIX %+ _EVP_EncodeFinal
 %xdefine EVP_EncodeInit BORINGSSL_PREFIX %+ _EVP_EncodeInit
 %xdefine EVP_EncodeUpdate BORINGSSL_PREFIX %+ _EVP_EncodeUpdate
 %xdefine EVP_EncodedLength BORINGSSL_PREFIX %+ _EVP_EncodedLength
+%xdefine EVP_EncryptFinal BORINGSSL_PREFIX %+ _EVP_EncryptFinal
 %xdefine EVP_EncryptFinal_ex BORINGSSL_PREFIX %+ _EVP_EncryptFinal_ex
 %xdefine EVP_EncryptInit BORINGSSL_PREFIX %+ _EVP_EncryptInit
 %xdefine EVP_EncryptInit_ex BORINGSSL_PREFIX %+ _EVP_EncryptInit_ex
@@ -4864,6 +4880,7 @@
 %xdefine PKCS5_pbe2_encrypt_init BORINGSSL_PREFIX %+ _PKCS5_pbe2_encrypt_init
 %xdefine PKCS7_bundle_CRLs BORINGSSL_PREFIX %+ _PKCS7_bundle_CRLs
 %xdefine PKCS7_bundle_certificates BORINGSSL_PREFIX %+ _PKCS7_bundle_certificates
+%xdefine PKCS7_bundle_raw_certificates BORINGSSL_PREFIX %+ _PKCS7_bundle_raw_certificates
 %xdefine PKCS7_free BORINGSSL_PREFIX %+ _PKCS7_free
 %xdefine PKCS7_get_CRLs BORINGSSL_PREFIX %+ _PKCS7_get_CRLs
 %xdefine PKCS7_get_PEM_CRLs BORINGSSL_PREFIX %+ _PKCS7_get_PEM_CRLs
@@ -5381,6 +5398,7 @@
 %xdefine SSL_get_wfd BORINGSSL_PREFIX %+ _SSL_get_wfd
 %xdefine SSL_get_write_sequence BORINGSSL_PREFIX %+ _SSL_get_write_sequence
 %xdefine SSL_has_application_settings BORINGSSL_PREFIX %+ _SSL_has_application_settings
+%xdefine SSL_has_pending BORINGSSL_PREFIX %+ _SSL_has_pending
 %xdefine SSL_in_early_data BORINGSSL_PREFIX %+ _SSL_in_early_data
 %xdefine SSL_in_false_start BORINGSSL_PREFIX %+ _SSL_in_false_start
 %xdefine SSL_in_init BORINGSSL_PREFIX %+ _SSL_in_init
