@@ -16,14 +16,33 @@
 
 /// Wraps a single error from BoringSSL.
 public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
-    let errorCode: UInt32
+    private enum Backing: Hashable {
+        case boringSSLErrorCode(UInt32)
+        case synthetic(String)
+    }
 
-    var errorMessage: String? {
-        // TODO(cory): This should become non-optional in the future, as it always succeeds.
-        var scratchBuffer = [CChar](repeating: 0, count: 512)
-        return scratchBuffer.withUnsafeMutableBufferPointer { pointer in
-            CNIOBoringSSL_ERR_error_string_n(self.errorCode, pointer.baseAddress!, pointer.count)
-            return String(cString: pointer.baseAddress!)
+    private var backing: Backing
+
+    private var errorMessage: String? {
+        switch self.backing {
+        case .boringSSLErrorCode(let errorCode):
+            // TODO(cory): This should become non-optional in the future, as it always succeeds.
+            var scratchBuffer = [CChar](repeating: 0, count: 512)
+            return scratchBuffer.withUnsafeMutableBufferPointer { pointer in
+                CNIOBoringSSL_ERR_error_string_n(errorCode, pointer.baseAddress!, pointer.count)
+                return String(cString: pointer.baseAddress!)
+            }
+        case .synthetic(let description):
+            return description
+        }
+    }
+
+    private var errorCode: String {
+        switch self.backing {
+        case .boringSSLErrorCode(let code):
+            return String(code, radix: 10)
+        case .synthetic:
+            return ""
         }
     }
 
@@ -32,8 +51,15 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
     }
 
     init(errorCode: UInt32) {
-        self.errorCode = errorCode
+        self.backing = .boringSSLErrorCode(errorCode)
     }
+
+    private init(syntheticErrorDescription description: String) {
+        self.backing = .synthetic(description)
+    }
+
+    /// Received EOF during the TLS handshake.
+    public static let eofDuringHandshake = Self(syntheticErrorDescription: "EOF during handshake")
 }
 
 /// A representation of BoringSSL's internal error stack: a list of BoringSSL errors.
