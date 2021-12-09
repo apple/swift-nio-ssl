@@ -313,6 +313,8 @@
 %xdefine _BN_CTX_new _ %+ BORINGSSL_PREFIX %+ _BN_CTX_new
 %xdefine _BN_CTX_start _ %+ BORINGSSL_PREFIX %+ _BN_CTX_start
 %xdefine _BN_GENCB_call _ %+ BORINGSSL_PREFIX %+ _BN_GENCB_call
+%xdefine _BN_GENCB_free _ %+ BORINGSSL_PREFIX %+ _BN_GENCB_free
+%xdefine _BN_GENCB_new _ %+ BORINGSSL_PREFIX %+ _BN_GENCB_new
 %xdefine _BN_GENCB_set _ %+ BORINGSSL_PREFIX %+ _BN_GENCB_set
 %xdefine _BN_MONT_CTX_copy _ %+ BORINGSSL_PREFIX %+ _BN_MONT_CTX_copy
 %xdefine _BN_MONT_CTX_free _ %+ BORINGSSL_PREFIX %+ _BN_MONT_CTX_free
@@ -886,6 +888,7 @@
 %xdefine _ERR_remove_thread_state _ %+ BORINGSSL_PREFIX %+ _ERR_remove_thread_state
 %xdefine _ERR_restore_state _ %+ BORINGSSL_PREFIX %+ _ERR_restore_state
 %xdefine _ERR_save_state _ %+ BORINGSSL_PREFIX %+ _ERR_save_state
+%xdefine _ERR_set_error_data _ %+ BORINGSSL_PREFIX %+ _ERR_set_error_data
 %xdefine _ERR_set_mark _ %+ BORINGSSL_PREFIX %+ _ERR_set_mark
 %xdefine _EVP_AEAD_CTX_aead _ %+ BORINGSSL_PREFIX %+ _EVP_AEAD_CTX_aead
 %xdefine _EVP_AEAD_CTX_cleanup _ %+ BORINGSSL_PREFIX %+ _EVP_AEAD_CTX_cleanup
@@ -1589,6 +1592,7 @@
 %xdefine _RSA_sign_pss_mgf1 _ %+ BORINGSSL_PREFIX %+ _RSA_sign_pss_mgf1
 %xdefine _RSA_sign_raw _ %+ BORINGSSL_PREFIX %+ _RSA_sign_raw
 %xdefine _RSA_size _ %+ BORINGSSL_PREFIX %+ _RSA_size
+%xdefine _RSA_test_flags _ %+ BORINGSSL_PREFIX %+ _RSA_test_flags
 %xdefine _RSA_up_ref _ %+ BORINGSSL_PREFIX %+ _RSA_up_ref
 %xdefine _RSA_verify _ %+ BORINGSSL_PREFIX %+ _RSA_verify
 %xdefine _RSA_verify_PKCS1_PSS_mgf1 _ %+ BORINGSSL_PREFIX %+ _RSA_verify_PKCS1_PSS_mgf1
@@ -2028,6 +2032,7 @@
 %xdefine _SSL_set1_curves_list _ %+ BORINGSSL_PREFIX %+ _SSL_set1_curves_list
 %xdefine _SSL_set1_delegated_credential _ %+ BORINGSSL_PREFIX %+ _SSL_set1_delegated_credential
 %xdefine _SSL_set1_ech_config_list _ %+ BORINGSSL_PREFIX %+ _SSL_set1_ech_config_list
+%xdefine _SSL_set1_host _ %+ BORINGSSL_PREFIX %+ _SSL_set1_host
 %xdefine _SSL_set1_param _ %+ BORINGSSL_PREFIX %+ _SSL_set1_param
 %xdefine _SSL_set1_sigalgs _ %+ BORINGSSL_PREFIX %+ _SSL_set1_sigalgs
 %xdefine _SSL_set1_sigalgs_list _ %+ BORINGSSL_PREFIX %+ _SSL_set1_sigalgs_list
@@ -2049,6 +2054,7 @@
 %xdefine _SSL_set_ex_data _ %+ BORINGSSL_PREFIX %+ _SSL_set_ex_data
 %xdefine _SSL_set_fd _ %+ BORINGSSL_PREFIX %+ _SSL_set_fd
 %xdefine _SSL_set_handshake_hints _ %+ BORINGSSL_PREFIX %+ _SSL_set_handshake_hints
+%xdefine _SSL_set_hostflags _ %+ BORINGSSL_PREFIX %+ _SSL_set_hostflags
 %xdefine _SSL_set_info_callback _ %+ BORINGSSL_PREFIX %+ _SSL_set_info_callback
 %xdefine _SSL_set_jdk11_workaround _ %+ BORINGSSL_PREFIX %+ _SSL_set_jdk11_workaround
 %xdefine _SSL_set_max_cert_list _ %+ BORINGSSL_PREFIX %+ _SSL_set_max_cert_list
@@ -3729,6 +3735,8 @@
 %xdefine BN_CTX_new BORINGSSL_PREFIX %+ _BN_CTX_new
 %xdefine BN_CTX_start BORINGSSL_PREFIX %+ _BN_CTX_start
 %xdefine BN_GENCB_call BORINGSSL_PREFIX %+ _BN_GENCB_call
+%xdefine BN_GENCB_free BORINGSSL_PREFIX %+ _BN_GENCB_free
+%xdefine BN_GENCB_new BORINGSSL_PREFIX %+ _BN_GENCB_new
 %xdefine BN_GENCB_set BORINGSSL_PREFIX %+ _BN_GENCB_set
 %xdefine BN_MONT_CTX_copy BORINGSSL_PREFIX %+ _BN_MONT_CTX_copy
 %xdefine BN_MONT_CTX_free BORINGSSL_PREFIX %+ _BN_MONT_CTX_free
@@ -4302,6 +4310,7 @@
 %xdefine ERR_remove_thread_state BORINGSSL_PREFIX %+ _ERR_remove_thread_state
 %xdefine ERR_restore_state BORINGSSL_PREFIX %+ _ERR_restore_state
 %xdefine ERR_save_state BORINGSSL_PREFIX %+ _ERR_save_state
+%xdefine ERR_set_error_data BORINGSSL_PREFIX %+ _ERR_set_error_data
 %xdefine ERR_set_mark BORINGSSL_PREFIX %+ _ERR_set_mark
 %xdefine EVP_AEAD_CTX_aead BORINGSSL_PREFIX %+ _EVP_AEAD_CTX_aead
 %xdefine EVP_AEAD_CTX_cleanup BORINGSSL_PREFIX %+ _EVP_AEAD_CTX_cleanup
@@ -5005,6 +5014,7 @@
 %xdefine RSA_sign_pss_mgf1 BORINGSSL_PREFIX %+ _RSA_sign_pss_mgf1
 %xdefine RSA_sign_raw BORINGSSL_PREFIX %+ _RSA_sign_raw
 %xdefine RSA_size BORINGSSL_PREFIX %+ _RSA_size
+%xdefine RSA_test_flags BORINGSSL_PREFIX %+ _RSA_test_flags
 %xdefine RSA_up_ref BORINGSSL_PREFIX %+ _RSA_up_ref
 %xdefine RSA_verify BORINGSSL_PREFIX %+ _RSA_verify
 %xdefine RSA_verify_PKCS1_PSS_mgf1 BORINGSSL_PREFIX %+ _RSA_verify_PKCS1_PSS_mgf1
@@ -5444,6 +5454,7 @@
 %xdefine SSL_set1_curves_list BORINGSSL_PREFIX %+ _SSL_set1_curves_list
 %xdefine SSL_set1_delegated_credential BORINGSSL_PREFIX %+ _SSL_set1_delegated_credential
 %xdefine SSL_set1_ech_config_list BORINGSSL_PREFIX %+ _SSL_set1_ech_config_list
+%xdefine SSL_set1_host BORINGSSL_PREFIX %+ _SSL_set1_host
 %xdefine SSL_set1_param BORINGSSL_PREFIX %+ _SSL_set1_param
 %xdefine SSL_set1_sigalgs BORINGSSL_PREFIX %+ _SSL_set1_sigalgs
 %xdefine SSL_set1_sigalgs_list BORINGSSL_PREFIX %+ _SSL_set1_sigalgs_list
@@ -5465,6 +5476,7 @@
 %xdefine SSL_set_ex_data BORINGSSL_PREFIX %+ _SSL_set_ex_data
 %xdefine SSL_set_fd BORINGSSL_PREFIX %+ _SSL_set_fd
 %xdefine SSL_set_handshake_hints BORINGSSL_PREFIX %+ _SSL_set_handshake_hints
+%xdefine SSL_set_hostflags BORINGSSL_PREFIX %+ _SSL_set_hostflags
 %xdefine SSL_set_info_callback BORINGSSL_PREFIX %+ _SSL_set_info_callback
 %xdefine SSL_set_jdk11_workaround BORINGSSL_PREFIX %+ _SSL_set_jdk11_workaround
 %xdefine SSL_set_max_cert_list BORINGSSL_PREFIX %+ _SSL_set_max_cert_list
