@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>Global Variables  Reference</title>
+    <title>Protocols  Reference</title>
     <link rel="stylesheet" type="text/css" href="css/jazzy.css" />
     <link rel="stylesheet" type="text/css" href="css/highlight.css" />
     <meta charset="utf-8">
@@ -14,9 +14,9 @@
   </head>
   <body>
 
-    <a name="//apple_ref/swift/Section/Global Variables" class="dashAnchor"></a>
+    <a name="//apple_ref/swift/Section/Protocols" class="dashAnchor"></a>
 
-    <a title="Global Variables  Reference"></a>
+    <a title="Protocols  Reference"></a>
 
     <header class="header">
       <p class="header-col header-col--primary">
@@ -50,7 +50,7 @@
     <p class="breadcrumbs">
       <a class="breadcrumb" href="index.html">NIOSSL Reference</a>
       <img class="carat" src="img/carat.png" alt=""/>
-      Global Variables  Reference
+      Protocols  Reference
     </p>
 
     <div class="content-wrapper">
@@ -205,8 +205,8 @@
 
         <section class="section">
           <div class="section-content top-matter">
-            <h1>Global Variables</h1>
-            <p>The following global variables are available globally.</p>
+            <h1>Protocols</h1>
+            <p>The following protocols are available globally.</p>
 
           </div>
         </section>
@@ -218,9 +218,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:6NIOSSL19defaultCipherSuitesSSvp"></a>
-                    <a name="//apple_ref/swift/Global/defaultCipherSuites" class="dashAnchor"></a>
-                    <a class="token" href="#/s:6NIOSSL19defaultCipherSuitesSSvp">defaultCipherSuites</a>
+                    <a name="/s:6NIOSSL22NIOSSLCustomPrivateKeyP"></a>
+                    <a name="//apple_ref/swift/Protocol/NIOSSLCustomPrivateKey" class="dashAnchor"></a>
+                    <a class="token" href="#/s:6NIOSSL22NIOSSLCustomPrivateKeyP">NIOSSLCustomPrivateKey</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -228,24 +228,30 @@
                     <section class="section">
                       <div class="pointer"></div>
                       <div class="abstract">
-                        <p>A secure default configuration of cipher suites for TLS 1.2 and earlier.</p>
+                        <p><code>NIOSSLCustomPrivateKey</code> defines the interface of a custom, non-BoringSSL private key.</p>
 
-<p>The goal of this cipher suite string is:</p>
+<p>In a number of circumstances it is advantageous to store a TLS private key in some form of high-security storage,
+such as a smart card. In these cases it is not possible to represent the TLS private key directly as a sequence
+of bytes that BoringSSL will understand.</p>
 
-<ul>
-<li>Prefer cipher suites that offer Perfect Forward Secrecy (DHE/ECDHE)</li>
-<li>Prefer ECDH(E) to DH(E) for performance.</li>
-<li>Prefer any AEAD cipher suite over non-AEAD suites for better performance and security</li>
-<li>Prefer AES-GCM over ChaCha20 because hardware-accelerated AES is common</li>
-<li>Disable NULL authentication and encryption and any appearance of MD5</li>
-</ul>
+<p>This protocol allows a type to implement callbacks that perform the specific operation required by the TLS handshake.
+Implementers are required to specify what signature algorithms they support, and then must implement <strong>only one</strong> of
+the <code>sign</code>/<code>decrypt</code> functions. For elliptic curve keys, implementers should implement <code>sign</code>. For RSA keys,
+implementers should implement <code>sign</code> and, if supporting RSA key exchange in TLS versions before 1.3, you should
+also implement <code>decrypt</code>.</p>
 
+<p>If the same <code>NIOSSLCustomPrivateKey</code> implementation is used by multiple channels at once, then no synchronization
+is imposed by SwiftNIO. The calls to the protocol requirements will be made on event loop threads, so if further
+synchronization is required it is up to the implementer to provide it. Note that it is unacceptable to block in
+these functions, and so potentially blocking operations must delegate to another thread.</p>
+
+                        <a href="Protocols/NIOSSLCustomPrivateKey.html" class="slightly-smaller">See more</a>
                       </div>
                       <div class="declaration">
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="k">let</span> <span class="nv">defaultCipherSuites</span><span class="p">:</span> <span class="kt">String</span></code></pre>
+                          <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">protocol</span> <span class="kt">NIOSSLCustomPrivateKey</span></code></pre>
 
                         </div>
                       </div>

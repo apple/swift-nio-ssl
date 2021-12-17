@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>NIOSSLCertificateSource Enumeration Reference</title>
+    <title>NIOSSLAdditionalTrustRoots Enumeration Reference</title>
     <link rel="stylesheet" type="text/css" href="../css/jazzy.css" />
     <link rel="stylesheet" type="text/css" href="../css/highlight.css" />
     <meta charset="utf-8">
@@ -14,9 +14,9 @@
   </head>
   <body>
 
-    <a name="//apple_ref/swift/Enum/NIOSSLCertificateSource" class="dashAnchor"></a>
+    <a name="//apple_ref/swift/Enum/NIOSSLAdditionalTrustRoots" class="dashAnchor"></a>
 
-    <a title="NIOSSLCertificateSource Enumeration Reference"></a>
+    <a title="NIOSSLAdditionalTrustRoots Enumeration Reference"></a>
 
     <header class="header">
       <p class="header-col header-col--primary">
@@ -50,7 +50,7 @@
     <p class="breadcrumbs">
       <a class="breadcrumb" href="../index.html">NIOSSL Reference</a>
       <img class="carat" src="../img/carat.png" alt=""/>
-      NIOSSLCertificateSource Enumeration Reference
+      NIOSSLAdditionalTrustRoots Enumeration Reference
     </p>
 
     <div class="content-wrapper">
@@ -205,15 +205,15 @@
 
         <section class="section">
           <div class="section-content top-matter">
-            <h1>NIOSSLCertificateSource</h1>
+            <h1>NIOSSLAdditionalTrustRoots</h1>
               <div class="declaration">
                 <div class="language">
                   
-                  <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">enum</span> <span class="kt">NIOSSLCertificateSource</span> <span class="p">:</span> <span class="kt">Hashable</span></code></pre>
+                  <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">enum</span> <span class="kt">NIOSSLAdditionalTrustRoots</span> <span class="p">:</span> <span class="kt">Hashable</span></code></pre>
 
                 </div>
               </div>
-            <p>Places NIOSSL can obtain certificates from.</p>
+            <p>Places NIOSSL can obtain additional trust roots from.</p>
 
           </div>
         </section>
@@ -225,9 +225,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:6NIOSSL23NIOSSLCertificateSourceO4fileyACSScACmF"></a>
+                    <a name="/s:6NIOSSL26NIOSSLAdditionalTrustRootsO4fileyACSScACmF"></a>
                     <a name="//apple_ref/swift/Element/file(_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:6NIOSSL23NIOSSLCertificateSourceO4fileyACSScACmF">file(_:<wbr>)</a>
+                    <a class="token" href="#/s:6NIOSSL26NIOSSLAdditionalTrustRootsO4fileyACSScACmF">file(_:<wbr>)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -235,7 +235,7 @@
                     <section class="section">
                       <div class="pointer"></div>
                       <div class="abstract">
-                        <p>Undocumented</p>
+                        <p>See <code>NIOSSLTrustRoots.file</code></p>
 
                       </div>
                       <div class="declaration">
@@ -252,9 +252,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:6NIOSSL23NIOSSLCertificateSourceO11certificateyAcA0B0CcACmF"></a>
-                    <a name="//apple_ref/swift/Element/certificate(_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:6NIOSSL23NIOSSLCertificateSourceO11certificateyAcA0B0CcACmF">certificate(_:<wbr>)</a>
+                    <a name="/s:6NIOSSL26NIOSSLAdditionalTrustRootsO12certificatesyACSayAA17NIOSSLCertificateCGcACmF"></a>
+                    <a name="//apple_ref/swift/Element/certificates(_:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:6NIOSSL26NIOSSLAdditionalTrustRootsO12certificatesyACSayAA17NIOSSLCertificateCGcACmF">certificates(_:<wbr>)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -262,14 +262,14 @@
                     <section class="section">
                       <div class="pointer"></div>
                       <div class="abstract">
-                        <p>Undocumented</p>
+                        <p>See <code>NIOSSLTrustRoots.certificates</code></p>
 
                       </div>
                       <div class="declaration">
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">certificate</span><span class="p">(</span><span class="kt"><a href="../Classes/NIOSSLCertificate.html">NIOSSLCertificate</a></span><span class="p">)</span></code></pre>
+                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">certificates</span><span class="p">([</span><span class="kt"><a href="../Classes/NIOSSLCertificate.html">NIOSSLCertificate</a></span><span class="p">])</span></code></pre>
 
                         </div>
                       </div>

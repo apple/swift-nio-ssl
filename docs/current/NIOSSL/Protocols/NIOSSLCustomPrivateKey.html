@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>NIOSSLCertificateSource Enumeration Reference</title>
+    <title>NIOSSLCustomPrivateKey Protocol Reference</title>
     <link rel="stylesheet" type="text/css" href="../css/jazzy.css" />
     <link rel="stylesheet" type="text/css" href="../css/highlight.css" />
     <meta charset="utf-8">
@@ -14,9 +14,9 @@
   </head>
   <body>
 
-    <a name="//apple_ref/swift/Enum/NIOSSLCertificateSource" class="dashAnchor"></a>
+    <a name="//apple_ref/swift/Protocol/NIOSSLCustomPrivateKey" class="dashAnchor"></a>
 
-    <a title="NIOSSLCertificateSource Enumeration Reference"></a>
+    <a title="NIOSSLCustomPrivateKey Protocol Reference"></a>
 
     <header class="header">
       <p class="header-col header-col--primary">
@@ -50,7 +50,7 @@
     <p class="breadcrumbs">
       <a class="breadcrumb" href="../index.html">NIOSSL Reference</a>
       <img class="carat" src="../img/carat.png" alt=""/>
-      NIOSSLCertificateSource Enumeration Reference
+      NIOSSLCustomPrivateKey Protocol Reference
     </p>
 
     <div class="content-wrapper">
@@ -205,15 +205,30 @@
 
         <section class="section">
           <div class="section-content top-matter">
-            <h1>NIOSSLCertificateSource</h1>
+            <h1>NIOSSLCustomPrivateKey</h1>
               <div class="declaration">
                 <div class="language">
                   
-                  <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">enum</span> <span class="kt">NIOSSLCertificateSource</span> <span class="p">:</span> <span class="kt">Hashable</span></code></pre>
+                  <pre class="highlight swift"><code><span class="kd">public</span> <span class="kd">protocol</span> <span class="kt">NIOSSLCustomPrivateKey</span></code></pre>
 
                 </div>
               </div>
-            <p>Places NIOSSL can obtain certificates from.</p>
+            <p><code>NIOSSLCustomPrivateKey</code> defines the interface of a custom, non-BoringSSL private key.</p>
+
+<p>In a number of circumstances it is advantageous to store a TLS private key in some form of high-security storage,
+such as a smart card. In these cases it is not possible to represent the TLS private key directly as a sequence
+of bytes that BoringSSL will understand.</p>
+
+<p>This protocol allows a type to implement callbacks that perform the specific operation required by the TLS handshake.
+Implementers are required to specify what signature algorithms they support, and then must implement <strong>only one</strong> of
+the <code>sign</code>/<code>decrypt</code> functions. For elliptic curve keys, implementers should implement <code>sign</code>. For RSA keys,
+implementers should implement <code>sign</code> and, if supporting RSA key exchange in TLS versions before 1.3, you should
+also implement <code>decrypt</code>.</p>
+
+<p>If the same <code>NIOSSLCustomPrivateKey</code> implementation is used by multiple channels at once, then no synchronization
+is imposed by SwiftNIO. The calls to the protocol requirements will be made on event loop threads, so if further
+synchronization is required it is up to the implementer to provide it. Note that it is unacceptable to block in
+these functions, and so potentially blocking operations must delegate to another thread.</p>
 
           </div>
         </section>
@@ -225,9 +240,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:6NIOSSL23NIOSSLCertificateSourceO4fileyACSScACmF"></a>
-                    <a name="//apple_ref/swift/Element/file(_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:6NIOSSL23NIOSSLCertificateSourceO4fileyACSScACmF">file(_:<wbr>)</a>
+                    <a name="/s:6NIOSSL22NIOSSLCustomPrivateKeyP19signatureAlgorithmsSayAA18SignatureAlgorithmVGvp"></a>
+                    <a name="//apple_ref/swift/Property/signatureAlgorithms" class="dashAnchor"></a>
+                    <a class="token" href="#/s:6NIOSSL22NIOSSLCustomPrivateKeyP19signatureAlgorithmsSayAA18SignatureAlgorithmVGvp">signatureAlgorithms</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -235,14 +250,14 @@
                     <section class="section">
                       <div class="pointer"></div>
                       <div class="abstract">
-                        <p>Undocumented</p>
+                        <p>The signature algorithms supported by this key.</p>
 
                       </div>
                       <div class="declaration">
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">file</span><span class="p">(</span><span class="kt">String</span><span class="p">)</span></code></pre>
+                          <pre class="highlight swift"><code><span class="k">var</span> <span class="nv">signatureAlgorithms</span><span class="p">:</span> <span class="p">[</span><span class="kt"><a href="../Structs/SignatureAlgorithm.html">SignatureAlgorithm</a></span><span class="p">]</span> <span class="p">{</span> <span class="k">get</span> <span class="p">}</span></code></pre>
 
                         </div>
                       </div>
@@ -252,9 +267,9 @@
                 <li class="item">
                   <div>
                     <code>
-                    <a name="/s:6NIOSSL23NIOSSLCertificateSourceO11certificateyAcA0B0CcACmF"></a>
-                    <a name="//apple_ref/swift/Element/certificate(_:)" class="dashAnchor"></a>
-                    <a class="token" href="#/s:6NIOSSL23NIOSSLCertificateSourceO11certificateyAcA0B0CcACmF">certificate(_:<wbr>)</a>
+                    <a name="/s:6NIOSSL22NIOSSLCustomPrivateKeyP4sign7channel9algorithm4data7NIOCore15EventLoopFutureCyAH10ByteBufferVGAH7Channel_p_AA18SignatureAlgorithmVALtF"></a>
+                    <a name="//apple_ref/swift/Method/sign(channel:algorithm:data:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:6NIOSSL22NIOSSLCustomPrivateKeyP4sign7channel9algorithm4data7NIOCore15EventLoopFutureCyAH10ByteBufferVGAH7Channel_p_AA18SignatureAlgorithmVALtF">sign(channel:<wbr>algorithm:<wbr>data:<wbr>)</a>
                     </code>
                   </div>
                   <div class="height-container">
@@ -262,16 +277,141 @@
                     <section class="section">
                       <div class="pointer"></div>
                       <div class="abstract">
-                        <p>Undocumented</p>
+                        <p>Called to perform a signing operation.</p>
+
+<p>The data being passed to the call has not been hashed, and it is the responsibility of the implementer
+to ensure that the data <em>is</em> hashed before use. <code>algorithm</code> will control what hash algorithm should be used.
+This call will always execute on <code>channel.eventLoop</code>.</p>
+
+<p>This function should be implemented by both EC and RSA keys.</p>
 
                       </div>
                       <div class="declaration">
                         <h4>Declaration</h4>
                         <div class="language">
                           <p class="aside-title">Swift</p>
-                          <pre class="highlight swift"><code><span class="k">case</span> <span class="nf">certificate</span><span class="p">(</span><span class="kt"><a href="../Classes/NIOSSLCertificate.html">NIOSSLCertificate</a></span><span class="p">)</span></code></pre>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">sign</span><span class="p">(</span><span class="nv">channel</span><span class="p">:</span> <span class="kt">Channel</span><span class="p">,</span> <span class="nv">algorithm</span><span class="p">:</span> <span class="kt"><a href="../Structs/SignatureAlgorithm.html">SignatureAlgorithm</a></span><span class="p">,</span> <span class="nv">data</span><span class="p">:</span> <span class="kt">ByteBuffer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">EventLoopFuture</span><span class="o">&lt;</span><span class="kt">ByteBuffer</span><span class="o">&gt;</span></code></pre>
 
                         </div>
+                      </div>
+                      <div>
+                        <h4>Parameters</h4>
+                        <table class="graybox">
+                          <tbody>
+                            <tr>
+                              <td>
+                                <code>
+                                <em>channel</em>
+                                </code>
+                              </td>
+                              <td>
+                                <div>
+                                  <p>The <code>Channel</code> representing the connection for which we are performing the signing operation.</p>
+                                </div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>
+                                <code>
+                                <em>algorithm</em>
+                                </code>
+                              </td>
+                              <td>
+                                <div>
+                                  <p>The <code><a href="../Structs/SignatureAlgorithm.html">SignatureAlgorithm</a></code> that should be used to generate the signature.</p>
+                                </div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>
+                                <code>
+                                <em>data</em>
+                                </code>
+                              </td>
+                              <td>
+                                <div>
+                                  <p>The data to be signed.</p>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div>
+                        <h4>Return Value</h4>
+                        <p>An <code>EventLoopFuture</code> that will be fulfilled with a <code>ByteBuffer</code> containing the signature bytes, if
+the signing operation completes, or that will be failed with a relevant <code>Error</code> if the signature could not
+be produced.</p>
+                      </div>
+                    </section>
+                  </div>
+                </li>
+                <li class="item">
+                  <div>
+                    <code>
+                    <a name="/s:6NIOSSL22NIOSSLCustomPrivateKeyP7decrypt7channel4data7NIOCore15EventLoopFutureCyAG10ByteBufferVGAG7Channel_p_AKtF"></a>
+                    <a name="//apple_ref/swift/Method/decrypt(channel:data:)" class="dashAnchor"></a>
+                    <a class="token" href="#/s:6NIOSSL22NIOSSLCustomPrivateKeyP7decrypt7channel4data7NIOCore15EventLoopFutureCyAG10ByteBufferVGAG7Channel_p_AKtF">decrypt(channel:<wbr>data:<wbr>)</a>
+                    </code>
+                  </div>
+                  <div class="height-container">
+                    <div class="pointer-container"></div>
+                    <section class="section">
+                      <div class="pointer"></div>
+                      <div class="abstract">
+                        <p>Called to perform a decryption operation.</p>
+
+<p>The data being passed to the call should be decrypted using <em>raw</em> RSA public key decryption, without padding.
+This call will always execute on <code>channel.eventLoop</code>.</p>
+
+<p>This function should only be implemented for RSA keys, and then only if you support RSA key exchange. If you
+are only using TLS 1.3 and later, this function is entirely unnecessary and it will never be called.</p>
+
+                      </div>
+                      <div class="declaration">
+                        <h4>Declaration</h4>
+                        <div class="language">
+                          <p class="aside-title">Swift</p>
+                          <pre class="highlight swift"><code><span class="kd">func</span> <span class="nf">decrypt</span><span class="p">(</span><span class="nv">channel</span><span class="p">:</span> <span class="kt">Channel</span><span class="p">,</span> <span class="nv">data</span><span class="p">:</span> <span class="kt">ByteBuffer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kt">EventLoopFuture</span><span class="o">&lt;</span><span class="kt">ByteBuffer</span><span class="o">&gt;</span></code></pre>
+
+                        </div>
+                      </div>
+                      <div>
+                        <h4>Parameters</h4>
+                        <table class="graybox">
+                          <tbody>
+                            <tr>
+                              <td>
+                                <code>
+                                <em>channel</em>
+                                </code>
+                              </td>
+                              <td>
+                                <div>
+                                  <p>The <code>Channel</code> representing the connection for which we are performing the decryption operation.</p>
+                                </div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>
+                                <code>
+                                <em>data</em>
+                                </code>
+                              </td>
+                              <td>
+                                <div>
+                                  <p>The data to be decrypted.</p>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div>
+                        <h4>Return Value</h4>
+                        <p>An <code>EventLoopFuture</code> that will be fulfilled with a <code>ByteBuffer</code> containing the decrypted bytes, if
+the decryption operation completes, or that will be failed with a relevant <code>Error</code> if the decrypted bytes
+could not be produced.</p>
                       </div>
                     </section>
                   </div>
