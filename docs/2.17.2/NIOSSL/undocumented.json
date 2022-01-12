@@ -1,0 +1,537 @@
+{
+  "warnings": [
+    {
+      "file": "/code/Sources/NIOSSL/NIOSSLClientHandler.swift",
+      "line": 57,
+      "symbol": "NIOSSLClientHandler.init(context:serverHostname:)",
+      "symbol_kind": "source.lang.swift.decl.function.method.instance",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/NIOSSLClientHandler.swift",
+      "line": 62,
+      "symbol": "NIOSSLClientHandler.init(context:serverHostname:verificationCallback:)",
+      "symbol_kind": "source.lang.swift.decl.function.method.instance",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/NIOSSLClientHandler.swift",
+      "line": 87,
+      "symbol": "NIOSSLClientHandler.init(context:serverHostname:customVerificationCallback:)",
+      "symbol_kind": "source.lang.swift.decl.function.method.instance",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/NIOSSLServerHandler.swift",
+      "line": 21,
+      "symbol": "NIOSSLServerHandler.init(context:)",
+      "symbol_kind": "source.lang.swift.decl.function.method.instance",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/NIOSSLServerHandler.swift",
+      "line": 26,
+      "symbol": "NIOSSLServerHandler.init(context:verificationCallback:)",
+      "symbol_kind": "source.lang.swift.decl.function.method.instance",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/NIOSSLServerHandler.swift",
+      "line": 40,
+      "symbol": "NIOSSLServerHandler.init(context:customVerificationCallback:)",
+      "symbol_kind": "source.lang.swift.decl.function.method.instance",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLCertificate.swift",
+      "line": 66,
+      "symbol": "NIOSSLCertificate.serialNumber",
+      "symbol_kind": "source.lang.swift.decl.var.instance",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 71,
+      "symbol": "NIOSSLError.writeDuringTLSShutdown",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 73,
+      "symbol": "NIOSSLError.unableToAllocateBoringSSLObject",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 74,
+      "symbol": "NIOSSLError.noSuchFilesystemObject",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 75,
+      "symbol": "NIOSSLError.failedToLoadCertificate",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 76,
+      "symbol": "NIOSSLError.failedToLoadPrivateKey",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 77,
+      "symbol": "NIOSSLError.handshakeFailed(_:)",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 78,
+      "symbol": "NIOSSLError.shutdownFailed(_:)",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 79,
+      "symbol": "NIOSSLError.cannotMatchULabel",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 80,
+      "symbol": "NIOSSLError.noCertificateToValidate",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 81,
+      "symbol": "NIOSSLError.unableToValidateCertificate",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 82,
+      "symbol": "NIOSSLError.cannotFindPeerIP",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 83,
+      "symbol": "NIOSSLError.readInInvalidTLSState",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 84,
+      "symbol": "NIOSSLError.uncleanShutdown",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 94,
+      "symbol": "BoringSSLError.noError",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 95,
+      "symbol": "BoringSSLError.zeroReturn",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 96,
+      "symbol": "BoringSSLError.wantRead",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 97,
+      "symbol": "BoringSSLError.wantWrite",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 98,
+      "symbol": "BoringSSLError.wantConnect",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 99,
+      "symbol": "BoringSSLError.wantAccept",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 100,
+      "symbol": "BoringSSLError.wantX509Lookup",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 101,
+      "symbol": "BoringSSLError.wantCertificateVerify",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 102,
+      "symbol": "BoringSSLError.syscallError",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 103,
+      "symbol": "BoringSSLError.sslError(_:)",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 104,
+      "symbol": "BoringSSLError.unknownError(_:)",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 105,
+      "symbol": "BoringSSLError.invalidSNIName(_:)",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLErrors.swift",
+      "line": 106,
+      "symbol": "BoringSSLError.failedToSetALPN(_:)",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLPKCS12Bundle.swift",
+      "line": 42,
+      "symbol": "NIOSSLPKCS12Bundle.certificateChain",
+      "symbol_kind": "source.lang.swift.decl.var.instance",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/SSLPKCS12Bundle.swift",
+      "line": 43,
+      "symbol": "NIOSSLPKCS12Bundle.privateKey",
+      "symbol_kind": "source.lang.swift.decl.var.instance",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 20,
+      "symbol": "TLSVersion.tlsv1",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 21,
+      "symbol": "TLSVersion.tlsv11",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 22,
+      "symbol": "TLSVersion.tlsv12",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 23,
+      "symbol": "TLSVersion.tlsv13",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 29,
+      "symbol": "NIOSSLCertificateSource.file(_:)",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 30,
+      "symbol": "NIOSSLCertificateSource.certificate(_:)",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 35,
+      "symbol": "NIOSSLPrivateKeySource.file(_:)",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 36,
+      "symbol": "NIOSSLPrivateKeySource.privateKey(_:)",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 86,
+      "symbol": "NIOTLSCipher.init(_:)",
+      "symbol_kind": "source.lang.swift.decl.function.method.instance",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 93,
+      "symbol": "NIOTLSCipher.TLS_RSA_WITH_AES_128_CBC_SHA",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 94,
+      "symbol": "NIOTLSCipher.TLS_RSA_WITH_AES_256_CBC_SHA",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 95,
+      "symbol": "NIOTLSCipher.TLS_RSA_WITH_AES_128_GCM_SHA256",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 96,
+      "symbol": "NIOTLSCipher.TLS_RSA_WITH_AES_256_GCM_SHA384",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 97,
+      "symbol": "NIOTLSCipher.TLS_AES_128_GCM_SHA256",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 98,
+      "symbol": "NIOTLSCipher.TLS_AES_256_GCM_SHA384",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 99,
+      "symbol": "NIOTLSCipher.TLS_CHACHA20_POLY1305_SHA256",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 100,
+      "symbol": "NIOTLSCipher.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 101,
+      "symbol": "NIOTLSCipher.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 102,
+      "symbol": "NIOTLSCipher.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 103,
+      "symbol": "NIOTLSCipher.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 104,
+      "symbol": "NIOTLSCipher.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 105,
+      "symbol": "NIOTLSCipher.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 106,
+      "symbol": "NIOTLSCipher.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 107,
+      "symbol": "NIOTLSCipher.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 108,
+      "symbol": "NIOTLSCipher.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 109,
+      "symbol": "NIOTLSCipher.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 119,
+      "symbol": "NIOSSLSerializationFormats.pem",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 120,
+      "symbol": "NIOSSLSerializationFormats.der",
+      "symbol_kind": "source.lang.swift.decl.enumelement",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 164,
+      "symbol": "SignatureAlgorithm.rsaPkcs1Sha1",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 165,
+      "symbol": "SignatureAlgorithm.rsaPkcs1Sha256",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 166,
+      "symbol": "SignatureAlgorithm.rsaPkcs1Sha384",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 167,
+      "symbol": "SignatureAlgorithm.rsaPkcs1Sha512",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 168,
+      "symbol": "SignatureAlgorithm.ecdsaSha1",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 169,
+      "symbol": "SignatureAlgorithm.ecdsaSecp256R1Sha256",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 170,
+      "symbol": "SignatureAlgorithm.ecdsaSecp384R1Sha384",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 171,
+      "symbol": "SignatureAlgorithm.ecdsaSecp521R1Sha512",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 172,
+      "symbol": "SignatureAlgorithm.rsaPssRsaeSha256",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 173,
+      "symbol": "SignatureAlgorithm.rsaPssRsaeSha384",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 174,
+      "symbol": "SignatureAlgorithm.rsaPssRsaeSha512",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/TLSConfiguration.swift",
+      "line": 175,
+      "symbol": "SignatureAlgorithm.ed25519",
+      "symbol_kind": "source.lang.swift.decl.var.static",
+      "warning": "undocumented"
+    },
+    {
+      "file": "/code/Sources/NIOSSL/UniversalBootstrapSupport.swift",
+      "line": 34,
+      "symbol": "NIOSSLClientTLSProvider.Bootstrap",
+      "symbol_kind": "source.lang.swift.decl.typealias",
+      "warning": "undocumented"
+    }
+  ],
+  "source_directory": "/code"
+}
