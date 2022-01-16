@@ -407,6 +407,25 @@ internal final class SSLConnection {
     func extractUnconsumedData() -> ByteBuffer? {
         return self.bio?.evacuateInboundData()
     }
+    
+    /// Retries the `TLSVersion` used on a `Channel` through the `NIOSSLHandler` APIs.
+    /// Note that the .unknown case diverges from what is in BoringSSL, but this case was added to
+    /// account for situations where the version could not be derived yet on the connection.
+    func getTLSVersionForConnection() -> TLSVersion {
+        let uint16Version = CNIOBoringSSL_SSL_version(self.ssl)
+        switch uint16Version {
+          case TLS1_3_VERSION:
+            return .tlsv13
+          case TLS1_2_VERSION:
+            return .tlsv12
+          case TLS1_1_VERSION:
+            return .tlsv11
+          case TLS1_VERSION:
+            return .tlsv1
+          default:
+            return .unknown
+        }
+    }
 }
 
 

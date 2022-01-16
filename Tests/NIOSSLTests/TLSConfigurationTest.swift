@@ -50,11 +50,30 @@ class WaitForHandshakeHandler: ChannelInboundHandler {
     public var handshakeResult: EventLoopFuture<Void> {
         return self.handshakeResultPromise.futureResult
     }
+    // TLSVersion variables to query on both the Channel and ChannelPipeline
+    // when the channel becomes inactive, i.e., the final TLSVersion type.
+    var tlsVersionForChannel: TLSVersion = .unknown
+    var tlsVersionForChannelPipeline: TLSVersion = .unknown
 
     private var handshakeResultPromise: EventLoopPromise<Void>
 
     init(handshakeResultPromise: EventLoopPromise<Void>) {
         self.handshakeResultPromise = handshakeResultPromise
+    }
+    
+    func channelInactive(context: ChannelHandlerContext) {
+        let tlsVersion = context.channel.pipeline.syncOperations.nioSSL_tlsVersionOnChannelPipeline()
+        tlsVersionForChannelPipeline = tlsVersion
+        
+        let tlsVersionFuture = context.channel.nioSSL_tlsVersionOnChannel()
+        tlsVersionFuture.whenComplete { sslHandlerResult in
+            switch sslHandlerResult {
+            case .success(let nioSSLHandler):
+                self.tlsVersionForChannel = nioSSLHandler.tlsVersionForHandler
+            case .failure(let error):
+                print(error.localizedDescription)
+            }
+        }
     }
 
     public func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
@@ -1047,6 +1066,50 @@ class TLSConfigurationTest: XCTestCase {
         let defaultCipherSuiteValuesFromString = assignedCiphers.joined(separator: ":")
         // Note that this includes the PSK values as well.
         XCTAssertEqual(defaultCipherSuiteValuesFromString, "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA:TLS_RSA_WITH_AES_128_GCM_SHA256:TLS_RSA_WITH_AES_256_GCM_SHA384:TLS_RSA_WITH_AES_128_CBC_SHA:TLS_RSA_WITH_AES_256_CBC_SHA")
+    }
+    
+    func testObtainingTLSVersionOnClientChannel() throws {
+        
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.maximumTLSVersion = .tlsv11
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.maximumTLSVersion = .tlsv11
+        serverConfig.certificateVerification = .none
+        
+        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
+        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let eventHandler = ErrorCatcher<BoringSSLError>()
+        let handshakeHandler = HandshakeCompletedHandler()
+        let handshakeResultPromise = group.next().makePromise(of: Void.self)
+        let handshakeWatcher = WaitForHandshakeHandler(handshakeResultPromise: handshakeResultPromise)
+
+        let serverChannel = try assertNoThrowWithValue(serverTLSChannel(context: serverContext, handlers: [], group: group))
+        let clientChannel = try assertNoThrowWithValue(clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeWatcher, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!))
+
+        handshakeWatcher.handshakeResult.whenComplete { c in
+            _ = clientChannel.close()
+        }
+
+        clientChannel.closeFuture.whenComplete { _ in
+            XCTAssertEqual(eventHandler.errors.count, 0)
+            XCTAssertTrue(handshakeHandler.handshakeSucceeded)
+            // Test the final TLS versions on the channel once it's closed.
+            XCTAssertEqual(handshakeWatcher.tlsVersionForChannel, .tlsv11)
+            XCTAssertEqual(handshakeWatcher.tlsVersionForChannelPipeline, .tlsv11)
+        }
+        try clientChannel.closeFuture.wait()
     }
 
     func testBestEffortEquatableHashableDifferences() {

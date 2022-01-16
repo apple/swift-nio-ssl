@@ -21,6 +21,7 @@ public enum TLSVersion {
     case tlsv11
     case tlsv12
     case tlsv13
+    case unknown
 }
 
 /// Places NIOSSL can obtain certificates from.

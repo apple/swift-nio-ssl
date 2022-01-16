@@ -144,6 +144,8 @@ public final class NIOSSLContext {
             minTLSVersion = TLS1_1_VERSION
         case .tlsv1:
             minTLSVersion = TLS1_VERSION
+        case .unknown:
+            minTLSVersion = 0x0000
         }
         var returnCode = CNIOBoringSSL_SSL_CTX_set_min_proto_version(context, UInt16(minTLSVersion))
         precondition(1 == returnCode)
@@ -160,6 +162,8 @@ public final class NIOSSLContext {
         case .some(.tlsv13), .none:
             // Unset defaults to TLS1.3 for now. BoringSSL's default is TLS 1.2.
             maxTLSVersion = TLS1_3_VERSION
+        case .unknown:
+            maxTLSVersion = 0x0000
         }
         returnCode = CNIOBoringSSL_SSL_CTX_set_max_proto_version(context, UInt16(maxTLSVersion))
         precondition(1 == returnCode)

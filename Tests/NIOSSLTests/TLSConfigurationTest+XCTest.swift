@@ -63,6 +63,7 @@ extension TLSConfigurationTest {
                 ("testSettingCiphersWithCipherSuitesString", testSettingCiphersWithCipherSuitesString),
                 ("testDefaultCipherSuiteValues", testDefaultCipherSuiteValues),
                 ("testBestEffortEquatableHashableDifferences", testBestEffortEquatableHashableDifferences),
+                ("testObtainingTLSVersionOnClientChannel", testObtainingTLSVersionOnClientChannel),
            ]
    }
 }

@@ -546,6 +546,28 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     }
 }
 
+extension NIOSSLHandler {
+    /// Variable that can be queried during the connection lifecycle to grab the `TLSVesion` used on the `SSLConnection`.
+    public var tlsVersionForHandler: TLSVersion {
+        return self.connection.getTLSVersionForConnection()
+    }
+}
+
+extension Channel {
+    ///  API to add the `NIOSSLHandler` to a channel to extract the `TLSVersion` during
+    ///  lifecycle events such as `whenSuccess` or `whenComplete`.
+    public func nioSSL_tlsVersionOnChannel() -> EventLoopFuture<NIOSSLHandler> {
+        return self.pipeline.handler(type: NIOSSLHandler.self)
+    }
+}
+
+extension ChannelPipeline.SynchronousOperations {
+    /// API to query the `TLSVersion` directly from the `ChannelPipeline`.
+    public func nioSSL_tlsVersionOnChannelPipeline() -> TLSVersion {
+        let handler = try! self.handler(type: NIOSSLHandler.self)
+        return handler.tlsVersionForHandler
+    }
+}
 
 // MARK:- Extension APIs for users.
 extension NIOSSLHandler {
