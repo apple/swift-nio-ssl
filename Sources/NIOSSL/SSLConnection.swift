@@ -409,8 +409,7 @@ internal final class SSLConnection {
     }
     
     /// Retries the `TLSVersion` used on a `Channel` through the `NIOSSLHandler` APIs.
-    /// Note that the .unknown case diverges from what is in BoringSSL, but this case was added to
-    /// account for situations where the version could not be derived yet on the connection.
+    /// Note that the .tlsv12 has been added to the default cases as this is what BoringSSL sets as the default anyways.
     func getTLSVersionForConnection() -> TLSVersion {
         let uint16Version = CNIOBoringSSL_SSL_version(self.ssl)
         switch uint16Version {
@@ -422,8 +421,8 @@ internal final class SSLConnection {
             return .tlsv11
           case TLS1_VERSION:
             return .tlsv1
-          default:
-            return .unknown
+        default:
+            return .tlsv12 // This is the default for BoringSSL
         }
     }
 }

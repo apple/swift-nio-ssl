@@ -52,8 +52,8 @@ class WaitForHandshakeHandler: ChannelInboundHandler {
     }
     // TLSVersion variables to query on both the Channel and ChannelPipeline
     // when the channel becomes inactive, i.e., the final TLSVersion type.
-    var tlsVersionForChannel: TLSVersion = .unknown
-    var tlsVersionForChannelPipeline: TLSVersion = .unknown
+    var tlsVersionForChannel: TLSVersion = .tlsv12 // This is the default for BoringSSL
+    var tlsVersionForChannelPipeline: TLSVersion = .tlsv12 // This is the default for BoringSSL
 
     private var handshakeResultPromise: EventLoopPromise<Void>
 
