@@ -52,8 +52,8 @@ class WaitForHandshakeHandler: ChannelInboundHandler {
     }
     // TLSVersion variables to query on both the Channel and ChannelPipeline
     // when the channel becomes inactive, i.e., the final TLSVersion type.
-    var tlsVersionForChannel: TLSVersion = .tlsv12 // This is the default for BoringSSL
-    var tlsVersionForChannelPipeline: TLSVersion = .tlsv12 // This is the default for BoringSSL
+    var tlsVersionForChannel: TLSVersion?
+    var tlsVersionForChannelPipeline: TLSVersion?
 
     private var handshakeResultPromise: EventLoopPromise<Void>
 
@@ -62,18 +62,9 @@ class WaitForHandshakeHandler: ChannelInboundHandler {
     }
     
     func channelInactive(context: ChannelHandlerContext) {
-        let tlsVersion = context.channel.pipeline.syncOperations.nioSSL_tlsVersionOnChannelPipeline()
-        tlsVersionForChannelPipeline = tlsVersion
-        
-        let tlsVersionFuture = context.channel.nioSSL_tlsVersionOnChannel()
-        tlsVersionFuture.whenComplete { sslHandlerResult in
-            switch sslHandlerResult {
-            case .success(let nioSSLHandler):
-                self.tlsVersionForChannel = nioSSLHandler.tlsVersionForHandler
-            case .failure(let error):
-                print(error.localizedDescription)
-            }
-        }
+        let tlsVersion = context.channel.pipeline.syncOperations.nioSSL_tlsVersion()
+        self.tlsVersionForChannelPipeline = tlsVersion
+        self.tlsVersionForChannel = context.channel.nioSSL_tlsVersion()
     }
 
     public func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
@@ -1098,7 +1089,8 @@ class TLSConfigurationTest: XCTestCase {
     }
     
     func testObtainingTLSVersionOnClientChannel() throws {
-        
+        let b2b = BackToBackEmbeddedChannel()
+
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.maximumTLSVersion = .tlsv11
         clientConfig.certificateVerification = .noHostnameVerification
@@ -1110,35 +1102,33 @@ class TLSConfigurationTest: XCTestCase {
         )
         serverConfig.maximumTLSVersion = .tlsv11
         serverConfig.certificateVerification = .none
-        
+ 
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
-
-        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
-        defer {
-            XCTAssertNoThrow(try group.syncShutdownGracefully())
-        }
-
-        let eventHandler = ErrorCatcher<BoringSSLError>()
-        let handshakeHandler = HandshakeCompletedHandler()
-        let handshakeResultPromise = group.next().makePromise(of: Void.self)
+        // Create a handshakeResultPromise so that when the handshake is complete the client
+        // EmbeddedChannel is closed and then the TLSVersion can be extracted.
+        let handshakeResultPromise = b2b.client.eventLoop.makePromise(of: Void.self)
         let handshakeWatcher = WaitForHandshakeHandler(handshakeResultPromise: handshakeResultPromise)
-
-        let serverChannel = try assertNoThrowWithValue(serverTLSChannel(context: serverContext, handlers: [], group: group))
-        let clientChannel = try assertNoThrowWithValue(clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeWatcher, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!))
-
-        handshakeWatcher.handshakeResult.whenComplete { c in
-            _ = clientChannel.close()
+        XCTAssertNoThrow(
+            try b2b.client.pipeline.syncOperations.addHandlers(
+                [try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"), handshakeWatcher]
+            )
+        )
+        XCTAssertNoThrow(
+            try b2b.server.pipeline.syncOperations.addHandlers(
+                [NIOSSLServerHandler(context: serverContext), HandshakeCompletedHandler()]
+            )
+        )
+        handshakeWatcher.handshakeResult.whenComplete { _ in
+            _ = b2b.client.close()
         }
-
-        clientChannel.closeFuture.whenComplete { _ in
-            XCTAssertEqual(eventHandler.errors.count, 0)
-            XCTAssertTrue(handshakeHandler.handshakeSucceeded)
+        b2b.client.closeFuture.whenComplete { _ in
             // Test the final TLS versions on the channel once it's closed.
             XCTAssertEqual(handshakeWatcher.tlsVersionForChannel, .tlsv11)
             XCTAssertEqual(handshakeWatcher.tlsVersionForChannelPipeline, .tlsv11)
         }
-        try clientChannel.closeFuture.wait()
+        XCTAssertNoThrow(try b2b.connectInMemory())
+        try b2b.client.closeFuture.wait()
     }
 }
 

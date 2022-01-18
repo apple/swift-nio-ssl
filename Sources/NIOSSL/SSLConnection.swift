@@ -408,9 +408,8 @@ internal final class SSLConnection {
         return self.bio?.evacuateInboundData()
     }
     
-    /// Retries the `TLSVersion` used on a `Channel` through the `NIOSSLHandler` APIs.
-    /// Note that the .tlsv12 has been added to the default cases as this is what BoringSSL sets as the default anyways.
-    func getTLSVersionForConnection() -> TLSVersion {
+    /// Returns  an optional `TLSVersion` used on a `Channel` through the `NIOSSLHandler` APIs.
+    func getTLSVersionForConnection() -> TLSVersion? {
         let uint16Version = CNIOBoringSSL_SSL_version(self.ssl)
         switch uint16Version {
           case TLS1_3_VERSION:
@@ -422,7 +421,7 @@ internal final class SSLConnection {
           case TLS1_VERSION:
             return .tlsv1
         default:
-            return .tlsv12 // This is the default for BoringSSL
+            return nil
         }
     }
 }
