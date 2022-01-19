@@ -547,34 +547,25 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 }
 
 extension NIOSSLHandler {
-    /// Variable that can be queried during the connection lifecycle to grab the `TLSVesion` used on the `SSLConnection`.
+    /// Variable that can be queried during the connection lifecycle to grab the `TLSVersion` used on the `SSLConnection`.
     public var tlsVersion: TLSVersion? {
         return self.connection.getTLSVersionForConnection()
     }
 }
 
 extension Channel {
-    ///  API to extract the `TLSVersion` from the channel `whenComplete` is fired.
-    ///  This API is intended to provide the final `TLSVersion` on the channel.
-    public func nioSSL_tlsVersion() -> TLSVersion? {
+    ///  API to extract the `TLSVersion` from an EventLoopFuture.
+    ///  This calls into the `ChannelPipeline.SynchronousOperations` to extract the `TLSVersion`.
+    public func nioSSL_tlsVersion() -> EventLoopFuture<TLSVersion?> {
         let handler = self.pipeline.handler(type: NIOSSLHandler.self)
-        var tlsVersion: TLSVersion?
-        handler.whenComplete { sslHandlerResult in
-            switch sslHandlerResult {
-            case .success(let nioSSLHandler):
-                tlsVersion = nioSSLHandler.tlsVersion
-            case .failure(_):
-                tlsVersion = nil
-            }
-        }
-        return tlsVersion
+        return handler.eventLoop.makeSucceededFuture(try? self.pipeline.syncOperations.nioSSL_tlsVersion())
     }
 }
 
 extension ChannelPipeline.SynchronousOperations {
     /// API to query the `TLSVersion` directly from the `ChannelPipeline`.
-    public func nioSSL_tlsVersion() -> TLSVersion? {
-        let handler = try! self.handler(type: NIOSSLHandler.self)
+    public func nioSSL_tlsVersion() throws -> TLSVersion? {
+        let handler = try self.handler(type: NIOSSLHandler.self)
         return handler.tlsVersion
     }
 }
