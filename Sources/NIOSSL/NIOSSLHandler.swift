@@ -555,10 +555,10 @@ extension NIOSSLHandler {
 
 extension Channel {
     ///  API to extract the `TLSVersion` from an EventLoopFuture.
-    ///  This calls into the `ChannelPipeline.SynchronousOperations` to extract the `TLSVersion`.
     public func nioSSL_tlsVersion() -> EventLoopFuture<TLSVersion?> {
-        let handler = self.pipeline.handler(type: NIOSSLHandler.self)
-        return handler.eventLoop.makeSucceededFuture(try? self.pipeline.syncOperations.nioSSL_tlsVersion())
+        return self.pipeline.handler(type: NIOSSLHandler.self).map {
+            $0.tlsVersion
+        }
     }
 }
 
