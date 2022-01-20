@@ -1114,9 +1114,9 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertEqual(tlsVersion!, .tlsv11)
         
         let tlsVersionForChannel = b2b.client.nioSSL_tlsVersion()
-        let _ = tlsVersionForChannel.map { tlsVersion in
-            XCTAssertEqual(tlsVersion, .tlsv11)
-        }
+        var channelTLSVersion: TLSVersion?
+        XCTAssertNoThrow(channelTLSVersion = try tlsVersionForChannel.wait())
+        XCTAssertEqual(channelTLSVersion!, .tlsv11)
     }
 }
 
