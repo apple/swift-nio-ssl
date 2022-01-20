@@ -1077,6 +1077,54 @@ class TLSConfigurationTest: XCTestCase {
             XCTAssertEqual(Set([Wrapper(config: first), Wrapper(config: transformed)]).count, 2, "Should have hashed non-equal in index \(index)")
         }
     }
+    
+    func testObtainingTLSVersionOnClientChannel() throws {
+        let b2b = BackToBackEmbeddedChannel()
+
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.maximumTLSVersion = .tlsv11
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.maximumTLSVersion = .tlsv11
+        serverConfig.certificateVerification = .none
+ 
+        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
+        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
+        XCTAssertNoThrow(
+            try b2b.client.pipeline.syncOperations.addHandlers(
+                [try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"), HandshakeCompletedHandler()]
+            )
+        )
+        XCTAssertNoThrow(
+            try b2b.server.pipeline.syncOperations.addHandlers(
+                [NIOSSLServerHandler(context: serverContext), HandshakeCompletedHandler()]
+            )
+        )
+        XCTAssertNoThrow(try b2b.connectInMemory())
+        XCTAssertTrue(b2b.client.handshakeSucceeded)
+        XCTAssertTrue(b2b.server.handshakeSucceeded)
+        
+        var tlsVersion: TLSVersion?
+        XCTAssertNoThrow(tlsVersion = try b2b.client.pipeline.syncOperations.nioSSL_tlsVersion())
+        XCTAssertEqual(tlsVersion!, .tlsv11)
+        
+        let tlsVersionForChannel = b2b.client.nioSSL_tlsVersion()
+        var channelTLSVersion: TLSVersion?
+        XCTAssertNoThrow(channelTLSVersion = try tlsVersionForChannel.wait())
+        XCTAssertEqual(channelTLSVersion!, .tlsv11)
+    }
+}
+
+extension EmbeddedChannel {
+    fileprivate var handshakeSucceeded: Bool {
+        let completedHandler = try! self.pipeline.syncOperations.handler(type: HandshakeCompletedHandler.self)
+        return completedHandler.handshakeSucceeded
+    }
 }
 
 struct Wrapper: Hashable {
