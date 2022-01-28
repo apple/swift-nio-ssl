@@ -499,5 +499,20 @@ class SSLPKCS12BundleTest: XCTestCase {
             XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode })
         }
     }
+    
+    func testEquatableAndHashable() throws {
+        let bundle1_a = try NIOSSLPKCS12Bundle(buffer: simpleP12, passphrase: "thisisagreatpassword".utf8)
+        let bundle1_b = try NIOSSLPKCS12Bundle(buffer: simpleP12, passphrase: "thisisagreatpassword".utf8)
+        let bundle2 = try NIOSSLPKCS12Bundle(buffer: complexP12, passphrase: "thisisagreatpassword".utf8)
+        XCTAssertEqual(bundle1_a, bundle1_a)
+        XCTAssertEqual(bundle1_a, bundle1_b)
+        XCTAssertNotEqual(bundle1_a, bundle2)
+        
+        let set = Set([bundle1_a, bundle1_b, bundle2])
+        XCTAssertEqual(set.count, 2)
+        XCTAssertTrue(set.contains(bundle1_a))
+        XCTAssertTrue(set.contains(bundle1_b))
+        XCTAssertTrue(set.contains(bundle2))
+    }
 }
 

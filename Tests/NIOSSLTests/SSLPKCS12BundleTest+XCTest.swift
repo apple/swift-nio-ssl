@@ -34,6 +34,7 @@ extension SSLPKCS12BundleTest {
                 ("testDecodingComplexP12FromFile", testDecodingComplexP12FromFile),
                 ("testDecodingSimpleP12FromFileWithoutPassphrase", testDecodingSimpleP12FromFileWithoutPassphrase),
                 ("testDecodingNonExistentPKCS12File", testDecodingNonExistentPKCS12File),
+                ("testEquatableAndHashable", testEquatableAndHashable),
            ]
    }
 }
