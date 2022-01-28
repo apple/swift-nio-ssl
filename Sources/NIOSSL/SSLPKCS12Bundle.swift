@@ -38,7 +38,7 @@
 ///     )
 ///
 /// The created `TLSConfiguration` can then be safely used for your endpoint.
-public struct NIOSSLPKCS12Bundle {
+public struct NIOSSLPKCS12Bundle: Hashable {
     public let certificateChain: [NIOSSLCertificate]
     public let privateKey: NIOSSLPrivateKey
 
