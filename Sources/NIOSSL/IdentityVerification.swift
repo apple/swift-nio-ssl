@@ -139,16 +139,19 @@ private func validIdentityForService(serverHostname: Array<UInt8>?,
         for name in alternativeNames {
             checkedMatch = true
 
-            switch try? name.get() {
-            case .dnsName(let dnsName):
+            switch name.nameType {
+            case .dnsName:
+                let dnsName = Array(name.contents)
                 if matchHostname(ourHostname: serverHostnameSlice, firstPeriodIndex: firstPeriodIndex, dnsName: dnsName) {
                     return true
                 }
-            case .ipAddress(let ip):
-                if matchIpAddress(socketAddress: socketAddress, certificateIP: ip) {
+            case .ipAddress:
+                if let ip = _SubjectAlternativeName.IPAddress(name),
+                   matchIpAddress(socketAddress: socketAddress, certificateIP: ip)
+                {
                     return true
                 }
-            case .none:
+            default:
                 continue
             }
         }
@@ -189,7 +192,7 @@ private func matchHostname(ourHostname: ArraySlice<UInt8>?, firstPeriodIndex: Ar
 }
 
 
-private func matchIpAddress(socketAddress: SocketAddress, certificateIP: NIOSSLCertificate._IPAddress) -> Bool {
+private func matchIpAddress(socketAddress: SocketAddress, certificateIP: _SubjectAlternativeName.IPAddress) -> Bool {
     // These match if the two underlying IP address structures match.
     switch (socketAddress, certificateIP) {
     case (.v4(let address), .ipv4(var addr2)):

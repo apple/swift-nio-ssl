@@ -317,27 +317,23 @@ class SSLCertificateTest: XCTestCase {
         precondition(inet_pton(AF_INET, "192.168.0.1", &v4addr) == 1)
         precondition(inet_pton(AF_INET6, "2001:db8::1", &v6addr) == 1)
 
-        let expectedSanFields: [NIOSSLCertificate._AlternativeName] = [
-            .dnsName(Array("localhost".utf8)),
-            .dnsName(Array("example.com".utf8)),
-            .ipAddress(.ipv4(v4addr)),
-            .ipAddress(.ipv6(v6addr)),
-        ]
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
-        let sans = try cert._subjectAlternativeNames()!.compactMap { try $0.get() }
-
-        XCTAssertEqual(sans.count, expectedSanFields.count)
-        for index in 0..<sans.count {
-            switch (sans[index], expectedSanFields[index]) {
-            case (.dnsName(let actualName), .dnsName(let expectedName)):
-                XCTAssertEqual(actualName, expectedName)
-            case (.ipAddress(.ipv4(var actualAddr)), .ipAddress(.ipv4(var expectedAddr))):
-                XCTAssertEqual(memcmp(&actualAddr, &expectedAddr, MemoryLayout<in_addr>.size), 0)
-            case (.ipAddress(.ipv6(var actualAddr)), .ipAddress(.ipv6(var expectedAddr))):
-                XCTAssertEqual(memcmp(&actualAddr, &expectedAddr, MemoryLayout<in6_addr>.size), 0)
-            default:
-                XCTFail("Invalid entry in sans.")
-            }
+        guard let sans = cert._subjectAlternativeNames() else {
+            return XCTFail("could not get subject alternative names")
+        }
+        XCTAssertEqual(sans.count, 5)
+        XCTAssertEqual(sans[0].nameType, .dnsName)
+        XCTAssertEqual(Array(sans[0].contents), Array("localhost".utf8))
+        XCTAssertEqual(sans[1].nameType, .dnsName)
+        XCTAssertEqual(Array(sans[1].contents), Array("example.com".utf8))
+        _ = sans[2] // not supported type
+        XCTAssertEqual(sans[3].nameType, .ipAddress)
+        withUnsafeBytes(of: &v4addr) { v4addr in
+            XCTAssertEqual(Array(sans[3].contents), Array(v4addr))
+        }
+        XCTAssertEqual(sans[4].nameType, .ipAddress)
+        withUnsafeBytes(of: &v6addr) { v6addr in
+            XCTAssertEqual(Array(sans[4].contents), Array(v6addr))
         }
     }
 
