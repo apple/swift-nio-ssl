@@ -135,11 +135,11 @@ private func validIdentityForService(serverHostname: Array<UInt8>?,
     // them, and then refuse to check the commonName field. If there are no SAN fields to
     // validate against, we'll check commonName.
     var checkedMatch = false
-    if let alternativeNames = leafCertificate.subjectAlternativeNames() {
+    if let alternativeNames = leafCertificate._subjectAlternativeNames() {
         for name in alternativeNames {
             checkedMatch = true
 
-            switch name {
+            switch try? name.get() {
             case .dnsName(let dnsName):
                 if matchHostname(ourHostname: serverHostnameSlice, firstPeriodIndex: firstPeriodIndex, dnsName: dnsName) {
                     return true
@@ -148,8 +148,8 @@ private func validIdentityForService(serverHostname: Array<UInt8>?,
                 if matchIpAddress(socketAddress: socketAddress, certificateIP: ip) {
                     return true
                 }
-            case .unknown:
-                break
+            case .none:
+                continue
             }
         }
     }

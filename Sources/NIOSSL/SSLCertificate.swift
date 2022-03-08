@@ -56,7 +56,6 @@ public class NIOSSLCertificate {
     public enum _AlternativeName {
         case dnsName([UInt8])
         case ipAddress(_IPAddress)
-        case unknown
     }
 
     public enum _IPAddress {
@@ -175,8 +174,8 @@ public class NIOSSLCertificate {
         return NIOSSLCertificate(withOwnedReference: pointer)
     }
 
-    /// Get a sequence of the alternative names in the certificate.
-    internal func subjectAlternativeNames() -> _SubjectAlternativeNames? {
+    /// Get a collection of the alternative names in the certificate.
+    public func _subjectAlternativeNames() -> _SubjectAlternativeNames? {
         guard let sanExtension = CNIOBoringSSL_X509_get_ext_d2i(self.ref, NID_subject_alt_name, nil, nil) else {
             return nil
         }
@@ -408,23 +407,19 @@ extension NIOSSLCertificate: Hashable {
     }
 }
 
-
 /// Collection of all Subject Alternative Names from a `NIOSSLCertificate`
 public class _SubjectAlternativeNames: RandomAccessCollection {
-    public var startIndex: Int { 0 }
-    public var endIndex: Int { stackSize }
-
-    private let nameStack: OpaquePointer
-    private let stackSize: Int
-
-    internal init(nameStack: OpaquePointer) {
-        self.nameStack = nameStack
-        self.stackSize = CNIOBoringSSLShims_sk_GENERAL_NAME_num(nameStack)
-    }
-    
-    public subscript(position: Int) -> NIOSSLCertificate._AlternativeName {
-        get {
-            guard let name = CNIOBoringSSLShims_sk_GENERAL_NAME_value(self.nameStack, position) else {
+    public struct Element {
+        private let collection: _SubjectAlternativeNames
+        private let index: Int
+        
+        fileprivate init(collection: _SubjectAlternativeNames, index: Int) {
+            self.collection = collection
+            self.index = index
+        }
+        
+        func get() throws -> NIOSSLCertificate._AlternativeName? {
+            guard let name = CNIOBoringSSLShims_sk_GENERAL_NAME_value(collection.nameStack, index) else {
                 fatalError("Unexpected null pointer when unwrapping SAN value")
             }
             switch name.pointee.type {
@@ -437,38 +432,51 @@ public class _SubjectAlternativeNames: RandomAccessCollection {
                 let addrPtr = UnsafeBufferPointer(start: CNIOBoringSSL_ASN1_STRING_get0_data(name.pointee.d.ia5),
                                                   count: Int(CNIOBoringSSL_ASN1_STRING_length(name.pointee.d.ia5)))
                 guard let addr = addressFromBytes(bytes: addrPtr) else {
-                    // This should throw, but we can't throw from this subscript.
-                    return .unknown
+                    throw NIOSSLExtraError.failedToCreateIPAddressFromBytes
                 }
                 return .ipAddress(addr)
             default:
                 // We don't recognise this name type
-                return .unknown
+                return nil
+            }
+        }
+        
+        private func addressFromBytes(bytes: UnsafeBufferPointer<UInt8>) -> NIOSSLCertificate._IPAddress? {
+            switch bytes.count {
+            case 4:
+                let addr = bytes.baseAddress?.withMemoryRebound(to: in_addr.self, capacity: 1) {
+                    return $0.pointee
+                }
+                guard let innerAddr = addr else {
+                    return nil
+                }
+                return .ipv4(innerAddr)
+            case 16:
+                let addr = bytes.baseAddress?.withMemoryRebound(to: in6_addr.self, capacity: 1) {
+                    return $0.pointee
+                }
+                guard let innerAddr = addr else {
+                    return nil
+                }
+                return .ipv6(innerAddr)
+            default:
+                return nil
             }
         }
     }
+    public var startIndex: Int { 0 }
+    public var endIndex: Int { stackSize }
 
-    private func addressFromBytes(bytes: UnsafeBufferPointer<UInt8>) -> NIOSSLCertificate._IPAddress? {
-        switch bytes.count {
-        case 4:
-            let addr = bytes.baseAddress?.withMemoryRebound(to: in_addr.self, capacity: 1) {
-                return $0.pointee
-            }
-            guard let innerAddr = addr else {
-                return nil
-            }
-            return .ipv4(innerAddr)
-        case 16:
-            let addr = bytes.baseAddress?.withMemoryRebound(to: in6_addr.self, capacity: 1) {
-                return $0.pointee
-            }
-            guard let innerAddr = addr else {
-                return nil
-            }
-            return .ipv6(innerAddr)
-        default:
-            return nil
-        }
+    fileprivate let nameStack: OpaquePointer
+    private let stackSize: Int
+
+    internal init(nameStack: OpaquePointer) {
+        self.nameStack = nameStack
+        self.stackSize = CNIOBoringSSLShims_sk_GENERAL_NAME_num(nameStack)
+    }
+    
+    public subscript(position: Int) -> Element {
+        .init(collection: self, index: position)
     }
 
     deinit {
@@ -485,15 +493,15 @@ extension NIOSSLCertificate: CustomStringConvertible {
             let commonName = String(decoding: commonNameBytes, as: UTF8.self)
             desc += ";common_name=" + commonName
         }
-        if let alternativeName = self.subjectAlternativeNames() {
-            let altNames = alternativeName.map { name in
-                switch name {
+        if let alternativeName = self._subjectAlternativeNames() {
+            let altNames = alternativeName.compactMap { name in
+                switch try? name.get() {
                 case .dnsName(let bytes):
                     return String(decoding: bytes, as: UTF8.self)
                 case .ipAddress(let address):
                     return String(describing: address)
-                case .unknown:
-                    return "Unknown"
+                case .none:
+                    return nil
                 }
             }.joined(separator: ",")
             desc += ";alternative_names=\(altNames)"

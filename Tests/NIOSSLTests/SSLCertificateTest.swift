@@ -324,7 +324,7 @@ class SSLCertificateTest: XCTestCase {
             .ipAddress(.ipv6(v6addr)),
         ]
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
-        let sans = [NIOSSLCertificate._AlternativeName](cert.subjectAlternativeNames()!)
+        let sans = try cert._subjectAlternativeNames()!.compactMap { try $0.get() }
 
         XCTAssertEqual(sans.count, expectedSanFields.count)
         for index in 0..<sans.count {
@@ -343,7 +343,7 @@ class SSLCertificateTest: XCTestCase {
 
     func testNonexistentSan() throws {
         let cert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
-        XCTAssertNil(cert.subjectAlternativeNames())
+        XCTAssertNil(cert._subjectAlternativeNames())
     }
 
     func testCommonName() throws {
