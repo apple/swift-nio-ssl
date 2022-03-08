@@ -317,14 +317,14 @@ class SSLCertificateTest: XCTestCase {
         precondition(inet_pton(AF_INET, "192.168.0.1", &v4addr) == 1)
         precondition(inet_pton(AF_INET6, "2001:db8::1", &v6addr) == 1)
 
-        let expectedSanFields: [NIOSSLCertificate.AlternativeName] = [
+        let expectedSanFields: [NIOSSLCertificate._AlternativeName] = [
             .dnsName(Array("localhost".utf8)),
             .dnsName(Array("example.com".utf8)),
             .ipAddress(.ipv4(v4addr)),
             .ipAddress(.ipv6(v6addr)),
         ]
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
-        let sans = [NIOSSLCertificate.AlternativeName](cert.subjectAlternativeNames()!)
+        let sans = [NIOSSLCertificate._AlternativeName](cert.subjectAlternativeNames()!)
 
         XCTAssertEqual(sans.count, expectedSanFields.count)
         for index in 0..<sans.count {

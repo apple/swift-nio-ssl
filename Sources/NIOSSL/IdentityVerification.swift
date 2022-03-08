@@ -148,6 +148,8 @@ private func validIdentityForService(serverHostname: Array<UInt8>?,
                 if matchIpAddress(socketAddress: socketAddress, certificateIP: ip) {
                     return true
                 }
+            case .unknown:
+                break
             }
         }
     }
@@ -187,7 +189,7 @@ private func matchHostname(ourHostname: ArraySlice<UInt8>?, firstPeriodIndex: Ar
 }
 
 
-private func matchIpAddress(socketAddress: SocketAddress, certificateIP: NIOSSLCertificate.IPAddress) -> Bool {
+private func matchIpAddress(socketAddress: SocketAddress, certificateIP: NIOSSLCertificate._IPAddress) -> Bool {
     // These match if the two underlying IP address structures match.
     switch (socketAddress, certificateIP) {
     case (.v4(let address), .ipv4(var addr2)):
