@@ -323,10 +323,11 @@ class SSLCertificateTest: XCTestCase {
         }
         XCTAssertEqual(sans.count, 5)
         XCTAssertEqual(sans[0].nameType, .dnsName)
-        XCTAssertEqual(Array(sans[0].contents), Array("localhost".utf8))
+        XCTAssertEqual(String(decoding: sans[0].contents, as: UTF8.self), "localhost")
         XCTAssertEqual(sans[1].nameType, .dnsName)
-        XCTAssertEqual(Array(sans[1].contents), Array("example.com".utf8))
-        _ = sans[2] // not supported type
+        XCTAssertEqual(String(decoding: sans[1].contents, as: UTF8.self), "example.com")
+        XCTAssertEqual(sans[2].nameType, .email)
+        XCTAssertEqual(String(decoding: sans[2].contents, as: UTF8.self), "user@example.com")
         XCTAssertEqual(sans[3].nameType, .ipAddress)
         withUnsafeBytes(of: &v4addr) { v4addr in
             XCTAssertEqual(Array(sans[3].contents), Array(v4addr))

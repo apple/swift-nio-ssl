@@ -411,7 +411,8 @@ public struct _SubjectAlternativeName {
         fileprivate init(_ rawCode: Int32) {
             self.init(Int(rawCode))
         }
-
+        
+        public static let email = Self(GEN_EMAIL)
         public static let dnsName = Self(GEN_DNS)
         public static let ipAddress = Self(GEN_IPADD)
     }
