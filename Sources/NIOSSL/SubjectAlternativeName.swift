@@ -15,6 +15,14 @@
 @_implementationOnly import CNIOBoringSSL
 @_implementationOnly import CNIOBoringSSLShims
 
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+import Darwin.C
+#elseif os(Linux) || os(FreeBSD) || os(Android)
+import Glibc
+#else
+#error("unsupported os")
+#endif
+
 /// Collection of all Subject Alternative Names from a `NIOSSLCertificate`
 public struct _SubjectAlternativeNames {
     
