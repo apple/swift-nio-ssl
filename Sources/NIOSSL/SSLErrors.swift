@@ -234,8 +234,6 @@ extension NIOSSLExtraError {
         let description = "IP addresses cannot validly be used for Server Name Indication, got \(ipAddress)"
         return NIOSSLExtraError(baseError: .cannotUseIPAddressInSNI, description: description)
     }
-    
-    public static let failedToCreateIPAddressFromBytes = NIOSSLExtraError(baseError: .failedToCreateIPAddressFromBytes, description: nil)
 }
 
 
