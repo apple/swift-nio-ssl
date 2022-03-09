@@ -191,7 +191,6 @@ extension NIOSSLExtraError {
         case serverHostnameImpossibleToMatch
         case cannotUseIPAddressInSNI
         case invalidSNIHostname
-        case failedToCreateIPAddressFromBytes
     }
 }
 
