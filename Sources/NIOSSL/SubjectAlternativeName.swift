@@ -17,13 +17,10 @@
 
 /// Collection of all Subject Alternative Names from a `NIOSSLCertificate`
 public struct _SubjectAlternativeNames {
+    
     @usableFromInline
-    internal final class Storage: RandomAccessCollection {
-        public typealias Element = _SubjectAlternativeName
+    internal final class Storage {
         
-        @inlinable public var startIndex: Int { 0 }
-        @inlinable public var endIndex: Int { stackSize }
-
         fileprivate let nameStack: OpaquePointer
         @usableFromInline internal let stackSize: Int
 
@@ -33,7 +30,7 @@ public struct _SubjectAlternativeNames {
         }
         
         public subscript(position: Int) -> Element {
-            guard let name = CNIOBoringSSLShims_sk_GENERAL_NAME_value(nameStack, position) else {
+            guard let name = CNIOBoringSSLShims_sk_GENERAL_NAME_value(self.nameStack, position) else {
                 fatalError("Unexpected null pointer when unwrapping SAN value")
             }
             
@@ -51,6 +48,7 @@ public struct _SubjectAlternativeNames {
     
     
     @usableFromInline internal var storage: Storage
+    
     internal init(nameStack: OpaquePointer) {
         self.storage = .init(nameStack: nameStack)
     }
@@ -59,19 +57,15 @@ public struct _SubjectAlternativeNames {
 extension _SubjectAlternativeNames: RandomAccessCollection {
     
     @inlinable public subscript(position: Int) -> _SubjectAlternativeName {
-        storage[position]
+        self.storage[position]
     }
     
-    @inlinable public var startIndex: Int {
-        storage.startIndex
-    }
-    
-    @inlinable public var endIndex: Int {
-        storage.endIndex
-    }
+    @inlinable public var startIndex: Int { 0 }
+    @inlinable public var endIndex: Int { self.storage.stackSize }
 }
 
 public struct _SubjectAlternativeName {
+    
     public struct NameType: Hashable {
         public var rawValue: Int
 
@@ -102,9 +96,10 @@ public struct _SubjectAlternativeName {
         @inlinable public func withUnsafeBufferPointer<Result>(
             _ body: (UnsafeBufferPointer<UInt8>) throws -> Result
         ) rethrows -> Result {
-            try body(buffer)
+            try body(self.buffer)
         }
     }
+    
     // should be replaced by `swift-nio`s `IPAddress` once https://github.com/apple/swift-nio/issues/1650 is resolved
     internal enum IPAddress {
         case ipv4(in_addr)
@@ -116,15 +111,17 @@ public struct _SubjectAlternativeName {
 }
 
 extension _SubjectAlternativeName.Contents: RandomAccessCollection {
-    @inlinable public var startIndex: Int { buffer.startIndex }
-    @inlinable public var endIndex: Int { buffer.endIndex }
+    
+    @inlinable public var startIndex: Int { self.buffer.startIndex }
+    @inlinable public var endIndex: Int { self.buffer.endIndex }
     
     @inlinable public subscript(position: Int) -> UInt8 {
-        buffer[position]
+        self.buffer[position]
     }
 }
 
 extension _SubjectAlternativeName.IPAddress {
+    
     internal init?(_ subjectAlternativeName: _SubjectAlternativeName) {
         guard subjectAlternativeName.nameType == .ipAddress else {
             return nil
@@ -167,13 +164,13 @@ extension _SubjectAlternativeName.IPAddress: CustomStringConvertible {
     public var description: String {
         switch self {
         case .ipv4(let addr):
-            return self.ipv4ToString(addr)
+            return Self.ipv4ToString(addr)
         case .ipv6(let addr):
-            return self.ipv6ToString(addr)
+            return Self.ipv6ToString(addr)
         }
     }
     
-    private func ipv4ToString(_ address: in_addr) -> String {
+    static private func ipv4ToString(_ address: in_addr) -> String {
         
         var address = address
         var dest: [CChar] = Array(repeating: 0, count: Self.ipv4AddressLength)
@@ -184,7 +181,7 @@ extension _SubjectAlternativeName.IPAddress: CustomStringConvertible {
         return String(cString: &dest)
     }
     
-    private func ipv6ToString(_ address: in6_addr) -> String {
+    static private func ipv6ToString(_ address: in6_addr) -> String {
         var address = address
         var dest: [CChar] = Array(repeating: 0, count: Self.ipv6AddressLength)
         dest.withUnsafeMutableBufferPointer { pointer in
