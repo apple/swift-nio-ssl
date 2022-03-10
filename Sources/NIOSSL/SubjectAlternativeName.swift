@@ -65,7 +65,8 @@ public struct _SubjectAlternativeNames {
 extension _SubjectAlternativeNames: RandomAccessCollection {
     
     @inlinable public subscript(position: Int) -> _SubjectAlternativeName {
-        self.storage[position]
+        precondition(self.indices.contains(position), "index \(position) out of bounds")
+        return self.storage[position]
     }
     
     @inlinable public var startIndex: Int { 0 }
@@ -124,7 +125,8 @@ extension _SubjectAlternativeName.Contents: RandomAccessCollection {
     @inlinable public var endIndex: Int { self.buffer.endIndex }
     
     @inlinable public subscript(position: Int) -> UInt8 {
-        self.buffer[position]
+        precondition(self.indices.contains(position), "index \(position) out of bounds")
+        return self.buffer[position]
     }
 }
 
@@ -137,8 +139,8 @@ extension _SubjectAlternativeName.IPAddress {
         switch subjectAlternativeName.contents.count {
         case 4:
             let addr = subjectAlternativeName.contents.withUnsafeBufferPointer {
-                $0.baseAddress?.withMemoryRebound(to: in_addr.self, capacity: 1) {
-                    $0.pointee
+                $0.baseAddress.map {
+                    UnsafeRawPointer($0).load(as: in_addr.self)
                 }
             }
             guard let innerAddr = addr else {
@@ -147,8 +149,8 @@ extension _SubjectAlternativeName.IPAddress {
             self = .ipv4(innerAddr)
         case 16:
             let addr = subjectAlternativeName.contents.withUnsafeBufferPointer {
-                $0.baseAddress?.withMemoryRebound(to: in6_addr.self, capacity: 1) {
-                    $0.pointee
+                $0.baseAddress.map {
+                    UnsafeRawPointer($0).load(as: in6_addr.self)
                 }
             }
             guard let innerAddr = addr else {
