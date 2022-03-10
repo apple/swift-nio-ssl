@@ -52,16 +52,6 @@ public class NIOSSLCertificate {
     private var ref: OpaquePointer {
         return self._ref
     }
-
-    internal enum AlternativeName {
-        case dnsName([UInt8])
-        case ipAddress(IPAddress)
-    }
-
-    internal enum IPAddress {
-        case ipv4(in_addr)
-        case ipv6(in6_addr)
-    }
     
     public var serialNumber: [UInt8] {
         let serialNumber = CNIOBoringSSL_X509_get_serialNumber(self.ref)!
@@ -174,12 +164,12 @@ public class NIOSSLCertificate {
         return NIOSSLCertificate(withOwnedReference: pointer)
     }
 
-    /// Get a sequence of the alternative names in the certificate.
-    internal func subjectAlternativeNames() -> SubjectAltNameSequence? {
+    /// Get a collection of the alternative names in the certificate.
+    public func _subjectAlternativeNames() -> _SubjectAlternativeNames? {
         guard let sanExtension = CNIOBoringSSL_X509_get_ext_d2i(self.ref, NID_subject_alt_name, nil, nil) else {
             return nil
         }
-        return SubjectAltNameSequence(nameStack: OpaquePointer(sanExtension))
+        return _SubjectAlternativeNames(nameStack: OpaquePointer(sanExtension))
     }
     
     /// Extracts the SHA1 hash of the subject name before it has been truncated.
@@ -407,80 +397,6 @@ extension NIOSSLCertificate: Hashable {
     }
 }
 
-/// A helper sequence object that enables us to represent subject alternative names
-/// as an iterable Swift sequence.
-internal class SubjectAltNameSequence: Sequence, IteratorProtocol {
-    typealias Element = NIOSSLCertificate.AlternativeName
-
-    private let nameStack: OpaquePointer
-    private var nextIdx: Int
-    private let stackSize: Int
-
-    init(nameStack: OpaquePointer) {
-        self.nameStack = nameStack
-        self.stackSize = CNIOBoringSSLShims_sk_GENERAL_NAME_num(nameStack)
-        self.nextIdx = 0
-    }
-
-    private func addressFromBytes(bytes: UnsafeBufferPointer<UInt8>) -> NIOSSLCertificate.IPAddress? {
-        switch bytes.count {
-        case 4:
-            let addr = bytes.baseAddress?.withMemoryRebound(to: in_addr.self, capacity: 1) {
-                return $0.pointee
-            }
-            guard let innerAddr = addr else {
-                return nil
-            }
-            return .ipv4(innerAddr)
-        case 16:
-            let addr = bytes.baseAddress?.withMemoryRebound(to: in6_addr.self, capacity: 1) {
-                return $0.pointee
-            }
-            guard let innerAddr = addr else {
-                return nil
-            }
-            return .ipv6(innerAddr)
-        default:
-            return nil
-        }
-    }
-
-    func next() -> NIOSSLCertificate.AlternativeName? {
-        guard self.nextIdx < self.stackSize else {
-            return nil
-        }
-
-        guard let name = CNIOBoringSSLShims_sk_GENERAL_NAME_value(self.nameStack, self.nextIdx) else {
-            fatalError("Unexpected null pointer when unwrapping SAN value")
-        }
-
-        self.nextIdx += 1
-
-        switch name.pointee.type {
-        case GEN_DNS:
-            let namePtr = UnsafeBufferPointer(start: CNIOBoringSSL_ASN1_STRING_get0_data(name.pointee.d.ia5),
-                                              count: Int(CNIOBoringSSL_ASN1_STRING_length(name.pointee.d.ia5)))
-            let nameString = [UInt8](namePtr)
-            return .dnsName(nameString)
-        case GEN_IPADD:
-            let addrPtr = UnsafeBufferPointer(start: CNIOBoringSSL_ASN1_STRING_get0_data(name.pointee.d.ia5),
-                                              count: Int(CNIOBoringSSL_ASN1_STRING_length(name.pointee.d.ia5)))
-            guard let addr = addressFromBytes(bytes: addrPtr) else {
-                // This should throw, but we can't throw from next(). Skip this instead.
-                return self.next()
-            }
-            return .ipAddress(addr)
-        default:
-            // We don't recognise this name type. Skip it.
-            return next()
-        }
-    }
-
-    deinit {
-        CNIOBoringSSL_GENERAL_NAMES_free(self.nameStack)
-    }
-}
-
 extension NIOSSLCertificate: CustomStringConvertible {
     
     public var description: String {
@@ -490,13 +406,18 @@ extension NIOSSLCertificate: CustomStringConvertible {
             let commonName = String(decoding: commonNameBytes, as: UTF8.self)
             desc += ";common_name=" + commonName
         }
-        if let alternativeName = self.subjectAlternativeNames() {
-            let altNames = alternativeName.map { name in
-                switch name {
-                case .dnsName(let bytes):
-                    return String(decoding: bytes, as: UTF8.self)
-                case .ipAddress(let address):
-                    return String(describing: address)
+        if let alternativeName = self._subjectAlternativeNames() {
+            let altNames = alternativeName.compactMap { name in
+                switch name.nameType {
+                case .dnsName:
+                    return String(decoding: name.contents, as: UTF8.self)
+                case .ipAddress:
+                    guard let ipAddress = _SubjectAlternativeName.IPAddress(name) else {
+                        return nil
+                    }
+                    return ipAddress.description
+                default:
+                    return nil
                 }
             }.joined(separator: ",")
             desc += ";alternative_names=\(altNames)"
@@ -504,44 +425,6 @@ extension NIOSSLCertificate: CustomStringConvertible {
         return desc + ">"
     }
     
-}
-
-extension NIOSSLCertificate.IPAddress: CustomStringConvertible {
-    
-    private static let ipv4AddressLength = 16
-    private static let ipv6AddressLength = 46
-    
-    /// A string representation of the IP address.
-    /// E.g. IPv4: `192.168.0.1`
-    /// E.g. IPv6: `2001:db8::1`
-    public var description: String {
-        switch self {
-        case .ipv4(let addr):
-            return self.ipv4ToString(addr)
-        case .ipv6(let addr):
-            return self.ipv6ToString(addr)
-        }
-    }
-    
-    private func ipv4ToString(_ address: in_addr) -> String {
-        var address = address
-        var dest: [CChar] = Array(repeating: 0, count: NIOSSLCertificate.IPAddress.ipv4AddressLength)
-        dest.withUnsafeMutableBufferPointer { pointer in
-            let result = inet_ntop(AF_INET, &address, pointer.baseAddress!, socklen_t(pointer.count))
-            precondition(result != nil, "The IP address was invalid. This should never happen as we're within the IP address struct.")
-        }
-        return String(cString: &dest)
-    }
-    
-    private func ipv6ToString(_ address: in6_addr) -> String {
-        var address = address
-        var dest: [CChar] = Array(repeating: 0, count: NIOSSLCertificate.IPAddress.ipv6AddressLength)
-        dest.withUnsafeMutableBufferPointer { pointer in
-            let result = inet_ntop(AF_INET6, &address, pointer.baseAddress!, socklen_t(pointer.count))
-            precondition(result != nil, "The IP address was invalid. This should never happen as we're within the IP address struct.")
-        }
-        return String(cString: &dest)
-    }
 }
 
 extension UnsafePointer where Pointee == ASN1_TIME {
