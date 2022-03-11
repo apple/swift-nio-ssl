@@ -89,6 +89,7 @@ public struct _SubjectAlternativeName {
         public static let email = Self(GEN_EMAIL)
         public static let dnsName = Self(GEN_DNS)
         public static let ipAddress = Self(GEN_IPADD)
+        public static let uri = Self(GEN_URI)
     }
 
     public struct Contents {

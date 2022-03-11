@@ -103,6 +103,45 @@ i5PCcPYi39q101UIxV/WokS0mqHx/XuTYTwhWYd/C49OnM8MLZOUJd8w0VvS0ItY
 -----END CERTIFICATE-----
 """
 
+// created with the following command:
+// openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes \
+//   -keyout private.pem -out cert.pem -subj '/CN=example.com' \
+//   -extensions san \
+//   -config <(echo '[req]'; echo 'distinguished_name=req';
+//             echo '[san]'; echo 'subjectAltName=DNS:localhost,DNS:example.com,email:user@example.com,IP:192.168.0.1,IP:2001:db8::1,URI:http://example.com/path?query=param,URI:http://example.org/')
+let certWithAllSupportedSANTypes = """
+-----BEGIN CERTIFICATE-----
+MIIFOzCCAyOgAwIBAgIJALPXfgvEjcDsMA0GCSqGSIb3DQEBCwUAMBYxFDASBgNV
+BAMMC2V4YW1wbGUuY29tMB4XDTIyMDMwOTE4MTIxN1oXDTMyMDMwNjE4MTIxN1ow
+FjEUMBIGA1UEAwwLZXhhbXBsZS5jb20wggIiMA0GCSqGSIb3DQEBAQUAA4ICDwAw
+ggIKAoICAQC7Bwqt8H+O3zotsGo4KMjipytzfmYiTOS0Id6HY1zfLVGrOSRTbFAE
+BmpPWbu4TzDZpxoNa6oQYqcpMqHTJe6+U/Coz+Xm+fSqWVZPLzcX2iW6igeS5cH5
+2C9sWbzbYJku3qiNc0B0K+sIPQLeUM8sc2UK6rL3Vc6kt/SRRjshZNj6hPRqQNv6
+85ul6yxICOooX6Xy/q0lqJaWaIOk2GZa/Genz/93RbKnLCpynSX0JETcIW8uFIPo
+3BeyFcvgThYUq/KvpkkNPqOp7SOfO5rFLi9IRlDNuUF9h4hLZ+qV3NaxQ5mk+8xl
+BcNPDNqucNwQ7UKRNEfipmVPE44txMh06VcahcSzc+FKGsQmlNON0WwMfTTRhCPD
+Y2JVKZ5BpsgUtrivC4UbNmNJEVQQ9dJBcsALuwhoJo5CL0tkI2Dx/eo6fpwL6KDu
+ZE71MZ8BSJ8fW620fGedR+Cr+Jeq5H5eGGaWw55hXRKHbOQgjvIC6LKp9CB4/wNK
+jwlWEgae/EiI7iCuSOLj+yGbWvCnUcYdzYxuxZMY1x097dXxWObzJHgHllIT8639
+LqDT7+Xrhqoe0eMxeYwHzE8VMEPPpBeZAGzYO1lXF2lWqzIaPHK2oIeNj8Rskzqd
+GFJPSvTZqEUBxgITiz5Ba46G9Cyi4oVom5CIPI+UWBLxDLjUiDbYtQIDAQABo4GL
+MIGIMIGFBgNVHREEfjB8gglsb2NhbGhvc3SCC2V4YW1wbGUuY29tgRB1c2VyQGV4
+YW1wbGUuY29thwTAqAABhxAgAQ24AAAAAAAAAAAAAAABhiNodHRwOi8vZXhhbXBs
+ZS5jb20vcGF0aD9xdWVyeT1wYXJhbYYTaHR0cDovL2V4YW1wbGUub3JnLzANBgkq
+hkiG9w0BAQsFAAOCAgEAJFzzbzD5+YGnX2cXKms9ZSqzdFyzkU1/Glc4gCJJu0ch
+GxdqRA1D9eiYtaumtnTwdN/VsJGtHQy87ur+9hawQ7MwA8E45RJoibwT/trCggzK
+gjWeor9l1ahwr4eBgmmWDzmdUXd2HcCBRR5iXfU3CLj8BUT2EXx8iFbkHHc5uZGi
+19ZfyAaWBV5KkkMjk9FMYAoFCsv/eDjtQzlfJrgKDcAZu7GD7ijYcw2buGeRl9SG
+//QKkyAVEnY2Fpn0v+pwOWBunB4EV2bRK+TbSScaU0EC3+AT9Xl62IAqJsdmTOrr
+URM7cuo6HVFLhNbAsUZMwd/orLQmKnp+njZOKdcq+J8f3aIUhKBIKg+sYcFVpV1Z
+Mpmm/M04hN+EGuZqASJRfIE1CI5PXizVd6sQd1A/zhoy9QtfbVGgxWklYgmy7ycB
+wS41t3bU8LLCC3RXflBOBz4y+/7Oe6muRWUAEXt4rgc4Zv391SfIFpwEaNOtFATl
+LzVcCAEmtY1Fyp4cOm6GEMjZ0H0buOaCRoYJb3KYZm5L6c58Ahom2GfAdtdoiRcX
+7JHZybbOiOTgThxfXxgzABq/HVLC5PNVlAk95SYcoFMjixyDt2S9JD9fnGI3H9CT
+kVuVyNH7NBMh6YOuTL1dh55bvDjvgkuzudepsZnpfjgQKE1aZ7dL32Xi000gBM8=
+-----END CERTIFICATE-----
+"""
+
 func makeTemporaryFile(fileExtension: String = "") -> String {
     let template = "\(FileManager.default.temporaryDirectory.path)/niotestXXXXXXX\(fileExtension)"
     var templateBytes = template.utf8 + [0]
@@ -317,11 +356,11 @@ class SSLCertificateTest: XCTestCase {
         precondition(inet_pton(AF_INET, "192.168.0.1", &v4addr) == 1)
         precondition(inet_pton(AF_INET6, "2001:db8::1", &v6addr) == 1)
 
-        let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
+        let cert = try NIOSSLCertificate(bytes: .init(certWithAllSupportedSANTypes.utf8), format: .pem)
         guard let sans = cert._subjectAlternativeNames() else {
             return XCTFail("could not get subject alternative names")
         }
-        XCTAssertEqual(sans.count, 5)
+        XCTAssertEqual(sans.count, 7)
         XCTAssertEqual(sans[0].nameType, .dnsName)
         XCTAssertEqual(String(decoding: sans[0].contents, as: UTF8.self), "localhost")
         XCTAssertEqual(sans[1].nameType, .dnsName)
@@ -336,6 +375,10 @@ class SSLCertificateTest: XCTestCase {
         withUnsafeBytes(of: &v6addr) { v6addr in
             XCTAssertEqual(Array(sans[4].contents), Array(v6addr))
         }
+        XCTAssertEqual(sans[5].nameType, .uri)
+        XCTAssertEqual(String(decoding: sans[5].contents, as: UTF8.self), "http://example.com/path?query=param")
+        XCTAssertEqual(sans[6].nameType, .uri)
+        XCTAssertEqual(String(decoding: sans[6].contents, as: UTF8.self), "http://example.org/")
     }
 
     func testNonexistentSan() throws {
