@@ -52,7 +52,6 @@
 #include <CNIOBoringSSL_aead.h>
 #include <CNIOBoringSSL_aes.h>
 #include <CNIOBoringSSL_cipher.h>
-#include <CNIOBoringSSL_cpu.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_mem.h>
 #include <CNIOBoringSSL_nid.h>
