@@ -14,11 +14,11 @@ diff --git a/Sources/CNIOBoringSSL/include/CNIOBoringSSL_bn.h b/Sources/CNIOBori
 index c86c1ef..7013140 100644
 --- a/Sources/CNIOBoringSSL/include/CNIOBoringSSL_bn.h
 +++ b/Sources/CNIOBoringSSL/include/CNIOBoringSSL_bn.h
-@@ -126,7 +126,7 @@
+@@ -126,7 +126,8 @@
  #include "CNIOBoringSSL_base.h"
  #include "CNIOBoringSSL_thread.h"
  
--#include <inttypes.h>  // for PRIu64 and friends
+ #include <inttypes.h>  // for PRIu64 and friends
 +#include <sys/types.h>
  #include <stdio.h>  // for FILE*
  
