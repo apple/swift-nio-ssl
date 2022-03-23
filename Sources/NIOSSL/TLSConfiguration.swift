@@ -92,6 +92,8 @@ public struct NIOTLSCipher: RawRepresentable, Hashable {
     
     public static let TLS_RSA_WITH_AES_128_CBC_SHA                    = NIOTLSCipher(rawValue: 0x2F)
     public static let TLS_RSA_WITH_AES_256_CBC_SHA                    = NIOTLSCipher(rawValue: 0x35)
+    public static let TLS_PSK_WITH_AES_128_CBC_SHA                    = NIOTLSCipher(rawValue: 0x8C)
+    public static let TLS_PSK_WITH_AES_256_CBC_SHA                    = NIOTLSCipher(rawValue: 0x8D)
     public static let TLS_RSA_WITH_AES_128_GCM_SHA256                 = NIOTLSCipher(rawValue: 0x9C)
     public static let TLS_RSA_WITH_AES_256_GCM_SHA384                 = NIOTLSCipher(rawValue: 0x9D)
     public static let TLS_AES_128_GCM_SHA256                          = NIOTLSCipher(rawValue: 0x1301)
@@ -101,6 +103,8 @@ public struct NIOTLSCipher: RawRepresentable, Hashable {
     public static let TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA            = NIOTLSCipher(rawValue: 0xC00A)
     public static let TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA              = NIOTLSCipher(rawValue: 0xC013)
     public static let TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA              = NIOTLSCipher(rawValue: 0xC014)
+    public static let TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA              = NIOTLSCipher(rawValue: 0xC035)
+    public static let TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA              = NIOTLSCipher(rawValue: 0xC036)
     public static let TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256         = NIOTLSCipher(rawValue: 0xC02B)
     public static let TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384         = NIOTLSCipher(rawValue: 0xC02C)
     public static let TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256           = NIOTLSCipher(rawValue: 0xC02F)
@@ -276,6 +280,15 @@ public struct TLSConfiguration {
 
     /// The private key associated with the leaf certificate.
     public var privateKey: NIOSSLPrivateKeySource?
+    
+    /// PSK bytes defined as UInt8
+    public var psk: [UInt8]? // Make this eventually gets to be (SecureBytes) from SwiftCrypto
+    
+    /// PSK Indentity bytes defined as UInt8
+    public var pskIdentity: [UInt8]? // Make this eventually gets to be (SecureBytes) from SwiftCrypto
+    
+    /// Flag to define the configuration as client or server side.
+    public var clientConfiguration: Bool = false
 
     /// The application protocols to use in the connection. Should be an ordered list of ASCII
     /// strings representing the ALPN identifiers of the protocols to negotiate. For clients,
@@ -306,6 +319,7 @@ public struct TLSConfiguration {
     /// This instructs the client which identities can be used by evaluating what CA the identity certificate was issued from.
     public var sendCANameList: Bool
 
+    // Certificate Usage
     private init(cipherSuiteValues: [NIOTLSCipher] = [],
                  cipherSuites: String = defaultCipherSuites,
                  verifySignatureAlgorithms: [SignatureAlgorithm]?,
@@ -332,6 +346,37 @@ public struct TLSConfiguration {
         self.additionalTrustRoots = additionalTrustRoots
         self.certificateChain = certificateChain
         self.privateKey = privateKey
+        self.encodedApplicationProtocols = []
+        self.shutdownTimeout = shutdownTimeout
+        self.renegotiationSupport = renegotiationSupport
+        self.sendCANameList = sendCANameList
+        self.applicationProtocols = applicationProtocols
+        self.keyLogCallback = keyLogCallback
+        if !cipherSuiteValues.isEmpty {
+            self.cipherSuiteValues = cipherSuiteValues
+        }
+    }
+    // Pre-Shared Key Usage
+    private init(cipherSuiteValues: [NIOTLSCipher] = [],
+                 minimumTLSVersion: TLSVersion,
+                 maximumTLSVersion: TLSVersion?,
+                 psk: [UInt8],
+                 pskIdentity: [UInt8],
+                 client: Bool,
+                 applicationProtocols: [String],
+                 shutdownTimeout: TimeAmount,
+                 keyLogCallback: NIOSSLKeyLogCallback?,
+                 renegotiationSupport: NIORenegotiationSupport,
+                 sendCANameList: Bool = false) {
+        self.cipherSuites = defaultCipherSuites
+        self.minimumTLSVersion = minimumTLSVersion
+        self.maximumTLSVersion = maximumTLSVersion
+        self.certificateVerification = .none
+        self.additionalTrustRoots = []
+        self.certificateChain = []
+        self.psk = psk
+        self.pskIdentity = pskIdentity
+        self.clientConfiguration = client
         self.encodedApplicationProtocols = []
         self.shutdownTimeout = shutdownTimeout
         self.renegotiationSupport = renegotiationSupport
@@ -446,6 +491,30 @@ extension TLSConfiguration {
                                 keyLogCallback: nil,
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
+                                sendCANameList: false)
+    }
+    
+    /// Create a TLS configuration for use with server-side or client-side contexts that uses Pre-Shared Keys.
+    ///
+    /// This provides sensible defaults while requiring that you provide any data that is necessary
+    /// for server-side or client-side functionality.  This configuration uses Pre-Shared Keys instead of certificates.
+    ///
+    /// For customising fields, modify the returned TLSConfiguration object.
+    public static func makePreSharedKeyConfiguration(
+        psk: [UInt8],
+        pskIdentity: [UInt8],
+        client: Bool
+    ) -> TLSConfiguration {
+        return TLSConfiguration(cipherSuiteValues: [.TLS_PSK_WITH_AES_256_CBC_SHA],
+                                minimumTLSVersion: .tlsv11,
+                                maximumTLSVersion: .tlsv12,
+                                psk: psk,
+                                pskIdentity: pskIdentity,
+                                client: client,
+                                applicationProtocols: [],
+                                shutdownTimeout: .seconds(5),
+                                keyLogCallback: nil,
+                                renegotiationSupport: .none,
                                 sendCANameList: false)
     }
 }
