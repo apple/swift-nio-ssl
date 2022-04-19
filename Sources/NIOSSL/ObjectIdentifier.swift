@@ -27,7 +27,11 @@ public struct NIOSSLObjectIdentifier: Hashable {
         
         fileprivate init?(_ string: String) {
             let result = string.withCString { string in
-                CNIOBoringSSL_OBJ_txt2obj(string, 0)
+                // If no_name (the last parameter of CNIOBoringSSL_OBJ_txt2obj) is 0 then long names and
+                // short names will be interpreted as well as numerical forms.
+                // If no_name is 1 only the numerical form is acceptable.
+                // source: https://www.openssl.org/docs/manmaster/man3/OBJ_txt2obj.html
+                CNIOBoringSSL_OBJ_txt2obj(string, 1)
             }
             guard let reference = result else {
                 return nil
@@ -35,7 +39,7 @@ public struct NIOSSLObjectIdentifier: Hashable {
             self.reference = reference
         }
         
-        fileprivate init(reference: OpaquePointer) {
+        fileprivate init(takingOwnershipOf reference: OpaquePointer) {
             self.reference = reference
         }
         
@@ -58,8 +62,8 @@ public struct NIOSSLObjectIdentifier: Hashable {
     /// Creates an Object Identifier (OID) from an OpenSSL reference.
     /// - Note: initialising an ``NIOSSLObjectIdentifier`` takes ownership of the reference and will free it after the reference count drops to zero
     /// - Parameter reference: reference to a valid OpenSSL OID aka OBJ
-    internal init(reference: OpaquePointer) {
-        self.storage = Storage(reference: reference)
+    internal init(takingOwnershipOf reference: OpaquePointer) {
+        self.storage = Storage(takingOwnershipOf: reference)
     }
 }
 
@@ -78,18 +82,22 @@ extension NIOSSLObjectIdentifier.Storage: Hashable {
     }
 }
 
-@available(macOS 11, iOS 14, tvOS 14, watchOS 7, *)
 extension NIOSSLObjectIdentifier.Storage: LosslessStringConvertible {
     fileprivate var description: String {
         var failed = false
-        let oid = String(unsafeUninitializedCapacity: 80) { buffer in
+        let oid = String(customUnsafeUninitializedCapacity: 80) { buffer in
             // OBJ_obj2txt() is awkward and messy to use: it doesn't follow the convention of other OpenSSL functions where the buffer can be set to NULL to determine the amount of data that should be written. Instead buf must point to a valid buffer and buf_len should be set to a positive value. A buffer length of 80 should be more than enough to handle any OID encountered in practice.
             // source: https://linux.die.net/man/3/obj_obj2txt
             let result = buffer.withMemoryRebound(to: CChar.self) { buffer in
+                // If no_name (the last argument of CNIOBoringSSL_OBJ_obj2txt) is 0 then
+                // if the object has a long or short name then that will be used,
+                // otherwise the numerical form will be used.
+                // If no_name is 1 then the numerical form will always be used.
+                // source: https://www.openssl.org/docs/manmaster/man3/OBJ_obj2txt.html
                 CNIOBoringSSL_OBJ_obj2txt(buffer.baseAddress, Int32(buffer.count), self.reference, 1)
             }
             guard result >= 0 else {
-                // result of -1 indicates that it could not successfully
+                // result of -1 indicates an error
                 failed = true
                 return 0
             }
@@ -102,7 +110,6 @@ extension NIOSSLObjectIdentifier.Storage: LosslessStringConvertible {
     }
 }
 
-@available(macOS 11, iOS 14, tvOS 14, watchOS 7, *)
 extension NIOSSLObjectIdentifier: LosslessStringConvertible {
     public var description: String {
         self.storage.description
