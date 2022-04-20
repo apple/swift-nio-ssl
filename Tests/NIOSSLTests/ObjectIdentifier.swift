@@ -44,7 +44,6 @@ final class ObjectIdentifierTests: XCTestCase {
     }
     
     func testCustomStringConvertible() {
-        guard #available(macOS 11, iOS 14, tvOS 14, watchOS 7, *) else { return }
         XCTAssertEqual(NIOSSLObjectIdentifier("1.1")?.description, "1.1")
         XCTAssertEqual(NIOSSLObjectIdentifier("1.2")?.description, "1.2")
         XCTAssertEqual(NIOSSLObjectIdentifier("1.2.3")?.description, "1.2.3")
