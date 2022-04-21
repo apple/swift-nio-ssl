@@ -73,15 +73,18 @@ MANGLE_END */
                 .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
                 .product(name: "NIOTLS", package: "swift-nio"),
             ]),
-        .target(
+        .executableTarget(
             name: "NIOTLSServer",
             dependencies: [
                 "NIOSSL",
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
+            ],
+            exclude: [
+                "README.md"
             ]),
-        .target(
+        .executableTarget(
             name: "NIOSSLHTTP1Client",
             dependencies: [
                 "NIOSSL",
@@ -89,8 +92,11 @@ MANGLE_END */
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
                 .product(name: "NIOFoundationCompat", package: "swift-nio"),
+            ],
+            exclude: [
+                "README.md"
             ]),
-        .target(
+        .executableTarget(
             name: "NIOSSLPerformanceTester",
             dependencies: [
                 "NIOSSL",
