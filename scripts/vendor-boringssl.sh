@@ -91,6 +91,9 @@ function mangle_symbols {
 
         # Now build for iOS. We use xcodebuild for this because SwiftPM doesn't
         # meaningfully support it. Unfortunately we must archive ourselves.
+        #
+        # If xcodebuild complains about not finding the scheme, make sure there
+        # isn't a .xcodeproj kicking around.
         xcodebuild -sdk iphoneos -scheme CNIOBoringSSL -derivedDataPath "${TMPDIR}/iphoneos-deriveddata" -destination generic/platform=iOS
         lipo -extract armv7 -output "${TMPDIR}/CNIOBoringSSL-iosarmv7.o" "${TMPDIR}/iphoneos-deriveddata/Build/Products/Debug-iphoneos/CNIOBoringSSL.o"
         lipo -extract arm64 -output "${TMPDIR}/CNIOBoringSSL-iosarm64.o" "${TMPDIR}/iphoneos-deriveddata/Build/Products/Debug-iphoneos/CNIOBoringSSL.o"
@@ -299,7 +302,7 @@ echo "RENAMING header files"
     rmdir "include/openssl"
 
     # Now change the imports from "<openssl/X> to "<CNIOBoringSSL_X>", apply the same prefix to the 'boringssl_prefix_symbols' headers.
-    find . -name "*.[ch]" -or -name "*.cc" -or -name "*.S" | xargs $sed -i -e 's+include <openssl/+include <CNIOBoringSSL_+' -e 's+include <boringssl_prefix_symbols+include <CNIOBoringSSL_boringssl_prefix_symbols+'
+    find . -name "*.[ch]" -or -name "*.cc" -or -name "*.S" | xargs $sed -i -e 's+include <openssl/+include <CNIOBoringSSL_+' -e 's+include <boringssl_prefix_symbols+include <CNIOBoringSSL_boringssl_prefix_symbols+' -e 's+include "openssl/+include "CNIOBoringSSL_+'
 
     # Okay now we need to rename the headers adding the prefix "CNIOBoringSSL_".
     pushd include
