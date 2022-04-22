@@ -53,7 +53,7 @@ internal enum FileSystemObject {
 // likes to work with them in wire format, so rather than us decoding them we can just encode ours to
 // the wire format and then work with them from there.
 private extension UnsafeBufferPointer where Element == UInt8 {
-    func locateAlpnIdentifier<T>(identifier: UnsafeBufferPointer<T>) -> (index: Int, length: Int)? where T == Element {
+    func locateAlpnIdentifier(identifier: UnsafeBufferPointer<Element>) -> (index: Int, length: Int)? {
         precondition(identifier.count != 0)
         let targetLength = Int(identifier[0])
 
