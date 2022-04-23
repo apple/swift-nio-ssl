@@ -64,11 +64,9 @@ extension TLSConfigurationTest {
                 ("testDefaultCipherSuiteValues", testDefaultCipherSuiteValues),
                 ("testBestEffortEquatableHashableDifferences", testBestEffortEquatableHashableDifferences),
                 ("testObtainingTLSVersionOnClientChannel", testObtainingTLSVersionOnClientChannel),
-                ("testTLSPSKWithAES256CBCSHA", testTLSPSKWithAES256CBCSHA),
-                ("testTLSPSKWithAES128CBCSHA", testTLSPSKWithAES128CBCSHA),
-                ("testTLSPSKWithECDHEAES128CBCSHA", testTLSPSKWithECDHEAES128CBCSHA),
-                ("testTLSPSKWithECDHEAES256CBCSHA", testTLSPSKWithECDHEAES256CBCSHA),
-                ("testTLSPSKWithAllCiphers", testTLSPSKWithAllCiphers),
+                ("testTLSPSKWithTLS13", testTLSPSKWithTLS13),
+                ("testTLSPSKWithTLS12", testTLSPSKWithTLS12),
+                ("testTLSPSKWithPinnedCiphers", testTLSPSKWithPinnedCiphers)
            ]
    }
 }

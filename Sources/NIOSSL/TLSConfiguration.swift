@@ -319,7 +319,7 @@ public struct TLSConfiguration {
     /// This instructs the client which identities can be used by evaluating what CA the identity certificate was issued from.
     public var sendCANameList: Bool
 
-    // Certificate Usage
+    // Certificate and Pre-Shared Key Usage
     private init(cipherSuiteValues: [NIOTLSCipher] = [],
                  cipherSuites: String = defaultCipherSuites,
                  verifySignatureAlgorithms: [SignatureAlgorithm]?,
@@ -335,7 +335,10 @@ public struct TLSConfiguration {
                  keyLogCallback: NIOSSLKeyLogCallback?,
                  renegotiationSupport: NIORenegotiationSupport,
                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots],
-                 sendCANameList: Bool = false) {
+                 sendCANameList: Bool = false,
+                 psk: [UInt8] = [],
+                 pskIdentity: [UInt8] = [],
+                 client: Bool = false) {
         self.cipherSuites = cipherSuites
         self.verifySignatureAlgorithms = verifySignatureAlgorithms
         self.signingSignatureAlgorithms = signingSignatureAlgorithms
@@ -352,41 +355,44 @@ public struct TLSConfiguration {
         self.sendCANameList = sendCANameList
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
-        if !cipherSuiteValues.isEmpty {
-            self.cipherSuiteValues = cipherSuiteValues
-        }
-    }
-    // Pre-Shared Key Usage
-    private init(cipherSuiteValues: [NIOTLSCipher] = [],
-                 minimumTLSVersion: TLSVersion,
-                 maximumTLSVersion: TLSVersion?,
-                 psk: [UInt8],
-                 pskIdentity: [UInt8],
-                 client: Bool,
-                 applicationProtocols: [String],
-                 shutdownTimeout: TimeAmount,
-                 keyLogCallback: NIOSSLKeyLogCallback?,
-                 renegotiationSupport: NIORenegotiationSupport,
-                 sendCANameList: Bool = false) {
-        self.cipherSuites = defaultCipherSuites
-        self.minimumTLSVersion = minimumTLSVersion
-        self.maximumTLSVersion = maximumTLSVersion
-        self.certificateVerification = .none
-        self.additionalTrustRoots = []
-        self.certificateChain = []
         self.psk = psk
         self.pskIdentity = pskIdentity
         self.clientConfiguration = client
-        self.encodedApplicationProtocols = []
-        self.shutdownTimeout = shutdownTimeout
-        self.renegotiationSupport = renegotiationSupport
-        self.sendCANameList = sendCANameList
-        self.applicationProtocols = applicationProtocols
-        self.keyLogCallback = keyLogCallback
         if !cipherSuiteValues.isEmpty {
             self.cipherSuiteValues = cipherSuiteValues
         }
     }
+//    // Pre-Shared Key Usage
+//    private init(cipherSuiteValues: [NIOTLSCipher] = [],
+//                 minimumTLSVersion: TLSVersion,
+//                 maximumTLSVersion: TLSVersion?,
+//                 psk: [UInt8],
+//                 pskIdentity: [UInt8],
+//                 client: Bool,
+//                 applicationProtocols: [String],
+//                 shutdownTimeout: TimeAmount,
+//                 keyLogCallback: NIOSSLKeyLogCallback?,
+//                 renegotiationSupport: NIORenegotiationSupport,
+//                 sendCANameList: Bool = false) {
+//        self.cipherSuites = defaultCipherSuites
+//        self.minimumTLSVersion = minimumTLSVersion
+//        self.maximumTLSVersion = maximumTLSVersion
+//        self.certificateVerification = .none
+//        self.additionalTrustRoots = []
+//        self.certificateChain = []
+//        self.psk = psk
+//        self.pskIdentity = pskIdentity
+//        self.clientConfiguration = client
+//        self.encodedApplicationProtocols = []
+//        self.shutdownTimeout = shutdownTimeout
+//        self.renegotiationSupport = renegotiationSupport
+//        self.sendCANameList = sendCANameList
+//        self.applicationProtocols = applicationProtocols
+//        self.keyLogCallback = keyLogCallback
+//        if !cipherSuiteValues.isEmpty {
+//            self.cipherSuiteValues = cipherSuiteValues
+//        }
+//    }
 }
 
 // MARK: BestEffortHashable
@@ -464,7 +470,10 @@ extension TLSConfiguration {
                                 keyLogCallback: nil,
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
-                                sendCANameList: false)
+                                sendCANameList: false,
+                                psk: [],
+                                pskIdentity: [],
+                                client: true)
     }
 
     /// Create a TLS configuration for use with server-side contexts.
@@ -491,31 +500,38 @@ extension TLSConfiguration {
                                 keyLogCallback: nil,
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
-                                sendCANameList: false)
+                                sendCANameList: false,
+                                psk: [],
+                                pskIdentity: [],
+                                client: false)
     }
     
-    /// Create a TLS configuration for use with server-side or client-side contexts that uses Pre-Shared Keys.
+    /// Create a TLS configuration for use with server-side or client-side contexts that uses Pre-Shared Keys for TLS 1.2 and below.
     ///
     /// This provides sensible defaults while requiring that you provide any data that is necessary
     /// for server-side or client-side functionality.  This configuration uses Pre-Shared Keys instead of certificates.
     ///
     /// For customising fields, modify the returned TLSConfiguration object.
-    public static func makePreSharedKeyConfiguration(
-        psk: [UInt8],
-        pskIdentity: [UInt8],
-        client: Bool
-    ) -> TLSConfiguration {
-        return TLSConfiguration(cipherSuiteValues: [.TLS_PSK_WITH_AES_256_CBC_SHA],
-                                minimumTLSVersion: .tlsv11,
-                                maximumTLSVersion: .tlsv12,
-                                psk: psk,
-                                pskIdentity: pskIdentity,
-                                client: client,
+    public static func makePreSharedKeyConfiguration() -> TLSConfiguration {
+        
+        return TLSConfiguration(cipherSuites: defaultCipherSuites,
+                                verifySignatureAlgorithms: nil,
+                                signingSignatureAlgorithms: nil,
+                                minimumTLSVersion: .tlsv1,
+                                maximumTLSVersion: nil,
+                                certificateVerification: .none,
+                                trustRoots: .default,
+                                certificateChain: [],
+                                privateKey: nil,
                                 applicationProtocols: [],
                                 shutdownTimeout: .seconds(5),
                                 keyLogCallback: nil,
                                 renegotiationSupport: .none,
-                                sendCANameList: false)
+                                additionalTrustRoots: [],
+                                sendCANameList: false,
+                                psk: [],
+                                pskIdentity: [],
+                                client: false)
     }
 }
 

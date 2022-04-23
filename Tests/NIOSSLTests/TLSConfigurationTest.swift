@@ -179,19 +179,11 @@ class TLSConfigurationTest: XCTestCase {
     /// callback in use, otherwise it will not be thread-safe.
     func assertHandshakeSucceededInMemory(withClientConfig clientConfig: TLSConfiguration,
                                           andServerConfig serverConfig: TLSConfiguration,
-                                          psk: Bool = false,
                                           file: StaticString = #file,
                                           line: UInt = #line) throws {
         
-        var clientContext: NIOSSLContext?
-        var serverContext: NIOSSLContext?
-        if psk {
-            clientContext = try assertNoThrowWithValue(NIOSSLContext(pskConfiguration: clientConfig))
-            serverContext = try assertNoThrowWithValue(NIOSSLContext(pskConfiguration: serverConfig))
-        } else {
-            clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
-            serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
-        }
+        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
+        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
 
         let serverChannel = EmbeddedChannel()
         let clientChannel = EmbeddedChannel()
@@ -202,8 +194,8 @@ class TLSConfigurationTest: XCTestCase {
             _ = try? clientChannel.finish()
         }
 
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext!)).wait(), file: (file), line: line)
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext!, serverHostname: nil)).wait(), file: (file), line: line)
+        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext)).wait(), file: (file), line: line)
+        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil)).wait(), file: (file), line: line)
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait(), file: (file), line: line)
 
@@ -220,18 +212,10 @@ class TLSConfigurationTest: XCTestCase {
     /// This function is thread-safe in the presence of custom verification callbacks.
     func assertHandshakeSucceededEventLoop(withClientConfig clientConfig: TLSConfiguration,
                                            andServerConfig serverConfig: TLSConfiguration,
-                                           psk: Bool = false,
                                            file: StaticString = #file,
                                            line: UInt = #line) throws {
-        var clientContext: NIOSSLContext?
-        var serverContext: NIOSSLContext?
-        if psk {
-            clientContext = try assertNoThrowWithValue(NIOSSLContext(pskConfiguration: clientConfig), file: file, line: line)
-            serverContext = try assertNoThrowWithValue(NIOSSLContext(pskConfiguration: serverConfig), file: file, line: line)
-        } else {
-            clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig), file: file, line: line)
-            serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig), file: file, line: line)
-        }
+        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig), file: file, line: line)
+        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig), file: file, line: line)
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
@@ -242,8 +226,8 @@ class TLSConfigurationTest: XCTestCase {
         let handshakeResultPromise = group.next().makePromise(of: Void.self)
         let handshakeWatcher = WaitForHandshakeHandler(handshakeResultPromise: handshakeResultPromise)
 
-        let serverChannel = try assertNoThrowWithValue(serverTLSChannel(context: serverContext!, handlers: [], group: group), file: file, line: line)
-        let clientChannel = try assertNoThrowWithValue(clientTLSChannel(context: clientContext!, preHandlers:[], postHandlers: [eventHandler, handshakeWatcher, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!), file: file, line: line)
+        let serverChannel = try assertNoThrowWithValue(serverTLSChannel(context: serverContext, handlers: [], group: group), file: file, line: line)
+        let clientChannel = try assertNoThrowWithValue(clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeWatcher, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!), file: file, line: line)
 
         handshakeWatcher.handshakeResult.whenComplete { c in
             _ = clientChannel.close()
@@ -263,10 +247,9 @@ class TLSConfigurationTest: XCTestCase {
                                   line: UInt = #line) throws {
         // The only use of a custom callback is on Darwin...
         #if os(Linux)
-        return try assertHandshakeSucceededInMemory(withClientConfig: clientConfig, andServerConfig: serverConfig, psk: psk, file: file, line: line)
-
+        return try assertHandshakeSucceededInMemory(withClientConfig: clientConfig, andServerConfig: serverConfig, file: file, line: line)
         #else
-        return try assertHandshakeSucceededEventLoop(withClientConfig: clientConfig, andServerConfig: serverConfig, psk: psk, file: file, line: line)
+        return try assertHandshakeSucceededEventLoop(withClientConfig: clientConfig, andServerConfig: serverConfig, file: file, line: line)
         #endif
     }
     
@@ -1136,79 +1119,81 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertEqual(channelTLSVersion!, .tlsv11)
     }
     
-    func testTLSPSKWithAES256CBCSHA() throws {
-        let psk = "testKey".data(using: .utf8)!
-        let pskIdentity = "testIdentity".data(using: .utf8)!
-        // TLS_PSK_WITH_AES_256_CBC_SHA is set as the default.
-        let clientConfig = TLSConfiguration.makePreSharedKeyConfiguration(psk: [UInt8](psk),
-                                                                          pskIdentity: [UInt8](pskIdentity),
-                                                                          client: true)
-        var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration(psk: [UInt8](psk),
-                                                                        pskIdentity: [UInt8](pskIdentity),
-                                                                        client: false)
-        serverConfig.cipherSuiteValues = [.TLS_PSK_WITH_AES_256_CBC_SHA]
-
-        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig, psk: true)
+    func testTLSPSKWithTLS13() throws {
+        // The idea here is that adding PSKs with certificates in TLS 1.3 should NOT cause a failure.
+        // Also note that the usage here of PSKs with TLS 1.3 is not supported by BoringSSL at this point.
+        let psk = "hello".data(using: .utf8)!
+        let pskIdentity = "world".data(using: .utf8)!
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .none
+        clientConfig.trustRoots = .certificates([])
+        clientConfig.minimumTLSVersion = .tlsv13
+        clientConfig.maximumTLSVersion = .tlsv13
+        clientConfig.psk = [UInt8](psk)
+        clientConfig.pskIdentity = [UInt8](pskIdentity)
+        clientConfig.clientConfiguration = true
+        
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.minimumTLSVersion = .tlsv13
+        serverConfig.maximumTLSVersion = .tlsv13
+        serverConfig.certificateVerification = .none
+        serverConfig.psk = [UInt8](psk)
+        serverConfig.pskIdentity = [UInt8](pskIdentity)
+        serverConfig.clientConfiguration = false
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
     
-    func testTLSPSKWithAES128CBCSHA() throws {
-        let psk = "testKey".data(using: .utf8)!
-        let pskIdentity = "testIdentity".data(using: .utf8)!
-        var clientConfig = TLSConfiguration.makePreSharedKeyConfiguration(psk: [UInt8](psk),
-                                                                          pskIdentity: [UInt8](pskIdentity),
-                                                                          client: true)
-        clientConfig.cipherSuiteValues = [.TLS_PSK_WITH_AES_128_CBC_SHA]
-        var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration(psk: [UInt8](psk),
-                                                                        pskIdentity: [UInt8](pskIdentity),
-                                                                        client: false)
-        serverConfig.cipherSuiteValues = [.TLS_PSK_WITH_AES_128_CBC_SHA]
-
-        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig, psk: true)
+    func testTLSPSKWithTLS12() throws {
+        // This test ensures that PSK-TLS is supported for TLS 1.2.
+        let psk = "hello".data(using: .utf8)!
+        let pskIdentity = "world".data(using: .utf8)!
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .none
+        clientConfig.minimumTLSVersion = .tlsv1
+        clientConfig.maximumTLSVersion = .tlsv12
+        clientConfig.psk = [UInt8](psk)
+        clientConfig.pskIdentity = [UInt8](pskIdentity)
+        clientConfig.clientConfiguration = true
+        
+        var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
+        serverConfig.minimumTLSVersion = .tlsv1
+        serverConfig.maximumTLSVersion = .tlsv12
+        serverConfig.psk = [UInt8](psk)
+        serverConfig.pskIdentity = [UInt8](pskIdentity)
+        serverConfig.clientConfiguration = false
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
     
-    func testTLSPSKWithECDHEAES128CBCSHA() throws {
-        let psk = "testKey".data(using: .utf8)!
-        let pskIdentity = "testIdentity".data(using: .utf8)!
-        var clientConfig = TLSConfiguration.makePreSharedKeyConfiguration(psk: [UInt8](psk),
-                                                                          pskIdentity: [UInt8](pskIdentity),
-                                                                          client: true)
-        clientConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA]
-        var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration(psk: [UInt8](psk),
-                                                                        pskIdentity: [UInt8](pskIdentity),
-                                                                        client: false)
-        serverConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA]
-
-        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig, psk: true)
-    }
-    
-    func testTLSPSKWithECDHEAES256CBCSHA() throws {
-        let psk = "testKey".data(using: .utf8)!
-        let pskIdentity = "testIdentity".data(using: .utf8)!
-        var clientConfig = TLSConfiguration.makePreSharedKeyConfiguration(psk: [UInt8](psk),
-                                                                          pskIdentity: [UInt8](pskIdentity),
-                                                                          client: true)
-        clientConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA]
-        var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration(psk: [UInt8](psk),
-                                                                        pskIdentity: [UInt8](pskIdentity),
-                                                                        client: false)
-        serverConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA]
-
-        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig, psk: true)
-    }
-    
-    func testTLSPSKWithAllCiphers() throws {
-        let psk = "testKey".data(using: .utf8)!
-        let pskIdentity = "testIdentity".data(using: .utf8)!
-        let clientConfig = TLSConfiguration.makePreSharedKeyConfiguration(psk: [UInt8](psk),
-                                                                          pskIdentity: [UInt8](pskIdentity),
-                                                                          client: true)
-        var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration(psk: [UInt8](psk),
-                                                                        pskIdentity: [UInt8](pskIdentity),
-                                                                        client: false)
-        serverConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA, .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
-                                          .TLS_PSK_WITH_AES_128_CBC_SHA, .TLS_PSK_WITH_AES_256_CBC_SHA]
-
-        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig, psk: true)
+    func testTLSPSKWithPinnedCiphers() throws {
+        // This test ensures that PSK-TLS is supported with pinned ciphers.
+        let psk = "hello".data(using: .utf8)!
+        let pskIdentity = "world".data(using: .utf8)!
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .none
+        clientConfig.minimumTLSVersion = .tlsv1
+        clientConfig.maximumTLSVersion = .tlsv12
+        clientConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+                                          .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+                                          .TLS_PSK_WITH_AES_128_CBC_SHA,
+                                          .TLS_PSK_WITH_AES_256_CBC_SHA]
+        clientConfig.psk = [UInt8](psk)
+        clientConfig.pskIdentity = [UInt8](pskIdentity)
+        clientConfig.clientConfiguration = true
+        
+        var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
+        serverConfig.minimumTLSVersion = .tlsv1
+        serverConfig.maximumTLSVersion = .tlsv12
+        serverConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+                                          .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+                                          .TLS_PSK_WITH_AES_128_CBC_SHA,
+                                          .TLS_PSK_WITH_AES_256_CBC_SHA]
+        serverConfig.psk = [UInt8](psk)
+        serverConfig.pskIdentity = [UInt8](pskIdentity)
+        serverConfig.clientConfiguration = false
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
 }
 

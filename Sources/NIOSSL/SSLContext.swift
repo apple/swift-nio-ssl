@@ -244,6 +244,15 @@ public final class NIOSSLContext {
         // Cipher suites. We just pass this straight to BoringSSL.
         returnCode = CNIOBoringSSL_SSL_CTX_set_cipher_list(context, configuration.cipherSuites)
         precondition(1 == returnCode)
+        // Setup PSK support if provided.
+        if let psk = configuration.psk, let pskIdentity = configuration.pskIdentity,
+           psk.count > 0, pskIdentity.count > 0 {
+            if configuration.clientConfiguration {
+                CNIOBoringSSL_SSL_CTX_set_psk_client_callback(context, { clientPSKCallback(ssl: $0, hint: $1, identity: $2, max_identity_len: $3, psk: $4, max_psk_len: $5 ) } )
+            } else {
+                CNIOBoringSSL_SSL_CTX_set_psk_server_callback(context, { serverPSKCallback(ssl: $0, identity: $1, psk: $2, max_psk_len: $3 )})
+            }
+        }
 
         // On non-Linux platforms, when using the platform default trust roots, we make use of a
         // custom verify callback. If we have also been presented with additional trust roots of
@@ -338,89 +347,10 @@ public final class NIOSSLContext {
         if let keyLogCallback = configuration.keyLogCallback {
             self.keyLogManager = KeyLogCallbackManager(callback: keyLogCallback)
             try NIOSSLContext.setKeylogCallback(context: context)
-        } else {
-            self.keyLogManager = nil
         }
-
+        
         self.sslContext = context
         self.configuration = configuration
-        self.callbackManager = callbackManager
-
-        // Always make it possible to get from an SSL_CTX structure back to this.
-        let ptrToSelf = Unmanaged.passUnretained(self).toOpaque()
-        CNIOBoringSSLShims_SSL_CTX_set_app_data(context, ptrToSelf)
-    }
-    
-    /// Initialize a context that will create multiple connections, all with the same
-    /// configuration that supports Pre-Shared Keys.
-    internal init(pskConfiguration: TLSConfiguration, callbackManager: CallbackManagerProtocol?) throws {
-        guard boringSSLIsInitialized else { fatalError("Failed to initialize BoringSSL") }
-        guard let context = CNIOBoringSSL_SSL_CTX_new(CNIOBoringSSL_TLS_method()) else { fatalError("Failed to create new BoringSSL context") }
-
-        let minTLSVersion: CInt
-        switch pskConfiguration.minimumTLSVersion {
-        case .tlsv13:
-            minTLSVersion = TLS1_3_VERSION
-        case .tlsv12:
-            minTLSVersion = TLS1_2_VERSION
-        case .tlsv11:
-            minTLSVersion = TLS1_1_VERSION
-        case .tlsv1:
-            minTLSVersion = TLS1_VERSION
-        }
-        var returnCode = CNIOBoringSSL_SSL_CTX_set_min_proto_version(context, UInt16(minTLSVersion))
-        precondition(1 == returnCode)
-
-        let maxTLSVersion: CInt
-        switch pskConfiguration.maximumTLSVersion {
-        case .some(.tlsv1):
-            maxTLSVersion = TLS1_VERSION
-        case .some(.tlsv11):
-            maxTLSVersion = TLS1_1_VERSION
-        case .some(.tlsv12):
-            maxTLSVersion = TLS1_2_VERSION
-        case .some(.tlsv13), .none:
-            // Unset defaults to TLS1.3 for now. BoringSSL's default is TLS 1.2.
-            maxTLSVersion = TLS1_3_VERSION
-        }
-        returnCode = CNIOBoringSSL_SSL_CTX_set_max_proto_version(context, UInt16(maxTLSVersion))
-        precondition(1 == returnCode)
-        
-        // Cipher suites. We just pass this straight to BoringSSL.
-        returnCode = CNIOBoringSSL_SSL_CTX_set_cipher_list(context, pskConfiguration.cipherSuites)
-        precondition(1 == returnCode)
-        
-        if pskConfiguration.encodedApplicationProtocols.count > 0 {
-            try NIOSSLContext.setAlpnProtocols(pskConfiguration.encodedApplicationProtocols, context: context)
-            NIOSSLContext.setAlpnCallback(context: context)
-        }
-        // Add a key log callback.
-        if let keyLogCallback = pskConfiguration.keyLogCallback {
-            self.keyLogManager = KeyLogCallbackManager(callback: keyLogCallback)
-            try NIOSSLContext.setKeylogCallback(context: context)
-        } else {
-            self.keyLogManager = nil
-        }
-        
-        // Setup client or server callbacks
-        if minTLSVersion < TLS1_3_VERSION, maxTLSVersion < TLS1_3_VERSION {
-            if pskConfiguration.clientConfiguration {
-                CNIOBoringSSL_SSL_CTX_set_psk_client_callback(context, { clientPSKCallback(ssl: $0, hint: $1, identity: $2, max_identity_len: $3, psk: $4, max_psk_len: $5 ) } )
-            } else {
-                CNIOBoringSSL_SSL_CTX_set_psk_server_callback(context, { serverPSKCallback(ssl: $0, identity: $1, psk: $2, max_psk_len: $3 )})
-            }
-        } else {
-            // (TODO) Provide (client and server) PSK support for TLS 1.3 here.
-        }
-        
-        // PSK Identity Hints are not supported in TLS 1.3.
-        if let psk_idnetity = pskConfiguration.pskIdentity,
-           minTLSVersion != TLS1_3_VERSION {
-            CNIOBoringSSL_SSL_CTX_use_psk_identity_hint(context, String(cString: psk_idnetity))
-        }
-        
-        self.sslContext = context
-        self.configuration = pskConfiguration
         self.callbackManager = callbackManager
         // Always make it possible to get from an SSL_CTX structure back to this.
         let ptrToSelf = Unmanaged.passUnretained(self).toOpaque()
@@ -437,19 +367,6 @@ public final class NIOSSLContext {
     /// - Warning: Avoid creating `NIOSSLContext`s on any `EventLoop` because it does _blocking disk I/O_.
     public convenience init(configuration: TLSConfiguration) throws {
         try self.init(configuration: configuration, callbackManager: nil)
-    }
-    
-    /// Initialize a context that will create multiple connections, all with the same
-    /// configuration.  (In this context we will use PSK)
-    ///
-    /// - Note: Creating a `NIOSSLContext` is a very expensive operation because BoringSSL will usually need to load and
-    ///         parse large number of certificates from the system trust store. Therefore, creating a
-    ///         `NIOSSLContext` will likely allocate many thousand times and will also _perform blocking disk I/O_.
-    ///
-    /// - Warning: Avoid creating `NIOSSLContext`s on any `EventLoop` because it does _blocking disk I/O_.
-    public convenience init(pskConfiguration: TLSConfiguration) throws {
-        try self.init(pskConfiguration: pskConfiguration, callbackManager: nil)
-        guard boringSSLIsInitialized else { fatalError("Failed to initialize BoringSSL") }
     }
 
     /// Initialize a context that will create multiple connections, all with the same
