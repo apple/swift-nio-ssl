@@ -362,37 +362,6 @@ public struct TLSConfiguration {
             self.cipherSuiteValues = cipherSuiteValues
         }
     }
-//    // Pre-Shared Key Usage
-//    private init(cipherSuiteValues: [NIOTLSCipher] = [],
-//                 minimumTLSVersion: TLSVersion,
-//                 maximumTLSVersion: TLSVersion?,
-//                 psk: [UInt8],
-//                 pskIdentity: [UInt8],
-//                 client: Bool,
-//                 applicationProtocols: [String],
-//                 shutdownTimeout: TimeAmount,
-//                 keyLogCallback: NIOSSLKeyLogCallback?,
-//                 renegotiationSupport: NIORenegotiationSupport,
-//                 sendCANameList: Bool = false) {
-//        self.cipherSuites = defaultCipherSuites
-//        self.minimumTLSVersion = minimumTLSVersion
-//        self.maximumTLSVersion = maximumTLSVersion
-//        self.certificateVerification = .none
-//        self.additionalTrustRoots = []
-//        self.certificateChain = []
-//        self.psk = psk
-//        self.pskIdentity = pskIdentity
-//        self.clientConfiguration = client
-//        self.encodedApplicationProtocols = []
-//        self.shutdownTimeout = shutdownTimeout
-//        self.renegotiationSupport = renegotiationSupport
-//        self.sendCANameList = sendCANameList
-//        self.applicationProtocols = applicationProtocols
-//        self.keyLogCallback = keyLogCallback
-//        if !cipherSuiteValues.isEmpty {
-//            self.cipherSuiteValues = cipherSuiteValues
-//        }
-//    }
 }
 
 // MARK: BestEffortHashable

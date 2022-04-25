@@ -45,6 +45,20 @@ func generateDependencies() -> [Package.Dependency] {
     }
 }
 
+// To develop this on Apple platforms, set this to true
+let development = true
+let swiftSettings: [SwiftSetting]
+if development {
+    swiftSettings = [
+        .define("CRYPTO_IN_SWIFTPM"),
+        .define("CRYPTO_IN_SWIFTPM_FORCE_BUILD_API"),
+    ]
+} else {
+    swiftSettings = [
+        .define("CRYPTO_IN_SWIFTPM"),
+    ]
+}
+
 let package = Package(
     name: "swift-nio-ssl",
     products: [
@@ -72,7 +86,9 @@ MANGLE_END */
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
                 .product(name: "NIOTLS", package: "swift-nio"),
-            ]),
+            ],
+            swiftSettings: swiftSettings
+        ),
         .target(
             name: "NIOTLSServer",
             dependencies: [
@@ -106,7 +122,9 @@ MANGLE_END */
                 .product(name: "NIOEmbedded", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOTLS", package: "swift-nio"),
-            ]),
+            ],
+            swiftSettings: swiftSettings
+        ),
     ],
     cxxLanguageStandard: .cxx14
 )
