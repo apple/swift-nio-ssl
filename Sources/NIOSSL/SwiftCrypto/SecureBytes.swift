@@ -16,12 +16,12 @@
 #else
 import Foundation
 
-struct SecureBytes {
+public struct SecureBytes {
     @usableFromInline
     var backing: Backing
 
     @inlinable
-    init() {
+    public init() {
         self = .init(count: 0)
     }
 
@@ -61,8 +61,8 @@ extension SecureBytes {
         self.backing._appendBytes(data)
     }
 
-    @usableFromInline
-    mutating func reserveCapacity(_ n: Int) {
+    
+    mutating public func reserveCapacity(_ n: Int) {
         if self.backing.capacity >= n {
             return
         }
@@ -82,8 +82,8 @@ extension SecureBytes: Equatable {
 
 // MARK: - Collection conformance
 extension SecureBytes: Collection {
-    @usableFromInline
-    struct Index {
+    
+    public struct Index {
         /* fileprivate but usableFromInline */ @usableFromInline var offset: Int
 
         /*@inlinable*/ @usableFromInline internal init(offset: Int) {
@@ -92,22 +92,22 @@ extension SecureBytes: Collection {
     }
 
     @inlinable
-    var startIndex: Index {
+    public var startIndex: Index {
         return Index(offset: 0)
     }
 
     @inlinable
-    var endIndex: Index {
+    public var endIndex: Index {
         return Index(offset: self.count)
     }
 
     @inlinable
-    var count: Int {
+    public var count: Int {
         return self.backing.count
     }
 
     @inlinable
-    subscript(_ index: Index) -> UInt8 {
+    public subscript(_ index: Index) -> UInt8 {
         get {
             return self.backing[offset: index.offset]
         }
@@ -117,7 +117,7 @@ extension SecureBytes: Collection {
     }
 
     @inlinable
-    func index(after index: Index) -> Index {
+    public func index(after index: Index) -> Index {
         return index.advanced(by: 1)
     }
 }
@@ -125,7 +125,7 @@ extension SecureBytes: Collection {
 // MARK: - BidirectionalCollection conformance
 extension SecureBytes: BidirectionalCollection {
     @inlinable
-    func index(before index: Index) -> Index {
+    public func index(before index: Index) -> Index {
         return index.advanced(by: -1)
     }
 }
@@ -139,7 +139,7 @@ extension SecureBytes: MutableCollection { }
 // MARK: - RangeReplaceableCollection conformance
 extension SecureBytes: RangeReplaceableCollection {
     @inlinable
-    mutating func replaceSubrange<C: Collection>(_ subrange: Range<Index>, with newElements: C) where C.Element == UInt8 {
+    mutating public func replaceSubrange<C: Collection>(_ subrange: Range<Index>, with newElements: C) where C.Element == UInt8 {
         let requiredCapacity = self.backing.count - subrange.count + newElements.count
 
         if !isKnownUniquelyReferenced(&self.backing) || requiredCapacity > self.backing.capacity {
@@ -166,7 +166,7 @@ extension SecureBytes: RangeReplaceableCollection {
 // MARK: - ContiguousBytes conformance
 extension SecureBytes: ContiguousBytes {
     @inlinable
-    func withUnsafeBytes<T>(_ body: (UnsafeRawBufferPointer) throws -> T) rethrows -> T {
+    public func withUnsafeBytes<T>(_ body: (UnsafeRawBufferPointer) throws -> T) rethrows -> T {
         return try self.backing.withUnsafeBytes(body)
     }
 
@@ -183,7 +183,7 @@ extension SecureBytes: ContiguousBytes {
 // MARK: - DataProtocol conformance
 extension SecureBytes: DataProtocol {
     @inlinable
-    var regions: CollectionOfOne<SecureBytes> {
+    public var regions: CollectionOfOne<SecureBytes> {
         return CollectionOfOne(self)
     }
 }
@@ -195,17 +195,17 @@ extension SecureBytes: MutableDataProtocol { }
 extension SecureBytes.Index: Hashable { }
 
 extension SecureBytes.Index: Comparable {
-    static func <(lhs: SecureBytes.Index, rhs: SecureBytes.Index) -> Bool {
+    public static func <(lhs: SecureBytes.Index, rhs: SecureBytes.Index) -> Bool {
         return lhs.offset < rhs.offset
     }
 }
 
 extension SecureBytes.Index: Strideable {
-    func advanced(by n: Int) -> SecureBytes.Index {
+    public func advanced(by n: Int) -> SecureBytes.Index {
         return SecureBytes.Index(offset: self.offset + n)
     }
 
-    func distance(to other: SecureBytes.Index) -> Int {
+    public func distance(to other: SecureBytes.Index) -> Int {
         return other.offset - self.offset
     }
 }
@@ -292,6 +292,7 @@ extension SecureBytes {
 }
 
 extension SecureBytes.Backing {
+    @usableFromInline
     func replaceSubrangeFittingWithinCapacity<C: Collection>(_ subrange: Range<Int>, with newElements: C) where C.Element == UInt8 {
         // This function is called when have a unique reference to the backing storage, and we have enough room to store these bytes without
         // any problem. We have one pre-existing buffer made up of 4 regions: a prefix set of bytes that are
@@ -321,7 +322,7 @@ extension SecureBytes.Backing {
     }
 
     /// Appends the bytes of a collection to this storage, crashing if there is not enough room.
-    /* private but inlinable */ func _appendBytes<C: Collection>(_ bytes: C) where C.Element == UInt8 {
+    /* private but inlinable */ public func _appendBytes<C: Collection>(_ bytes: C) where C.Element == UInt8 {
         let byteCount = bytes.count
 
         precondition(self.capacity - self.count - byteCount >= 0, "Insufficient space for byte copying, must have reallocated!")
@@ -336,7 +337,7 @@ extension SecureBytes.Backing {
 
     /// Appends the bytes of a slice of another backing buffer to this storage, crashing if there
     /// is not enough room.
-    /* private but inlinable */ func _appendBytes(_ backing: SecureBytes.Backing, inRange range: Range<Int>) {
+    /* private but inlinable */ public func _appendBytes(_ backing: SecureBytes.Backing, inRange range: Range<Int>) {
         precondition(range.lowerBound >= 0)
         precondition(range.upperBound <= backing.capacity)
         precondition(self.capacity - self.count - range.count >= 0, "Insufficient space for byte copying, must have reallocated!")
@@ -389,6 +390,7 @@ extension SecureBytes.Backing {
 }
 
 extension SecureBytes.Backing: ContiguousBytes {
+    @usableFromInline
     func withUnsafeBytes<T>(_ body: (UnsafeRawBufferPointer) throws -> T) rethrows -> T {
         let count = self.count
 
@@ -396,7 +398,7 @@ extension SecureBytes.Backing: ContiguousBytes {
             return try body(UnsafeRawBufferPointer(start: elementsPtr, count: count))
         }
     }
-
+    @usableFromInline
     func withUnsafeMutableBytes<T>(_ body: (UnsafeMutableRawBufferPointer) throws -> T) rethrows -> T {
         let count = self.count
 

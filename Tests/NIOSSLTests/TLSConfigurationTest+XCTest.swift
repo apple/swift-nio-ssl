@@ -66,7 +66,8 @@ extension TLSConfigurationTest {
                 ("testObtainingTLSVersionOnClientChannel", testObtainingTLSVersionOnClientChannel),
                 ("testTLSPSKWithTLS13", testTLSPSKWithTLS13),
                 ("testTLSPSKWithTLS12", testTLSPSKWithTLS12),
-                ("testTLSPSKWithPinnedCiphers", testTLSPSKWithPinnedCiphers)
+                ("testTLSPSKWithPinnedCiphers", testTLSPSKWithPinnedCiphers),
+                ("testTLSPSKFailure", testTLSPSKFailure),
            ]
    }
 }

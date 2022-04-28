@@ -130,6 +130,18 @@ extension KeyLogCallbackManager {
     }
 }
 
+/// PSK Identity Callback Manager
+public typealias NIOPSKIdentityCallback = () -> (key: SecureBytes, identity: SecureBytes)
+
+/// An object that provides helpers for clients / servers wanting to expose PSKs and Identities to their context.
+public struct PSKIdentityCallbackManager {
+    public var callback: NIOPSKIdentityCallback
+
+    public init(callback: @escaping NIOPSKIdentityCallback) {
+        self.callback = callback
+    }
+}
+
 
 /// A struct that provides helpers for working with a NIOSSLCustomVerificationCallback.
 internal struct CustomVerifyManager {

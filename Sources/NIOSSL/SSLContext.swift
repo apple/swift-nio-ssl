@@ -119,33 +119,31 @@ private func serverPSKCallback(ssl: OpaquePointer?,
     
     guard let ssl = ssl else { return 0 }
     
-    // Initial implementation only supports TLS 1.2
-    
+    // Initial implementation only supports TLS 1.2 due API support exposed from BoringSSL.
+
     // We want to take the SSL pointer and extract the parent Swift object.
     let parentCtx = CNIOBoringSSL_SSL_get_SSL_CTX(ssl)!
     let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
     let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
 
-    guard let pskIdentity = identity, // From the incoming connection
-          let contextPSKID = parentSwiftContext.configuration.pskIdentity, // From the original context
-          let contextPSK = parentSwiftContext.configuration.psk, // From the original context
-          let unwrappedPSK = psk,
-          let identityCount = parentSwiftContext.configuration.pskIdentity?.count
-        else {
+    let contextPSKIdentityCallback = parentSwiftContext.pskIdentityCallbackManager?.callback()
+    guard identity != nil, // Incoming identity
+          let contextPSK = contextPSKIdentityCallback?.key, // From the context
+          let contextPSKIdentity = contextPSKIdentityCallback?.identity // From the context
+          else {
         return 0
     }
-    // To account for some odd behavior on Linux
-    let contextPSKIndentity = String(cString: contextPSKID).prefix(identityCount)
-    // Equate the pskIdentity
-    if contextPSKIndentity != String(cString: pskIdentity) {
-        return 0
-    }
+    var incomingPSKIndentity = SecureBytes()
+    incomingPSKIndentity.insert(contentsOf: contextPSKIdentity, at: incomingPSKIndentity.startIndex)
     
-    // If existing context key length is greater than max_psk_len, return error
-    if contextPSK.count > Int(max_psk_len) {
+    // Equate both identities above to make sure both are the same (they should be).
+    if contextPSKIdentity != incomingPSKIndentity {
         return 0
     }
-    memcpy(unwrappedPSK, contextPSK, contextPSK.count)
+    if max_psk_len > UInt32.max || contextPSK.count > max_psk_len {
+        return 0
+    }
+    memcpy(psk, Array(contextPSK), contextPSK.count)
     return UInt32(contextPSK.count)
 }
 
@@ -158,34 +156,32 @@ private func clientPSKCallback(ssl: OpaquePointer?,
     
     guard let ssl = ssl else { return 0 }
     
-    // Initial implementation only supports TLS 1.2
-    
+    // Initial implementation only supports TLS 1.2 due API support exposed from BoringSSL.
+
     // We want to take the SSL pointer and extract the parent Swift object.
     let parentCtx = CNIOBoringSSL_SSL_get_SSL_CTX(ssl)!
     let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
     let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
-    
-    guard let pskIdentity = identity, // Incoming identity
-          let contextPSKID = parentSwiftContext.configuration.pskIdentity, // From the original context
-          let contextPSK = parentSwiftContext.configuration.psk, // From the original context
-          let unwrappedPSK = psk,
-          let identityCount = parentSwiftContext.configuration.pskIdentity?.count
-         else {
-        return 0
-    }
-    memcpy(pskIdentity, contextPSKID, identityCount)
-    // Make sure we are getting only the identity and nothing trailing behind it.
-    let contextPSKIndentity = String(cString: contextPSKID).prefix(identityCount)
 
-    // Equate both identities above to make sure both are the same.
-    if contextPSKIndentity != String(cString: pskIdentity) {
+    let contextPSKIdentityCallback = parentSwiftContext.pskIdentityCallbackManager?.callback()
+    guard identity != nil, // Incoming identity
+          let contextPSK = contextPSKIdentityCallback?.key, // From the context
+          let contextPSKIdentity = contextPSKIdentityCallback?.identity // From the context
+          else {
         return 0
     }
+    // Created to equate the SecureBytes representation of the identity based on the value stored in the context
+    var incomingPSKIndentity = SecureBytes()
+    incomingPSKIndentity.insert(contentsOf: contextPSKIdentity, at: incomingPSKIndentity.startIndex)
     
+    // Equate both identities above to make sure both are the same (they should be).
+    if contextPSKIdentity != incomingPSKIndentity {
+        return 0
+    }
     if max_psk_len > UInt32.max || contextPSK.count > max_psk_len {
         return 0
     }
-    memcpy(unwrappedPSK, contextPSK, contextPSK.count)
+    memcpy(psk, Array(contextPSK), contextPSK.count)
     return UInt32(contextPSK.count)
 }
 
@@ -203,6 +199,7 @@ public final class NIOSSLContext {
     private let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
     private var keyLogManager: KeyLogCallbackManager?
+    internal var pskIdentityCallbackManager: PSKIdentityCallbackManager?
     internal let configuration: TLSConfiguration
 
     /// Initialize a context that will create multiple connections, all with the same
@@ -245,8 +242,8 @@ public final class NIOSSLContext {
         returnCode = CNIOBoringSSL_SSL_CTX_set_cipher_list(context, configuration.cipherSuites)
         precondition(1 == returnCode)
         // Setup PSK support if provided.
-        if let psk = configuration.psk, let pskIdentity = configuration.pskIdentity,
-           psk.count > 0, pskIdentity.count > 0 {
+        if let pskCallback = configuration.pskCallback {
+            self.pskIdentityCallbackManager = pskCallback
             if configuration.clientConfiguration {
                 CNIOBoringSSL_SSL_CTX_set_psk_client_callback(context, { clientPSKCallback(ssl: $0, hint: $1, identity: $2, max_identity_len: $3, psk: $4, max_psk_len: $5 ) } )
             } else {

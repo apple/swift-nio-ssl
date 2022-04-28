@@ -281,11 +281,8 @@ public struct TLSConfiguration {
     /// The private key associated with the leaf certificate.
     public var privateKey: NIOSSLPrivateKeySource?
     
-    /// PSK bytes defined as UInt8
-    public var psk: [UInt8]? // Make this eventually gets to be (SecureBytes) from SwiftCrypto
-    
-    /// PSK Indentity bytes defined as UInt8
-    public var pskIdentity: [UInt8]? // Make this eventually gets to be (SecureBytes) from SwiftCrypto
+    /// PSK Callback to get the key and identity from either the client or server.
+    public var pskCallback: PSKIdentityCallbackManager? = nil
     
     /// Flag to define the configuration as client or server side.
     public var clientConfiguration: Bool = false
@@ -319,7 +316,7 @@ public struct TLSConfiguration {
     /// This instructs the client which identities can be used by evaluating what CA the identity certificate was issued from.
     public var sendCANameList: Bool
 
-    // Certificate and Pre-Shared Key Usage
+    // Certificate or Pre-Shared Key Usage
     private init(cipherSuiteValues: [NIOTLSCipher] = [],
                  cipherSuites: String = defaultCipherSuites,
                  verifySignatureAlgorithms: [SignatureAlgorithm]?,
@@ -336,8 +333,7 @@ public struct TLSConfiguration {
                  renegotiationSupport: NIORenegotiationSupport,
                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots],
                  sendCANameList: Bool = false,
-                 psk: [UInt8] = [],
-                 pskIdentity: [UInt8] = [],
+                 pskCallback: PSKIdentityCallbackManager? = nil,
                  client: Bool = false) {
         self.cipherSuites = cipherSuites
         self.verifySignatureAlgorithms = verifySignatureAlgorithms
@@ -355,9 +351,8 @@ public struct TLSConfiguration {
         self.sendCANameList = sendCANameList
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
-        self.psk = psk
-        self.pskIdentity = pskIdentity
         self.clientConfiguration = client
+        self.pskCallback = pskCallback
         if !cipherSuiteValues.isEmpty {
             self.cipherSuiteValues = cipherSuiteValues
         }
@@ -440,8 +435,7 @@ extension TLSConfiguration {
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
                                 sendCANameList: false,
-                                psk: [],
-                                pskIdentity: [],
+                                pskCallback: nil,
                                 client: true)
     }
 
@@ -470,8 +464,7 @@ extension TLSConfiguration {
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
                                 sendCANameList: false,
-                                psk: [],
-                                pskIdentity: [],
+                                pskCallback: nil,
                                 client: false)
     }
     
@@ -498,8 +491,7 @@ extension TLSConfiguration {
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
                                 sendCANameList: false,
-                                psk: [],
-                                pskIdentity: [],
+                                pskCallback: nil,
                                 client: false)
     }
 }
