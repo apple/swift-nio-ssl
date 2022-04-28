@@ -71,7 +71,7 @@ final class ObjectIdentifierTests: XCTestCase {
         var owner: Optional = OIDMemoryOwner("1.2.3")!
         weak var weakReferenceToOwner = owner
         
-        var oid: Optional = NIOSSLObjectIdentifier(takeUnowned: owner!.reference, owner: owner!)
+        var oid: Optional = NIOSSLObjectIdentifier(borrowing: owner!.reference, owner: owner!)
         XCTAssertEqual(oid?.description, "1.2.3")
         
         owner = nil
