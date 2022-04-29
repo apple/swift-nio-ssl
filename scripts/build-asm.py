@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 ##===----------------------------------------------------------------------===##
 ##
 ## This source file is part of the SwiftNIO open source project
@@ -194,11 +194,11 @@ def munge_all_files(osname, arch, asms):
         pp_arch = preprocessor_arch_for_arch(arch)
         pp_platform = preprocessor_platform_for_os(osname)
         target = asm_target(osname, arch, asm)
-        
+
         with open(asm, 'rb') as source:
             with open(target, 'wb') as sink:
                 munge_file(pp_arch, pp_platform, source, sink)
-    
+
 
 
 def main():
@@ -208,17 +208,17 @@ def main():
     # Now we need to bring over all the .S files, inserting our preprocessor
     # directives along the way. We do this to allow the C preprocessor to make
     # unneeded assembly files vanish.
-    for ((osname, arch), asm_files) in asm_outputs.iteritems():
+    for ((osname, arch), asm_files) in asm_outputs.items():
         munge_all_files(osname, arch, asm_files)
 
-    for ((osname, arch), asm_files) in NON_PERL_FILES.iteritems():
+    for ((osname, arch), asm_files) in NON_PERL_FILES.items():
         for asm_file in asm_files:
              with open(asm_file, 'rb') as f:
                  lines = f.readlines()
 
              pp_arch = preprocessor_arch_for_arch(arch)
              pp_platform = preprocessor_platform_for_os(osname)
-             
+
              with open(asm_file, 'wb') as sink:
                  munge_file(pp_arch, pp_platform, lines, sink)
 
