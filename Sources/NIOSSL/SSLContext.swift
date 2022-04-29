@@ -128,6 +128,7 @@ private func serverPSKCallback(ssl: OpaquePointer?,
 
     let contextPSKIdentityCallback = parentSwiftContext.pskIdentityCallbackManager?.callback()
     guard identity != nil, // Incoming identity
+          let incomingPSK = psk, // Incoming psk
           let contextPSK = contextPSKIdentityCallback?.key, // From the context
           let contextPSKIdentity = contextPSKIdentityCallback?.identity // From the context
           else {
@@ -143,7 +144,7 @@ private func serverPSKCallback(ssl: OpaquePointer?,
     if max_psk_len > UInt32.max || contextPSK.count > max_psk_len {
         return 0
     }
-    memcpy(psk, Array(contextPSK), contextPSK.count)
+    memcpy(incomingPSK, Array(contextPSK), contextPSK.count)
     return UInt32(contextPSK.count)
 }
 
@@ -165,6 +166,7 @@ private func clientPSKCallback(ssl: OpaquePointer?,
 
     let contextPSKIdentityCallback = parentSwiftContext.pskIdentityCallbackManager?.callback()
     guard identity != nil, // Incoming identity
+          let incomingPSK = psk, // Incoming psk
           let contextPSK = contextPSKIdentityCallback?.key, // From the context
           let contextPSKIdentity = contextPSKIdentityCallback?.identity // From the context
           else {
@@ -181,7 +183,7 @@ private func clientPSKCallback(ssl: OpaquePointer?,
     if max_psk_len > UInt32.max || contextPSK.count > max_psk_len {
         return 0
     }
-    memcpy(psk, Array(contextPSK), contextPSK.count)
+    memcpy(incomingPSK, Array(contextPSK), contextPSK.count)
     return UInt32(contextPSK.count)
 }
 
