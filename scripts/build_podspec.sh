@@ -83,12 +83,12 @@ for target in "${targets[@]}"; do
   dependencies=()
 
   while read -r raw_dependency; do
-    if [[ "$raw_dependency" =~ ^CNIO ]]; then
+    if [[ "$raw_dependency" =~ ^CNIOBoringSSL ]]; then
       dependencies+=( "${newline}  s.dependency '$raw_dependency', s.version.to_s" )
     else
       dependencies+=( "${newline}  s.dependency '$raw_dependency', '>= $nio_version', '< $next_major_version'" )
     fi
-  done < <("${here}/list_topsorted_dependencies.sh" -d "${target#Swift}" | sed 's/^NIO/SwiftNIO/')
+  done < <("${here}/list_transitive_dependencies.py" "${target#Swift}" | sed 's/^NIO/SwiftNIO/')
 
 
   # C++ specific podspec settings
@@ -98,8 +98,10 @@ for target in "${targets[@]}"; do
 
   if [ "$target" == "CNIOBoringSSL" ] || [ "$target" == "CNIOBoringSSLShims" ]; then
     libraries="s.libraries = 'c++'"
-    xcconfig="s.xcconfig = { 'HEADER_SEARCH_PATHS' => 'Sources/${target}/include', 'CLANG_CXX_LANGUAGE_STANDARD' => 'c++11', }"
+    xcconfig="s.xcconfig = { 'HEADER_SEARCH_PATHS' => 'Sources/${target}/include', 'CLANG_CXX_LANGUAGE_STANDARD' => 'c++14', 'CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES' => 'YES' }"
     public_header_files="s.public_header_files = 'Sources/${target}/include/*.h'"
+  elif [ "$target" == "SwiftNIOSSL" ]; then
+    xcconfig="s.xcconfig = { 'OTHER_SWIFT_FLAGS' => '-Xcc -Wno-error=non-modular-include-in-framework-module' }"
   fi
 
   cat > "${tmpdir}/${target}.podspec" <<- EOF
@@ -137,9 +139,9 @@ Pod::Spec.new do |s|
 end
 EOF
 
-  pod repo update # last chance of getting the latest versions of previous pushed pods
   if $upload; then
     echo "Uploading ${tmpdir}/${target}.podspec"
+    pod repo update # last chance of getting the latest versions of previous pushed pods
     # CNIOBoringSSL and SwiftNIOSSL emit build warnings
     pod trunk push --allow-warnings --synchronous "${tmpdir}/${target}.podspec"
   fi
