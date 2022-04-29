@@ -1,4 +1,4 @@
-// swift-tools-version:5.2
+// swift-tools-version:5.4
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the SwiftNIO open source project
@@ -26,7 +26,7 @@ import class Foundation.ProcessInfo
 // Sources/CNIOBoringSSL directory. The source repository is at
 // https://boringssl.googlesource.com/boringssl.
 //
-// BoringSSL Commit: 8bbefbfeee609b17622deedd100163c12f5c95dc
+// BoringSSL Commit: f299342e38fd34b589604ef5b730623da13ee235
 
 /// This function generates the dependencies we want to express.
 ///
@@ -43,20 +43,6 @@ func generateDependencies() -> [Package.Dependency] {
             .package(path: "../swift-nio"),
         ]
     }
-}
-
-// To develop this on Apple platforms, set this to true
-let development = true
-let swiftSettings: [SwiftSetting]
-if development {
-    swiftSettings = [
-        .define("CRYPTO_IN_SWIFTPM"),
-        .define("CRYPTO_IN_SWIFTPM_FORCE_BUILD_API"),
-    ]
-} else {
-    swiftSettings = [
-        .define("CRYPTO_IN_SWIFTPM"),
-    ]
 }
 
 let package = Package(
@@ -86,18 +72,19 @@ MANGLE_END */
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
                 .product(name: "NIOTLS", package: "swift-nio"),
-            ],
-            swiftSettings: swiftSettings
-        ),
-        .target(
+            ]),
+        .executableTarget(
             name: "NIOTLSServer",
             dependencies: [
                 "NIOSSL",
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
+            ],
+            exclude: [
+                "README.md"
             ]),
-        .target(
+        .executableTarget(
             name: "NIOSSLHTTP1Client",
             dependencies: [
                 "NIOSSL",
@@ -105,8 +92,11 @@ MANGLE_END */
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
                 .product(name: "NIOFoundationCompat", package: "swift-nio"),
+            ],
+            exclude: [
+                "README.md"
             ]),
-        .target(
+        .executableTarget(
             name: "NIOSSLPerformanceTester",
             dependencies: [
                 "NIOSSL",
@@ -122,9 +112,7 @@ MANGLE_END */
                 .product(name: "NIOEmbedded", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOTLS", package: "swift-nio"),
-            ],
-            swiftSettings: swiftSettings
-        ),
+            ]),
     ],
     cxxLanguageStandard: .cxx14
 )

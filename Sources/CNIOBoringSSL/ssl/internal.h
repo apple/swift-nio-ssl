@@ -216,7 +216,7 @@ void Delete(T *t) {
 // may be C structs which require a |BORINGSSL_MAKE_DELETER| registration.
 namespace internal {
 template <typename T>
-struct DeleterImpl<T, typename std::enable_if<T::kAllowUniquePtr>::type> {
+struct DeleterImpl<T, std::enable_if_t<T::kAllowUniquePtr>> {
   static void Free(T *t) { Delete(t); }
 };
 }  // namespace internal
@@ -243,14 +243,6 @@ UniquePtr<T> MakeUnique(Args &&... args) {
 // compile-time checking.
 #define PURE_VIRTUAL \
   { abort(); }
-#endif
-
-// CONSTEXPR_ARRAY works around a VS 2015 bug where ranged for loops don't work
-// on constexpr arrays.
-#if defined(_MSC_VER) && !defined(__clang__) && _MSC_VER < 1910
-#define CONSTEXPR_ARRAY const
-#else
-#define CONSTEXPR_ARRAY constexpr
 #endif
 
 // Array<T> is an owning array of elements of |T|.
