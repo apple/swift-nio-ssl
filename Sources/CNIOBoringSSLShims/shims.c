@@ -15,6 +15,14 @@
 // macros too complex for the clang importer. This file handles them.
 #include "CNIOBoringSSLShims.h"
 
+X509_EXTENSION *CNIOBoringSSLShims_sk_X509_EXTENSION_value(const STACK_OF(X509_EXTENSION) *sk, size_t i) {
+    return sk_X509_EXTENSION_value(sk, i);
+}
+
+size_t CNIOBoringSSLShims_sk_X509_EXTENSION_num(const STACK_OF(X509_EXTENSION) *sk) {
+    return sk_X509_EXTENSION_num(sk);
+}
+
 GENERAL_NAME *CNIOBoringSSLShims_sk_GENERAL_NAME_value(const STACK_OF(GENERAL_NAME) *sk, size_t i) {
     return sk_GENERAL_NAME_value(sk, i);
 }
