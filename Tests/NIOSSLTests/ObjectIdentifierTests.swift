@@ -13,7 +13,24 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
-import NIOSSL
+@testable import NIOSSL
+@_implementationOnly import CNIOBoringSSL
+
+private final class OIDMemoryOwner {
+    var reference: OpaquePointer!
+    public init?(_ string: String) {
+        let result = string.withCString { string in
+            CNIOBoringSSL_OBJ_txt2obj(string, 1)
+        }
+        guard let reference = result else {
+            return nil
+        }
+        self.reference = reference
+    }
+    deinit {
+        CNIOBoringSSL_ASN1_OBJECT_free(self.reference)
+    }
+}
 
 final class ObjectIdentifierTests: XCTestCase {
     func testEquatable() {
@@ -48,5 +65,36 @@ final class ObjectIdentifierTests: XCTestCase {
         XCTAssertEqual(NIOSSLObjectIdentifier("1.2")?.description, "1.2")
         XCTAssertEqual(NIOSSLObjectIdentifier("1.2.3")?.description, "1.2.3")
         XCTAssertEqual(NIOSSLObjectIdentifier("1.2.3.4")?.description, "1.2.3.4")
+    }
+    
+    func testUnowned() {
+        var owner: Optional = OIDMemoryOwner("1.2.3")!
+        weak var weakReferenceToOwner = owner
+        
+        var oid: Optional = NIOSSLObjectIdentifier(borrowing: owner!.reference, owner: owner!)
+        XCTAssertEqual(oid?.description, "1.2.3")
+        
+        owner = nil
+        XCTAssertNotNil(weakReferenceToOwner, "OID should still have a strong reference to the owner")
+        
+        XCTAssertEqual(oid?.description, "1.2.3")
+        
+        oid = nil
+        XCTAssertNil(weakReferenceToOwner, "OID is released and therefore no one should still have a strong reference to the owner")
+    }
+    
+    func testCopy() {
+        var owner: Optional = OIDMemoryOwner("1.2.3")!
+        weak var weakReferenceToOwner = owner
+        
+        let oid: Optional = withExtendedLifetime(owner) {
+            NIOSSLObjectIdentifier(copyOf: $0?.reference)
+        }
+        
+        XCTAssertEqual(oid?.description, "1.2.3")
+        owner = nil
+        XCTAssertNil(weakReferenceToOwner, "OID should no longer have a strong reference to the owner")
+        
+        XCTAssertEqual(oid?.description, "1.2.3", "copy should still work after the original owner is deallocated")
     }
 }
