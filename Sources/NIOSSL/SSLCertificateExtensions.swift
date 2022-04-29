@@ -16,9 +16,9 @@
 @_implementationOnly import CNIOBoringSSLShims
 
 public struct _SSLCertificateExtensions {
-    enum Storage {
+    private enum Storage {
         final class Deallocator {
-            var reference: OpaquePointer!
+            let reference: OpaquePointer!
             
             init(takeOwnershipOf reference: OpaquePointer!) {
                 self.reference = reference
@@ -30,14 +30,14 @@ public struct _SSLCertificateExtensions {
         }
         
         case owned(Deallocator)
-        case unowned(reference: OpaquePointer!, owner: AnyObject)
+        case borrowed(reference: OpaquePointer!, owner: AnyObject)
         
         init(takeOwnershipOf reference: OpaquePointer!) {
             self = .owned(.init(takeOwnershipOf: reference))
         }
         
-        init(takeUnowned reference: OpaquePointer!, owner: AnyObject) {
-            self = .unowned(reference: reference, owner: owner)
+        init(borrowing reference: OpaquePointer!, owner: AnyObject) {
+            self = .borrowed(reference: reference, owner: owner)
         }
         
         /// The owner of the memory to which the reference points
@@ -45,7 +45,7 @@ public struct _SSLCertificateExtensions {
             switch self {
             case .owned(let deallocator):
                 return deallocator
-            case .unowned(_, let owner):
+            case .borrowed(_, let owner):
                 return owner
             }
         }
@@ -60,7 +60,7 @@ public struct _SSLCertificateExtensions {
                 switch self {
                 case .owned(let deallocator):
                     return try body(deallocator.reference)
-                case .unowned(let reference, _):
+                case .borrowed(let reference, _):
                     return try body(reference)
                 }
             }
@@ -68,15 +68,15 @@ public struct _SSLCertificateExtensions {
     }
     
     @usableFromInline internal let stackSize: Int
-    internal let storage: Storage
+    private let storage: Storage
     
     internal init(takeOwnershipOf reference: OpaquePointer!) {
         self.storage = .init(takeOwnershipOf: reference)
         self.stackSize = CNIOBoringSSL_sk_X509_EXTENSION_num(reference)
     }
     
-    internal init(takeUnowned reference: OpaquePointer!, owner: AnyObject) {
-        self.storage = .init(takeUnowned: reference, owner: owner)
+    internal init(borrowing reference: OpaquePointer!, owner: AnyObject) {
+        self.storage = .init(borrowing: reference, owner: owner)
         self.stackSize = CNIOBoringSSL_sk_X509_EXTENSION_num(reference)
     }
     
@@ -87,13 +87,11 @@ public struct _SSLCertificateExtensions {
     internal init() {
         self.init(takeOwnershipOf: nil)
     }
-    
-    
 }
 
 extension NIOSSLCertificate {
     public var _extensions: _SSLCertificateExtensions {
-        _SSLCertificateExtensions(takeUnowned: CNIOBoringSSL_X509_get0_extensions(self._ref), owner: self)
+        _SSLCertificateExtensions(borrowing: CNIOBoringSSL_X509_get0_extensions(self._ref), owner: self)
     }
 }
 
@@ -105,7 +103,7 @@ extension _SSLCertificateExtensions: RandomAccessCollection {
                 fatalError("unexpected null pointer when unwrapping extension value at \(position)")
             }
             
-            return .init(value: value, owner: self.storage.owner)
+            return .init(borrowing: value, owner: self.storage.owner)
         }
     }
     
@@ -114,31 +112,49 @@ extension _SSLCertificateExtensions: RandomAccessCollection {
 }
 
 public struct _SSLCertificateExtension {
-    internal init(value: OpaquePointer, owner: AnyObject) {
+    init(borrowing reference: OpaquePointer, owner: AnyObject) {
         self.owner = owner
-        self.value = value
+        self._reference = reference
     }
     
-    /// only part of this type to keep a strong reference to the underlying storage of `value`
+    /// lifetime automatically managed by `owner`
+    private let _reference: OpaquePointer
+    
+    /// only part of this type to keep a strong reference to the underlying storage of `reference`
     private let owner: AnyObject
-    /// lifetime automatically managed by `collection`
-    internal let value: OpaquePointer
+    
+    /// All operations accessing `reference` need to be implemented while guaranteeing that we still have a reference to the memory `owner`.
+    /// Otherwise `reference` could already be freed. This would result in undefined behaviour as we access a dangling pointer.
+    /// This method guarantees that `reference` is valid during execution of `body`.
+    func withReference<Result>(
+        _ body: (OpaquePointer?) throws -> Result
+    ) rethrows -> Result {
+        try withExtendedLifetime(owner) {
+            try body(self._reference)
+        }
+    }
     
     public var objectIdentifier: NIOSSLObjectIdentifier {
-        .init(takeUnowned: CNIOBoringSSL_X509_EXTENSION_get_object(value), owner: owner)
+        withReference {
+            .init(borrowing: CNIOBoringSSL_X509_EXTENSION_get_object($0), owner: self.owner)
+        }
     }
     
     public var isCritical: Bool {
-        CNIOBoringSSL_X509_EXTENSION_get_critical(value) == 1
+        withReference {
+            CNIOBoringSSL_X509_EXTENSION_get_critical($0) == 1
+        }
     }
     
     public var data: Data {
-        let data = CNIOBoringSSL_X509_EXTENSION_get_data(value)
-        let buffer = UnsafeBufferPointer(
-            start: CNIOBoringSSL_ASN1_STRING_get0_data(data),
-            count: Int(CNIOBoringSSL_ASN1_STRING_length(data))
-        )
-        return .init(buffer: buffer, owner: owner)
+        withReference {
+            let data = CNIOBoringSSL_X509_EXTENSION_get_data($0)
+            let buffer = UnsafeBufferPointer(
+                start: CNIOBoringSSL_ASN1_STRING_get0_data(data),
+                count: Int(CNIOBoringSSL_ASN1_STRING_length(data))
+            )
+            return .init(buffer: buffer, owner: self.owner)
+        }
     }
 }
 
@@ -146,7 +162,7 @@ extension _SSLCertificateExtension {
     public struct Data {
         // only part of this type to keep a strong reference to the underlying storage of `buffer`
         private let owner: AnyObject
-        // lifetime automatically managed by `collection`
+        // lifetime automatically managed by `owner`
         @usableFromInline internal let buffer: UnsafeBufferPointer<UInt8>
         
         internal init(buffer: UnsafeBufferPointer<UInt8>, owner: AnyObject) {
