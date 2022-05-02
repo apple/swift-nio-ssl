@@ -15,7 +15,7 @@
 @_implementationOnly import CNIOBoringSSL
 @_implementationOnly import CNIOBoringSSLShims
 
-public struct _SSLCertificateExtensions {
+public struct _NIOSSLCertificateExtensions {
     private enum Storage {
         final class Deallocator {
             let reference: OpaquePointer!
@@ -90,13 +90,13 @@ public struct _SSLCertificateExtensions {
 }
 
 extension NIOSSLCertificate {
-    public var _extensions: _SSLCertificateExtensions {
-        _SSLCertificateExtensions(borrowing: CNIOBoringSSL_X509_get0_extensions(self._ref), owner: self)
+    public var _extensions: _NIOSSLCertificateExtensions {
+        _NIOSSLCertificateExtensions(borrowing: CNIOBoringSSL_X509_get0_extensions(self._ref), owner: self)
     }
 }
 
-extension _SSLCertificateExtensions: RandomAccessCollection {
-    public subscript(position: Int) -> _SSLCertificateExtension {
+extension _NIOSSLCertificateExtensions: RandomAccessCollection {
+    public subscript(position: Int) -> _NIOSSLCertificateExtension {
         precondition(self.indices.contains(position), "index \(position) out of bounds")
         return self.storage.withReference { reference in
             guard let value = CNIOBoringSSLShims_sk_X509_EXTENSION_value(reference, position) else {
@@ -111,7 +111,7 @@ extension _SSLCertificateExtensions: RandomAccessCollection {
     @inlinable public var endIndex: Int { self.stackSize }
 }
 
-public struct _SSLCertificateExtension {
+public struct _NIOSSLCertificateExtension {
     init(borrowing reference: OpaquePointer, owner: AnyObject) {
         self.owner = owner
         self._reference = reference
@@ -158,7 +158,7 @@ public struct _SSLCertificateExtension {
     }
 }
 
-extension _SSLCertificateExtension {
+extension _NIOSSLCertificateExtension {
     public struct Data {
         // only part of this type to keep a strong reference to the underlying storage of `buffer`
         private let owner: AnyObject
@@ -177,10 +177,17 @@ extension _SSLCertificateExtension {
                 try body(self.buffer)
             }
         }
+        @inlinable public func withUnsafeBytes<Result>(
+            _ body: (UnsafeRawBufferPointer) throws -> Result
+        ) rethrows -> Result {
+            try withExtendedLifetime(self) {
+                try body(.init(self.buffer))
+            }
+        }
     }
 }
 
-extension _SSLCertificateExtension.Data: RandomAccessCollection {
+extension _NIOSSLCertificateExtension.Data: RandomAccessCollection {
     @inlinable public var startIndex: Int { self.buffer.startIndex }
     @inlinable public var endIndex: Int { self.buffer.endIndex }
     
@@ -189,9 +196,9 @@ extension _SSLCertificateExtension.Data: RandomAccessCollection {
         return withUnsafeBufferPointer { $0[position] }
     }
     
-   @inlinable public func withContiguousStorageIfAvailable<Result>(
-    _ body: (UnsafeBufferPointer<UInt8>
-    ) throws -> Result) rethrows -> Result? {
+    @inlinable public func withContiguousStorageIfAvailable<Result>(
+        _ body: (UnsafeBufferPointer<UInt8>) throws -> Result
+    ) rethrows -> Result? {
         try withUnsafeBufferPointer(body)
     }
 }

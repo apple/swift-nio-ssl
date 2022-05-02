@@ -54,7 +54,7 @@ final class SSLCertificateExtensionsTests: XCTestCase {
     }
     
     func testEmptyExtensions() {
-        let extensions = _SSLCertificateExtensions()
+        let extensions = _NIOSSLCertificateExtensions()
         XCTAssertEqual(extensions.count, 0)
     }
     
