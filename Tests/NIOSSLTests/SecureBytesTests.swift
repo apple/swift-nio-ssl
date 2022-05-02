@@ -167,7 +167,7 @@ final class SecureBytesTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(base.backing.capacity, 8)
         XCTAssertEqual(Array(base), [1, 2, 3, 4])
 
-        func testThrowingInitialization() throws {
+        let testThrowingInitialization: () -> throws () = {
             _ = try SecureBytes(unsafeUninitializedCapacity: 5) { (_, _) in
                 throw CryptoKitError.incorrectKeySize
             }
