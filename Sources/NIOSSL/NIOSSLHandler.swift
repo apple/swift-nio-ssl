@@ -179,8 +179,14 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     }
 
     public func flush(context: ChannelHandlerContext) {
-        bufferFlush()
-        doUnbufferWrites(context: context)
+        switch self.state {
+        case .idle, .handshaking, .additionalVerification:
+            // we should not flush as we have not completed the handshake
+            break
+        case .active, .unwrapping, .closing, .unwrapped, .closed:
+            bufferFlush()
+            doUnbufferWrites(context: context)
+        }
     }
     
     public func close(context: ChannelHandlerContext, mode: CloseMode, promise: EventLoopPromise<Void>?) {
