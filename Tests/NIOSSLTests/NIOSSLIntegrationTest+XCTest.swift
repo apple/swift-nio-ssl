@@ -39,6 +39,7 @@ extension NIOSSLIntegrationTest {
                 ("testValidatesHostnameOnConnectionSucceeds", testValidatesHostnameOnConnectionSucceeds),
                 ("testAdditionalValidationOnConnectionSucceeds", testAdditionalValidationOnConnectionSucceeds),
                 ("testAdditionalValidationOnConnectionFails", testAdditionalValidationOnConnectionFails),
+                ("testFlushWhileAdditionalValidationIsInProgressDoesNotActuallyFlush", testFlushWhileAdditionalValidationIsInProgressDoesNotActuallyFlush),
                 ("testDontLoseClosePromises", testDontLoseClosePromises),
                 ("testTrustStoreOnDisk", testTrustStoreOnDisk),
                 ("testChecksTrustStoreOnDisk", testChecksTrustStoreOnDisk),
