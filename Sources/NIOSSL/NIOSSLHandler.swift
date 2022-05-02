@@ -33,6 +33,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private enum ConnectionState {
         case idle
         case handshaking
+        case additionalVerification
         case active
         case unwrapping(Scheduled<Void>)
         case closing(Scheduled<Void>)
@@ -107,7 +108,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             // Return early
             context.fireChannelInactive()
             return
-        case .handshaking:
+        case .handshaking, .additionalVerification:
             // In this case the channel is going through the doHandshake steps and
             // a channelInactive is fired taking down the connection.
             // This case propogates a .handshakeFailed instead of an .uncleanShutdown.
@@ -208,7 +209,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             // For idle, closed, and unwrapped connections we immediately pass this on to the next
             // channel handler.
             context.close(promise: promise)
-        case .active, .handshaking:
+        case .active, .handshaking, .additionalVerification:
             // We need to begin processing shutdown now. We can't fire the promise for a
             // while though.
             self.state = .closing(self.scheduleTimedOutShutdown(context: context))
@@ -241,19 +242,19 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 channelClose(context: context, reason: error)
                 return
             }
+            
+            if let additionalCertificateChainVerification = connection.parentContext.additionalCertificateChainVerification {
+                state = .additionalVerification
+                additionalCertificateChainVerification()
+                    .hop(to: context.eventLoop)
+                    .whenComplete { result in
+                        self.completedAdditionalCertificateChainVerification(result: result, context: context)
+                    }
+                return
+            }
 
             state = .active
-            writeDataToNetwork(context: context, promise: nil)
-
-            // TODO(cory): This event should probably fire out of the BoringSSL info callback.
-            let negotiatedProtocol = connection.getAlpnProtocol()
-            context.fireUserInboundEventTriggered(TLSUserEvent.handshakeCompleted(negotiatedProtocol: negotiatedProtocol))
-            
-            // We need to unbuffer any pending writes and reads. We will have pending writes if the user attempted to
-            // write before we completed the handshake. We may also have pending reads if the user sent data immediately
-            // after their FINISHED record. We decode the reads first, as those reads may trigger writes.
-            self.doDecodeData(context: context)
-            self.doUnbufferWrites(context: context)
+            completeHandshake(context: context)
         case .failed(let err):
             writeDataToNetwork(context: context, promise: nil)
             
@@ -264,6 +265,43 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
             context.fireErrorCaught(NIOSSLError.handshakeFailed(err))
             channelClose(context: context, reason: NIOSSLError.handshakeFailed(err))
+        }
+    }
+    
+    private func completeHandshake(context: ChannelHandlerContext) {
+        writeDataToNetwork(context: context, promise: nil)
+
+        // TODO(cory): This event should probably fire out of the BoringSSL info callback.
+        let negotiatedProtocol = connection.getAlpnProtocol()
+        context.fireUserInboundEventTriggered(TLSUserEvent.handshakeCompleted(negotiatedProtocol: negotiatedProtocol))
+        
+        // We need to unbuffer any pending writes and reads. We will have pending writes if the user attempted to
+        // write before we completed the handshake. We may also have pending reads if the user sent data immediately
+        // after their FINISHED record. We decode the reads first, as those reads may trigger writes.
+        self.doDecodeData(context: context)
+        self.doUnbufferWrites(context: context)
+    }
+    
+    private func completedAdditionalCertificateChainVerification(result: Result<Void, Error>, context: ChannelHandlerContext) {
+        context.eventLoop.preconditionInEventLoop()
+        switch self.state {
+        case .idle, .handshaking, .active:
+            preconditionFailure("invalid state \(self.state)")
+        case .additionalVerification:
+            do {
+                try result.get()
+            } catch {
+                // This counts as a failure.
+                context.fireErrorCaught(error)
+                channelClose(context: context, reason: error)
+                return
+            }
+            
+            state = .active
+            completeHandshake(context: context)
+        case .unwrapping, .closing, .unwrapped, .closed:
+            break
+            // we are already about to close, we can safely ignore this event
         }
     }
 
@@ -330,7 +368,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private func scheduleTimedOutShutdown(context: ChannelHandlerContext) -> Scheduled<Void> {
         return context.eventLoop.scheduleTask(in: self.shutdownTimeout) {
             switch self.state {
-            case .idle, .handshaking, .active:
+            case .idle, .handshaking, .additionalVerification, .active:
                 preconditionFailure("Cannot schedule timed out shutdown on non-shutting down handler")
 
             case .closed, .unwrapped:
@@ -381,7 +419,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
             case .failed(BoringSSLError.zeroReturn):
                 switch self.state {
-                case .idle, .handshaking:
+                case .idle, .handshaking, .additionalVerification:
                     preconditionFailure("Should not get zeroReturn in \(self.state)")
                 case .closed, .unwrapped:
                     // This is an unexpected place to be, but it's not totally impossible. Assume this
@@ -609,7 +647,7 @@ extension NIOSSLHandler {
             self.shutdownPromise = promise
             self.channelUnwrap(context: storedContext)
 
-        case .handshaking, .active:
+        case .handshaking, .active, .additionalVerification:
             // Time to try to strip TLS.
             guard let storedContext = self.storedContext else {
                 promise?.fail(NIOTLSUnwrappingError.invalidInternalState)
