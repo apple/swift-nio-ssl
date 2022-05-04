@@ -42,6 +42,7 @@ class LinuxMainRunnerImpl: LinuxMainRunner {
              testCase(NIOSSLALPNTest.allTests),
              testCase(NIOSSLIntegrationTest.allTests),
              testCase(ObjectIdentifierTests.allTests),
+             testCase(SSLCertificateExtensionsTests.allTests),
              testCase(SSLCertificateTest.allTests),
              testCase(SSLPKCS12BundleTest.allTests),
              testCase(SSLPrivateKeyTest.allTests),
