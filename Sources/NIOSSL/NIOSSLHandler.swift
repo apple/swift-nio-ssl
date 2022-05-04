@@ -181,11 +181,11 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     public func flush(context: ChannelHandlerContext) {
         switch self.state {
         case .idle, .handshaking, .additionalVerification:
-            // we should not flush as we have not completed the handshake
-            break
+            // we should not flush immediately as we have not completed the handshake and instead buffer the flush
+            self.bufferFlush()
         case .active, .unwrapping, .closing, .unwrapped, .closed:
-            bufferFlush()
-            doUnbufferWrites(context: context)
+            self.bufferFlush()
+            self.doUnbufferWrites(context: context)
         }
     }
     
@@ -292,7 +292,6 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         // write before we completed the handshake. We may also have pending reads if the user sent data immediately
         // after their FINISHED record. We decode the reads first, as those reads may trigger writes.
         self.doDecodeData(context: context)
-        self.bufferFlush()
         self.doUnbufferWrites(context: context)
     }
     
