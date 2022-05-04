@@ -1022,12 +1022,10 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
         
         let additionalHandshakePromise = group.next().makePromise(of: Void.self)
-        let clientChannelPromise = group.next().makePromise(of: Channel.self)
         let serverCtx = try configuredSSLContext()
-        let clientCtx = try configuredClientContext(additionalCertificateChainVerification: {
-            clientChannelPromise.futureResult.map { channel -> Void in
-                channel.flush()
-            }.flatMap { additionalHandshakePromise.futureResult }
+        let clientCtx = try configuredClientContext(additionalCertificateChainVerification: { channel in
+            channel.flush()
+            return additionalHandshakePromise.futureResult
         })
 
         let serverChannel = try serverTLSChannel(context: serverCtx,
@@ -1044,7 +1042,6 @@ class NIOSSLIntegrationTest: XCTestCase {
                                                  group: group,
                                                  connectingTo: serverChannel.localAddress!,
                                                  serverHostname: "localhost")
-        clientChannelPromise.succeed(clientChannel)
         let writeFuture = clientChannel.writeAndFlush(ByteBuffer(string: "Hello"))
         XCTAssertThrowsError(try writeFuture.timeout(after: .milliseconds(100)).wait())
         additionalHandshakePromise.succeed(())
