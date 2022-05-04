@@ -123,7 +123,7 @@ private func alpnCallback(ssl: OpaquePointer?,
 ///
 /// - Warning: Avoid creating `NIOSSLContext`s on any `EventLoop` because it does _blocking disk I/O_.
 public final class NIOSSLContext {
-    internal typealias AdditionalCertificateChainVerificationCallback = () -> EventLoopFuture<Void>
+    internal typealias AdditionalCertificateChainVerificationCallback = (Channel) -> EventLoopFuture<Void>
     private let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
     private var keyLogManager: KeyLogCallbackManager?

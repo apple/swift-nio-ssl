@@ -442,7 +442,7 @@ class NIOSSLIntegrationTest: XCTestCase {
     }
 
     private func configuredClientContext(
-        additionalCertificateChainVerification: NIOSSLContext.CertificateChainVerificationCallback? = nil,
+        additionalCertificateChainVerification: NIOSSLContext.AdditionalCertificateChainVerificationCallback? = nil,
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> NIOSSLContext {
@@ -917,8 +917,8 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
         
         let serverCtx = try configuredSSLContext()
-        let clientCtx = try configuredClientContext(additionalCertificateChainVerification: {
-            group.next().makeSucceededFuture(())
+        let clientCtx = try configuredClientContext(additionalCertificateChainVerification: { channel in
+            channel.eventLoop.makeSucceededFuture(())
         })
 
         let serverChannel = try serverTLSChannel(context: serverCtx,
@@ -953,8 +953,8 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
         
         let serverCtx = try configuredSSLContext()
-        let clientCtx = try configuredClientContext(additionalCertificateChainVerification: {
-            group.next().makeFailedFuture(CustomUserError())
+        let clientCtx = try configuredClientContext(additionalCertificateChainVerification: { channel in
+            channel.eventLoop.makeFailedFuture(CustomUserError())
         })
 
         let serverChannel = try serverTLSChannel(context: serverCtx,

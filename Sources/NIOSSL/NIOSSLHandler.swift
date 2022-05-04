@@ -252,7 +252,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             
             if let additionalCertificateChainVerification = connection.parentContext.additionalCertificateChainVerification {
                 state = .additionalVerification
-                additionalCertificateChainVerification()
+                additionalCertificateChainVerification(context.channel)
                     .hop(to: context.eventLoop)
                     .whenComplete { result in
                         self.completedAdditionalCertificateChainVerification(result: result, context: context)
