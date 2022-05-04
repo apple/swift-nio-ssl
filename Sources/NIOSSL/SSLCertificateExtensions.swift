@@ -18,25 +18,27 @@
 public struct _NIOSSLCertificateExtensions {
     private enum Storage {
         final class Deallocator {
-            let reference: OpaquePointer!
+            let reference: OpaquePointer?
             
-            init(takeOwnershipOf reference: OpaquePointer!) {
+            init(takeOwnershipOf reference: OpaquePointer?) {
                 self.reference = reference
             }
             
             deinit {
-                CNIOBoringSSL_sk_X509_EXTENSION_free(self.reference)
+                if let reference = self.reference {
+                    CNIOBoringSSL_sk_X509_EXTENSION_free(reference)
+                }
             }
         }
         
         case owned(Deallocator)
-        case borrowed(reference: OpaquePointer!, owner: AnyObject)
+        case borrowed(reference: OpaquePointer?, owner: AnyObject)
         
-        init(takeOwnershipOf reference: OpaquePointer!) {
+        init(takeOwnershipOf reference: OpaquePointer?) {
             self = .owned(.init(takeOwnershipOf: reference))
         }
         
-        init(borrowing reference: OpaquePointer!, owner: AnyObject) {
+        init(borrowing reference: OpaquePointer?, owner: AnyObject) {
             self = .borrowed(reference: reference, owner: owner)
         }
         
@@ -70,17 +72,29 @@ public struct _NIOSSLCertificateExtensions {
     @usableFromInline internal let stackSize: Int
     private let storage: Storage
     
-    internal init(takeOwnershipOf reference: OpaquePointer!) {
+    internal init(takeOwnershipOf reference: OpaquePointer?) {
         self.storage = .init(takeOwnershipOf: reference)
-        self.stackSize = CNIOBoringSSL_sk_X509_EXTENSION_num(reference)
+        if let reference = reference {
+            self.stackSize = CNIOBoringSSL_sk_X509_EXTENSION_num(reference)
+        } else {
+            self.stackSize = 0
+        }
     }
     
-    internal init(borrowing reference: OpaquePointer!, owner: AnyObject) {
+    internal init(borrowing reference: OpaquePointer?, owner: AnyObject) {
         self.storage = .init(borrowing: reference, owner: owner)
-        self.stackSize = CNIOBoringSSL_sk_X509_EXTENSION_num(reference)
+        if let reference = reference {
+            self.stackSize = CNIOBoringSSL_sk_X509_EXTENSION_num(reference)
+        } else {
+            self.stackSize = 0
+        }
     }
     
-    internal init(copyOf reference: OpaquePointer!) {
+    internal init(copyOf reference: OpaquePointer?) {
+        guard let reference = reference else {
+            self.init()
+            return
+        }
         self.init(takeOwnershipOf: CNIOBoringSSL_sk_X509_EXTENSION_dup(reference))
     }
     
@@ -99,6 +113,9 @@ extension _NIOSSLCertificateExtensions: RandomAccessCollection {
     public subscript(position: Int) -> _NIOSSLCertificateExtension {
         precondition(self.indices.contains(position), "index \(position) out of bounds")
         return self.storage.withReference { reference in
+            guard let reference = reference else {
+                fatalError("unexpected null pointer when unwrapping reference for value at \(position)")
+            }
             guard let value = CNIOBoringSSLShims_sk_X509_EXTENSION_value(reference, position) else {
                 fatalError("unexpected null pointer when unwrapping extension value at \(position)")
             }
