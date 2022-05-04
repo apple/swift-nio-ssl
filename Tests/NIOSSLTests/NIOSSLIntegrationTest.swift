@@ -441,10 +441,18 @@ class NIOSSLIntegrationTest: XCTestCase {
         return try assertNoThrowWithValue(NIOSSLContext(configuration: config, passphraseCallback: passphraseCallback), file: file, line: line)
     }
 
-    private func configuredClientContext(file: StaticString = #file, line: UInt = #line) throws -> NIOSSLContext {
+    private func configuredClientContext(
+        additionalCertificateChainVerification: NIOSSLContext.AdditionalCertificateChainVerificationCallback? = nil,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) throws -> NIOSSLContext {
         var config = TLSConfiguration.makeClientConfiguration()
         config.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
-        return try assertNoThrowWithValue(NIOSSLContext(configuration: config), file: file, line: line)
+        return try assertNoThrowWithValue(NIOSSLContext(
+            configuration: config,
+            callbackManager: nil,
+            additionalCertificateChainVerification: additionalCertificateChainVerification
+        ), file: file, line: line)
     }
 
     static func keyInFile(key: NIOSSLPrivateKey, passphrase: String) -> String {
@@ -900,6 +908,88 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertEqual(eventHandler.events[..<3], [.Registered, .Active, .UserEvent(.handshakeCompleted(negotiatedProtocol: nil))])
         }
         try writeFuture.wait()
+    }
+    
+    func testAdditionalValidationOnConnectionSucceeds() throws {
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+        
+        let serverCtx = try configuredSSLContext()
+        let clientCtx = try configuredClientContext(additionalCertificateChainVerification: { channel in
+            channel.eventLoop.makeSucceededFuture(())
+        })
+
+        let serverChannel = try serverTLSChannel(context: serverCtx,
+                                                 handlers: [],
+                                                 group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let eventHandler = EventRecorderHandler<TLSUserEvent>()
+        let clientChannel = try clientTLSChannel(context: clientCtx,
+                                                 preHandlers: [],
+                                                 postHandlers: [eventHandler],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!,
+                                                 serverHostname: "localhost")
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        let writeFuture = clientChannel.writeAndFlush(originalBuffer)
+        writeFuture.whenComplete { _ in
+            XCTAssertEqual(eventHandler.events[..<3], [.Registered, .Active, .UserEvent(.handshakeCompleted(negotiatedProtocol: nil))])
+        }
+        try writeFuture.wait()
+    }
+    
+    func testAdditionalValidationOnConnectionFails() throws {
+        struct CustomUserError: Error {}
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+        
+        let serverCtx = try configuredSSLContext()
+        let clientCtx = try configuredClientContext(additionalCertificateChainVerification: { channel in
+            channel.eventLoop.makeFailedFuture(CustomUserError())
+        })
+
+        let serverChannel = try serverTLSChannel(context: serverCtx,
+                                                 handlers: [],
+                                                 group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+        
+        let errorHandler = ErrorCatcher<Error>()
+        let clientChannel = try clientTLSChannel(
+            context: clientCtx,
+            preHandlers: [],
+            postHandlers: [errorHandler],
+            group: group,
+            connectingTo: serverChannel.localAddress!,
+            serverHostname: "localhost"
+        )
+        
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        let writeFuture = clientChannel.writeAndFlush(originalBuffer)
+        let errorsFuture: EventLoopFuture<[Error]> = writeFuture.recover { (_: Error) in
+            // We're swallowing errors here, on purpose, because we'll definitely
+            // hit them.
+            return ()
+        }.map {
+            return errorHandler.errors
+        }
+        let actualErrors = try errorsFuture.wait()
+
+        // This write will have failed, but that's fine: we just want it as a signal that
+        // the handshake is done so we can make our assertions.
+        XCTAssertEqual(actualErrors.count, 1)
+        XCTAssertTrue(actualErrors.first is CustomUserError)
     }
 
     func testDontLoseClosePromises() throws {

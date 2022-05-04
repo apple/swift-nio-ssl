@@ -37,6 +37,8 @@ extension NIOSSLIntegrationTest {
                 ("testAddingTlsToActiveChannelStillHandshakes", testAddingTlsToActiveChannelStillHandshakes),
                 ("testValidatesHostnameOnConnectionFails", testValidatesHostnameOnConnectionFails),
                 ("testValidatesHostnameOnConnectionSucceeds", testValidatesHostnameOnConnectionSucceeds),
+                ("testAdditionalValidationOnConnectionSucceeds", testAdditionalValidationOnConnectionSucceeds),
+                ("testAdditionalValidationOnConnectionFails", testAdditionalValidationOnConnectionFails),
                 ("testDontLoseClosePromises", testDontLoseClosePromises),
                 ("testTrustStoreOnDisk", testTrustStoreOnDisk),
                 ("testChecksTrustStoreOnDisk", testChecksTrustStoreOnDisk),

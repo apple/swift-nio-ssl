@@ -60,6 +60,9 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
 
     /// Received EOF during the TLS handshake.
     public static let eofDuringHandshake = Self(syntheticErrorDescription: "EOF during handshake")
+    
+    /// Received EOF during additional certificate chain verification.
+    public static let eofDuringAdditionalCertficiateChainValidation = Self(syntheticErrorDescription: "EOF during addition certificate chain validation")
 }
 
 /// A representation of BoringSSL's internal error stack: a list of BoringSSL errors.
