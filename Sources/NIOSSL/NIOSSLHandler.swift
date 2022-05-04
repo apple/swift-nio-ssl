@@ -255,7 +255,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 additionalCertificateChainVerification(context.channel)
                     .hop(to: context.eventLoop)
                     .whenComplete { result in
-                        self.completedAdditionalCertificateChainVerification(result: result, context: context)
+                        self.completedAdditionalCertificateChainVerification(result: result)
                     }
                 return
             }
@@ -289,8 +289,13 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         self.doUnbufferWrites(context: context)
     }
     
-    private func completedAdditionalCertificateChainVerification(result: Result<Void, Error>, context: ChannelHandlerContext) {
+    private func completedAdditionalCertificateChainVerification(result: Result<Void, Error>) {
+        guard let context = self.storedContext else {
+            // `self` may already be removed from the channel pipeline
+            return
+        }
         context.eventLoop.preconditionInEventLoop()
+        
         switch self.state {
         case .idle, .handshaking, .active:
             preconditionFailure("invalid state \(self.state)")
