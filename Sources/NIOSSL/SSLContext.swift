@@ -123,19 +123,19 @@ private func alpnCallback(ssl: OpaquePointer?,
 ///
 /// - Warning: Avoid creating `NIOSSLContext`s on any `EventLoop` because it does _blocking disk I/O_.
 public final class NIOSSLContext {
-    internal typealias CertificateChainVerificationCallback = () -> EventLoopFuture<Void>
+    internal typealias AdditionalCertificateChainVerificationCallback = () -> EventLoopFuture<Void>
     private let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
     private var keyLogManager: KeyLogCallbackManager?
     internal let configuration: TLSConfiguration
-    internal let additionalCertificateChainVerification: CertificateChainVerificationCallback?
+    internal let additionalCertificateChainVerification: AdditionalCertificateChainVerificationCallback?
 
     /// Initialize a context that will create multiple connections, all with the same
     /// configuration.
     internal init(
         configuration: TLSConfiguration,
         callbackManager: CallbackManagerProtocol?,
-        additionalCertificateChainVerification: CertificateChainVerificationCallback?
+        additionalCertificateChainVerification: AdditionalCertificateChainVerificationCallback?
     ) throws {
         guard boringSSLIsInitialized else { fatalError("Failed to initialize BoringSSL") }
         guard let context = CNIOBoringSSL_SSL_CTX_new(CNIOBoringSSL_TLS_method()) else { fatalError("Failed to create new BoringSSL context") }

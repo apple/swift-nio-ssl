@@ -108,13 +108,20 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             // Return early
             context.fireChannelInactive()
             return
-        case .handshaking, .additionalVerification:
+        case .handshaking:
             // In this case the channel is going through the doHandshake steps and
             // a channelInactive is fired taking down the connection.
             // This case propogates a .handshakeFailed instead of an .uncleanShutdown.
             // We use a synthetic error here as the error stack will be empty, and we should try to
             // provide some diagnostic help.
             channelError = NIOSSLError.handshakeFailed(.sslError([.eofDuringHandshake]))
+        case .additionalVerification:
+            // In this case the channel is going through the doHandshake steps and
+            // a channelInactive is fired taking down the connection.
+            // This case propogates a .handshakeFailed instead of an .uncleanShutdown.
+            // We use a synthetic error here as the error stack will be empty, and we should try to
+            // provide some diagnostic help.
+            channelError = NIOSSLError.handshakeFailed(.sslError([.eofDuringAdditionalCertficiateChainValidation]))
         default:
             // This is a ragged EOF: we weren't sent a CLOSE_NOTIFY. We want to send a user
             // event to notify about this before we propagate channelInactive. We also want to fail all
@@ -288,17 +295,15 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         case .idle, .handshaking, .active:
             preconditionFailure("invalid state \(self.state)")
         case .additionalVerification:
-            do {
-                try result.get()
-            } catch {
+            switch result {
+            case .failure(let error):
                 // This counts as a failure.
                 context.fireErrorCaught(error)
                 channelClose(context: context, reason: error)
-                return
+            case .success:
+                state = .active
+                completeHandshake(context: context)
             }
-            
-            state = .active
-            completeHandshake(context: context)
         case .unwrapping, .closing, .unwrapped, .closed:
             break
             // we are already about to close, we can safely ignore this event
