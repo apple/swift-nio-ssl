@@ -402,6 +402,29 @@ fileprivate func _clientTLSChannel<TLS: NIOClientTLSProvider>(context: NIOSSLCon
     .wait(), file: file, line: line)
 }
 
+struct EventLoopFutureTimeoutError: Error {}
+
+extension EventLoopFuture {
+    func timeout(after failDelay: TimeAmount) -> EventLoopFuture<Value> {
+        let promise = self.eventLoop.makePromise(of: Value.self)
+
+        self.whenComplete { result in
+            switch result {
+            case .success(let value):
+                promise.succeed(value)
+            case .failure(let error):
+                promise.fail(error)
+            }
+        }
+
+        self.eventLoop.scheduleTask(in: failDelay) {
+            promise.fail(EventLoopFutureTimeoutError())
+        }
+
+        return promise.futureResult
+    }
+}
+
 class NIOSSLIntegrationTest: XCTestCase {
     static var cert: NIOSSLCertificate!
     static var key: NIOSSLPrivateKey!
@@ -990,6 +1013,42 @@ class NIOSSLIntegrationTest: XCTestCase {
         // the handshake is done so we can make our assertions.
         XCTAssertEqual(actualErrors.count, 1)
         XCTAssertTrue(actualErrors.first is CustomUserError)
+    }
+    
+    func testFlushWhileAdditionalValidationIsInProgressDoesNotActuallyFlush() throws {
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+        
+        let additionalHandshakePromise = group.next().makePromise(of: Void.self)
+        let serverCtx = try configuredSSLContext()
+        let clientCtx = try configuredClientContext(additionalCertificateChainVerification: { channel in
+            channel.flush()
+            return additionalHandshakePromise.futureResult
+        })
+
+        let serverChannel = try serverTLSChannel(context: serverCtx,
+                                                 handlers: [],
+                                                 group: group)
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let eventHandler = EventRecorderHandler<TLSUserEvent>()
+        let clientChannel = try clientTLSChannel(context: clientCtx,
+                                                 preHandlers: [],
+                                                 postHandlers: [eventHandler],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!,
+                                                 serverHostname: "localhost")
+        let writeFuture = clientChannel.writeAndFlush(ByteBuffer(string: "Hello"))
+        XCTAssertThrowsError(try writeFuture.timeout(after: .milliseconds(100)).wait())
+        additionalHandshakePromise.succeed(())
+        writeFuture.whenComplete { _ in
+            XCTAssertEqual(eventHandler.events[..<3], [.Registered, .Active, .UserEvent(.handshakeCompleted(negotiatedProtocol: nil))])
+        }
+        try writeFuture.wait()
     }
 
     func testDontLoseClosePromises() throws {
