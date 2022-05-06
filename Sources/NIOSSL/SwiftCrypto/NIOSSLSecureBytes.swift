@@ -72,7 +72,6 @@ extension NIOSSLSecureBytes {
 // MARK: - Equatable conformance, constant-time
 extension NIOSSLSecureBytes: Equatable {
     public static func == (lhs: NIOSSLSecureBytes, rhs: NIOSSLSecureBytes) -> Bool {
-        //return safeCompare(lhs, rhs)
         lhs.backing.withUnsafeBytes { lhsPtr in
             rhs.backing.withUnsafeBytes { rhsPtr in
                 constantTimeCompare(lhsPtr, rhsPtr)
@@ -81,26 +80,13 @@ extension NIOSSLSecureBytes: Equatable {
     }
 }
 
-// MARK: - Collection conformance
-extension NIOSSLSecureBytes: Collection {
-    
-    public struct Index {
-        /* fileprivate but usableFromInline */ @usableFromInline var offset: Int
-
-        /*@inlinable*/ @usableFromInline internal init(offset: Int) {
-            self.offset = offset
-        }
-    }
-
+// MARK: - RandomAccessCollection conformance
+extension NIOSSLSecureBytes: RandomAccessCollection {
     @inlinable
-    public var startIndex: Index {
-        return Index(offset: 0)
-    }
-
+    public var startIndex: Int { 0 }
+  
     @inlinable
-    public var endIndex: Index {
-        return Index(offset: self.count)
-    }
+    public var endIndex: Int { self.count }
 
     @inlinable
     public var count: Int {
@@ -108,36 +94,16 @@ extension NIOSSLSecureBytes: Collection {
     }
 
     @inlinable
-    public subscript(_ index: Index) -> UInt8 {
+    public subscript(_ index: Int) -> UInt8 {
         get {
-            return self.backing[offset: index.offset]
+            return self.backing[offset: index]
         }
         set {
-            self.backing[offset: index.offset] = newValue
+            self.backing[offset: index] = newValue
         }
     }
-
-    @inlinable
-    public func index(after index: Index) -> Index {
-        return index.advanced(by: 1)
-    }
-    
-    @inlinable
-    public var regions: CollectionOfOne<NIOSSLSecureBytes> {
-        return CollectionOfOne(self)
-    }
 }
 
-// MARK: - BidirectionalCollection conformance
-extension NIOSSLSecureBytes: BidirectionalCollection {
-    @inlinable
-    public func index(before index: Index) -> Index {
-        return index.advanced(by: -1)
-    }
-}
-
-// MARK: - RandomAccessCollection conformance
-extension NIOSSLSecureBytes: RandomAccessCollection { }
 
 // MARK: - MutableCollection conformance
 extension NIOSSLSecureBytes: MutableCollection { }
@@ -152,8 +118,8 @@ extension NIOSSLSecureBytes: RangeReplaceableCollection {
             // We have to allocate anyway, so let's use a nice straightforward copy.
             let newBacking = Backing.create(capacity: requiredCapacity)
 
-            let lowerSlice = 0..<subrange.lowerBound.offset
-            let upperSlice = subrange.upperBound.offset..<self.count
+            let lowerSlice = 0..<subrange.lowerBound
+            let upperSlice = subrange.upperBound..<self.count
 
             newBacking._appendBytes(self.backing, inRange: lowerSlice)
             newBacking._appendBytes(newElements)
@@ -163,29 +129,9 @@ extension NIOSSLSecureBytes: RangeReplaceableCollection {
             return
         } else {
             // We have room, and a unique pointer. Ask the backing storage to shuffle around.
-            let offsetRange = subrange.lowerBound.offset..<subrange.upperBound.offset
+            let offsetRange = subrange.lowerBound..<subrange.upperBound
             self.backing.replaceSubrangeFittingWithinCapacity(offsetRange, with: newElements)
         }
-    }
-}
-
-
-// MARK: - Index conformances
-extension NIOSSLSecureBytes.Index: Hashable { }
-
-extension NIOSSLSecureBytes.Index: Comparable {
-    public static func <(lhs: NIOSSLSecureBytes.Index, rhs: NIOSSLSecureBytes.Index) -> Bool {
-        return lhs.offset < rhs.offset
-    }
-}
-
-extension NIOSSLSecureBytes.Index: Strideable {
-    public func advanced(by n: Int) -> NIOSSLSecureBytes.Index {
-        return NIOSSLSecureBytes.Index(offset: self.offset + n)
-    }
-
-    public func distance(to other: NIOSSLSecureBytes.Index) -> Int {
-        return other.offset - self.offset
     }
 }
 

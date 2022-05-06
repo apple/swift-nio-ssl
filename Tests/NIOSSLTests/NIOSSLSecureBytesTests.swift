@@ -142,13 +142,6 @@ final class NIOSSLSecureBytesTests: XCTestCase {
         base.backing._withVeryUnsafeMutableBytes { XCTAssertGreaterThanOrEqual($0.count, 16) }
     }
 
-    func testTheresOnlyOneRegion() {
-        var base = NIOSSLSecureBytes()
-        base.append(Data("hello".utf8))
-        base.append(Data("world".utf8))
-        XCTAssertEqual(base.regions.count, 1)
-    }
-
     func testScaryInitializer() {
         let base = NIOSSLSecureBytes(unsafeUninitializedCapacity: 5) { (scaryPointer, initializedCapacity) in
             XCTAssertEqual(scaryPointer.count, 5)

@@ -36,7 +36,6 @@ extension NIOSSLSecureBytesTests {
                 ("testResizingByMakingLarger", testResizingByMakingLarger),
                 ("testCountInitializerGeneratesSomewhatRandomData", testCountInitializerGeneratesSomewhatRandomData),
                 ("testBackingBytesAreAppropriatelySized", testBackingBytesAreAppropriatelySized),
-                ("testTheresOnlyOneRegion", testTheresOnlyOneRegion),
                 ("testScaryInitializer", testScaryInitializer),
                 ("testAppendingDataPerformsACoW", testAppendingDataPerformsACoW),
                 ("testRequestingAMutablePointerPerformsACoW", testRequestingAMutablePointerPerformsACoW),
