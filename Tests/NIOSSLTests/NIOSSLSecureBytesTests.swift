@@ -14,6 +14,12 @@
 import XCTest
 @testable import NIOSSL
 
+public enum NIOSSLSecureBytesError: Error {
+    case incorrectKeySize
+}
+
+extension NIOSSLSecureBytesError: Equatable {}
+
 final class NIOSSLSecureBytesTests: XCTestCase {
     func testBasicSoundness() {
         var first = NIOSSLSecureBytes()

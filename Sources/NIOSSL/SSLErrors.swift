@@ -157,12 +157,6 @@ internal extension BoringSSLError {
     }
 }
 
-public enum NIOSSLSecureBytesError: Error {
-    case incorrectKeySize
-}
-
-extension NIOSSLSecureBytesError: Equatable {}
-
 /// Represents errors that may occur while attempting to unwrap TLS from a connection.
 public enum NIOTLSUnwrappingError: Error {
     /// The TLS channel has already been closed, so it is not possible to unwrap it.
