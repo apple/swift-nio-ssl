@@ -161,11 +161,11 @@ final class NIOSSLSecureBytesTests: XCTestCase {
 
         let testThrowingInitialization: () throws -> () = {
             _ = try NIOSSLSecureBytes(unsafeUninitializedCapacity: 5) { (_, _) in
-                throw NIOSSLError.incorrectKeySize
+                throw NIOSSLSecureBytesError.incorrectKeySize
             }
         }
         XCTAssertThrowsError(try testThrowingInitialization()) { error in
-            guard case .some(.incorrectKeySize) = error as? NIOSSLError else {
+            guard case .some(.incorrectKeySize) = error as? NIOSSLSecureBytesError else {
                 XCTFail("unexpected error: \(error)")
                 return
             }

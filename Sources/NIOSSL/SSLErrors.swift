@@ -85,7 +85,6 @@ public enum NIOSSLError: Error {
     case cannotFindPeerIP
     case readInInvalidTLSState
     case uncleanShutdown
-    case incorrectKeySize
 }
 
 extension NIOSSLError: Equatable {}
@@ -157,6 +156,12 @@ internal extension BoringSSLError {
         return errorStack
     }
 }
+
+public enum NIOSSLSecureBytesError: Error {
+    case incorrectKeySize
+}
+
+extension NIOSSLSecureBytesError: Equatable {}
 
 /// Represents errors that may occur while attempting to unwrap TLS from a connection.
 public enum NIOTLSUnwrappingError: Error {

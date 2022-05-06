@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// SecureBytesTests+XCTest.swift
+// NIOSSLSecureBytesTests+XCTest.swift
 //
 import XCTest
 
