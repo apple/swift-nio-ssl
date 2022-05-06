@@ -85,6 +85,7 @@ public enum NIOSSLError: Error {
     case cannotFindPeerIP
     case readInInvalidTLSState
     case uncleanShutdown
+    case incorrectKeySize
 }
 
 extension NIOSSLError: Equatable {}
