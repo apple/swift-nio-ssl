@@ -630,8 +630,8 @@ class TLSConfigurationTest: XCTestCase {
         // Use the test name as the directory name in the temporary directory.
         let testName = String("\(#function)".dropLast(2))
         // Create 2 PEM based certs
-        let rootCAPathOne = try dumpToFileWithCustomPath(data: .init(customCARoot.utf8), fileExtension: ".pem", customPath: testName)
-        let rootCAPathTwo = try dumpToFileWithCustomPath(data: .init(secondaryRootCertificateForClientAuthentication.utf8), fileExtension: ".pem", customPath: testName)
+        let rootCAPathOne = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem", customPath: testName)
+        let rootCAPathTwo = try dumpToFile(data: .init(secondaryRootCertificateForClientAuthentication.utf8), fileExtension: ".pem", customPath: testName)
         
         // Create a rehash formatted name of both certificate's subject name that was created above.
         // Take these rehash certificate names and format a symlink with them below with createSymbolicLink.
@@ -697,7 +697,7 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertFalse(acceptablePathBadRehashFormat)
         
         // Test with an actual file, but no symlink.
-        let dummyFile = try dumpToFileWithCustomPath(data: Data(), fileExtension: ".txt", customPath: testName)
+        let dummyFile = try dumpToFile(data: Data(), fileExtension: ".txt", customPath: testName)
         let newPath = FileManager.default.temporaryDirectory.path + "/\(testName)/7f44456a.1"
         let _ = try FileManager.default.moveItem(atPath: dummyFile, toPath: newPath)
         // Filename is in rehash format, but not a symlink.
@@ -705,7 +705,7 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertFalse(acceptablePathAndRehashFormatButNoSymlink)
         
         // Test actual symlink
-        let rootCAPathOne = try dumpToFileWithCustomPath(data: .init(customCARoot.utf8), fileExtension: ".pem", customPath: testName)
+        let rootCAPathOne = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem", customPath: testName)
         let rehashSymlinkName = getRehashFilename(path: rootCAPathOne, testName: testName, numericExtension: 0)
 
         // Extract just the filename of the newly create certs in the tmp directory.
