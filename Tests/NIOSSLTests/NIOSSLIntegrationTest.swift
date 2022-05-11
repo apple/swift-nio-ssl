@@ -436,7 +436,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         let (cert, key) = generateSelfSignedCert()
         NIOSSLIntegrationTest.cert = cert
         NIOSSLIntegrationTest.key = key
-        NIOSSLIntegrationTest.encryptedKeyPath = keyInFile(key: NIOSSLIntegrationTest.key, passphrase: "thisisagreatpassword")
+        NIOSSLIntegrationTest.encryptedKeyPath = try! keyInFile(key: NIOSSLIntegrationTest.key, passphrase: "thisisagreatpassword")
     }
 
     override class func tearDown() {
@@ -478,8 +478,8 @@ class NIOSSLIntegrationTest: XCTestCase {
         ), file: file, line: line)
     }
 
-    static func keyInFile(key: NIOSSLPrivateKey, passphrase: String) -> String {
-        let fileName = makeTemporaryFile(fileExtension: ".pem")
+    static func keyInFile(key: NIOSSLPrivateKey, passphrase: String) throws -> String {
+        let fileName = try makeTemporaryFile(fileExtension: ".pem")
         let tempFile = open(fileName, O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0o644)
         precondition(tempFile > 1, String(cString: strerror(errno)))
         let fileBio = CNIOBoringSSL_BIO_new_fp(fdopen(tempFile, "w+"), BIO_CLOSE)
@@ -498,7 +498,7 @@ class NIOSSLIntegrationTest: XCTestCase {
     }
 
     func withTrustBundleInFile<T>(tempFile fileName: inout String?, fn: (String) throws -> T) throws -> T {
-        fileName = makeTemporaryFile()
+        fileName = try makeTemporaryFile()
         guard let fileName = fileName else {
             fatalError("couldn't make temp file")
         }
