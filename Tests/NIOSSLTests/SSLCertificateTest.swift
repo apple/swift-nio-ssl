@@ -142,8 +142,14 @@ kVuVyNH7NBMh6YOuTL1dh55bvDjvgkuzudepsZnpfjgQKE1aZ7dL32Xi000gBM8=
 -----END CERTIFICATE-----
 """
 
-func makeTemporaryFile(fileExtension: String = "") -> String {
-    let template = "\(FileManager.default.temporaryDirectory.path)/niotestXXXXXXX\(fileExtension)"
+func makeTemporaryFile(fileExtension: String = "", customPath: String = "") throws -> String {
+    var template = "\(FileManager.default.temporaryDirectory.path)/niotestXXXXXXX\(fileExtension)"
+    // If a custom file path is passed in then a new directory has to also be created.  Then the file can be written to that directory.
+    if !customPath.isEmpty {
+        let path = "\(FileManager.default.temporaryDirectory.path)/\(customPath)/"
+        try FileManager.default.createDirectory(at: URL(fileURLWithPath: path), withIntermediateDirectories: true)
+        template = "\(FileManager.default.temporaryDirectory.path)/\(customPath)/niotestXXXXXXX\(fileExtension)"
+    }
     var templateBytes = template.utf8 + [0]
     let fd = templateBytes.withUnsafeMutableBufferPointer { ptr in
         ptr.baseAddress!.withMemoryRebound(to: Int8.self, capacity: ptr.count) { (ptr: UnsafeMutablePointer<Int8>) in
@@ -155,8 +161,8 @@ func makeTemporaryFile(fileExtension: String = "") -> String {
     return String(decoding: templateBytes, as: UTF8.self)
 }
 
-internal func dumpToFile(data: Data, fileExtension: String = "") throws  -> String {
-    let filename = makeTemporaryFile(fileExtension: fileExtension)
+internal func dumpToFile(data: Data, fileExtension: String = "", customPath: String = "") throws  -> String {
+    let filename = try makeTemporaryFile(fileExtension: fileExtension, customPath: customPath)
     try data.write(to: URL(fileURLWithPath: filename))
     return filename
 }

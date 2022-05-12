@@ -264,10 +264,9 @@ class TLSConfigurationTest: XCTestCase {
     }
     
     // Note that this is a stub to create the rehash file format for a certificate.
-    // If needed in the future the numericExtension should be rework to check for duplicates and increment as applicable.
-    func getRehashFilename(path: String, numericExtension: Int) -> String {
+    // If needed in the future the numericExtension should be reworked to check for duplicates and increment as applicable.
+    func getRehashFilename(path: String, testName: String, numericExtension: Int) -> String {
         var cert: NIOSSLCertificate!
-        
         if path.suffix(4) == ".pem" {
             XCTAssertNoThrow(cert = try NIOSSLCertificate(file: path, format: .pem))
         } else {
@@ -275,9 +274,8 @@ class TLSConfigurationTest: XCTestCase {
         }
         // Create a rehash format filename to symlink the hard file above to.
         let originalSubjectName = cert.getSubjectNameHash()
-        let truncatedHash = String(format: "%08lx.0", originalSubjectName)
-        // Constr
-        let tempDirPath = FileManager.default.temporaryDirectory.path + "/"
+        let truncatedHash = String(format: "%08lx.%d", originalSubjectName, numericExtension)
+        let tempDirPath = FileManager.default.temporaryDirectory.path + "/" + testName + "/"
         return tempDirPath + truncatedHash
     }
 
@@ -629,15 +627,16 @@ class TLSConfigurationTest: XCTestCase {
     }
     
     func testRehashFormatToPopulateCANamesFromDirectory() throws {
+        // Use the test name as the directory name in the temporary directory.
+        let testName = String("\(#function)".dropLast(2))
         // Create 2 PEM based certs
-        let rootCAPathOne = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem")
-        let rootCAPathTwo = try dumpToFile(data: .init(secondaryRootCertificateForClientAuthentication.utf8), fileExtension: ".pem")
+        let rootCAPathOne = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem", customPath: testName)
+        let rootCAPathTwo = try dumpToFile(data: .init(secondaryRootCertificateForClientAuthentication.utf8), fileExtension: ".pem", customPath: testName)
         
         // Create a rehash formatted name of both certificate's subject name that was created above.
         // Take these rehash certificate names and format a symlink with them below with createSymbolicLink.
-        let rehashSymlinkNameOne = getRehashFilename(path: rootCAPathOne, numericExtension: 0)
-        let rehashSymlinkNameTwo = getRehashFilename(path: rootCAPathTwo, numericExtension: 0)
-        
+        let rehashSymlinkNameOne = getRehashFilename(path: rootCAPathOne, testName: testName, numericExtension: 0)
+        let rehashSymlinkNameTwo = getRehashFilename(path: rootCAPathTwo, testName: testName, numericExtension: 0)
         // Extract just the filename of the newly create certs in the tmp directory.
         let rootCAURLOne = URL(string: "file://" + rootCAPathOne)!
         let rootCAURLTwo = URL(string: "file://" + rootCAPathTwo)!
@@ -656,9 +655,12 @@ class TLSConfigurationTest: XCTestCase {
             XCTAssertNoThrow(try FileManager.default.removeItem(at: rootCAURLTwo))
             XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rehashSymlinkNameOne)!))
             XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rehashSymlinkNameTwo)!))
+            // Remove the actual directory also.
+            let removePath = "\(FileManager.default.temporaryDirectory.path)/\(testName)/"
+            XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://"  + removePath)!))
         }
         
-        let tempFileDir = FileManager.default.temporaryDirectory.path + "/"
+        let tempFileDir = FileManager.default.temporaryDirectory.path + "/\(testName)/"
         let digitalIdentities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
         
         // Server Configuration
@@ -678,6 +680,8 @@ class TLSConfigurationTest: XCTestCase {
     }
     
     func testRehashFormat() throws {
+        // Use the test name as the directory name in the temporary directory.
+        let testName = String("\(#function)".dropLast(2))
         // This test case creates path variables and files to run through the `isRehashFormat` function in `NIOSSLContext`.
         // Note that the c_rehash file format is a symlink to an original PEM or CER file in the form of HHHHHHHH.D.
         // Note that CRLs are not supported, only PEM and DER representations of certificates.
@@ -693,17 +697,17 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertFalse(acceptablePathBadRehashFormat)
         
         // Test with an actual file, but no symlink.
-        let dummyFile = try dumpToFile(data: Data(), fileExtension: ".txt")
-        let newPath = FileManager.default.temporaryDirectory.path + "/7f44456a.1"
+        let dummyFile = try dumpToFile(data: Data(), fileExtension: ".txt", customPath: testName)
+        let newPath = FileManager.default.temporaryDirectory.path + "/\(testName)/7f44456a.1"
         let _ = try FileManager.default.moveItem(atPath: dummyFile, toPath: newPath)
         // Filename is in rehash format, but not a symlink.
         let acceptablePathAndRehashFormatButNoSymlink = try NIOSSLContext._isRehashFormat(path: newPath)
         XCTAssertFalse(acceptablePathAndRehashFormatButNoSymlink)
         
         // Test actual symlink
-        let rootCAPathOne = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem")
-        let rehashSymlinkName = getRehashFilename(path: rootCAPathOne, numericExtension: 0)
-        
+        let rootCAPathOne = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem", customPath: testName)
+        let rehashSymlinkName = getRehashFilename(path: rootCAPathOne, testName: testName, numericExtension: 0)
+
         // Extract just the filename of the newly create certs in the tmp directory.
         let rootCAURLOne = URL(string: "file://" + rootCAPathOne)!
         let rootCAFilenameOne = rootCAURLOne.lastPathComponent
@@ -715,6 +719,9 @@ class TLSConfigurationTest: XCTestCase {
             XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rootCAPathOne)!))
             XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rehashSymlinkName)!))
             XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + newPath)!))
+            // Remove the actual directory also.
+            let removePath = "\(FileManager.default.temporaryDirectory.path)/\(testName)/"
+            XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://"  + removePath)!))
         }
         
         // Test the success case for the symlink
