@@ -71,7 +71,7 @@ extension NIOSSLSecureBytes {
 
 // MARK: - Equatable conformance, constant-time
 extension NIOSSLSecureBytes: Equatable {
-    public static func == (lhs: NIOSSLSecureBytes, rhs: NIOSSLSecureBytes) -> Bool {
+    static func == (lhs: NIOSSLSecureBytes, rhs: NIOSSLSecureBytes) -> Bool {
         lhs.backing.withUnsafeBytes { lhsPtr in
             rhs.backing.withUnsafeBytes { rhsPtr in
                 constantTimeCompare(lhsPtr, rhsPtr)
