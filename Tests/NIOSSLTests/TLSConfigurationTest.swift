@@ -1125,6 +1125,137 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertNoThrow(channelTLSVersion = try tlsVersionForChannel.wait())
         XCTAssertEqual(channelTLSVersion!, .tlsv11)
     }
+    
+    func testTLSPSKWithTLS13() throws {
+        // The idea here is that adding PSKs with certificates in TLS 1.3 should NOT cause a failure.
+        // Also note that the usage here of PSKs with TLS 1.3 is not supported by BoringSSL at this point.
+        func pskCallback() -> (key: NIOSSLSecureBytes, identity: NIOSSLSecureBytes) {
+            var psk = NIOSSLSecureBytes()
+            var pskIdentity = NIOSSLSecureBytes()
+            psk.append(Data("hello".utf8))
+            pskIdentity.append(Data("world".utf8))
+            return (key: psk, identity: pskIdentity)
+        }
+
+        let pskCallbackManager = PSKIdentityCallbackManager(callback: pskCallback)
+        
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .none
+        clientConfig.trustRoots = .certificates([])
+        clientConfig.minimumTLSVersion = .tlsv13
+        clientConfig.maximumTLSVersion = .tlsv13
+        clientConfig.pskCallback = pskCallbackManager
+        clientConfig.clientConfiguration = true
+        
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.minimumTLSVersion = .tlsv13
+        serverConfig.maximumTLSVersion = .tlsv13
+        serverConfig.certificateVerification = .none
+        serverConfig.pskCallback = pskCallbackManager
+        serverConfig.clientConfiguration = false
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+    
+    func testTLSPSKWithTLS12() throws {
+        // This test ensures that PSK-TLS is supported for TLS 1.2.
+        func pskCallback() -> (key: NIOSSLSecureBytes, identity: NIOSSLSecureBytes) {
+            var psk = NIOSSLSecureBytes()
+            var pskIdentity = NIOSSLSecureBytes()
+            psk.append(Data("hello".utf8))
+            pskIdentity.append(Data("world".utf8))
+            return (key: psk, identity: pskIdentity)
+        }
+
+        let pskCallbackManager = PSKIdentityCallbackManager(callback: pskCallback)
+        
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .none
+        clientConfig.minimumTLSVersion = .tlsv1
+        clientConfig.maximumTLSVersion = .tlsv12
+        clientConfig.pskCallback = pskCallbackManager
+        clientConfig.clientConfiguration = true
+        
+        var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
+        serverConfig.minimumTLSVersion = .tlsv1
+        serverConfig.maximumTLSVersion = .tlsv12
+        serverConfig.pskCallback = pskCallbackManager
+        serverConfig.clientConfiguration = false
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+    
+    func testTLSPSKWithPinnedCiphers() throws {
+        // This test ensures that PSK-TLS is supported with pinned ciphers.
+        func pskCallback() -> (key: NIOSSLSecureBytes, identity: NIOSSLSecureBytes) {
+            var psk = NIOSSLSecureBytes()
+            var pskIdentity = NIOSSLSecureBytes()
+            psk.append(Data("hello".utf8))
+            pskIdentity.append(Data("world".utf8))
+            return (key: psk, identity: pskIdentity)
+        }
+
+        let pskCallbackManager = PSKIdentityCallbackManager(callback: pskCallback)
+        
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .none
+        clientConfig.minimumTLSVersion = .tlsv1
+        clientConfig.maximumTLSVersion = .tlsv12
+        clientConfig.pskCallback = pskCallbackManager
+        clientConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+                                          .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+                                          .TLS_PSK_WITH_AES_128_CBC_SHA,
+                                          .TLS_PSK_WITH_AES_256_CBC_SHA]
+        clientConfig.clientConfiguration = true
+        
+        var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
+        serverConfig.minimumTLSVersion = .tlsv1
+        serverConfig.maximumTLSVersion = .tlsv12
+        serverConfig.pskCallback = pskCallbackManager
+        serverConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+                                          .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+                                          .TLS_PSK_WITH_AES_128_CBC_SHA,
+                                          .TLS_PSK_WITH_AES_256_CBC_SHA]
+        serverConfig.clientConfiguration = false
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+    
+    func testTLSPSKFailure() throws {
+        // This test ensures that different PSKs used on the client and server fail when passed in.
+        func clientPSKCallback() -> (key: NIOSSLSecureBytes, identity: NIOSSLSecureBytes) {
+            var psk = NIOSSLSecureBytes()
+            var pskIdentity = NIOSSLSecureBytes()
+            psk.append(Data("hello".utf8))
+            pskIdentity.append(Data("world".utf8))
+            return (key: psk, identity: pskIdentity)
+        }
+        
+        func serverPSKCallback() -> (key: NIOSSLSecureBytes, identity: NIOSSLSecureBytes) {
+            var psk = NIOSSLSecureBytes()
+            var pskIdentity = NIOSSLSecureBytes()
+            psk.append(Data("server".utf8))
+            pskIdentity.append(Data("server".utf8))
+            return (key: psk, identity: pskIdentity)
+        }
+
+        let clientPSKCallbackManager = PSKIdentityCallbackManager(callback: clientPSKCallback)
+        let serverPSKCallbackManager = PSKIdentityCallbackManager(callback: serverPSKCallback)
+        
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .none
+        clientConfig.minimumTLSVersion = .tlsv1
+        clientConfig.maximumTLSVersion = .tlsv12
+        clientConfig.pskCallback = clientPSKCallbackManager
+        clientConfig.clientConfiguration = true
+        
+        var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
+        serverConfig.minimumTLSVersion = .tlsv1
+        serverConfig.maximumTLSVersion = .tlsv12
+        serverConfig.pskCallback = serverPSKCallbackManager
+        serverConfig.clientConfiguration = false
+        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["SSLV3_ALERT_BAD_RECORD_MAC"])
+    }
 }
 
 extension EmbeddedChannel {

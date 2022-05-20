@@ -92,6 +92,8 @@ public struct NIOTLSCipher: RawRepresentable, Hashable {
     
     public static let TLS_RSA_WITH_AES_128_CBC_SHA                    = NIOTLSCipher(rawValue: 0x2F)
     public static let TLS_RSA_WITH_AES_256_CBC_SHA                    = NIOTLSCipher(rawValue: 0x35)
+    public static let TLS_PSK_WITH_AES_128_CBC_SHA                    = NIOTLSCipher(rawValue: 0x8C)
+    public static let TLS_PSK_WITH_AES_256_CBC_SHA                    = NIOTLSCipher(rawValue: 0x8D)
     public static let TLS_RSA_WITH_AES_128_GCM_SHA256                 = NIOTLSCipher(rawValue: 0x9C)
     public static let TLS_RSA_WITH_AES_256_GCM_SHA384                 = NIOTLSCipher(rawValue: 0x9D)
     public static let TLS_AES_128_GCM_SHA256                          = NIOTLSCipher(rawValue: 0x1301)
@@ -101,6 +103,8 @@ public struct NIOTLSCipher: RawRepresentable, Hashable {
     public static let TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA            = NIOTLSCipher(rawValue: 0xC00A)
     public static let TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA              = NIOTLSCipher(rawValue: 0xC013)
     public static let TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA              = NIOTLSCipher(rawValue: 0xC014)
+    public static let TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA              = NIOTLSCipher(rawValue: 0xC035)
+    public static let TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA              = NIOTLSCipher(rawValue: 0xC036)
     public static let TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256         = NIOTLSCipher(rawValue: 0xC02B)
     public static let TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384         = NIOTLSCipher(rawValue: 0xC02C)
     public static let TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256           = NIOTLSCipher(rawValue: 0xC02F)
@@ -276,6 +280,12 @@ public struct TLSConfiguration {
 
     /// The private key associated with the leaf certificate.
     public var privateKey: NIOSSLPrivateKeySource?
+    
+    /// PSK Callback to get the key and identity from either the client or server.
+    public var pskCallback: PSKIdentityCallbackManager? = nil
+    
+    /// Flag to define the configuration as client or server side.
+    public var clientConfiguration: Bool = false
 
     /// The application protocols to use in the connection. Should be an ordered list of ASCII
     /// strings representing the ALPN identifiers of the protocols to negotiate. For clients,
@@ -321,7 +331,9 @@ public struct TLSConfiguration {
                  keyLogCallback: NIOSSLKeyLogCallback?,
                  renegotiationSupport: NIORenegotiationSupport,
                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots],
-                 sendCANameList: Bool = false) {
+                 sendCANameList: Bool = false,
+                 pskCallback: PSKIdentityCallbackManager? = nil,
+                 client: Bool = false) {
         self.cipherSuites = cipherSuites
         self.verifySignatureAlgorithms = verifySignatureAlgorithms
         self.signingSignatureAlgorithms = signingSignatureAlgorithms
@@ -338,6 +350,8 @@ public struct TLSConfiguration {
         self.sendCANameList = sendCANameList
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
+        self.clientConfiguration = client
+        self.pskCallback = pskCallback
         if !cipherSuiteValues.isEmpty {
             self.cipherSuiteValues = cipherSuiteValues
         }
@@ -419,7 +433,9 @@ extension TLSConfiguration {
                                 keyLogCallback: nil,
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
-                                sendCANameList: false)
+                                sendCANameList: false,
+                                pskCallback: nil,
+                                client: true)
     }
 
     /// Create a TLS configuration for use with server-side contexts.
@@ -446,7 +462,36 @@ extension TLSConfiguration {
                                 keyLogCallback: nil,
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
-                                sendCANameList: false)
+                                sendCANameList: false,
+                                pskCallback: nil,
+                                client: false)
+    }
+    
+    /// Create a TLS configuration for use with server-side or client-side contexts that uses Pre-Shared Keys for TLS 1.2 and below.
+    ///
+    /// This provides sensible defaults while requiring that you provide any data that is necessary
+    /// for server-side or client-side functionality.  This configuration uses Pre-Shared Keys instead of certificates.
+    ///
+    /// For customising fields, modify the returned TLSConfiguration object.
+    public static func makePreSharedKeyConfiguration() -> TLSConfiguration {
+        
+        return TLSConfiguration(cipherSuites: defaultCipherSuites,
+                                verifySignatureAlgorithms: nil,
+                                signingSignatureAlgorithms: nil,
+                                minimumTLSVersion: .tlsv1,
+                                maximumTLSVersion: nil,
+                                certificateVerification: .none,
+                                trustRoots: .default,
+                                certificateChain: [],
+                                privateKey: nil,
+                                applicationProtocols: [],
+                                shutdownTimeout: .seconds(5),
+                                keyLogCallback: nil,
+                                renegotiationSupport: .none,
+                                additionalTrustRoots: [],
+                                sendCANameList: false,
+                                pskCallback: nil,
+                                client: false)
     }
 }
 
