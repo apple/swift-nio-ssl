@@ -247,7 +247,7 @@ extension NIOSSLSecureBytes.Backing {
     }
 
     /// Appends the bytes of a collection to this storage, crashing if there is not enough room.
-    /* private but inlinable */ public func _appendBytes<C: Collection>(_ bytes: C) where C.Element == UInt8 {
+    /* private but inlinable */ @inlinable func _appendBytes<C: Collection>(_ bytes: C) where C.Element == UInt8 {
         let byteCount = bytes.count
 
         precondition(self.capacity - self.count - byteCount >= 0, "Insufficient space for byte copying, must have reallocated!")
@@ -262,7 +262,7 @@ extension NIOSSLSecureBytes.Backing {
 
     /// Appends the bytes of a slice of another backing buffer to this storage, crashing if there
     /// is not enough room.
-    /* private but inlinable */ public func _appendBytes(_ backing: NIOSSLSecureBytes.Backing, inRange range: Range<Int>) {
+    /* private but inlinable */ @inlinable func _appendBytes(_ backing: NIOSSLSecureBytes.Backing, inRange range: Range<Int>) {
         precondition(range.lowerBound >= 0)
         precondition(range.upperBound <= backing.capacity)
         precondition(self.capacity - self.count - range.count >= 0, "Insufficient space for byte copying, must have reallocated!")

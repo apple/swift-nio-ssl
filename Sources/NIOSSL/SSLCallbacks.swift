@@ -136,10 +136,13 @@ public typealias NIOPSKIdentityCallback = () -> (key: NIOSSLSecureBytes, identit
 
 /// An object that provides helpers for clients / servers wanting to expose PSKs and Identities to their context.
 public struct PSKIdentityCallbackManager {
-    public var callback: NIOPSKIdentityCallback
+    public var clientCallback: NIOPSKIdentityCallback?
+    public var serverCallback: NIOPSKIdentityCallback?
     
-    public init(callback: @escaping NIOPSKIdentityCallback) {
-        self.callback = callback
+    public init(clientCallback: NIOPSKIdentityCallback?,
+                serverCallback: NIOPSKIdentityCallback?) {
+        self.clientCallback = clientCallback
+        self.serverCallback = serverCallback
     }
 }
 

@@ -1137,15 +1137,15 @@ class TLSConfigurationTest: XCTestCase {
             return (key: psk, identity: pskIdentity)
         }
 
-        let pskCallbackManager = PSKIdentityCallbackManager(callback: pskCallback)
+        let clientPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: pskCallback, serverCallback: nil)
+        let serverPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: nil, serverCallback: pskCallback)
         
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.certificateVerification = .none
         clientConfig.trustRoots = .certificates([])
         clientConfig.minimumTLSVersion = .tlsv13
         clientConfig.maximumTLSVersion = .tlsv13
-        clientConfig.pskCallback = pskCallbackManager
-        clientConfig.clientConfiguration = true
+        clientConfig.pskCallback = clientPSKCallbackManager
         
         var serverConfig = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
@@ -1154,8 +1154,7 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.minimumTLSVersion = .tlsv13
         serverConfig.maximumTLSVersion = .tlsv13
         serverConfig.certificateVerification = .none
-        serverConfig.pskCallback = pskCallbackManager
-        serverConfig.clientConfiguration = false
+        serverConfig.pskCallback = serverPSKCallbackManager
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
     
@@ -1169,20 +1168,19 @@ class TLSConfigurationTest: XCTestCase {
             return (key: psk, identity: pskIdentity)
         }
 
-        let pskCallbackManager = PSKIdentityCallbackManager(callback: pskCallback)
+        let clientPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: pskCallback, serverCallback: nil)
+        let serverPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: nil, serverCallback: pskCallback)
         
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.certificateVerification = .none
         clientConfig.minimumTLSVersion = .tlsv1
         clientConfig.maximumTLSVersion = .tlsv12
-        clientConfig.pskCallback = pskCallbackManager
-        clientConfig.clientConfiguration = true
+        clientConfig.pskCallback = clientPSKCallbackManager
         
         var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
         serverConfig.minimumTLSVersion = .tlsv1
         serverConfig.maximumTLSVersion = .tlsv12
-        serverConfig.pskCallback = pskCallbackManager
-        serverConfig.clientConfiguration = false
+        serverConfig.pskCallback = serverPSKCallbackManager
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
     
@@ -1196,28 +1194,27 @@ class TLSConfigurationTest: XCTestCase {
             return (key: psk, identity: pskIdentity)
         }
 
-        let pskCallbackManager = PSKIdentityCallbackManager(callback: pskCallback)
+        let clientPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: pskCallback, serverCallback: nil)
+        let serverPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: nil, serverCallback: pskCallback)
         
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.certificateVerification = .none
         clientConfig.minimumTLSVersion = .tlsv1
         clientConfig.maximumTLSVersion = .tlsv12
-        clientConfig.pskCallback = pskCallbackManager
+        clientConfig.pskCallback = clientPSKCallbackManager
         clientConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
                                           .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
                                           .TLS_PSK_WITH_AES_128_CBC_SHA,
                                           .TLS_PSK_WITH_AES_256_CBC_SHA]
-        clientConfig.clientConfiguration = true
         
         var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
         serverConfig.minimumTLSVersion = .tlsv1
         serverConfig.maximumTLSVersion = .tlsv12
-        serverConfig.pskCallback = pskCallbackManager
+        serverConfig.pskCallback = serverPSKCallbackManager
         serverConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
                                           .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
                                           .TLS_PSK_WITH_AES_128_CBC_SHA,
                                           .TLS_PSK_WITH_AES_256_CBC_SHA]
-        serverConfig.clientConfiguration = false
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
     
@@ -1239,21 +1236,19 @@ class TLSConfigurationTest: XCTestCase {
             return (key: psk, identity: pskIdentity)
         }
 
-        let clientPSKCallbackManager = PSKIdentityCallbackManager(callback: clientPSKCallback)
-        let serverPSKCallbackManager = PSKIdentityCallbackManager(callback: serverPSKCallback)
+        let clientPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: clientPSKCallback, serverCallback: nil)
+        let serverPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: nil, serverCallback: serverPSKCallback)
         
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.certificateVerification = .none
         clientConfig.minimumTLSVersion = .tlsv1
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.pskCallback = clientPSKCallbackManager
-        clientConfig.clientConfiguration = true
         
         var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
         serverConfig.minimumTLSVersion = .tlsv1
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.pskCallback = serverPSKCallbackManager
-        serverConfig.clientConfiguration = false
         try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["SSLV3_ALERT_BAD_RECORD_MAC"])
     }
 }
