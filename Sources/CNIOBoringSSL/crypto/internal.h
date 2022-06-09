@@ -648,6 +648,7 @@ typedef enum {
   OPENSSL_THREAD_LOCAL_ERR = 0,
   OPENSSL_THREAD_LOCAL_RAND,
   OPENSSL_THREAD_LOCAL_FIPS_COUNTERS,
+  OPENSSL_THREAD_LOCAL_FIPS_SERVICE_INDICATOR_STATE,
   OPENSSL_THREAD_LOCAL_TEST,
   NUM_OPENSSL_THREAD_LOCALS,
 } thread_local_data_t;
@@ -880,6 +881,16 @@ static inline void CRYPTO_store_u32_be(void *out, uint32_t v) {
   OPENSSL_memcpy(out, &v, sizeof(v));
 }
 
+static inline uint64_t CRYPTO_load_u64_le(const void *in) {
+  uint64_t v;
+  OPENSSL_memcpy(&v, in, sizeof(v));
+  return v;
+}
+
+static inline void CRYPTO_store_u64_le(void *out, uint64_t v) {
+  OPENSSL_memcpy(out, &v, sizeof(v));
+}
+
 static inline uint64_t CRYPTO_load_u64_be(const void *ptr) {
   uint64_t ret;
   OPENSSL_memcpy(&ret, ptr, sizeof(ret));
@@ -899,6 +910,18 @@ static inline crypto_word_t CRYPTO_load_word_le(const void *in) {
 
 static inline void CRYPTO_store_word_le(void *out, crypto_word_t v) {
   OPENSSL_memcpy(out, &v, sizeof(v));
+}
+
+static inline crypto_word_t CRYPTO_load_word_be(const void *in) {
+  crypto_word_t v;
+  OPENSSL_memcpy(&v, in, sizeof(v));
+#if defined(OPENSSL_64_BIT)
+  static_assert(sizeof(v) == 8, "crypto_word_t has unexpected size");
+  return CRYPTO_bswap8(v);
+#else
+  static_assert(sizeof(v) == 4, "crypto_word_t has unexpected size");
+  return CRYPTO_bswap4(v);
+#endif
 }
 
 

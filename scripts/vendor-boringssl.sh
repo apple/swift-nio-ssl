@@ -86,7 +86,7 @@ function mangle_symbols {
         swift build --product CNIOBoringSSL
         (
             cd "${SRCROOT}"
-            go run "util/read_symbols.go" -out "${TMPDIR}/symbols-macOS.txt" "${HERE}/.build/x86_64-apple-macosx/debug/libCNIOBoringSSL.a"
+            go run "util/read_symbols.go" -out "${TMPDIR}/symbols-macOS.txt" "${HERE}/.build/debug/libCNIOBoringSSL.a"
         )
 
         # Now build for iOS. We use xcodebuild for this because SwiftPM doesn't
@@ -282,6 +282,9 @@ rm -f $DSTROOT/crypto/fipsmodule/bcm.c
 echo "FIXING missing include"
 perl -pi -e '$_ .= qq(\n#include <openssl/evp.h>\n) if /#include <openssl\/ec_key.h>/' "$DSTROOT/crypto/fipsmodule/self_check/self_check.c"
 
+echo "PATCHING BoringSSL ('#include ../delocate.h')"
+git apply "${HERE}/scripts/patch-2-include-delocate.patch"
+
 mangle_symbols
 
 # Removing ASM on 32 bit Apple platforms
@@ -371,6 +374,7 @@ cat << EOF > "$DSTROOT/include/CNIOBoringSSL.h"
 #include "CNIOBoringSSL_hmac.h"
 #include "CNIOBoringSSL_hpke.h"
 #include "CNIOBoringSSL_hrss.h"
+#include "CNIOBoringSSL_kdf.h"
 #include "CNIOBoringSSL_md4.h"
 #include "CNIOBoringSSL_md5.h"
 #include "CNIOBoringSSL_obj_mac.h"
@@ -384,6 +388,7 @@ cat << EOF > "$DSTROOT/include/CNIOBoringSSL.h"
 #include "CNIOBoringSSL_ripemd.h"
 #include "CNIOBoringSSL_rsa.h"
 #include "CNIOBoringSSL_safestack.h"
+#include "CNIOBoringSSL_service_indicator.h"
 #include "CNIOBoringSSL_sha.h"
 #include "CNIOBoringSSL_siphash.h"
 #include "CNIOBoringSSL_srtp.h"
