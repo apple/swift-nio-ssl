@@ -1,0 +1,24 @@
+diff --git a/Sources/CNIOBoringSSL/crypto/fipsmodule/cipher/e_aesccm.c b/Sources/CNIOBoringSSL/crypto/fipsmodule/cipher/e_aesccm.c
+index 8fb72cb..e8be21a 100644
+--- a/Sources/CNIOBoringSSL/crypto/fipsmodule/cipher/e_aesccm.c
++++ b/Sources/CNIOBoringSSL/crypto/fipsmodule/cipher/e_aesccm.c
+@@ -56,6 +56,7 @@
+ 
+ #include "internal.h"
+ #include "../service_indicator/internal.h"
++#include "../delocate.h"
+ 
+ 
+ struct ccm128_context {
+diff --git a/Sources/CNIOBoringSSL/crypto/fipsmodule/digestsign/digestsign.c b/Sources/CNIOBoringSSL/crypto/fipsmodule/digestsign/digestsign.c
+index ec3744c..916af35 100644
+--- a/Sources/CNIOBoringSSL/crypto/fipsmodule/digestsign/digestsign.c
++++ b/Sources/CNIOBoringSSL/crypto/fipsmodule/digestsign/digestsign.c
+@@ -60,6 +60,7 @@
+ #include "../../evp/internal.h"
+ #include "../digest/internal.h"
+ #include "../service_indicator/internal.h"
++#include "../delocate.h"
+ 
+ 
+ enum evp_sign_verify_t {
