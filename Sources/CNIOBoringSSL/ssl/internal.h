@@ -660,10 +660,15 @@ bool ssl_cipher_requires_server_key_exchange(const SSL_CIPHER *cipher);
 size_t ssl_cipher_get_record_split_len(const SSL_CIPHER *cipher);
 
 // ssl_choose_tls13_cipher returns an |SSL_CIPHER| corresponding with the best
-// available from |cipher_suites| compatible with |version| and |group_id|. It
-// returns NULL if there isn't a compatible cipher.
+// available from |cipher_suites| compatible with |version|, |group_id|, and
+// |only_fips|. It returns NULL if there isn't a compatible cipher.
 const SSL_CIPHER *ssl_choose_tls13_cipher(CBS cipher_suites, uint16_t version,
-                                          uint16_t group_id);
+                                          uint16_t group_id, bool only_fips);
+
+// ssl_tls13_cipher_meets_policy returns true if |cipher_id| is acceptable given
+// |only_fips|. (For now there's only a single policy and so the policy argument
+// is just a bool.)
+bool ssl_tls13_cipher_meets_policy(uint16_t cipher_id, bool only_fips);
 
 
 // Transcript layer.
@@ -2056,6 +2061,11 @@ struct SSL_HANDSHAKE {
   uint8_t grease_seed[ssl_grease_last_index + 1] = {0};
 };
 
+// kMaxTickets is the maximum number of tickets to send immediately after the
+// handshake. We use a one-byte ticket nonce, and there is no point in sending
+// so many tickets.
+constexpr size_t kMaxTickets = 16;
+
 UniquePtr<SSL_HANDSHAKE> ssl_handshake_new(SSL *ssl);
 
 // ssl_check_message_type checks if |msg| has type |type|. If so it returns
@@ -3082,6 +3092,10 @@ struct SSL_CONFIG {
 
   // permute_extensions is whether to permute extensions when sending messages.
   bool permute_extensions : 1;
+
+  // only_fips_cipher_suites_in_tls13 constrains the selection of cipher suites
+  // in TLS 1.3 such that only FIPS approved ones will be selected.
+  bool only_fips_cipher_suites_in_tls13 : 1;
 };
 
 // From RFC 8446, used in determining PSK modes.
@@ -3416,6 +3430,11 @@ struct ssl_ctx_st {
   // and is further constrainted by |SSL_OP_NO_*|.
   uint16_t conf_min_version = 0;
 
+  // num_tickets is the number of tickets to send immediately after the TLS 1.3
+  // handshake. TLS 1.3 recommends single-use tickets so, by default, issue two
+  /// in case the client makes several connections before getting a renewal.
+  uint8_t num_tickets = 2;
+
   // quic_method is the method table corresponding to the QUIC hooks.
   const SSL_QUIC_METHOD *quic_method = nullptr;
 
@@ -3683,6 +3702,10 @@ struct ssl_ctx_st {
 
   // If enable_early_data is true, early data can be sent and accepted.
   bool enable_early_data : 1;
+
+  // only_fips_cipher_suites_in_tls13 constrains the selection of cipher suites
+  // in TLS 1.3 such that only FIPS approved ones will be selected.
+  bool only_fips_cipher_suites_in_tls13 : 1;
 
  private:
   ~ssl_ctx_st();

@@ -58,6 +58,7 @@
 #include <CNIOBoringSSL_des.h>
 #include <CNIOBoringSSL_nid.h>
 
+#include "../fipsmodule/cipher/internal.h"
 #include "internal.h"
 
 
