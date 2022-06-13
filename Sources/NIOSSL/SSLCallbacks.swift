@@ -131,16 +131,17 @@ extension KeyLogCallbackManager {
 }
 
 /// PSK Identity Callback Manager
-public typealias NIOPSKIdentityCallback = () -> (key: NIOSSLSecureBytes, identity: NIOSSLSecureBytes)
+public typealias NIOPSKClientIdentityCallback = (NIOSSLSecureBytes?) -> (key: NIOSSLSecureBytes, identity: NIOSSLSecureBytes)
+public typealias NIOPSKServerIdentityCallback = (NIOSSLSecureBytes?, NIOSSLSecureBytes?) -> (key: NIOSSLSecureBytes, identity: NIOSSLSecureBytes)
 
 
-/// An object that provides helpers for clients / servers wanting to expose PSKs and Identities to their context.
+/// An object that provides helpers for clients / servers wanting to expose PSKs to their context.
 public struct PSKIdentityCallbackManager {
-    public var clientCallback: NIOPSKIdentityCallback?
-    public var serverCallback: NIOPSKIdentityCallback?
+    public var clientCallback: NIOPSKClientIdentityCallback?
+    public var serverCallback: NIOPSKServerIdentityCallback?
     
-    public init(clientCallback: NIOPSKIdentityCallback?,
-                serverCallback: NIOPSKIdentityCallback?) {
+    public init(clientCallback: NIOPSKClientIdentityCallback?,
+                serverCallback: NIOPSKServerIdentityCallback?) {
         self.clientCallback = clientCallback
         self.serverCallback = serverCallback
     }
