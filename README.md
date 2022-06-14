@@ -26,7 +26,7 @@ let sslContext = try NIOSSLContext(configuration: configuration)
 let server = ServerBootstrap(group: group)
     .childChannelInitializer { channel in
         // important: The handler must be initialized _inside_ the `childChannelInitializer`
-        let handler = try NIOSSLServerHandler(context: sslContext)
+        let handler = NIOSSLServerHandler(context: sslContext)
 
         [...]
         channel.pipeline.addHandler(handler)
