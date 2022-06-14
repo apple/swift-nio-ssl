@@ -135,18 +135,22 @@ private func serverPSKCallback(ssl: OpaquePointer?,
         return 0
     }
     var incomingPSKIndentity = NIOSSLSecureBytes()
-    let strBasedIncomingIdentity = String(cString: incomingIdentity)
+    let strBasedIncomingIdentity = String(validatingUTF8: incomingIdentity) ?? ""
+    
     // Get PSK client identity hint based on the SSL connection
     let hint = CNIOBoringSSL_SSL_get_psk_identity_hint(ssl)
     var clientHint = NIOSSLSecureBytes()
-    if let derivedHint = hint {
-        clientHint.append(String(cString: derivedHint).utf8)
+    if let strClientHint = hint,
+       let derivedHint = String(validatingUTF8: strClientHint) {
+        clientHint.append(derivedHint.utf8)
     }
+
     // Attempt to get the identity from the incoming argument or from the SSL OpaquePointer
     if strBasedIncomingIdentity.count > 0 {
         incomingPSKIndentity.append(strBasedIncomingIdentity.utf8)
-    } else if let sslIdentity = CNIOBoringSSL_SSL_get_psk_identity(ssl) {
-        incomingPSKIndentity.append(String(cString: sslIdentity).utf8)
+    } else if let sslIdentity = CNIOBoringSSL_SSL_get_psk_identity(ssl),
+              let sslIdentityStr = String(validatingUTF8: sslIdentity) {
+        incomingPSKIndentity.append(sslIdentityStr.utf8)
     }
     
     // Take the hint and the possible identity and pass them down to the callback to get associated PSK
@@ -190,11 +194,13 @@ private func clientPSKCallback(ssl: OpaquePointer?,
         return 0
     }
     var incomingPSKIndentity = NIOSSLSecureBytes()
-    let strBasedIncomingIdentity = String(cString: incomingIdentity)
+    let strBasedIncomingIdentity = String(validatingUTF8: incomingIdentity) ?? ""
+
     // If set, build out a server hint to pass into the client callback.
     var serverHint = NIOSSLSecureBytes()
-    if let incomingHint = hint {
-        serverHint.append(String(cString: incomingHint).utf8)
+    if let strServerHint = hint,
+       let derivedHint = String(validatingUTF8: strServerHint) {
+        serverHint.append(derivedHint.utf8)
     }
     
     let contextPSKIdentityCallback = clientCallback(serverHint)
@@ -204,8 +210,9 @@ private func clientPSKCallback(ssl: OpaquePointer?,
     // If the server is sending the identity, store it first as incomingPSKIndentity and do not fail because of this.
     if strBasedIncomingIdentity.count > 0 {
         incomingPSKIndentity.append(strBasedIncomingIdentity.utf8)
-    } else if let sslIdentity = CNIOBoringSSL_SSL_get_psk_identity(ssl) {
-        incomingPSKIndentity.append(String(cString: sslIdentity).utf8)
+    } else if let sslIdentity = CNIOBoringSSL_SSL_get_psk_identity(ssl),
+              let sslIdentityStr = String(validatingUTF8: sslIdentity) {
+        incomingPSKIndentity.append(sslIdentityStr.utf8)
     }
     // Equate both identities above to make sure both are the same (they should be as the context was copied into the incoming identity).
     if contextPSKIdentity != incomingPSKIndentity {
