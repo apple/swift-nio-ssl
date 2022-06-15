@@ -293,12 +293,9 @@ public final class NIOSSLContext {
             self.pskIdentityCallbackManager = pskCallback
             
             // Try to detect if the client callback is available to set the BoringSSL client callback
-            if let clientSideCallback = pskCallback.clientCallback {
-                let defaultClientPSKInfo = clientSideCallback(nil)
-                let indentityBytes = defaultClientPSKInfo.identity.backing.withUnsafeBytes{  Array($0) }
-                CNIOBoringSSL_SSL_CTX_use_psk_identity_hint(context, String(decoding: indentityBytes, as: Unicode.UTF8.self))
+            if let _ = pskCallback.clientCallback {
                 CNIOBoringSSL_SSL_CTX_set_psk_client_callback(context, { clientPSKCallback(ssl: $0, hint: $1, identity: $2, max_identity_len: $3, psk: $4, max_psk_len: $5 ) } )
-            // Ohterwise see if the server side callback is present.
+            // Ohterwise see if the server side callback is present and set the hint if possible.
             } else if let serverSideCallback = pskCallback.serverCallback {
                 let defaultServerPSKInfo = serverSideCallback(nil, nil) // nil, nil being passed in as a way to pass back default data.
                 let indentityBytes = defaultServerPSKInfo.identity.backing.withUnsafeBytes{  Array($0) }

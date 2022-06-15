@@ -31,12 +31,12 @@ private final class EchoHandler: ChannelInboundHandler {
 }
 
 
-func pskCallback(hint: NIOSSLSecureBytes?, identity: NIOSSLSecureBytes?) -> (key: NIOSSLSecureBytes, identity: NIOSSLSecureBytes) {
+func pskCallback(hint: NIOSSLSecureBytes?, identity: NIOSSLSecureBytes?) -> PSKIdentityResponse {
     var psk = NIOSSLSecureBytes()
     var pskIdentity = NIOSSLSecureBytes()
-    psk.append(contentsOf: Data("hello".utf8))
-    pskIdentity.append(contentsOf: Data("world".utf8))
-    return (key: psk, identity: pskIdentity)
+    psk.append(contentsOf: "hello".utf8)
+    pskIdentity.append(contentsOf: "world".utf8)
+    return PSKIdentityResponse(key: psk, identity: pskIdentity)
 }
 
 let clientPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: nil, serverCallback: pskCallback)

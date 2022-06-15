@@ -130,9 +130,19 @@ extension KeyLogCallbackManager {
     }
 }
 
+/// PSK Identity response type used in the callback.
+public struct PSKIdentityResponse {
+    public var key: NIOSSLSecureBytes
+    public var identity: NIOSSLSecureBytes
+    public init(key: NIOSSLSecureBytes, identity: NIOSSLSecureBytes) {
+        self.key = key
+        self.identity = identity
+    }
+}
+
 /// PSK Identity Callback Manager
-public typealias NIOPSKClientIdentityCallback = (NIOSSLSecureBytes?) -> (key: NIOSSLSecureBytes, identity: NIOSSLSecureBytes)
-public typealias NIOPSKServerIdentityCallback = (NIOSSLSecureBytes?, NIOSSLSecureBytes?) -> (key: NIOSSLSecureBytes, identity: NIOSSLSecureBytes)
+public typealias NIOPSKClientIdentityCallback = (NIOSSLSecureBytes?) -> PSKIdentityResponse
+public typealias NIOPSKServerIdentityCallback = (NIOSSLSecureBytes?, NIOSSLSecureBytes?) -> PSKIdentityResponse
 
 
 /// An object that provides helpers for clients / servers wanting to expose PSKs to their context.
