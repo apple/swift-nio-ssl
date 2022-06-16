@@ -1129,21 +1129,18 @@ class TLSConfigurationTest: XCTestCase {
     func testTLSPSKWithTLS13() throws {
         // The idea here is that adding PSKs with certificates in TLS 1.3 should NOT cause a failure.
         // Also note that the usage here of PSKs with TLS 1.3 is not supported by BoringSSL at this point.
-        func pskClientCallback(hint: NIOSSLSecureBytes?) -> PSKIdentityResponse {
+        func pskClientCallback(hint: String, identity: String) -> PSKIdentityResponse {
+            // Evaluate hint and clientIdentity to send back proper  PSK.
             var psk = NIOSSLSecureBytes()
-            var pskIdentity = NIOSSLSecureBytes()
             psk.append("hello".utf8)
-            pskIdentity.append("world".utf8)
-            return PSKIdentityResponse(key: psk, identity: pskIdentity)
+            return PSKIdentityResponse(key: psk)
         }
         
-        func pskServerCallback(hint: NIOSSLSecureBytes?, clientIdentity: NIOSSLSecureBytes?) -> PSKIdentityResponse {
-            // Evaluate hint and clientIdentity to send back proper identity and PSK.
+        func pskServerCallback(hint: String, identity: String) -> PSKIdentityResponse {
+            // Evaluate hint and clientIdentity to send back proper  PSK.
             var psk = NIOSSLSecureBytes()
-            var pskIdentity = NIOSSLSecureBytes()
             psk.append("hello".utf8)
-            pskIdentity.append("world".utf8)
-            return PSKIdentityResponse(key: psk, identity: pskIdentity)
+            return PSKIdentityResponse(key: psk)
         }
 
         let clientPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: pskClientCallback, serverCallback: nil)
@@ -1155,6 +1152,7 @@ class TLSConfigurationTest: XCTestCase {
         clientConfig.minimumTLSVersion = .tlsv13
         clientConfig.maximumTLSVersion = .tlsv13
         clientConfig.pskCallback = clientPSKCallbackManager
+        clientConfig.pskHint = "pskHint"
         
         var serverConfig = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
@@ -1164,26 +1162,24 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.maximumTLSVersion = .tlsv13
         serverConfig.certificateVerification = .none
         serverConfig.pskCallback = serverPSKCallbackManager
+        serverConfig.pskHint = "pskHint"
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
     
     func testTLSPSKWithTLS12() throws {
         // This test ensures that PSK-TLS is supported for TLS 1.2.
-        func pskClientCallback(hint: NIOSSLSecureBytes?) -> PSKIdentityResponse {
+        func pskClientCallback(hint: String, identity: String) -> PSKIdentityResponse {
+            // Evaluate hint and clientIdentity to send back proper PSK.
             var psk = NIOSSLSecureBytes()
-            var pskIdentity = NIOSSLSecureBytes()
             psk.append("hello".utf8)
-            pskIdentity.append("world".utf8)
-            return PSKIdentityResponse(key: psk, identity: pskIdentity)
+            return PSKIdentityResponse(key: psk)
         }
         
-        func pskServerCallback(hint: NIOSSLSecureBytes?, clientIdentity: NIOSSLSecureBytes?) -> PSKIdentityResponse{
-            // Evaluate hint and clientIdentity to send back proper identity and PSK.
+        func pskServerCallback(hint: String, identity: String) -> PSKIdentityResponse {
+            // Evaluate hint and clientIdentity to send back proper PSK.
             var psk = NIOSSLSecureBytes()
-            var pskIdentity = NIOSSLSecureBytes()
             psk.append("hello".utf8)
-            pskIdentity.append("world".utf8)
-            return PSKIdentityResponse(key: psk, identity: pskIdentity)
+            return PSKIdentityResponse(key: psk)
         }
 
         let clientPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: pskClientCallback, serverCallback: nil)
@@ -1193,32 +1189,31 @@ class TLSConfigurationTest: XCTestCase {
         clientConfig.certificateVerification = .none
         clientConfig.minimumTLSVersion = .tlsv1
         clientConfig.maximumTLSVersion = .tlsv12
+        clientConfig.pskHint = "pskHint"
         clientConfig.pskCallback = clientPSKCallbackManager
         
         var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
         serverConfig.minimumTLSVersion = .tlsv1
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.pskCallback = serverPSKCallbackManager
+        serverConfig.pskHint = "pskHint"
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
     
     func testTLSPSKWithPinnedCiphers() throws {
         // This test ensures that PSK-TLS is supported with pinned ciphers.
-        func pskClientCallback(hint: NIOSSLSecureBytes?) -> PSKIdentityResponse {
+        func pskClientCallback(hint: String, identity: String) -> PSKIdentityResponse {
+            // Evaluate hint and clientIdentity to send back proper PSK.
             var psk = NIOSSLSecureBytes()
-            var pskIdentity = NIOSSLSecureBytes()
             psk.append("hello".utf8)
-            pskIdentity.append("world".utf8)
-            return PSKIdentityResponse(key: psk, identity: pskIdentity)
+            return PSKIdentityResponse(key: psk)
         }
         
-        func pskServerCallback(hint: NIOSSLSecureBytes?, clientIdentity: NIOSSLSecureBytes?) -> PSKIdentityResponse {
-            // Evaluate hint and clientIdentity to send back proper identity and PSK.
+        func pskServerCallback(hint: String, identity: String) -> PSKIdentityResponse {
+            // Evaluate hint and clientIdentity to send back proper PSK.
             var psk = NIOSSLSecureBytes()
-            var pskIdentity = NIOSSLSecureBytes()
             psk.append("hello".utf8)
-            pskIdentity.append("world".utf8)
-            return PSKIdentityResponse(key: psk, identity: pskIdentity)
+            return PSKIdentityResponse(key: psk)
         }
 
         let clientPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: pskClientCallback, serverCallback: nil)
@@ -1229,6 +1224,7 @@ class TLSConfigurationTest: XCTestCase {
         clientConfig.minimumTLSVersion = .tlsv1
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.pskCallback = clientPSKCallbackManager
+        clientConfig.pskHint = "pskHint"
         clientConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
                                           .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
                                           .TLS_PSK_WITH_AES_128_CBC_SHA,
@@ -1238,6 +1234,7 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.minimumTLSVersion = .tlsv1
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.pskCallback = serverPSKCallbackManager
+        serverConfig.pskHint = "pskHint"
         serverConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
                                           .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
                                           .TLS_PSK_WITH_AES_128_CBC_SHA,
@@ -1247,21 +1244,18 @@ class TLSConfigurationTest: XCTestCase {
     
     func testTLSPSKFailure() throws {
         // This test ensures that different PSKs used on the client and server fail when passed in.
-        func pskClientCallback(hint: NIOSSLSecureBytes?) -> PSKIdentityResponse {
+        func pskClientCallback(hint: String, identity: String) -> PSKIdentityResponse {
+            // Evaluate hint and clientIdentity to send back proper  PSK.
             var psk = NIOSSLSecureBytes()
-            var pskIdentity = NIOSSLSecureBytes()
             psk.append("hello".utf8)
-            pskIdentity.append("world".utf8)
-            return PSKIdentityResponse(key: psk, identity: pskIdentity)
+            return PSKIdentityResponse(key: psk)
         }
         
-        func pskServerCallback(hint: NIOSSLSecureBytes?, clientIdentity: NIOSSLSecureBytes?) -> PSKIdentityResponse{
-            // Evaluate hint and clientIdentity to send back proper identity and PSK.
+        func pskServerCallback(hint: String, identity: String) -> PSKIdentityResponse {
+            // Evaluate hint and clientIdentity to send back proper  PSK.
             var psk = NIOSSLSecureBytes()
-            var pskIdentity = NIOSSLSecureBytes()
-            psk.append("server".utf8)
-            pskIdentity.append("server".utf8)
-            return PSKIdentityResponse(key: psk, identity: pskIdentity)
+            psk.append("server".utf8) // Failure
+            return PSKIdentityResponse(key: psk)
         }
 
         let clientPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: pskClientCallback, serverCallback: nil)
@@ -1272,11 +1266,13 @@ class TLSConfigurationTest: XCTestCase {
         clientConfig.minimumTLSVersion = .tlsv1
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.pskCallback = clientPSKCallbackManager
+        clientConfig.pskHint = "pskHint"
         
         var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
         serverConfig.minimumTLSVersion = .tlsv1
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.pskCallback = serverPSKCallbackManager
+        serverConfig.pskHint = "pskHint"
         try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["SSLV3_ALERT_BAD_RECORD_MAC"])
     }
 }

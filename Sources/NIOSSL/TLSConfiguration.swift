@@ -283,6 +283,9 @@ public struct TLSConfiguration {
     
     /// PSK Callback to get the key and identity from either the client or server.
     public var pskCallback: PSKIdentityCallbackManager? = nil
+    
+    /// Optional PSK hint to be used during SSLContext create.
+    public var pskHint: String? = nil
 
     /// The application protocols to use in the connection. Should be an ordered list of ASCII
     /// strings representing the ALPN identifiers of the protocols to negotiate. For clients,
@@ -329,7 +332,8 @@ public struct TLSConfiguration {
                  renegotiationSupport: NIORenegotiationSupport,
                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots],
                  sendCANameList: Bool = false,
-                 pskCallback: PSKIdentityCallbackManager? = nil) {
+                 pskCallback: PSKIdentityCallbackManager? = nil,
+                 pskHint: String? = nil) {
         self.cipherSuites = cipherSuites
         self.verifySignatureAlgorithms = verifySignatureAlgorithms
         self.signingSignatureAlgorithms = signingSignatureAlgorithms
@@ -347,6 +351,7 @@ public struct TLSConfiguration {
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
         self.pskCallback = pskCallback
+        self.pskHint = pskHint
         if !cipherSuiteValues.isEmpty {
             self.cipherSuiteValues = cipherSuiteValues
         }
@@ -429,7 +434,8 @@ extension TLSConfiguration {
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
                                 sendCANameList: false,
-                                pskCallback: nil)
+                                pskCallback: nil,
+                                pskHint: nil)
     }
 
     /// Create a TLS configuration for use with server-side contexts.
@@ -457,7 +463,8 @@ extension TLSConfiguration {
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
                                 sendCANameList: false,
-                                pskCallback: nil)
+                                pskCallback: nil,
+                                pskHint: nil)
     }
     
     /// Create a TLS configuration for use with server-side or client-side contexts that uses Pre-Shared Keys for TLS 1.2 and below.
@@ -483,7 +490,8 @@ extension TLSConfiguration {
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
                                 sendCANameList: false,
-                                pskCallback: nil)
+                                pskCallback: nil,
+                                pskHint: nil)
     }
 }
 
