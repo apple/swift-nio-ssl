@@ -88,8 +88,8 @@ function mangle_symbols {
         swift build --triple "arm64-apple-macosx" --product CNIOBoringSSL
         (
             cd "${SRCROOT}"
-            go run "util/read_symbols.go" -out "${TMPDIR}/symbols-macOS-intel.txt" "${HERE}/.build/x86_64-apple-macosx/debug/libCCryptoBoringSSL.a"
-            go run "util/read_symbols.go" -out "${TMPDIR}/symbols-macOS-as.txt" "${HERE}/.build/arm64-apple-macosx/debug/libCCryptoBoringSSL.a"
+            go run "util/read_symbols.go" -out "${TMPDIR}/symbols-macOS-intel.txt" "${HERE}/.build/x86_64-apple-macosx/debug/libCNIOBoringSSL.a"
+            go run "util/read_symbols.go" -out "${TMPDIR}/symbols-macOS-as.txt" "${HERE}/.build/arm64-apple-macosx/debug/libCNIOBoringSSL.a"
         )
 
         # Now build for iOS. We use xcodebuild for this because SwiftPM doesn't
