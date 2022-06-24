@@ -128,7 +128,7 @@ private func serverPSKCallback(ssl: OpaquePointer?,
     let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
     let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
     
-    guard let serverCallback = parentSwiftContext.pskIdentityCallbackManager?.serverCallback,
+    guard let serverCallback = parentSwiftContext.pskServerConfigurationCallback,
           let outputIdentity = identity, // Output PSK identity.
           let strOutputIdentity = String(validatingUTF8: outputIdentity), // Map identity to str.
           let outputPSK = psk // Output PSK key.
@@ -143,7 +143,9 @@ private func serverPSKCallback(ssl: OpaquePointer?,
         return 0
     }
     // Take the hint and the possible identity and pass them down to the callback to get associated PSK from callback
-    let contextPSKIdentityCallback = serverCallback(derivedHint, strOutputIdentity)
+    guard let contextPSKIdentityCallback = try? serverCallback(derivedHint, strOutputIdentity) else {
+        return 0
+    }
     let serverPSK = contextPSKIdentityCallback.key // From the callback
     
     // Make sure the key is returned by the callback and it is of proper length, otherwise, fail.
@@ -175,7 +177,7 @@ private func clientPSKCallback(ssl: OpaquePointer?,
     let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
     let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
     
-    guard let clientCallback = parentSwiftContext.pskIdentityCallbackManager?.clientCallback,
+    guard let clientCallback = parentSwiftContext.pskClientConfigurationCallback,
           let outputIdentity = identity, // Output PSK identity. (Could be empty)
           let strOutputIdentity = String(validatingUTF8: outputIdentity), // Map identity to str.
           let outputPSK = psk // Output PSK key.
@@ -189,7 +191,9 @@ private func clientPSKCallback(ssl: OpaquePointer?,
         return 0
     }
     // Take the hint and the possible identity and pass them down to the callback to get associated PSK from callback
-    let pskIdentityCallback = clientCallback(derivedHint, strOutputIdentity)
+    guard let pskIdentityCallback = try? clientCallback(derivedHint, strOutputIdentity) else {
+        return 0
+    }
     let clientPSK = pskIdentityCallback.key // From the callback
 
     if clientPSK.isEmpty || clientPSK.count > max_psk_len {
@@ -218,7 +222,8 @@ public final class NIOSSLContext {
     private let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
     private var keyLogManager: KeyLogCallbackManager?
-    internal var pskIdentityCallbackManager: PSKIdentityCallbackManager?
+    internal var pskClientConfigurationCallback: NIOPSKClientIdentityCallback?
+    internal var pskServerConfigurationCallback: NIOPSKServerIdentityCallback?
     internal let configuration: TLSConfiguration
     internal let additionalCertificateChainVerification: AdditionalCertificateChainVerificationCallback?
 
@@ -266,21 +271,20 @@ public final class NIOSSLContext {
         returnCode = CNIOBoringSSL_SSL_CTX_set_cipher_list(context, configuration.cipherSuites)
         precondition(1 == returnCode)
         
-        // Setup PSK support if a `PSKIdentityCallbackManager` is passed in.
-        if let pskCallback = configuration.pskCallback {
-            self.pskIdentityCallbackManager = pskCallback
-            
-            // Try to detect if the client callback is available to set the BoringSSL client callback
-            if let _ = pskCallback.clientCallback {
-                CNIOBoringSSL_SSL_CTX_set_psk_client_callback(context, { clientPSKCallback(ssl: $0, hint: $1, identity: $2, max_identity_len: $3, psk: $4, max_psk_len: $5 ) } )
-            // Ohterwise see if the server side callback is present and set the hint if possible.
-            } else if let _ = pskCallback.serverCallback {
-                CNIOBoringSSL_SSL_CTX_set_psk_server_callback(context, { serverPSKCallback(ssl: $0, identity: $1, psk: $2, max_psk_len: $3 )})
-            }
-            // Set the hint no matter if it is client of server side.
-            if let pskHint = configuration.pskHint {
-                CNIOBoringSSL_SSL_CTX_use_psk_identity_hint(context, pskHint)
-            }
+        // Set the PSK Client Configuration callback.
+        if let pskClientConfigurationsCallback = configuration.pskClientCallback {
+            self.pskClientConfigurationCallback = pskClientConfigurationsCallback
+            CNIOBoringSSL_SSL_CTX_set_psk_client_callback(context, { clientPSKCallback(ssl: $0, hint: $1, identity: $2, max_identity_len: $3, psk: $4, max_psk_len: $5 ) } )
+        }
+        
+        if let pskServerConfigurationCallback = configuration.pskServerCallback {
+            self.pskServerConfigurationCallback = pskServerConfigurationCallback
+            CNIOBoringSSL_SSL_CTX_set_psk_server_callback(context, { serverPSKCallback(ssl: $0, identity: $1, psk: $2, max_psk_len: $3 )})
+        }
+        
+        // Set the hint no matter if it is client of server side.
+        if let pskHint = configuration.pskHint {
+            CNIOBoringSSL_SSL_CTX_use_psk_identity_hint(context, pskHint)
         }
 
         // On non-Linux platforms, when using the platform default trust roots, we make use of a

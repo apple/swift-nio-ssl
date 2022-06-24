@@ -281,8 +281,11 @@ public struct TLSConfiguration {
     /// The private key associated with the leaf certificate.
     public var privateKey: NIOSSLPrivateKeySource?
     
-    /// PSK Callback to get the key and identity from either the client or server.
-    public var pskCallback: PSKIdentityCallbackManager? = nil
+    /// PSK Client Callback to get the key based on hint and identity.
+    public var pskClientCallback: NIOPSKClientIdentityCallback? = nil
+
+    /// PSK Server Callback to get the key based on hint and identity.
+    public var pskServerCallback: NIOPSKServerIdentityCallback? = nil
     
     /// Optional PSK hint to be used during SSLContext create.
     public var pskHint: String? = nil
@@ -332,7 +335,8 @@ public struct TLSConfiguration {
                  renegotiationSupport: NIORenegotiationSupport,
                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots],
                  sendCANameList: Bool = false,
-                 pskCallback: PSKIdentityCallbackManager? = nil,
+                 pskClientCallback: NIOPSKClientIdentityCallback? = nil,
+                 pskServerCallback: NIOPSKServerIdentityCallback? = nil,
                  pskHint: String? = nil) {
         self.cipherSuites = cipherSuites
         self.verifySignatureAlgorithms = verifySignatureAlgorithms
@@ -350,7 +354,8 @@ public struct TLSConfiguration {
         self.sendCANameList = sendCANameList
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
-        self.pskCallback = pskCallback
+        self.pskClientCallback = pskClientCallback
+        self.pskServerCallback = pskServerCallback
         self.pskHint = pskHint
         if !cipherSuiteValues.isEmpty {
             self.cipherSuiteValues = cipherSuiteValues
@@ -434,7 +439,8 @@ extension TLSConfiguration {
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
                                 sendCANameList: false,
-                                pskCallback: nil,
+                                pskClientCallback: nil,
+                                pskServerCallback: nil,
                                 pskHint: nil)
     }
 
@@ -463,7 +469,8 @@ extension TLSConfiguration {
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
                                 sendCANameList: false,
-                                pskCallback: nil,
+                                pskClientCallback: nil,
+                                pskServerCallback: nil,
                                 pskHint: nil)
     }
     
@@ -490,7 +497,8 @@ extension TLSConfiguration {
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
                                 sendCANameList: false,
-                                pskCallback: nil,
+                                pskClientCallback: nil,
+                                pskServerCallback: nil,
                                 pskHint: nil)
     }
 }

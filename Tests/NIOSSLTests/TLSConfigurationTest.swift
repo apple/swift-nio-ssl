@@ -1142,16 +1142,13 @@ class TLSConfigurationTest: XCTestCase {
             psk.append("hello".utf8)
             return PSKIdentityResponse(key: psk)
         }
-
-        let clientPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: pskClientCallback, serverCallback: nil)
-        let serverPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: nil, serverCallback: pskServerCallback)
         
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.certificateVerification = .none
         clientConfig.trustRoots = .certificates([])
         clientConfig.minimumTLSVersion = .tlsv13
         clientConfig.maximumTLSVersion = .tlsv13
-        clientConfig.pskCallback = clientPSKCallbackManager
+        clientConfig.pskClientCallback = pskClientCallback
         clientConfig.pskHint = "pskHint"
         
         var serverConfig = TLSConfiguration.makeServerConfiguration(
@@ -1161,41 +1158,38 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.minimumTLSVersion = .tlsv13
         serverConfig.maximumTLSVersion = .tlsv13
         serverConfig.certificateVerification = .none
-        serverConfig.pskCallback = serverPSKCallbackManager
+        serverConfig.pskServerCallback = pskServerCallback
         serverConfig.pskHint = "pskHint"
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
     
     func testTLSPSKWithTLS12() throws {
         // This test ensures that PSK-TLS is supported for TLS 1.2.
-        func pskClientCallback(hint: String, identity: String) -> PSKIdentityResponse {
+        func pskClientCallback(hint: String, identity: String) throws -> PSKIdentityResponse {
             // Evaluate hint and clientIdentity to send back proper PSK.
             var psk = NIOSSLSecureBytes()
             psk.append("hello".utf8)
             return PSKIdentityResponse(key: psk)
         }
         
-        func pskServerCallback(hint: String, identity: String) -> PSKIdentityResponse {
+        func pskServerCallback(hint: String, identity: String) throws -> PSKIdentityResponse {
             // Evaluate hint and clientIdentity to send back proper PSK.
             var psk = NIOSSLSecureBytes()
             psk.append("hello".utf8)
             return PSKIdentityResponse(key: psk)
         }
-
-        let clientPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: pskClientCallback, serverCallback: nil)
-        let serverPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: nil, serverCallback: pskServerCallback)
         
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.certificateVerification = .none
         clientConfig.minimumTLSVersion = .tlsv1
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.pskHint = "pskHint"
-        clientConfig.pskCallback = clientPSKCallbackManager
+        clientConfig.pskClientCallback = pskClientCallback
         
         var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
         serverConfig.minimumTLSVersion = .tlsv1
         serverConfig.maximumTLSVersion = .tlsv12
-        serverConfig.pskCallback = serverPSKCallbackManager
+        serverConfig.pskServerCallback = pskServerCallback
         serverConfig.pskHint = "pskHint"
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
@@ -1215,15 +1209,12 @@ class TLSConfigurationTest: XCTestCase {
             psk.append("hello".utf8)
             return PSKIdentityResponse(key: psk)
         }
-
-        let clientPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: pskClientCallback, serverCallback: nil)
-        let serverPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: nil, serverCallback: pskServerCallback)
         
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.certificateVerification = .none
         clientConfig.minimumTLSVersion = .tlsv1
         clientConfig.maximumTLSVersion = .tlsv12
-        clientConfig.pskCallback = clientPSKCallbackManager
+        clientConfig.pskClientCallback = pskClientCallback
         clientConfig.pskHint = "pskHint"
         clientConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
                                           .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
@@ -1233,7 +1224,7 @@ class TLSConfigurationTest: XCTestCase {
         var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
         serverConfig.minimumTLSVersion = .tlsv1
         serverConfig.maximumTLSVersion = .tlsv12
-        serverConfig.pskCallback = serverPSKCallbackManager
+        serverConfig.pskServerCallback = pskServerCallback
         serverConfig.pskHint = "pskHint"
         serverConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
                                           .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
@@ -1257,21 +1248,18 @@ class TLSConfigurationTest: XCTestCase {
             psk.append("server".utf8) // Failure
             return PSKIdentityResponse(key: psk)
         }
-
-        let clientPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: pskClientCallback, serverCallback: nil)
-        let serverPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: nil, serverCallback: pskServerCallback)
         
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.certificateVerification = .none
         clientConfig.minimumTLSVersion = .tlsv1
         clientConfig.maximumTLSVersion = .tlsv12
-        clientConfig.pskCallback = clientPSKCallbackManager
+        clientConfig.pskClientCallback = pskClientCallback
         clientConfig.pskHint = "pskHint"
         
         var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
         serverConfig.minimumTLSVersion = .tlsv1
         serverConfig.maximumTLSVersion = .tlsv12
-        serverConfig.pskCallback = serverPSKCallbackManager
+        serverConfig.pskServerCallback = pskServerCallback
         serverConfig.pskHint = "pskHint"
         try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["SSLV3_ALERT_BAD_RECORD_MAC"])
     }

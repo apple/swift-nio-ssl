@@ -16,7 +16,6 @@ import struct Foundation.URL
 import NIOCore
 import NIOPosix
 import NIOSSL
-import Foundation
 
 private final class EchoHandler: ChannelInboundHandler {
     public typealias InboundIn = ByteBuffer
@@ -29,15 +28,6 @@ private final class EchoHandler: ChannelInboundHandler {
         context.flush()
     }
 }
-
-
-func pskCallback(hint: String, identity: String) -> PSKIdentityResponse {
-    var psk = NIOSSLSecureBytes()
-    psk.append(contentsOf: "hello".utf8)
-    return PSKIdentityResponse(key: psk)
-}
-
-let clientPSKCallbackManager = PSKIdentityCallbackManager(clientCallback: nil, serverCallback: pskCallback)
 
 let certificateChain = try NIOSSLCertificate.fromPEMFile("cert.pem")
 let sslContext = try! NIOSSLContext(configuration: TLSConfiguration.makeServerConfiguration(

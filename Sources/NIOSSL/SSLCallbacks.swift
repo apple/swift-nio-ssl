@@ -139,21 +139,8 @@ public struct PSKIdentityResponse {
 }
 
 /// PSK Identity Callback Manager
-public typealias NIOPSKClientIdentityCallback = (String, String) -> PSKIdentityResponse
-public typealias NIOPSKServerIdentityCallback = (String, String) -> PSKIdentityResponse
-
-
-/// An object that provides helpers for clients / servers wanting to expose PSKs to their context.
-public struct PSKIdentityCallbackManager {
-    public var clientCallback: NIOPSKClientIdentityCallback?
-    public var serverCallback: NIOPSKServerIdentityCallback?
-    
-    public init(clientCallback: NIOPSKClientIdentityCallback?,
-                serverCallback: NIOPSKServerIdentityCallback?) {
-        self.clientCallback = clientCallback
-        self.serverCallback = serverCallback
-    }
-}
+public typealias NIOPSKClientIdentityCallback = (String, String) throws -> PSKIdentityResponse
+public typealias NIOPSKServerIdentityCallback = (String, String) throws -> PSKIdentityResponse
 
 /// A struct that provides helpers for working with a NIOSSLCustomVerificationCallback.
 internal struct CustomVerifyManager {
