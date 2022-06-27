@@ -339,8 +339,16 @@ class SSLCertificateTest: XCTestCase {
     }
 
     func testLoadingNonexistentFileAsPem() throws {
-        XCTAssertThrowsError(try NIOSSLCertificate(file: "/nonexistent/path", format: .pem)) {error in
-            XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode })
+        XCTAssertThrowsError(try NIOSSLCertificate(file: "/nonexistent/path", format: .pem)) { error in
+            guard let error = error as? IOError else {
+                return XCTFail("unexpected error \(error)")
+            }
+            XCTAssertEqual(ENOENT, error.errnoCode)
+            XCTAssertEqual(
+                error.description.contains("/nonexistent/path"),
+                true,
+                "error description should contain file path. Description: \(error.description)"
+            )
         }
     }
 
@@ -352,7 +360,15 @@ class SSLCertificateTest: XCTestCase {
 
     func testLoadingNonexistentFileAsDer() throws {
         XCTAssertThrowsError(try NIOSSLCertificate(file: "/nonexistent/path", format: .der)) {error in
-            XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode })
+            guard let error = error as? IOError else {
+                return XCTFail("unexpected error \(error)")
+            }
+            XCTAssertEqual(ENOENT, error.errnoCode)
+            XCTAssertEqual(
+                error.description.contains("/nonexistent/path"),
+                true,
+                "error description should contain file path. Description: \(error.description)"
+            )
         }
     }
 
