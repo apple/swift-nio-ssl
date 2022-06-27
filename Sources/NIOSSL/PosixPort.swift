@@ -83,7 +83,7 @@ internal func wrapSyscall<T: FixedWidthInteger>(where function: String = #functi
 
 /* Sorry, we really try hard to not use underscored attributes. In this case however we seem to break the inlining threshold which makes a system call take twice the time, ie. we need this exception. */
 @inline(__always)
-internal func wrapErrorIsNullReturnCall<T>(errorReason: @autoclosure () -> String, _ body: () throws -> T?) throws -> T {
+internal func wrapErrorIsNullReturnCall<T>(errorReason: @autoclosure () -> String = #function, _ body: () throws -> T?) throws -> T {
     while true {
         guard let res = try body() else {
             let err = errno
@@ -97,23 +97,11 @@ internal func wrapErrorIsNullReturnCall<T>(errorReason: @autoclosure () -> Strin
     }
 }
 
-/* Sorry, we really try hard to not use underscored attributes. In this case however we seem to break the inlining threshold which makes a system call take twice the time, ie. we need this exception. */
-@inline(__always)
-internal func wrapErrorIsNullReturnCall<T>(where function: String = #function, _ body: () throws -> T?) throws -> T {
-    try wrapErrorIsNullReturnCall(errorReason: function, body)
-}
-
-/* Sorry, we really try hard to not use underscored attributes. In this case however we seem to break the inlining threshold which makes a system call take twice the time, ie. we need this exception. */
-@inline(__always)
-internal func wrapErrorIsNullReturnCall<T>(filePath: String, where function: String = #function, _ body: () throws -> T?) throws -> T {
-    try wrapErrorIsNullReturnCall(errorReason: "\(function) - \"\(filePath)\"", body)
-}
-
 // MARK:- Our functions
 internal enum Posix {
     @inline(never)
-    internal static func fopen(file: String, mode: UnsafePointer<CChar>) throws -> FILEPointer {
-        return try wrapErrorIsNullReturnCall(filePath: file) {
+    internal static func fopen(file: String, mode: String) throws -> FILEPointer {
+        return try wrapErrorIsNullReturnCall(errorReason: "fopen(file: \"\(file)\", mode: \"\(mode)\")") {
             sysFopen(file, mode)
         }
     }
