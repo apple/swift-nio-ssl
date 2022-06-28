@@ -83,7 +83,7 @@ internal func wrapSyscall<T: FixedWidthInteger>(where function: String = #functi
 
 /* Sorry, we really try hard to not use underscored attributes. In this case however we seem to break the inlining threshold which makes a system call take twice the time, ie. we need this exception. */
 @inline(__always)
-internal func wrapErrorIsNullReturnCall<T>(where function: String = #function, _ body: () throws -> T?) throws -> T {
+internal func wrapErrorIsNullReturnCall<T>(errorReason: @autoclosure () -> String = #function, _ body: () throws -> T?) throws -> T {
     while true {
         guard let res = try body() else {
             let err = errno
@@ -91,7 +91,7 @@ internal func wrapErrorIsNullReturnCall<T>(where function: String = #function, _
                 continue
             }
             assert(!isUnacceptableErrno(err), "unacceptable errno \(err) \(strerror(err)!)")
-            throw IOError(errnoCode: err, reason: function)
+            throw IOError(errnoCode: err, reason: errorReason())
         }
         return res
     }
@@ -100,9 +100,11 @@ internal func wrapErrorIsNullReturnCall<T>(where function: String = #function, _
 // MARK:- Our functions
 internal enum Posix {
     @inline(never)
-    internal static func fopen(file: UnsafePointer<CChar>, mode: UnsafePointer<CChar>) throws -> FILEPointer {
-        return try wrapErrorIsNullReturnCall {
-            sysFopen(file, mode)
+    internal static func fopen(file: String, mode: String) throws -> FILEPointer {
+        try file.withCString { fileCString in
+            try wrapErrorIsNullReturnCall(errorReason: "fopen(file: \"\(file)\", mode: \"\(mode)\")") {
+                sysFopen(fileCString, mode)
+            }
         }
     }
 
