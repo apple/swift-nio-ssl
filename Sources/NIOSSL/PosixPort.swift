@@ -101,8 +101,10 @@ internal func wrapErrorIsNullReturnCall<T>(errorReason: @autoclosure () -> Strin
 internal enum Posix {
     @inline(never)
     internal static func fopen(file: String, mode: String) throws -> FILEPointer {
-        return try wrapErrorIsNullReturnCall(errorReason: "fopen(file: \"\(file)\", mode: \"\(mode)\")") {
-            sysFopen(file, mode)
+        try file.withCString { fileCString in
+            try wrapErrorIsNullReturnCall(errorReason: "fopen(file: \"\(file)\", mode: \"\(mode)\")") {
+                sysFopen(fileCString, mode)
+            }
         }
     }
 
