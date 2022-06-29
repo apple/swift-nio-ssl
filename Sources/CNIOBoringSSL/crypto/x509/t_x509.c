@@ -67,7 +67,7 @@
 #include <CNIOBoringSSL_x509v3.h>
 
 #include "internal.h"
-
+#include <inttypes.h>  // for PRIu64 and friends
 
 int X509_print_ex_fp(FILE *fp, X509 *x, unsigned long nmflag,
                      unsigned long cflag)
