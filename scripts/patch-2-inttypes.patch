@@ -1,0 +1,24 @@
+diff --git a/Sources/CNIOBoringSSL/crypto/x509/t_x509.c b/Sources/CNIOBoringSSL/crypto/x509/t_x509.c
+index 7a3acc8..c0bc1c5 100644
+--- a/Sources/CNIOBoringSSL/crypto/x509/t_x509.c
++++ b/Sources/CNIOBoringSSL/crypto/x509/t_x509.c
+@@ -55,6 +55,7 @@
+  * [including the GNU Public Licence.] */
+ 
+ #include <assert.h>
++#include <inttypes.h>  // for PRIu64 and friends
+ 
+ #include <CNIOBoringSSL_asn1.h>
+ #include <CNIOBoringSSL_bio.h>
+diff --git a/Sources/CNIOBoringSSL/include/CNIOBoringSSL_bn.h b/Sources/CNIOBoringSSL/include/CNIOBoringSSL_bn.h
+index 557fb1d..825b4ea 100644
+--- a/Sources/CNIOBoringSSL/include/CNIOBoringSSL_bn.h
++++ b/Sources/CNIOBoringSSL/include/CNIOBoringSSL_bn.h
+@@ -126,7 +126,6 @@
+ #include "CNIOBoringSSL_base.h"
+ #include "CNIOBoringSSL_thread.h"
+ 
+-#include <inttypes.h>  // for PRIu64 and friends
+ #include <sys/types.h>
+ #include <stdio.h>  // for FILE*
+ 
