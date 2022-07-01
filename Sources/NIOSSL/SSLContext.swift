@@ -129,21 +129,16 @@ private func serverPSKCallback(ssl: OpaquePointer?,
     let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
     
     guard let serverCallback = parentSwiftContext.pskServerConfigurationCallback,
-          let outputIdentity = identity, // Output PSK identity.
-          let strOutputIdentity = String(validatingUTF8: outputIdentity), // Map identity to str.
+          let unwrappedIdentity = identity, // Incoming identity
+          let strIdentity = String(validatingUTF8: unwrappedIdentity),
+          let configurationHint = parentSwiftContext.configuration.pskHint,
           let outputPSK = psk // Output PSK key.
           else {
         return 0
     }
     
-    // Get PSK client identity hint based on the SSL connection
-    let hint = CNIOBoringSSL_SSL_get_psk_identity_hint(ssl)
-    guard let clientHint = hint,
-          let derivedHint = String(validatingUTF8: clientHint) else {
-        return 0
-    }
     // Take the hint and the possible identity and pass them down to the callback to get associated PSK from callback
-    guard let contextPSKIdentityCallback = try? serverCallback(derivedHint, strOutputIdentity) else {
+    guard let contextPSKIdentityCallback = try? serverCallback(configurationHint, strIdentity) else {
         return 0
     }
     let serverPSK = contextPSKIdentityCallback.key // From the callback
@@ -178,24 +173,31 @@ private func clientPSKCallback(ssl: OpaquePointer?,
     let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
     
     guard let clientCallback = parentSwiftContext.pskClientConfigurationCallback,
-          let outputIdentity = identity, // Output PSK identity. (Could be empty)
-          let strOutputIdentity = String(validatingUTF8: outputIdentity), // Map identity to str.
-          let outputPSK = psk // Output PSK key.
+          let unwrappedIdentity = identity, // Output identity that will be later be mapped from client callback
+          let outputPSK = psk // Output PSK key that will later be mapped from client callback
           else {
         return 0
     }
     
-    // If set, build out a server hint to pass into the client callback.
+    // If set, build out a hint to pass into the client callback.
     guard let clientHint = hint,
           let derivedHint = String(validatingUTF8: clientHint) else {
         return 0
     }
     // Take the hint and the possible identity and pass them down to the callback to get associated PSK from callback
-    guard let pskIdentityCallback = try? clientCallback(derivedHint, strOutputIdentity) else {
+    guard let pskIdentityCallback = try? clientCallback(derivedHint) else {
         return 0
     }
-    let clientPSK = pskIdentityCallback.key // From the callback
-
+    let clientPSK = pskIdentityCallback.key // Key from the callback
+    let clientIdentity = pskIdentityCallback.identity ?? ""
+    
+    if clientIdentity.isEmpty {
+        return 0
+    }
+    // Map the output identity from the one passed back from the callback.
+    // This helps populate the server callback for the key exchange.
+    memcpy(unwrappedIdentity, clientIdentity, clientIdentity.count)
+    
     if clientPSK.isEmpty || clientPSK.count > max_psk_len {
         return 0
     }
