@@ -335,11 +335,9 @@ ctr128_f aes_ctr_set_key(AES_KEY *aes_key, GCM128_KEY *gcm_key,
 #endif
 
 static EVP_AES_GCM_CTX *aes_gcm_from_cipher_ctx(EVP_CIPHER_CTX *ctx) {
-#if defined(__GNUC__) || defined(__clang__)
   OPENSSL_STATIC_ASSERT(
       alignof(EVP_AES_GCM_CTX) <= 16,
       "EVP_AES_GCM_CTX needs more alignment than this function provides");
-#endif
 
   // |malloc| guarantees up to 4-byte alignment on 32-bit and 8-byte alignment
   // on 64-bit systems, so we need to adjust to reach 16-byte alignment.
@@ -926,11 +924,9 @@ static int aead_aes_gcm_init_impl(struct aead_aes_gcm_ctx *gcm_ctx,
 OPENSSL_STATIC_ASSERT(sizeof(((EVP_AEAD_CTX *)NULL)->state) >=
                           sizeof(struct aead_aes_gcm_ctx),
                       "AEAD state is too small");
-#if defined(__GNUC__) || defined(__clang__)
 OPENSSL_STATIC_ASSERT(alignof(union evp_aead_ctx_st_state) >=
                           alignof(struct aead_aes_gcm_ctx),
                       "AEAD state has insufficient alignment");
-#endif
 
 static int aead_aes_gcm_init(EVP_AEAD_CTX *ctx, const uint8_t *key,
                              size_t key_len, size_t requested_tag_len) {
@@ -1266,11 +1262,9 @@ struct aead_aes_gcm_tls12_ctx {
 OPENSSL_STATIC_ASSERT(sizeof(((EVP_AEAD_CTX *)NULL)->state) >=
                           sizeof(struct aead_aes_gcm_tls12_ctx),
                       "AEAD state is too small");
-#if defined(__GNUC__) || defined(__clang__)
 OPENSSL_STATIC_ASSERT(alignof(union evp_aead_ctx_st_state) >=
                           alignof(struct aead_aes_gcm_tls12_ctx),
                       "AEAD state has insufficient alignment");
-#endif
 
 static int aead_aes_gcm_tls12_init(EVP_AEAD_CTX *ctx, const uint8_t *key,
                                    size_t key_len, size_t requested_tag_len) {
@@ -1303,12 +1297,9 @@ static int aead_aes_gcm_tls12_seal_scatter(
   }
 
   // The given nonces must be strictly monotonically increasing.
-  uint64_t given_counter;
-  OPENSSL_memcpy(&given_counter, nonce + nonce_len - sizeof(given_counter),
-                 sizeof(given_counter));
-  given_counter = CRYPTO_bswap8(given_counter);
-  if (given_counter == UINT64_MAX ||
-      given_counter < gcm_ctx->min_next_nonce) {
+  uint64_t given_counter =
+      CRYPTO_load_u64_be(nonce + nonce_len - sizeof(uint64_t));
+  if (given_counter == UINT64_MAX || given_counter < gcm_ctx->min_next_nonce) {
     OPENSSL_PUT_ERROR(CIPHER, CIPHER_R_INVALID_NONCE);
     return 0;
   }
@@ -1365,11 +1356,9 @@ struct aead_aes_gcm_tls13_ctx {
 OPENSSL_STATIC_ASSERT(sizeof(((EVP_AEAD_CTX *)NULL)->state) >=
                           sizeof(struct aead_aes_gcm_tls13_ctx),
                       "AEAD state is too small");
-#if defined(__GNUC__) || defined(__clang__)
 OPENSSL_STATIC_ASSERT(alignof(union evp_aead_ctx_st_state) >=
                           alignof(struct aead_aes_gcm_tls13_ctx),
                       "AEAD state has insufficient alignment");
-#endif
 
 static int aead_aes_gcm_tls13_init(EVP_AEAD_CTX *ctx, const uint8_t *key,
                                    size_t key_len, size_t requested_tag_len) {
@@ -1405,10 +1394,8 @@ static int aead_aes_gcm_tls13_seal_scatter(
   // The given nonces must be strictly monotonically increasing. See
   // https://tools.ietf.org/html/rfc8446#section-5.3 for details of the TLS 1.3
   // nonce construction.
-  uint64_t given_counter;
-  OPENSSL_memcpy(&given_counter, nonce + nonce_len - sizeof(given_counter),
-                 sizeof(given_counter));
-  given_counter = CRYPTO_bswap8(given_counter);
+  uint64_t given_counter =
+      CRYPTO_load_u64_be(nonce + nonce_len - sizeof(uint64_t));
 
   if (gcm_ctx->first) {
     // In the first call the sequence number will be zero and therefore the

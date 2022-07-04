@@ -126,7 +126,6 @@
 #include "CNIOBoringSSL_base.h"
 #include "CNIOBoringSSL_thread.h"
 
-#include <inttypes.h>  // for PRIu64 and friends
 #include <sys/types.h>
 #include <stdio.h>  // for FILE*
 
@@ -681,6 +680,9 @@ OPENSSL_EXPORT void BN_GENCB_set(BN_GENCB *callback,
 // BN_GENCB_call calls |callback|, if not NULL, and returns the return value of
 // the callback, or 1 if |callback| is NULL.
 OPENSSL_EXPORT int BN_GENCB_call(BN_GENCB *callback, int event, int n);
+
+// BN_GENCB_get_arg returns |callback->arg|.
+OPENSSL_EXPORT void *BN_GENCB_get_arg(const BN_GENCB *callback);
 
 // BN_generate_prime_ex sets |ret| to a prime number of |bits| length. If safe
 // is non-zero then the prime will be such that (ret-1)/2 is also a prime.
