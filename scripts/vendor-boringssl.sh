@@ -51,7 +51,7 @@ CROSS_COMPILE_VERSION="5.6.1"
 # and BoringSSL.
 function namespace_inlines {
     # Pull out all STACK_OF functions.
-    STACKS=$(grep --no-filename -rE -e "DEFINE_(SPECIAL_)?STACK_OF\([A-Z_0-9a-z]+\)" -e "DEFINE_NAMED_STACK_OF\([A-Z_0-9a-z]+, +[A-Z_0-9a-z:]+\)" "$1/"* | grep -v '//' | grep -v '#' | gsed -e 's/DEFINE_\(SPECIAL_\)\?STACK_OF(\(.*\))/\2/' -e 's/DEFINE_NAMED_STACK_OF(\(.*\), .*)/\1/')
+    STACKS=$(grep --no-filename -rE -e "DEFINE_(SPECIAL_)?STACK_OF\([A-Z_0-9a-z]+\)" -e "DEFINE_NAMED_STACK_OF\([A-Z_0-9a-z]+, +[A-Z_0-9a-z:]+\)" "$1/"* | grep -v '//' | grep -v '#' | $sed -e 's/DEFINE_\(SPECIAL_\)\?STACK_OF(\(.*\))/\2/' -e 's/DEFINE_NAMED_STACK_OF(\(.*\), .*)/\1/')
     STACK_FUNCTIONS=("call_free_func" "call_copy_func" "call_cmp_func" "new" "new_null" "num" "zero" "value" "set" "free" "pop_free" "insert" "delete" "delete_ptr" "find" "shift" "push" "pop" "dup" "sort" "is_sorted" "set_cmp_func" "deep_copy")
 
     for s in $STACKS; do
@@ -61,7 +61,7 @@ function namespace_inlines {
     done
 
     # Now pull out all LHASH_OF functions.
-    LHASHES=$(grep --no-filename -rE "DEFINE_LHASH_OF\([A-Z_0-9a-z]+\)" "$1/"* | grep -v '//' | grep -v '#' | grep -v '\\$' | gsed 's/DEFINE_LHASH_OF(\(.*\))/\1/')
+    LHASHES=$(grep --no-filename -rE "DEFINE_LHASH_OF\([A-Z_0-9a-z]+\)" "$1/"* | grep -v '//' | grep -v '#' | grep -v '\\$' | $sed 's/DEFINE_LHASH_OF(\(.*\))/\1/')
     LHASH_FUNCTIONS=("call_cmp_func" "call_hash_func" "new" "free" "num_items" "retrieve" "call_cmp_key" "retrieve_key" "insert" "delete" "call_doall" "call_doall_arg" "doall" "doall_arg")
 
     for l in $LHASHES; do
@@ -98,14 +98,11 @@ function mangle_symbols {
         # If xcodebuild complains about not finding the scheme, make sure there
         # isn't a .xcodeproj kicking around.
         xcodebuild -sdk iphoneos -scheme CNIOBoringSSL -derivedDataPath "${TMPDIR}/iphoneos-deriveddata" -destination generic/platform=iOS
-        lipo -extract armv7 -output "${TMPDIR}/CNIOBoringSSL-iosarmv7.o" "${TMPDIR}/iphoneos-deriveddata/Build/Products/Debug-iphoneos/CNIOBoringSSL.o"
-        lipo -extract arm64 -output "${TMPDIR}/CNIOBoringSSL-iosarm64.o" "${TMPDIR}/iphoneos-deriveddata/Build/Products/Debug-iphoneos/CNIOBoringSSL.o"
-        ar -r "${TMPDIR}/libCNIOBoringSSL-iosarmv7.a" "${TMPDIR}/CNIOBoringSSL-iosarmv7.o"
-        ar -r "${TMPDIR}/libCNIOBoringSSL-iosarm64.a" "${TMPDIR}/CNIOBoringSSL-iosarm64.o"
+        ar -r "${TMPDIR}/libCNIOBoringSSL-iosarm64.a" "${TMPDIR}/iphoneos-deriveddata/Build/Products/Debug-iphoneos/CNIOBoringSSL.o"
 
         (
             cd "${SRCROOT}"
-            go run "util/read_symbols.go" -out "${TMPDIR}/symbols-iOS.txt" "${TMPDIR}/libCNIOBoringSSL-iosarmv7.a" "${TMPDIR}/libCNIOBoringSSL-iosarm64.a"
+            go run "util/read_symbols.go" -out "${TMPDIR}/symbols-iOS.txt" "${TMPDIR}/libCNIOBoringSSL-iosarm64.a"
         )
 
         # Now cross compile for our targets.
@@ -175,7 +172,7 @@ function mangle_cpp_structures {
         # (as those were put there by the Swift runtime, not us). This gives us a list of symbols. The following cut command
         # grabs the type name from each of those (the bit preceding the '::'). Finally, we sort and uniqify that list. This gives us all the
         # structures that need to be renamed.
-        structures=$(nm -gUj "$HERE/.build/x86_64-apple-macosx/debug/libCNIOBoringSSL.a" | c++filt | grep "::" | grep -v -e "CNIOBoringSSL" -e "swift" | cut -d : -f1 | sort | uniq)
+        structures=$(nm -gUj "$(swift build --show-bin-path)/libCNIOBoringSSL.a" | c++filt | grep "::" | grep -v -e "CNIOBoringSSL" -e "swift" | cut -d : -f1 | sort | uniq)
 
         for struct in ${structures}; do
             echo "#define ${struct} BORINGSSL_ADD_PREFIX(BORINGSSL_PREFIX, ${struct})" >> "${DSTROOT}/include/CNIOBoringSSL_boringssl_prefix_symbols.h"
@@ -285,14 +282,11 @@ rm -f $DSTROOT/crypto/fipsmodule/bcm.c
 echo "FIXING missing include"
 perl -pi -e '$_ .= qq(\n#include <openssl/evp.h>\n) if /#include <openssl\/ec_key.h>/' "$DSTROOT/crypto/fipsmodule/self_check/self_check.c"
 
-echo "PATCHING BoringSSL ('#include ../delocate.h')"
-git apply "${HERE}/scripts/patch-2-include-delocate.patch"
-
 mangle_symbols
 
 # Removing ASM on 32 bit Apple platforms
 echo "REMOVING assembly on 32-bit Apple platforms"
-gsed -i "/#define OPENSSL_HEADER_BASE_H/a#if defined(__APPLE__) && defined(__i386__)\n#define OPENSSL_NO_ASM\n#endif" "$DSTROOT/include/openssl/base.h"
+$sed -i "/#define OPENSSL_HEADER_BASE_H/a#if defined(__APPLE__) && defined(__i386__)\n#define OPENSSL_NO_ASM\n#endif" "$DSTROOT/include/openssl/base.h"
 
 echo "RENAMING header files"
 (
@@ -320,6 +314,7 @@ echo "RENAMING header files"
 
 echo "PATCHING BoringSSL"
 git apply "${HERE}/scripts/patch-1-inttypes.patch"
+git apply "${HERE}/scripts/patch-2-inttypes.patch"
 
 # We need to avoid having the stack be executable. BoringSSL does this in its build system, but we can't.
 echo "PROTECTING against executable stacks"

@@ -58,9 +58,9 @@
 #include <CNIOBoringSSL_err.h>
 
 #include "../../evp/internal.h"
+#include "../delocate.h"
 #include "../digest/internal.h"
 #include "../service_indicator/internal.h"
-#include "../delocate.h"
 
 
 enum evp_sign_verify_t {
