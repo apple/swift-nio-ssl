@@ -67,6 +67,11 @@ extension NIOSSLSecureBytes {
         newBacking._appendBytes(self.backing, inRange: 0..<self.count)
         self.backing = newBacking
     }
+    
+    @inlinable
+    func withUnsafeBytes<T>(_ body: (UnsafeRawBufferPointer) throws -> T) rethrows -> T {
+        return try self.backing.withUnsafeBytes(body)
+    }
 }
 
 // MARK: - Equatable conformance, constant-time

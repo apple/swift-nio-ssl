@@ -143,7 +143,7 @@ final class NIOSSLSecureBytesTests: XCTestCase {
         let base = NIOSSLSecureBytes(repeating: 0, count: 10)
         XCTAssertGreaterThanOrEqual(base.backing.capacity, 16)
 
-        base.backing.withUnsafeBytes { XCTAssertEqual($0.count, 10) }
+        base.withUnsafeBytes { XCTAssertEqual($0.count, 10) }
         base.backing.withUnsafeMutableBytes { XCTAssertEqual($0.count, 10) }
         base.backing._withVeryUnsafeMutableBytes { XCTAssertGreaterThanOrEqual($0.count, 16) }
     }
