@@ -147,12 +147,11 @@ private func serverPSKCallback(ssl: OpaquePointer?,
     if serverPSK.isEmpty || serverPSK.count > max_psk_len {
         return 0
     }
-    var pskBuffer: [UInt8] = []
-    serverPSK.backing.withUnsafeBytes {
-        pskBuffer.append(contentsOf: $0)
+    let _ = serverPSK.withUnsafeBytes { (body: UnsafeRawBufferPointer) -> Void in
+        guard let unsafeRawPointer = body.baseAddress else { return }
+        memcpy(outputPSK, unsafeRawPointer, body.count)
     }
-    memcpy(outputPSK, pskBuffer, pskBuffer.count)
-    return UInt32(pskBuffer.count)
+    return UInt32(serverPSK.count)
 }
 
 /// PSK Callback for the client side context.
@@ -201,12 +200,11 @@ private func clientPSKCallback(ssl: OpaquePointer?,
     if clientPSK.isEmpty || clientPSK.count > max_psk_len {
         return 0
     }
-    var pskBuffer: [UInt8] = []
-    clientPSK.backing.withUnsafeBytes {
-        pskBuffer.append(contentsOf: $0)
+    let _ = clientPSK.withUnsafeBytes { (body: UnsafeRawBufferPointer) -> Void in
+        guard let unsafeRawPointer = body.baseAddress else { return }
+        memcpy(outputPSK, unsafeRawPointer, body.count)
     }
-    memcpy(outputPSK, pskBuffer, pskBuffer.count)
-    return UInt32(pskBuffer.count)
+    return UInt32(clientPSK.count)
 }
 
 /// A wrapper class that encapsulates BoringSSL's `SSL_CTX *` object.
