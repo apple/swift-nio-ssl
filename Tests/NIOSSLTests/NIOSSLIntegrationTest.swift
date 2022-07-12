@@ -1599,6 +1599,76 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertThrowsError(try handshakeResultPromise.futureResult.wait())
     }
 
+    func testReadsAreUnbufferedAfterHandshake() throws {
+        // This is a regression test for rdar://96850712
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+            privateKey: .privateKey(NIOSSLIntegrationTest.key)
+        )
+        config.certificateVerification = .noHostnameVerification
+        let context = try assertNoThrowWithValue(NIOSSLContext(configuration: config))
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        var completionPromiseFired: Bool = false
+        let completionPromiseFiredLock = Lock()
+
+        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
+        completionPromise.futureResult.whenComplete { _ in
+            completionPromiseFiredLock.withLock {
+                completionPromiseFired = true
+            }
+        }
+
+        var handshakeCompletePromise: EventLoopPromise<NIOSSLVerificationResult>? = nil
+        let handshakeFiredPromise: EventLoopPromise<Void> = group.next().makePromise()
+
+        let serverChannel: Channel = try serverTLSChannel(
+            context: context,
+            preHandlers: [],
+            postHandlers: [PromiseOnReadHandler(promise: completionPromise)],
+            group: group,
+            customVerificationCallback: { innerCertificates, promise in
+                handshakeCompletePromise = promise
+                handshakeFiredPromise.succeed(())
+            })
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let clientChannel = try clientTLSChannel(
+            context: try configuredSSLContext(),
+            preHandlers: [],
+            postHandlers: [],
+            group: group,
+            connectingTo: serverChannel.localAddress!
+        )
+        defer {
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        clientChannel.writeAndFlush(originalBuffer, promise: nil)
+
+        // This has driven the handshake to begin, so we can wait for that.
+        XCTAssertNoThrow(try handshakeFiredPromise.futureResult.wait())
+
+        // We can now check whether the completion promise has fired: it should not have.
+        completionPromiseFiredLock.withLock {
+            XCTAssertFalse(completionPromiseFired)
+        }
+
+        // Ok, allow the handshake to run.
+        handshakeCompletePromise!.succeed(.certificateVerified)
+
+        let newBuffer = try completionPromise.futureResult.wait()
+        XCTAssertEqual(newBuffer, originalBuffer)
+    }
+
     func testNewCallbackCanDelayHandshake() throws {
         let context = try configuredSSLContext()
 
