@@ -53,6 +53,7 @@ extension NIOSSLIntegrationTest {
                 ("testExtractingCertificates", testExtractingCertificates),
                 ("testForcingVerificationFailureNewCallback", testForcingVerificationFailureNewCallback),
                 ("testErroringNewVerificationCallback", testErroringNewVerificationCallback),
+                ("testReadsAreUnbufferedAfterHandshake", testReadsAreUnbufferedAfterHandshake),
                 ("testNewCallbackCanDelayHandshake", testNewCallbackCanDelayHandshake),
                 ("testExtractingCertificatesNewCallback", testExtractingCertificatesNewCallback),
                 ("testNewCallbackCombinedWithDefaultTrustStore", testNewCallbackCombinedWithDefaultTrustStore),
