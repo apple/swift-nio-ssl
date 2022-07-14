@@ -30,12 +30,17 @@ class ClientSNITests: XCTestCase {
         NIOSSLIntegrationTest.key = key
     }
 
-    private func configuredSSLContext() throws -> NIOSSLContext {
+    private func configuredSSLContext(certificateVerification: CertificateVerification? = nil) throws -> NIOSSLContext {
         var config = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
             privateKey: .privateKey(NIOSSLIntegrationTest.key)
         )
         config.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
+        
+        if certificateVerification != nil {
+            config.certificateVerification = certificateVerification!
+        }
+        
         let context = try NIOSSLContext(configuration: config)
         return context
     }
@@ -157,5 +162,13 @@ class ClientSNITests: XCTestCase {
         XCTAssertLessThanOrEqual(testString.utf8.count, 255) // just to check we didn't make this too large.
         XCTAssertNoThrow(try NIOSSLClientHandler(context: context, serverHostname: testString))
         XCTAssertNoThrow(try NIOSSLClientTLSProvider<ClientBootstrap>(context: context, serverHostname: testString))
+    }
+    
+    func testSNIIsNotRejectedWhenHostameVerificationDisabled() throws {
+        let context = try configuredSSLContext(certificateVerification: .noHostnameVerification)
+        
+        let testString = "192.168.0.1"
+        XCTAssertNoThrow(try NIOSSLClientTLSProvider<ClientBootstrap>(context: context, serverHostname: testString))
+        XCTAssertNoThrow(try NIOSSLClientHandler(context: context, serverHostname: testString))
     }
 }

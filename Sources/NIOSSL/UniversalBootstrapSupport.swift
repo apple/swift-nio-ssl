@@ -41,8 +41,10 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
     public init(context: NIOSSLContext,
                 serverHostname: String?,
                 customVerificationCallback: NIOSSLCustomVerificationCallback? = nil) throws {
-        try serverHostname.map {
-            try $0.validateSNIServerName()
+        if context.configuration.certificateVerification != .noHostnameVerification {
+            try serverHostname.map {
+                try $0.validateSNIServerName()
+            }
         }
         self.context = context
         self.serverHostname = serverHostname

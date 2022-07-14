@@ -96,7 +96,9 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
 
         connection.setConnectState()
         if let serverHostname = serverHostname {
-            try serverHostname.validateSNIServerName()
+            if context.configuration.certificateVerification != .noHostnameVerification {
+                try serverHostname.validateSNIServerName()
+            }
 
             // IP addresses must not be provided in the SNI extension, so filter them.
             do {
