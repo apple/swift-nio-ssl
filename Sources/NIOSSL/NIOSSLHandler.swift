@@ -292,6 +292,9 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         // write before we completed the handshake. We may also have pending reads if the user sent data immediately
         // after their FINISHED record. We decode the reads first, as those reads may trigger writes.
         self.doDecodeData(context: context)
+        if let receiveBuffer = self.plaintextReadBuffer {
+            self.doFlushReadData(context: context, receiveBuffer: receiveBuffer, readOnEmptyBuffer: false)
+        }
         self.doUnbufferWrites(context: context)
     }
     
