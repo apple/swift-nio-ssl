@@ -130,19 +130,26 @@ extension KeyLogCallbackManager {
     }
 }
 
-/// PSK Identity response type used in the callback.
-public struct PSKIdentityResponse {
+/// PSK Server Identity response type used in the callback.
+public struct PSKServerIdentityResponse {
     public var key: NIOSSLSecureBytes
-    public var identity: String?
-    public init(key: NIOSSLSecureBytes, identity: String?) {
+    public init(key: NIOSSLSecureBytes) {
+        self.key = key
+    }
+}
+/// PSK Client Identity response type used in the callback.
+public struct PSKClientIdentityResponse {
+    public var key: NIOSSLSecureBytes
+    public var identity: String
+    public init(key: NIOSSLSecureBytes, identity: String) {
         self.key = key
         self.identity = identity
     }
 }
 
 /// PSK Identity Callback Manager
-public typealias NIOPSKClientIdentityCallback = (String) throws -> PSKIdentityResponse
-public typealias NIOPSKServerIdentityCallback = (String, String) throws -> PSKIdentityResponse
+public typealias NIOPSKClientIdentityCallback = (String) throws -> PSKClientIdentityResponse
+public typealias NIOPSKServerIdentityCallback = (String, String) throws -> PSKServerIdentityResponse
 
 /// A struct that provides helpers for working with a NIOSSLCustomVerificationCallback.
 internal struct CustomVerifyManager {

@@ -148,8 +148,7 @@ private func serverPSKCallback(ssl: OpaquePointer?,
         return 0
     }
     let _ = serverPSK.withUnsafeBytes { (body: UnsafeRawBufferPointer) -> Void in
-        guard let unsafeRawPointer = body.baseAddress else { return }
-        memcpy(outputPSK, unsafeRawPointer, body.count)
+        memcpy(outputPSK, body.baseAddress!, body.count)
     }
     return UInt32(serverPSK.count)
 }
@@ -183,26 +182,32 @@ private func clientPSKCallback(ssl: OpaquePointer?,
           let derivedHint = String(validatingUTF8: clientHint) else {
         return 0
     }
-    // Take the hint and the possible identity and pass them down to the callback to get associated PSK from callback
+    // Take the hint and pass it down to the callback to get associated PSK from callback
     guard let pskIdentityCallback = try? clientCallback(derivedHint) else {
         return 0
     }
     let clientPSK = pskIdentityCallback.key // Key from the callback
-    let clientIdentity = pskIdentityCallback.identity ?? ""
+    let clientIdentity = pskIdentityCallback.identity
     
     if clientIdentity.isEmpty {
         return 0
     }
+    // Use max_identity_len so it does not trigger an overrun.
+    if clientIdentity.isEmpty || clientIdentity.utf8.count > max_identity_len {
+        return 0
+    }
+    
     // Map the output identity from the one passed back from the callback.
     // This helps populate the server callback for the key exchange.
-    memcpy(unwrappedIdentity, clientIdentity, clientIdentity.count)
+    let _ = clientIdentity.withCString { ptr in
+        memcpy(unwrappedIdentity, ptr, clientIdentity.utf8.count)
+    }
     
     if clientPSK.isEmpty || clientPSK.count > max_psk_len {
         return 0
     }
     let _ = clientPSK.withUnsafeBytes { (body: UnsafeRawBufferPointer) -> Void in
-        guard let unsafeRawPointer = body.baseAddress else { return }
-        memcpy(outputPSK, unsafeRawPointer, body.count)
+        memcpy(outputPSK, body.baseAddress!, body.count)
     }
     return UInt32(clientPSK.count)
 }
@@ -282,7 +287,7 @@ public final class NIOSSLContext {
             CNIOBoringSSL_SSL_CTX_set_psk_server_callback(context, { serverPSKCallback(ssl: $0, identity: $1, psk: $2, max_psk_len: $3 )})
         }
         
-        // Set the hint no matter if it is client of server side.
+        // Set the hint no matter if it is client or server side.
         if let pskHint = configuration.pskHint {
             CNIOBoringSSL_SSL_CTX_use_psk_identity_hint(context, pskHint)
         }
