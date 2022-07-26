@@ -2399,4 +2399,52 @@ class NIOSSLIntegrationTest: XCTestCase {
         let newBuffer = try completionPromise.futureResult.wait()
         XCTAssertEqual(newBuffer, originalBuffer)
     }
+
+    func testGiantWrite() throws {
+        // This test validates that we can write more than 2^31 bytes in one go. This is a regression test
+        // for an existing bug.
+        // We only run this test on 64-bit systems where we can safely allocate enough memory.
+        try XCTSkipIf(MemoryLayout<Int>.size <= 4)
+        let targetSize = (1 << 31) + 1
+
+        let write = ByteBuffer(repeating: 0, count: targetSize)
+
+        let b2b = BackToBackEmbeddedChannel()
+
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([Self.cert])
+
+        let serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(Self.cert)],
+            privateKey: .privateKey(Self.key)
+        )
+
+        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
+        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
+        XCTAssertNoThrow(
+            try b2b.client.pipeline.syncOperations.addHandler(
+                try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost")
+            )
+        )
+        XCTAssertNoThrow(
+            try b2b.server.pipeline.syncOperations.addHandler(
+                NIOSSLServerHandler(context: serverContext)
+            )
+        )
+        XCTAssertNoThrow(try b2b.connectInMemory())
+
+        b2b.client.writeAndFlush(write, promise: nil)
+        try b2b.interactInMemory()
+
+        var reads: [ByteBuffer] = []
+        while let read = try b2b.server.readInbound(as: ByteBuffer.self) {
+            reads.append(read)
+        }
+        let totalReadBytes = reads.reduce(into: 0, { $0 += $1.readableBytes })
+        XCTAssertEqual(totalReadBytes, targetSize)
+
+        b2b.client.close(promise: nil)
+        try b2b.interactInMemory()
+    }
 }

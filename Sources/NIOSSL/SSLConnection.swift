@@ -297,7 +297,10 @@ internal final class SSLConnection {
         // We require that there is space to write at least one TLS record.
         var bytesRead: CInt = 0
         let rc = outputBuffer.writeWithUnsafeMutableBytes(minimumWritableBytes: SSL_MAX_RECORD_SIZE) { (pointer) -> Int in
-            bytesRead = CNIOBoringSSL_SSL_read(self.ssl, pointer.baseAddress, CInt(pointer.count))
+            // We ask for the amount of spare space in the buffer, clamping to CInt.max.
+            let maxReadSize = Int(CInt.max)
+            let readSize = CInt(min(maxReadSize, pointer.count))
+            bytesRead = CNIOBoringSSL_SSL_read(self.ssl, pointer.baseAddress, readSize)
             return bytesRead >= 0 ? Int(bytesRead) : 0
         }
         
