@@ -693,6 +693,17 @@ extension NIOSSLHandler {
     private typealias BufferedWrite = (data: ByteBuffer, promise: EventLoopPromise<Void>?)
 
     private func bufferWrite(data: ByteBuffer, promise: EventLoopPromise<Void>?) {
+        var data = data
+
+        // Here we guard against the possibility that any of these writes are larger than CInt.max.
+        // This is very unusual but it can happen. To work around it, we just pretend that there were
+        // multiple writes.
+        let maxWriteSize = Int(CInt.max)
+        while let slice = data.readSlice(length: maxWriteSize) {
+            bufferedWrites.append((data: slice, promise: promise))
+        }
+
+        assert(data.readableBytes <= maxWriteSize)
         bufferedWrites.append((data: data, promise: promise))
     }
 
