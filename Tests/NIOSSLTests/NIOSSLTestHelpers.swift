@@ -669,7 +669,7 @@ func generateSelfSignedCert(keygenFunction: () -> UnsafeMutablePointer<EVP_PKEY>
 final class BackToBackEmbeddedChannel {
     private(set) var client: EmbeddedChannel
     private(set) var server: EmbeddedChannel
-    private var loop: EmbeddedEventLoop
+    private(set) var loop: EmbeddedEventLoop
 
 
     init() {

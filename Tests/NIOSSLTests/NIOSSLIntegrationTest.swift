@@ -429,6 +429,9 @@ class NIOSSLIntegrationTest: XCTestCase {
     static var cert: NIOSSLCertificate!
     static var key: NIOSSLPrivateKey!
     static var encryptedKeyPath: String!
+
+    static let giantWriteSize = Int(CInt.max) + 1
+    static let giantWrite = ByteBuffer(repeating: 0, count: giantWriteSize)
     
     override class func setUp() {
         super.setUp()
@@ -2405,9 +2408,8 @@ class NIOSSLIntegrationTest: XCTestCase {
         // for an existing bug.
         // We only run this test on 64-bit systems where we can safely allocate enough memory.
         try XCTSkipIf(MemoryLayout<Int>.size <= 4)
-        let targetSize = (1 << 31) + 1
-
-        let write = ByteBuffer(repeating: 0, count: targetSize)
+        let targetSize = Self.giantWriteSize
+        let write = Self.giantWrite
 
         let b2b = BackToBackEmbeddedChannel()
 
@@ -2434,7 +2436,11 @@ class NIOSSLIntegrationTest: XCTestCase {
         )
         XCTAssertNoThrow(try b2b.connectInMemory())
 
-        b2b.client.writeAndFlush(write, promise: nil)
+        var completed = false
+        let promise = b2b.loop.makePromise(of: Void.self)
+        promise.futureResult.whenComplete { _ in completed = true }
+
+        b2b.client.writeAndFlush(write, promise: promise)
         try b2b.interactInMemory()
 
         var reads: [ByteBuffer] = []
@@ -2443,6 +2449,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
         let totalReadBytes = reads.reduce(into: 0, { $0 += $1.readableBytes })
         XCTAssertEqual(totalReadBytes, targetSize)
+        XCTAssertTrue(completed)
 
         b2b.client.close(promise: nil)
         try b2b.interactInMemory()
