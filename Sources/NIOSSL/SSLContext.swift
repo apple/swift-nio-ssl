@@ -189,11 +189,8 @@ private func clientPSKCallback(ssl: OpaquePointer?,
     let clientPSK = pskIdentityCallback.key // Key from the callback
     let clientIdentity = pskIdentityCallback.identity
     
-    if clientIdentity.isEmpty {
-        return 0
-    }
     // Use max_identity_len so it does not trigger an overrun.
-    if clientIdentity.isEmpty || clientIdentity.utf8.count > max_identity_len {
+    if clientIdentity.utf8.isEmpty || clientIdentity.utf8.count > max_identity_len {
         return 0
     }
     

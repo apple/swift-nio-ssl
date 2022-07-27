@@ -1059,9 +1059,23 @@ class TLSConfigurationTest: XCTestCase {
     func testBestEffortEquatableHashableDifferences() {
         // If this assertion fails, DON'T JUST CHANGE THE NUMBER HERE! Make sure you've added any appropriate transforms below
         // so that we're testing these best effort functions.
-        XCTAssertEqual(MemoryLayout<TLSConfiguration>.size, 146, "TLSConfiguration has changed size: you probably need to update this test!")
+        XCTAssertEqual(MemoryLayout<TLSConfiguration>.size, 194, "TLSConfiguration has changed size: you probably need to update this test!")
 
         let first = TLSConfiguration.makeClientConfiguration()
+        
+        func pskClientCallback(hint: String) -> PSKClientIdentityResponse {
+            // Evaluate hint and clientIdentity to send back proper  PSK.
+            var psk = NIOSSLSecureBytes()
+            psk.append("hello".utf8)
+            return PSKClientIdentityResponse(key: psk, identity: "world")
+        }
+        
+        func pskServerCallback(hint: String, identity: String) -> PSKServerIdentityResponse {
+            // Evaluate hint and clientIdentity to send back proper  PSK.
+            var psk = NIOSSLSecureBytes()
+            psk.append("hello".utf8)
+            return PSKServerIdentityResponse(key: psk)
+        }
 
         let transforms: [(inout TLSConfiguration) -> Void] = [
             { $0.minimumTLSVersion = .tlsv13 },
@@ -1080,6 +1094,9 @@ class TLSConfigurationTest: XCTestCase {
             { $0.keyLogCallback = { _ in } },
             { $0.renegotiationSupport = .always },
             { $0.sendCANameList = true },
+            { $0.pskClientCallback = pskClientCallback },
+            { $0.pskServerCallback = pskServerCallback},
+            { $0.pskHint = "hint" },
         ]
 
         for (index, transform) in transforms.enumerated() {

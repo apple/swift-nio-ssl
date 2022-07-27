@@ -376,6 +376,16 @@ extension TLSConfiguration {
                 return callbackPointer1.elementsEqual(callbackPointer2)
             }
         }
+        let isPSKClientCallbackEqual = withUnsafeBytes(of: self.pskClientCallback) { pskClientCallback1 in
+            return withUnsafeBytes(of: comparing.pskClientCallback) { pskClientCallback2 in
+                return pskClientCallback1.elementsEqual(pskClientCallback2)
+            }
+        }
+        let isPSKServerCallbackEqual = withUnsafeBytes(of: self.pskServerCallback) { pskServerCallback1 in
+            return withUnsafeBytes(of: comparing.pskServerCallback) { pskServerCallback2 in
+                return pskServerCallback1.elementsEqual(pskServerCallback2)
+            }
+        }
         
         return self.minimumTLSVersion == comparing.minimumTLSVersion &&
             self.maximumTLSVersion == comparing.maximumTLSVersion &&
@@ -391,7 +401,10 @@ extension TLSConfiguration {
             self.shutdownTimeout == comparing.shutdownTimeout &&
             isKeyLoggerCallbacksEqual &&
             self.renegotiationSupport == comparing.renegotiationSupport &&
-            self.sendCANameList == comparing.sendCANameList
+            self.sendCANameList == comparing.sendCANameList &&
+            isPSKClientCallbackEqual &&
+            isPSKServerCallbackEqual &&
+            self.pskHint == comparing.pskHint
     }
     
     /// Returns a best effort hash of this TLS configuration.
@@ -417,6 +430,13 @@ extension TLSConfiguration {
         }
         hasher.combine(renegotiationSupport)
         hasher.combine(sendCANameList)
+        withUnsafeBytes(of: pskClientCallback) { closureClientBits in
+            hasher.combine(bytes: closureClientBits)
+        }
+        withUnsafeBytes(of: pskServerCallback) { closureServerBits in
+            hasher.combine(bytes: closureServerBits)
+        }
+        hasher.combine(pskHint)
     }
 
     /// Creates a TLS configuration for use with client-side contexts.
