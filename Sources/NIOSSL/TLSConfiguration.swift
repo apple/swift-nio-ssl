@@ -390,7 +390,8 @@ extension TLSConfiguration {
             self.encodedApplicationProtocols == comparing.encodedApplicationProtocols &&
             self.shutdownTimeout == comparing.shutdownTimeout &&
             isKeyLoggerCallbacksEqual &&
-            self.renegotiationSupport == comparing.renegotiationSupport
+            self.renegotiationSupport == comparing.renegotiationSupport &&
+            self.sendCANameList == comparing.sendCANameList
     }
     
     /// Returns a best effort hash of this TLS configuration.
@@ -415,6 +416,7 @@ extension TLSConfiguration {
             hasher.combine(bytes: closureBits)
         }
         hasher.combine(renegotiationSupport)
+        hasher.combine(sendCANameList)
     }
 
     /// Creates a TLS configuration for use with client-side contexts.

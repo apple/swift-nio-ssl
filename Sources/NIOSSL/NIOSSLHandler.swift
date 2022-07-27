@@ -698,9 +698,12 @@ extension NIOSSLHandler {
         // Here we guard against the possibility that any of these writes are larger than CInt.max.
         // This is very unusual but it can happen. To work around it, we just pretend that there were
         // multiple writes.
+        //
+        // During the short writes we set the promise to `nil` to make sure they only arrive at the end.
+        // Note that we make sure that there's always a single write, at the end, that holds the promise.
         let maxWriteSize = Int(CInt.max)
-        while let slice = data.readSlice(length: maxWriteSize) {
-            bufferedWrites.append((data: slice, promise: promise))
+        while data.readableBytes > maxWriteSize, let slice = data.readSlice(length: maxWriteSize) {
+            bufferedWrites.append((data: slice, promise: nil))
         }
 
         assert(data.readableBytes <= maxWriteSize)
