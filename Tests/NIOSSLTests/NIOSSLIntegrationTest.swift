@@ -465,7 +465,7 @@ class NIOSSLIntegrationTest: XCTestCase {
     }
 
     private func configuredClientContext(
-        additionalCertificateChainVerification: NIOSSLContext.AdditionalCertificateChainVerificationCallback? = nil,
+        additionalCertificateChainVerification: NIOSSLContext._AdditionalCertificateChainVerificationCallback? = nil,
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> NIOSSLContext {
@@ -940,8 +940,9 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
         
         let serverCtx = try configuredSSLContext()
-        let clientCtx = try configuredClientContext(additionalCertificateChainVerification: { channel in
-            channel.eventLoop.makeSucceededFuture(())
+        let clientCtx = try configuredClientContext(additionalCertificateChainVerification: { cert, channel in
+            XCTAssertEqual(cert, Self.cert)
+            return channel.eventLoop.makeSucceededFuture(())
         })
 
         let serverChannel = try serverTLSChannel(context: serverCtx,
@@ -976,8 +977,9 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
         
         let serverCtx = try configuredSSLContext()
-        let clientCtx = try configuredClientContext(additionalCertificateChainVerification: { channel in
-            channel.eventLoop.makeFailedFuture(CustomUserError())
+        let clientCtx = try configuredClientContext(additionalCertificateChainVerification: { cert, channel in
+            XCTAssertEqual(cert, Self.cert)
+            return channel.eventLoop.makeFailedFuture(CustomUserError())
         })
 
         let serverChannel = try serverTLSChannel(context: serverCtx,
@@ -1023,7 +1025,8 @@ class NIOSSLIntegrationTest: XCTestCase {
         
         let additionalHandshakePromise = group.next().makePromise(of: Void.self)
         let serverCtx = try configuredSSLContext()
-        let clientCtx = try configuredClientContext(additionalCertificateChainVerification: { channel in
+        let clientCtx = try configuredClientContext(additionalCertificateChainVerification: { cert, channel in
+            XCTAssertEqual(cert, Self.cert)
             channel.flush()
             return additionalHandshakePromise.futureResult
         })

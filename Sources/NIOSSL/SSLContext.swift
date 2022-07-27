@@ -123,19 +123,24 @@ private func alpnCallback(ssl: OpaquePointer?,
 ///
 /// - Warning: Avoid creating `NIOSSLContext`s on any `EventLoop` because it does _blocking disk I/O_.
 public final class NIOSSLContext {
-    internal typealias AdditionalCertificateChainVerificationCallback = (Channel) -> EventLoopFuture<Void>
+    /// A custom verification callback that allows additional certificate verification logic after the logic of BoringSSL has completed successfully.
+    /// It is invoked with two arguments:
+    /// 1. The leaf certificate from the peer certificate chain if available
+    /// 2. The channel to which the certificate belongs
+    /// The handshake will only succeed if the return promise complets succesfully
+    public typealias _AdditionalCertificateChainVerificationCallback = (NIOSSLCertificate?, Channel) -> EventLoopFuture<Void>
     private let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
     private var keyLogManager: KeyLogCallbackManager?
     internal let configuration: TLSConfiguration
-    internal let additionalCertificateChainVerification: AdditionalCertificateChainVerificationCallback?
+    internal let additionalCertificateChainVerification: _AdditionalCertificateChainVerificationCallback?
 
     /// Initialize a context that will create multiple connections, all with the same
     /// configuration.
     internal init(
         configuration: TLSConfiguration,
         callbackManager: CallbackManagerProtocol?,
-        additionalCertificateChainVerification: AdditionalCertificateChainVerificationCallback?
+        additionalCertificateChainVerification: _AdditionalCertificateChainVerificationCallback?
     ) throws {
         guard boringSSLIsInitialized else { fatalError("Failed to initialize BoringSSL") }
         guard let context = CNIOBoringSSL_SSL_CTX_new(CNIOBoringSSL_TLS_method()) else { fatalError("Failed to create new BoringSSL context") }
@@ -313,6 +318,13 @@ public final class NIOSSLContext {
                                            passphraseCallback: @escaping NIOSSLPassphraseCallback<T>) throws where T.Element == UInt8 {
         let manager = BoringSSLPassphraseCallbackManager(userCallback: passphraseCallback)
         try self.init(configuration: configuration, callbackManager: manager, additionalCertificateChainVerification: nil)
+    }
+    
+    public static func _init(
+        configuration: TLSConfiguration,
+        additionalCertificateChainVerification: _AdditionalCertificateChainVerificationCallback
+    ) throws -> Self {
+        try self.init(configuration: configuration, callbackManager: nil, additionalCertificateChainVerification: nil)
     }
 
     /// Create a new connection object with the configuration from this
