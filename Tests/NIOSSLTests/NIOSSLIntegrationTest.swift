@@ -429,9 +429,6 @@ class NIOSSLIntegrationTest: XCTestCase {
     static var cert: NIOSSLCertificate!
     static var key: NIOSSLPrivateKey!
     static var encryptedKeyPath: String!
-
-    static let giantWriteSize = Int(CInt.max) + 1
-    static let giantWrite = ByteBuffer(repeating: 0, count: giantWriteSize)
     
     override class func setUp() {
         super.setUp()
@@ -2408,8 +2405,8 @@ class NIOSSLIntegrationTest: XCTestCase {
         // for an existing bug.
         // We only run this test on 64-bit systems where we can safely allocate enough memory.
         try XCTSkipIf(MemoryLayout<Int>.size <= 4)
-        let targetSize = Self.giantWriteSize
-        let write = Self.giantWrite
+        let targetSize = Int(CInt.max) + 1
+        let write = ByteBuffer(repeating: 0, count: targetSize)
 
         let b2b = BackToBackEmbeddedChannel()
 
