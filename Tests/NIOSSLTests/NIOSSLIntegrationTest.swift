@@ -465,7 +465,7 @@ class NIOSSLIntegrationTest: XCTestCase {
     }
 
     private func configuredClientContext(
-        additionalCertificateChainVerification: NIOSSLContext._AdditionalCertificateChainVerificationCallback? = nil,
+        additionalCertificateChainVerification: _NIOAdditionalPeerCertificateVerificationCallback? = nil,
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> NIOSSLContext {

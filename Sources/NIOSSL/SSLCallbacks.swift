@@ -89,6 +89,17 @@ public typealias NIOSSLVerificationCallback = (NIOSSLVerificationResult, NIOSSLC
 /// Note that setting this callback will override _all_ verification logic that BoringSSL provides.
 public typealias NIOSSLCustomVerificationCallback = ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) -> Void
 
+/// A custom verification callback that allows additional peer certificate verification logic after the logic of BoringSSL has completed successfully.
+///
+/// It is invoked with two arguments:
+/// 1. The leaf certificate from the peer certificate chain if available
+/// 2. The channel to which the certificate belongs
+///
+/// The handshake will only succeed if the returned promise completes successfully.
+///
+/// - warning: This API is not guaranteed to be stable and is likely to be changed without further notice, hence the underscore prefix.
+public typealias _NIOAdditionalPeerCertificateVerificationCallback = (NIOSSLCertificate?, Channel) -> EventLoopFuture<Void>
+
 
 /// A callback that can be used to implement `SSLKEYLOGFILE` support.
 ///
