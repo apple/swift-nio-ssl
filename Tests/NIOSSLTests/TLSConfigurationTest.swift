@@ -1075,6 +1075,7 @@ class TLSConfigurationTest: XCTestCase {
             { $0.shutdownTimeout = .seconds((60 * 24 * 24) + 1) },
             { $0.keyLogCallback = { _ in } },
             { $0.renegotiationSupport = .always },
+            { $0.sendCANameList = true },
         ]
 
         for (index, transform) in transforms.enumerated() {
