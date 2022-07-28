@@ -270,7 +270,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                     preconditionFailure("""
                         Couldn't get peer certificate after chain verification was successful.
                         This should be impossible as we have a precondition during creation of this handler that requires certificate verification.
-                        Please fill an issue.
+                        Please file an issue.
                     """)
                 }
                 additionalPeerCertificateVerificationCallback(peerCertificate, context.channel)
