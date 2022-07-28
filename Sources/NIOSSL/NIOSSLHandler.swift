@@ -57,6 +57,12 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     }
     
     internal init(connection: SSLConnection, shutdownTimeout: TimeAmount, additionalPeerCertificateVerificationCallback: _NIOAdditionalPeerCertificateVerificationCallback?) {
+        let configuration = connection.parentContext.configuration
+        precondition(
+            additionalPeerCertificateVerificationCallback == nil ||
+            configuration.certificateVerification != .none,
+            "TLSConfiguration.certificateVerification must be either set to .noHostnameVerification or .fullVerification if additionalPeerCertificateVerificationCallback is specified"
+        )
         self.connection = connection
         self.bufferedWrites = MarkedCircularBuffer(initialCapacity: 96)  // 96 brings the total size of the buffer to just shy of one page
         self.shutdownTimeout = shutdownTimeout
@@ -260,7 +266,14 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             
             if let additionalPeerCertificateVerificationCallback = self.additionalPeerCertificateVerificationCallback {
                 state = .additionalVerification
-                additionalPeerCertificateVerificationCallback(connection.getPeerCertificate(), context.channel)
+                guard let peerCertificate = connection.getPeerCertificate() else {
+                    preconditionFailure("""
+                        Couldn't get peer certificate after chain verification was successful.
+                        This should be impossible as we have a precondition during creation of this handler that requires certificate verification.
+                        Please fill an issue.
+                    """)
+                }
+                additionalPeerCertificateVerificationCallback(peerCertificate, context.channel)
                     .hop(to: context.eventLoop)
                     .whenComplete { result in
                         self.completedAdditionalPeerCertificateVerification(result: result)
