@@ -19,7 +19,7 @@ import NIOCore
 /// the TLS dialog. For client connections, use the `NIOSSLClientHandler`.
 public final class NIOSSLServerHandler: NIOSSLHandler {
     public convenience init(context: NIOSSLContext) {
-        self.init(context: context, optionalCustomVerificationCallback: nil)
+        self.init(context: context, optionalCustomVerificationCallback: nil, optionalAdditionalPeerCertificateVerificationCallback: nil)
     }
 
     @available(*, deprecated, renamed: "init(context:customVerificationCallback:)")
@@ -34,15 +34,27 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
             connection.setVerificationCallback(verificationCallback)
         }
 
-        super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout)
+        super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout, additionalPeerCertificateVerificationCallback: nil)
     }
 
     public convenience init(context: NIOSSLContext, customVerificationCallback: @escaping NIOSSLCustomVerificationCallback) {
-        self.init(context: context, optionalCustomVerificationCallback: customVerificationCallback)
+        self.init(context: context, optionalCustomVerificationCallback: customVerificationCallback, optionalAdditionalPeerCertificateVerificationCallback: nil)
+    }
+    
+    /// - warning: This API is not guaranteed to be stable and is likely to be changed without further notice, hence the underscore prefix.
+    public static func _makeSSLServerHandler(
+        context: NIOSSLContext,
+        additionalPeerCertificateVerificationCallback: @escaping _NIOAdditionalPeerCertificateVerificationCallback
+    ) -> Self {
+        .init(context: context, optionalCustomVerificationCallback: nil, optionalAdditionalPeerCertificateVerificationCallback: additionalPeerCertificateVerificationCallback)
     }
 
     /// This exists to handle the explosion of initializers I got when I deprecated the first one.
-    private init(context: NIOSSLContext, optionalCustomVerificationCallback: NIOSSLCustomVerificationCallback?) {
+    private init(
+        context: NIOSSLContext,
+        optionalCustomVerificationCallback: NIOSSLCustomVerificationCallback?,
+        optionalAdditionalPeerCertificateVerificationCallback: _NIOAdditionalPeerCertificateVerificationCallback?
+    ) {
         guard let connection = context.createConnection() else {
             fatalError("Failed to create new connection in NIOSSLContext")
         }
@@ -53,6 +65,6 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
             connection.setCustomVerificationCallback(.init(callback: customVerificationCallback))
         }
 
-        super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout)
+        super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout, additionalPeerCertificateVerificationCallback: optionalAdditionalPeerCertificateVerificationCallback)
     }
 }

@@ -36,17 +36,30 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
     let context: NIOSSLContext
     let serverHostname: String?
     let customVerificationCallback: NIOSSLCustomVerificationCallback?
+    let additionalPeerCertificateVerificationCallback: _NIOAdditionalPeerCertificateVerificationCallback?
 
-    /// Construct the TLS provider with the necessary configuration.
-    public init(context: NIOSSLContext,
-                serverHostname: String?,
-                customVerificationCallback: NIOSSLCustomVerificationCallback? = nil) throws {
+    internal init(
+        context: NIOSSLContext,
+        serverHostname: String?,
+        customVerificationCallback: NIOSSLCustomVerificationCallback? = nil,
+        additionalPeerCertificateVerificationCallback: _NIOAdditionalPeerCertificateVerificationCallback? = nil
+    ) throws {
         try serverHostname.map {
             try $0.validateSNIServerName()
         }
         self.context = context
         self.serverHostname = serverHostname
         self.customVerificationCallback = customVerificationCallback
+        self.additionalPeerCertificateVerificationCallback = additionalPeerCertificateVerificationCallback
+    }
+    
+    /// Construct the TLS provider with the necessary configuration.
+    public init(
+        context: NIOSSLContext,
+        serverHostname: String?,
+        customVerificationCallback: NIOSSLCustomVerificationCallback? = nil
+    ) throws {
+        try self.init(context: context, serverHostname: serverHostname, customVerificationCallback: customVerificationCallback, additionalPeerCertificateVerificationCallback: nil)
     }
 
     /// Enable TLS on the bootstrap. This is not a function you will typically call as a user, it is called by
@@ -55,14 +68,14 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
         // NIOSSLClientHandler.init only throws because of `malloc` error and invalid SNI hostnames. We want to crash
         // on malloc error and we pre-checked the SNI hostname in `init` so that should be impossible here.
         return bootstrap.protocolHandlers {
-            if let customVerificationCallback = self.customVerificationCallback {
-                return [try! NIOSSLClientHandler(context: self.context,
-                                                 serverHostname: self.serverHostname,
-                                                 customVerificationCallback: customVerificationCallback)]
-            } else {
-                return [try! NIOSSLClientHandler(context: self.context,
-                                                 serverHostname: self.serverHostname)]
-            }
+            [
+                try! NIOSSLClientHandler(
+                    context: self.context,
+                    serverHostname: self.serverHostname,
+                    optionalCustomVerificationCallback: customVerificationCallback,
+                    optionalAdditionalPeerCertificateVerificationCallback: additionalPeerCertificateVerificationCallback
+                )
+            ]
         }
     }
 }

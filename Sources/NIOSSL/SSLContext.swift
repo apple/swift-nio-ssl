@@ -220,21 +220,18 @@ private func clientPSKCallback(ssl: OpaquePointer?,
 ///
 /// - Warning: Avoid creating `NIOSSLContext`s on any `EventLoop` because it does _blocking disk I/O_.
 public final class NIOSSLContext {
-    internal typealias AdditionalCertificateChainVerificationCallback = (Channel) -> EventLoopFuture<Void>
     private let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
     private var keyLogManager: KeyLogCallbackManager?
     internal var pskClientConfigurationCallback: NIOPSKClientIdentityCallback?
     internal var pskServerConfigurationCallback: NIOPSKServerIdentityCallback?
     internal let configuration: TLSConfiguration
-    internal let additionalCertificateChainVerification: AdditionalCertificateChainVerificationCallback?
 
     /// Initialize a context that will create multiple connections, all with the same
     /// configuration.
     internal init(
         configuration: TLSConfiguration,
-        callbackManager: CallbackManagerProtocol?,
-        additionalCertificateChainVerification: AdditionalCertificateChainVerificationCallback?
+        callbackManager: CallbackManagerProtocol?
     ) throws {
         guard boringSSLIsInitialized else { fatalError("Failed to initialize BoringSSL") }
         guard let context = CNIOBoringSSL_SSL_CTX_new(CNIOBoringSSL_TLS_method()) else { fatalError("Failed to create new BoringSSL context") }
@@ -389,7 +386,6 @@ public final class NIOSSLContext {
         self.sslContext = context
         self.configuration = configuration
         self.callbackManager = callbackManager
-        self.additionalCertificateChainVerification = additionalCertificateChainVerification
 
         // Always make it possible to get from an SSL_CTX structure back to this.
         let ptrToSelf = Unmanaged.passUnretained(self).toOpaque()
@@ -405,7 +401,7 @@ public final class NIOSSLContext {
     ///
     /// - Warning: Avoid creating `NIOSSLContext`s on any `EventLoop` because it does _blocking disk I/O_.
     public convenience init(configuration: TLSConfiguration) throws {
-        try self.init(configuration: configuration, callbackManager: nil, additionalCertificateChainVerification: nil)
+        try self.init(configuration: configuration, callbackManager: nil)
     }
 
     /// Initialize a context that will create multiple connections, all with the same
@@ -427,7 +423,7 @@ public final class NIOSSLContext {
     public convenience init<T: Collection>(configuration: TLSConfiguration,
                                            passphraseCallback: @escaping NIOSSLPassphraseCallback<T>) throws where T.Element == UInt8 {
         let manager = BoringSSLPassphraseCallbackManager(userCallback: passphraseCallback)
-        try self.init(configuration: configuration, callbackManager: manager, additionalCertificateChainVerification: nil)
+        try self.init(configuration: configuration, callbackManager: manager)
     }
 
     /// Create a new connection object with the configuration from this
