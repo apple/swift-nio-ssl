@@ -379,9 +379,7 @@ class SSLCertificateTest: XCTestCase {
         precondition(inet_pton(AF_INET6, "2001:db8::1", &v6addr) == 1)
 
         let cert = try NIOSSLCertificate(bytes: .init(certWithAllSupportedSANTypes.utf8), format: .pem)
-        guard let sans = cert._subjectAlternativeNames() else {
-            return XCTFail("could not get subject alternative names")
-        }
+        let sans = cert._subjectAlternativeNames()
         XCTAssertEqual(sans.count, 7)
         XCTAssertEqual(sans[0].nameType, .dnsName)
         XCTAssertEqual(String(decoding: sans[0].contents, as: UTF8.self), "localhost")
@@ -405,7 +403,7 @@ class SSLCertificateTest: XCTestCase {
 
     func testNonexistentSan() throws {
         let cert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
-        XCTAssertNil(cert._subjectAlternativeNames())
+        XCTAssertTrue(cert._subjectAlternativeNames().isEmpty)
     }
 
     func testCommonName() throws {

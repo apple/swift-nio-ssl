@@ -29,16 +29,20 @@ public struct _SubjectAlternativeNames {
     @usableFromInline
     internal final class Storage {
         
-        fileprivate let nameStack: OpaquePointer
+        fileprivate let nameStack: OpaquePointer?
         @usableFromInline internal let stackSize: Int
-
-        internal init(nameStack: OpaquePointer) {
+        
+        internal init(nameStack: OpaquePointer?) {
             self.nameStack = nameStack
-            self.stackSize = CNIOBoringSSLShims_sk_GENERAL_NAME_num(nameStack)
+            if let nameStack = nameStack {
+                self.stackSize = CNIOBoringSSLShims_sk_GENERAL_NAME_num(nameStack)
+            } else {
+                self.stackSize = 0
+            }
         }
         
         public subscript(position: Int) -> Element {
-            guard let name = CNIOBoringSSLShims_sk_GENERAL_NAME_value(self.nameStack, position) else {
+            guard let name = CNIOBoringSSLShims_sk_GENERAL_NAME_value(self.nameStack!, position) else {
                 fatalError("Unexpected null pointer when unwrapping SAN value")
             }
             
@@ -50,14 +54,16 @@ public struct _SubjectAlternativeNames {
         }
 
         deinit {
-            CNIOBoringSSL_GENERAL_NAMES_free(self.nameStack)
+            if let nameStack = self.nameStack {
+                CNIOBoringSSL_GENERAL_NAMES_free(nameStack)
+            }
         }
     }
     
     
     @usableFromInline internal var storage: Storage
     
-    internal init(nameStack: OpaquePointer) {
+    internal init(nameStack: OpaquePointer?) {
         self.storage = .init(nameStack: nameStack)
     }
 }

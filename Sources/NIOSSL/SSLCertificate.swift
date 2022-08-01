@@ -165,11 +165,9 @@ public class NIOSSLCertificate {
     }
 
     /// Get a collection of the alternative names in the certificate.
-    public func _subjectAlternativeNames() -> _SubjectAlternativeNames? {
-        guard let sanExtension = CNIOBoringSSL_X509_get_ext_d2i(self.ref, NID_subject_alt_name, nil, nil) else {
-            return nil
-        }
-        return _SubjectAlternativeNames(nameStack: OpaquePointer(sanExtension))
+    public func _subjectAlternativeNames() -> _SubjectAlternativeNames {
+        let sanExtension = CNIOBoringSSL_X509_get_ext_d2i(self.ref, NID_subject_alt_name, nil, nil)
+        return _SubjectAlternativeNames(nameStack: sanExtension.map(OpaquePointer.init))
     }
     
     /// Extracts the SHA1 hash of the subject name before it has been truncated.
@@ -406,7 +404,8 @@ extension NIOSSLCertificate: CustomStringConvertible {
             let commonName = String(decoding: commonNameBytes, as: UTF8.self)
             desc += ";common_name=" + commonName
         }
-        if let alternativeName = self._subjectAlternativeNames() {
+        let alternativeName = self._subjectAlternativeNames()
+        if !alternativeName.isEmpty {
             let altNames = alternativeName.compactMap { name in
                 switch name.nameType {
                 case .dnsName:
