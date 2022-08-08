@@ -16,9 +16,10 @@ import NIOCore
 @_implementationOnly import CNIOBoringSSL
 import NIOTLS
 
-/// The base class for all NIOSSL handlers. This class cannot actually be instantiated by
-/// users directly: instead, users must select which mode they would like their handler to
-/// operate in, client or server.
+/// The base class for all NIOSSL handlers.
+///
+/// This class cannot actually be instantiated by users directly: instead, users must select
+/// which mode they would like their handler to operate in, client or server.
 ///
 /// This class exists to deal with the reality that for almost the entirety of the lifetime
 /// of a TLS connection there is no meaningful distinction between a server and a client.
@@ -619,14 +620,17 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 }
 
 extension NIOSSLHandler {
-    /// Variable that can be queried during the connection lifecycle to grab the `TLSVersion` used on the `SSLConnection`.
+    /// Variable that can be queried during the connection lifecycle to grab the ``TLSVersion`` used on this connection.
+    ///
+    /// This variable **is not thread-safe**: you **must** call it from the correct event
+    /// loop thread.
     public var tlsVersion: TLSVersion? {
         return self.connection.getTLSVersionForConnection()
     }
 }
 
 extension Channel {
-    ///  API to extract the `TLSVersion` from an EventLoopFuture.
+    ///  API to extract the ``TLSVersion`` from off the `Channel`.
     public func nioSSL_tlsVersion() -> EventLoopFuture<TLSVersion?> {
         return self.pipeline.handler(type: NIOSSLHandler.self).map {
             $0.tlsVersion
@@ -635,7 +639,7 @@ extension Channel {
 }
 
 extension ChannelPipeline.SynchronousOperations {
-    /// API to query the `TLSVersion` directly from the `ChannelPipeline`.
+    /// API to query the ``TLSVersion`` directly from the `ChannelPipeline`.
     public func nioSSL_tlsVersion() throws -> TLSVersion? {
         let handler = try self.handler(type: NIOSSLHandler.self)
         return handler.tlsVersion
@@ -648,8 +652,8 @@ extension NIOSSLHandler {
     /// from the pipeline. This will leave the connection established, but remove the TLS wrapper
     /// from it.
     ///
-    /// This will send a CLOSE_NOTIFY and wait for the corresponding CLOSE_NOTIFY. When that next
-    /// CLOSE_NOTIFY is received, this handler will pass on all pending writes and remove itself
+    /// This will send a `CLOSE_NOTIFY` and wait for the corresponding `CLOSE_NOTIFY`. When that next
+    /// `CLOSE_NOTIFY` is received, this handler will pass on all pending writes and remove itself
     /// from the channel pipeline. If the shutdown times out then an error will fire down the
     /// pipeline, this handler will remove itself from the pipeline, but the channel will not be
     /// automatically closed.

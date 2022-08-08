@@ -52,8 +52,14 @@ extension String {
 
 /// A channel handler that wraps a channel in TLS using NIOSSL.
 /// This handler can be used in channels that are acting as the client
-/// in the TLS dialog. For server connections, use the `NIOSSLServerHandler`.
+/// in the TLS dialog. For server connections, use the ``NIOSSLServerHandler``.
 public final class NIOSSLClientHandler: NIOSSLHandler {
+    /// Construct a new ``NIOSSLClientHandler`` with the given `context` and a specific `serverHostname`.
+    ///
+    /// - parameters:
+    ///     - context: The ``NIOSSLContext`` to use on this connection.
+    ///     - serverHostname: The hostname of the server we're trying to connect to, if known. This will be used in the SNI extension,
+    ///         and used to validate the server certificate.
     public convenience init(context: NIOSSLContext, serverHostname: String?) throws {
         try self.init(context: context, serverHostname: serverHostname, optionalCustomVerificationCallback: nil, optionalAdditionalPeerCertificateVerificationCallback: nil)
     }
@@ -83,7 +89,16 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
         super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout, additionalPeerCertificateVerificationCallback: nil)
     }
 
-
+    /// Construct a new ``NIOSSLClientHandler`` with the given `context` and a specific `serverHostname`.
+    ///
+    /// - parameters:
+    ///     - context: The ``NIOSSLContext`` to use on this connection.
+    ///     - serverHostname: The hostname of the server we're trying to connect to, if known. This will be used in the SNI extension,
+    ///         and used to validate the server certificate.
+    ///     - customVerificationCallback: A callback to use that will override NIOSSL's normal verification logic.
+    ///
+    ///         If set, this callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed them. The callback will not be used if the
+    ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
     public convenience init(context: NIOSSLContext, serverHostname: String?, customVerificationCallback: @escaping NIOSSLCustomVerificationCallback) throws {
         try self.init(context: context, serverHostname: serverHostname, optionalCustomVerificationCallback: customVerificationCallback, optionalAdditionalPeerCertificateVerificationCallback: nil)
     }

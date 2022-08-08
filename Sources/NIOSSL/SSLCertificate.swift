@@ -52,7 +52,8 @@ public class NIOSSLCertificate {
     private var ref: OpaquePointer {
         return self._ref
     }
-    
+
+    /// The serial number of this certificate, as raw bytes.
     public var serialNumber: [UInt8] {
         let serialNumber = CNIOBoringSSL_X509_get_serialNumber(self.ref)!
         return Array(UnsafeBufferPointer(start: serialNumber.pointee.data, count: Int(serialNumber.pointee.length)))
@@ -62,10 +63,14 @@ public class NIOSSLCertificate {
         self._ref = ref
     }
 
-    /// Create a NIOSSLCertificate from a file at a given path in either PEM or
+    /// Create a ``NIOSSLCertificate`` from a file at a given path in either PEM or
     /// DER format.
     ///
     /// Note that this method will only ever load the first certificate from a given file.
+    ///
+    /// - parameters:
+    ///     - file: The path to the file to load the certificate from.
+    ///     - format: The format to use to parse the file.
     public convenience init(file: String, format: NIOSSLSerializationFormats) throws {
         let fileObject = try Posix.fopen(file: file, mode: "rb")
         defer {
@@ -87,7 +92,7 @@ public class NIOSSLCertificate {
         self.init(withOwnedReference: x509!)
     }
 
-    /// Create a NIOSSLCertificate from a buffer of bytes in either PEM or
+    /// Create a ``NIOSSLCertificate`` from a buffer of bytes in either PEM or
     /// DER format.
     ///
     /// - SeeAlso: `NIOSSLCertificate.init(bytes:format:)`
@@ -96,8 +101,12 @@ public class NIOSSLCertificate {
         try self.init(bytes: buffer.map(UInt8.init), format: format)
     }
 
-    /// Create a NIOSSLCertificate from a buffer of bytes in either PEM or
+    /// Create a ``NIOSSLCertificate`` from a buffer of bytes in either PEM or
     /// DER format.
+    ///
+    /// - parameters:
+    ///     - bytes: The raw bytes containing the certificate.
+    ///     - format: The format to use to parse the file.
     public convenience init(bytes: [UInt8], format: NIOSSLSerializationFormats) throws {
         let ref = bytes.withUnsafeBytes { (ptr) -> OpaquePointer? in
             let bio = CNIOBoringSSL_BIO_new_mem_buf(ptr.baseAddress, CInt(ptr.count))!
@@ -232,9 +241,9 @@ public class NIOSSLCertificate {
 // enable users of swift-nio-ssl to use other cryptography libraries it will be helpful to provide
 // the ability to obtain the bytes that correspond to certificates and keys.
 extension NIOSSLCertificate {
-    /// Obtain the public key for this `NIOSSLCertificate`.
+    /// Obtain the public key for this ``NIOSSLCertificate``.
     ///
-    /// - returns: This certificate's `NIOSSLPublicKey`.
+    /// - returns: This certificate's ``NIOSSLPublicKey``.
     /// - throws: If an error is encountered extracting the key.
     public func extractPublicKey() throws -> NIOSSLPublicKey {
         guard let key = CNIOBoringSSL_X509_get_pubkey(self.ref) else {
@@ -252,7 +261,7 @@ extension NIOSSLCertificate {
         return try self.withUnsafeDERCertificateBuffer { Array($0) }
     }
 
-    /// Create an array of `NIOSSLCertificate`s from a buffer of bytes in PEM format.
+    /// Create an array of ``NIOSSLCertificate``s from a buffer of bytes in PEM format.
     ///
     /// - Parameter buffer: The PEM buffer to read certificates from.
     /// - Throws: If an error is encountered while reading certificates.
@@ -262,7 +271,7 @@ extension NIOSSLCertificate {
         return try fromPEMBytes(buffer.map(UInt8.init))
     }
 
-    /// Create an array of `NIOSSLCertificate`s from a buffer of bytes in PEM format.
+    /// Create an array of ``NIOSSLCertificate``s from a buffer of bytes in PEM format.
     ///
     /// - Parameter bytes: The PEM buffer to read certificates from.
     /// - Throws: If an error is encountered while reading certificates.
@@ -282,7 +291,7 @@ extension NIOSSLCertificate {
         }
     }
 
-    /// Create an array of `NIOSSLCertificate`s from a file at a given path in PEM format.
+    /// Create an array of ``NIOSSLCertificate``s from a file at a given path in PEM format.
     ///
     /// - Parameter file: The PEM file to read certificates from.
     /// - Throws: If an error is encountered while reading certificates.

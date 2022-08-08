@@ -16,8 +16,12 @@ import NIOCore
 
 /// A channel handler that wraps a channel in TLS using NIOSSL. This
 /// handler can be used in channels that are acting as the server in
-/// the TLS dialog. For client connections, use the `NIOSSLClientHandler`.
+/// the TLS dialog. For client connections, use the ``NIOSSLClientHandler``.
 public final class NIOSSLServerHandler: NIOSSLHandler {
+    /// Construct a new ``NIOSSLServerHandler`` with the given `context`.
+    ///
+    /// - parameters:
+    ///     - context: The ``NIOSSLContext`` to use on this connection.
     public convenience init(context: NIOSSLContext) {
         self.init(context: context, optionalCustomVerificationCallback: nil, optionalAdditionalPeerCertificateVerificationCallback: nil)
     }
@@ -37,6 +41,14 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
         super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout, additionalPeerCertificateVerificationCallback: nil)
     }
 
+    /// Construct a new ``NIOSSLClientHandler`` with the given `context` and a specific `serverHostname`.
+    ///
+    /// - parameters:
+    ///     - context: The ``NIOSSLContext`` to use on this connection.
+    ///     - customVerificationCallback: A callback to use that will override NIOSSL's normal verification logic.
+    ///
+    ///         If set, this callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed them. The callback will not be used if the
+    ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
     public convenience init(context: NIOSSLContext, customVerificationCallback: @escaping NIOSSLCustomVerificationCallback) {
         self.init(context: context, optionalCustomVerificationCallback: customVerificationCallback, optionalAdditionalPeerCertificateVerificationCallback: nil)
     }

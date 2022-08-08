@@ -14,39 +14,39 @@
 
 @_implementationOnly import CNIOBoringSSL
 
-/// An `NIOSSLPassphraseCallback` is a callback that will be invoked by NIOSSL when it needs to
+/// An ``NIOSSLPassphraseCallback`` is a callback that will be invoked by NIOSSL when it needs to
 /// get access to a private key that is stored in encrypted form.
 ///
 /// This callback will be invoked with one argument, a non-escaping closure that must be called with the
 /// passphrase. Failing to call the closure will cause decryption to fail.
 ///
 /// The reason this design has been used is to allow you to secure any memory storing the passphrase after
-/// use. We guarantee that after the `NIOSSLPassphraseSetter` closure has been invoked the `Collection`
+/// use. We guarantee that after the ``NIOSSLPassphraseSetter`` closure has been invoked the `Collection`
 /// you have passed in will no longer be needed by BoringSSL, and so you can safely destroy any memory it
 /// may be using if you need to.
 public typealias NIOSSLPassphraseCallback<Bytes: Collection> = (NIOSSLPassphraseSetter<Bytes>) throws -> Void where Bytes.Element == UInt8
 
 
-/// An `NIOSSLPassphraseSetter` is a closure that you must invoke to provide a passphrase to BoringSSL.
-/// It will be provided to you when your `NIOSSLPassphraseCallback` is invoked.
+/// An ``NIOSSLPassphraseSetter`` is a closure that you must invoke to provide a passphrase to BoringSSL.
+/// It will be provided to you when your ``NIOSSLPassphraseCallback`` is invoked.
 public typealias NIOSSLPassphraseSetter<Bytes: Collection> = (Bytes) -> Void where Bytes.Element == UInt8
 
 
 /// An internal protocol that exists to let us avoid problems with generic types.
 ///
 /// The issue we have here is that we want to allow users to use whatever collection type suits them best to set
-/// the passphrase. For this reason, `NIOSSLPassphraseSetter` is a generic function, generic over the `Collection`
+/// the passphrase. For this reason, ``NIOSSLPassphraseSetter`` is a generic function, generic over the `Collection`
 /// protocol. However, that causes us an issue, because we need to stuff that callback into an
-/// `BoringSSLPassphraseCallbackManager` in order to create an `Unmanaged` and round-trip the pointer through C code.
+/// ``BoringSSLPassphraseCallbackManager`` in order to create an `Unmanaged` and round-trip the pointer through C code.
 ///
-/// That makes `BoringSSLPassphraseCallbackManager` a generic object, and now we're in *real* trouble, becuase
+/// That makes ``BoringSSLPassphraseCallbackManager`` a generic object, and now we're in *real* trouble, becuase
 /// `Unmanaged` requires us to specify the *complete* type of the object we want to unwrap. In this case, we
 /// don't know it, because it's generic!
 ///
 /// Our way out is to note that while the class itself is generic, the only function we want to call in the
-/// `globalBoringSSLPassphraseCallback` is not. Thus, rather than try to hold the actual specific `BoringSSLPassphraseManager`,
+/// ``globalBoringSSLPassphraseCallback`` is not. Thus, rather than try to hold the actual specific ``BoringSSLPassphraseManager``,
 /// we can hold it inside a protocol existential instead, so long as that protocol existential gives us the correct
-/// function to call. Hence: `CallbackManagerProtocol`, a private protocol with a single conforming type.
+/// function to call. Hence: ``CallbackManagerProtocol``, a private protocol with a single conforming type.
 internal protocol CallbackManagerProtocol: AnyObject {
     func invoke(buffer: UnsafeMutableBufferPointer<CChar>) -> CInt
 }
@@ -201,7 +201,7 @@ public class NIOSSLPrivateKey {
         self.init(withReference: ref!)
     }
 
-    /// Create an NIOSSLPrivateKey from a file at a given path in either PEM or
+    /// Create a ``NIOSSLPrivateKey`` from a file at a given path in either PEM or
     /// DER format, providing a passphrase callback.
     ///
     /// - parameters:
@@ -211,7 +211,7 @@ public class NIOSSLPrivateKey {
         try self.init(file: file, format: format, callbackManager: nil)
     }
 
-    /// Create an NIOSSLPrivateKey from a file at a given path in either PEM or
+    /// Create a ``NIOSSLPrivateKey`` from a file at a given path in either PEM or
     /// DER format, providing a passphrase callback.
     ///
     /// - parameters:
@@ -224,19 +224,19 @@ public class NIOSSLPrivateKey {
         try self.init(file: file, format: format, callbackManager: manager)
     }
 
-    /// Create an NIOSSLPrivateKey from a buffer of bytes in either PEM or
+    /// Create a ``NIOSSLPrivateKey`` from a buffer of bytes in either PEM or
     /// DER format.
     ///
     /// - parameters:
     ///     - buffer: The key bytes.
     ///     - format: The format of the key to load, either DER or PEM.
-    /// - SeeAlso: `NIOSSLPrivateKey.init(bytes:format:)`
+    /// - SeeAlso: ``NIOSSLPrivateKey/init(bytes:format:)``
     @available(*, deprecated, renamed: "NIOSSLPrivateKey.init(bytes:format:)")
     public convenience init(buffer: [Int8], format: NIOSSLSerializationFormats) throws {
         try self.init(bytes: buffer.map(UInt8.init), format: format)
     }
 
-    /// Create an NIOSSLPrivateKey from a buffer of bytes in either PEM or
+    /// Create a ``NIOSSLPrivateKey`` from a buffer of bytes in either PEM or
     /// DER format.
     ///
     /// - parameters:
@@ -246,7 +246,7 @@ public class NIOSSLPrivateKey {
         try self.init(bytes: bytes, format: format, callbackManager: nil)
     }
 
-    /// Create an NIOSSLPrivateKey from a buffer of bytes in either PEM or
+    /// Create a ``NIOSSLPrivateKey`` from a buffer of bytes in either PEM or
     /// DER format.
     ///
     /// - parameters:
@@ -262,7 +262,7 @@ public class NIOSSLPrivateKey {
         try self.init(bytes: buffer.map(UInt8.init), format: format, passphraseCallback: passphraseCallback)
     }
 
-    /// Create an NIOSSLPrivateKey from a buffer of bytes in either PEM or
+    /// Create a ``NIOSSLPrivateKey`` from a buffer of bytes in either PEM or
     /// DER format.
     ///
     /// - parameters:
@@ -277,10 +277,10 @@ public class NIOSSLPrivateKey {
         try self.init(bytes: bytes, format: format, callbackManager: manager)
     }
 
-    /// Create a `NIOSSLPrivateKey` from a custom private key callback.
+    /// Create a ``NIOSSLPrivateKey`` from a custom private key callback.
     ///
-    /// The private key, in addition to needing to conform to `NIOSSLCustomPrivateKey`,
-    /// is also required to be `Hashable`. This is because `NIOSSLPrivateKey`s are `Hashable`.
+    /// The private key, in addition to needing to conform to ``NIOSSLCustomPrivateKey``,
+    /// is also required to be `Hashable`. This is because ``NIOSSLPrivateKey``s are `Hashable`.
     ///
     /// - parameters:
     ///     - customPrivateKey: The custom private key to use with the TLS certificate.
