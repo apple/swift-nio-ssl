@@ -50,15 +50,23 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private var didDeliverData: Bool = false
     private var storedContext: ChannelHandlerContext? = nil
     private var shutdownTimeout: TimeAmount
+    private let additionalPeerCertificateVerificationCallback: _NIOAdditionalPeerCertificateVerificationCallback?
 
     internal var channel: Channel? {
         return self.storedContext?.channel
     }
     
-    internal init(connection: SSLConnection, shutdownTimeout: TimeAmount) {
+    internal init(connection: SSLConnection, shutdownTimeout: TimeAmount, additionalPeerCertificateVerificationCallback: _NIOAdditionalPeerCertificateVerificationCallback?) {
+        let configuration = connection.parentContext.configuration
+        precondition(
+            additionalPeerCertificateVerificationCallback == nil ||
+            configuration.certificateVerification != .none,
+            "TLSConfiguration.certificateVerification must be either set to .noHostnameVerification or .fullVerification if additionalPeerCertificateVerificationCallback is specified"
+        )
         self.connection = connection
         self.bufferedWrites = MarkedCircularBuffer(initialCapacity: 96)  // 96 brings the total size of the buffer to just shy of one page
         self.shutdownTimeout = shutdownTimeout
+        self.additionalPeerCertificateVerificationCallback = additionalPeerCertificateVerificationCallback
     }
 
     public func handlerAdded(context: ChannelHandlerContext) {
@@ -256,12 +264,19 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 return
             }
             
-            if let additionalCertificateChainVerification = connection.parentContext.additionalCertificateChainVerification {
+            if let additionalPeerCertificateVerificationCallback = self.additionalPeerCertificateVerificationCallback {
                 state = .additionalVerification
-                additionalCertificateChainVerification(context.channel)
+                guard let peerCertificate = connection.getPeerCertificate() else {
+                    preconditionFailure("""
+                        Couldn't get peer certificate after chain verification was successful.
+                        This should be impossible as we have a precondition during creation of this handler that requires certificate verification.
+                        Please file an issue.
+                    """)
+                }
+                additionalPeerCertificateVerificationCallback(peerCertificate, context.channel)
                     .hop(to: context.eventLoop)
                     .whenComplete { result in
-                        self.completedAdditionalCertificateChainVerification(result: result)
+                        self.completedAdditionalPeerCertificateVerification(result: result)
                     }
                 return
             }
@@ -298,7 +313,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         self.doUnbufferWrites(context: context)
     }
     
-    private func completedAdditionalCertificateChainVerification(result: Result<Void, Error>) {
+    private func completedAdditionalPeerCertificateVerification(result: Result<Void, Error>) {
         guard let context = self.storedContext else {
             // `self` may already be removed from the channel pipeline
             return
@@ -693,6 +708,20 @@ extension NIOSSLHandler {
     private typealias BufferedWrite = (data: ByteBuffer, promise: EventLoopPromise<Void>?)
 
     private func bufferWrite(data: ByteBuffer, promise: EventLoopPromise<Void>?) {
+        var data = data
+
+        // Here we guard against the possibility that any of these writes are larger than CInt.max.
+        // This is very unusual but it can happen. To work around it, we just pretend that there were
+        // multiple writes.
+        //
+        // During the short writes we set the promise to `nil` to make sure they only arrive at the end.
+        // Note that we make sure that there's always a single write, at the end, that holds the promise.
+        let maxWriteSize = Int(CInt.max)
+        while data.readableBytes > maxWriteSize, let slice = data.readSlice(length: maxWriteSize) {
+            bufferedWrites.append((data: slice, promise: nil))
+        }
+
+        assert(data.readableBytes <= maxWriteSize)
         bufferedWrites.append((data: data, promise: promise))
     }
 

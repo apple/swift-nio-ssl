@@ -92,6 +92,8 @@ public struct NIOTLSCipher: RawRepresentable, Hashable {
     
     public static let TLS_RSA_WITH_AES_128_CBC_SHA                    = NIOTLSCipher(rawValue: 0x2F)
     public static let TLS_RSA_WITH_AES_256_CBC_SHA                    = NIOTLSCipher(rawValue: 0x35)
+    public static let TLS_PSK_WITH_AES_128_CBC_SHA                    = NIOTLSCipher(rawValue: 0x8C)
+    public static let TLS_PSK_WITH_AES_256_CBC_SHA                    = NIOTLSCipher(rawValue: 0x8D)
     public static let TLS_RSA_WITH_AES_128_GCM_SHA256                 = NIOTLSCipher(rawValue: 0x9C)
     public static let TLS_RSA_WITH_AES_256_GCM_SHA384                 = NIOTLSCipher(rawValue: 0x9D)
     public static let TLS_AES_128_GCM_SHA256                          = NIOTLSCipher(rawValue: 0x1301)
@@ -101,6 +103,8 @@ public struct NIOTLSCipher: RawRepresentable, Hashable {
     public static let TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA            = NIOTLSCipher(rawValue: 0xC00A)
     public static let TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA              = NIOTLSCipher(rawValue: 0xC013)
     public static let TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA              = NIOTLSCipher(rawValue: 0xC014)
+    public static let TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA              = NIOTLSCipher(rawValue: 0xC035)
+    public static let TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA              = NIOTLSCipher(rawValue: 0xC036)
     public static let TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256         = NIOTLSCipher(rawValue: 0xC02B)
     public static let TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384         = NIOTLSCipher(rawValue: 0xC02C)
     public static let TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256           = NIOTLSCipher(rawValue: 0xC02F)
@@ -276,6 +280,15 @@ public struct TLSConfiguration {
 
     /// The private key associated with the leaf certificate.
     public var privateKey: NIOSSLPrivateKeySource?
+    
+    /// PSK Client Callback to get the key based on hint and identity.
+    public var pskClientCallback: NIOPSKClientIdentityCallback? = nil
+
+    /// PSK Server Callback to get the key based on hint and identity.
+    public var pskServerCallback: NIOPSKServerIdentityCallback? = nil
+    
+    /// Optional PSK hint to be used during SSLContext create.
+    public var pskHint: String? = nil
 
     /// The application protocols to use in the connection. Should be an ordered list of ASCII
     /// strings representing the ALPN identifiers of the protocols to negotiate. For clients,
@@ -321,7 +334,10 @@ public struct TLSConfiguration {
                  keyLogCallback: NIOSSLKeyLogCallback?,
                  renegotiationSupport: NIORenegotiationSupport,
                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots],
-                 sendCANameList: Bool = false) {
+                 sendCANameList: Bool = false,
+                 pskClientCallback: NIOPSKClientIdentityCallback? = nil,
+                 pskServerCallback: NIOPSKServerIdentityCallback? = nil,
+                 pskHint: String? = nil) {
         self.cipherSuites = cipherSuites
         self.verifySignatureAlgorithms = verifySignatureAlgorithms
         self.signingSignatureAlgorithms = signingSignatureAlgorithms
@@ -338,6 +354,9 @@ public struct TLSConfiguration {
         self.sendCANameList = sendCANameList
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
+        self.pskClientCallback = pskClientCallback
+        self.pskServerCallback = pskServerCallback
+        self.pskHint = pskHint
         if !cipherSuiteValues.isEmpty {
             self.cipherSuiteValues = cipherSuiteValues
         }
@@ -357,6 +376,16 @@ extension TLSConfiguration {
                 return callbackPointer1.elementsEqual(callbackPointer2)
             }
         }
+        let isPSKClientCallbackEqual = withUnsafeBytes(of: self.pskClientCallback) { pskClientCallback1 in
+            return withUnsafeBytes(of: comparing.pskClientCallback) { pskClientCallback2 in
+                return pskClientCallback1.elementsEqual(pskClientCallback2)
+            }
+        }
+        let isPSKServerCallbackEqual = withUnsafeBytes(of: self.pskServerCallback) { pskServerCallback1 in
+            return withUnsafeBytes(of: comparing.pskServerCallback) { pskServerCallback2 in
+                return pskServerCallback1.elementsEqual(pskServerCallback2)
+            }
+        }
         
         return self.minimumTLSVersion == comparing.minimumTLSVersion &&
             self.maximumTLSVersion == comparing.maximumTLSVersion &&
@@ -371,7 +400,11 @@ extension TLSConfiguration {
             self.encodedApplicationProtocols == comparing.encodedApplicationProtocols &&
             self.shutdownTimeout == comparing.shutdownTimeout &&
             isKeyLoggerCallbacksEqual &&
-            self.renegotiationSupport == comparing.renegotiationSupport
+            self.renegotiationSupport == comparing.renegotiationSupport &&
+            self.sendCANameList == comparing.sendCANameList &&
+            isPSKClientCallbackEqual &&
+            isPSKServerCallbackEqual &&
+            self.pskHint == comparing.pskHint
     }
     
     /// Returns a best effort hash of this TLS configuration.
@@ -396,6 +429,14 @@ extension TLSConfiguration {
             hasher.combine(bytes: closureBits)
         }
         hasher.combine(renegotiationSupport)
+        hasher.combine(sendCANameList)
+        withUnsafeBytes(of: pskClientCallback) { closureClientBits in
+            hasher.combine(bytes: closureClientBits)
+        }
+        withUnsafeBytes(of: pskServerCallback) { closureServerBits in
+            hasher.combine(bytes: closureServerBits)
+        }
+        hasher.combine(pskHint)
     }
 
     /// Creates a TLS configuration for use with client-side contexts.
@@ -419,7 +460,10 @@ extension TLSConfiguration {
                                 keyLogCallback: nil,
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
-                                sendCANameList: false)
+                                sendCANameList: false,
+                                pskClientCallback: nil,
+                                pskServerCallback: nil,
+                                pskHint: nil)
     }
 
     /// Create a TLS configuration for use with server-side contexts.
@@ -446,7 +490,38 @@ extension TLSConfiguration {
                                 keyLogCallback: nil,
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
-                                sendCANameList: false)
+                                sendCANameList: false,
+                                pskClientCallback: nil,
+                                pskServerCallback: nil,
+                                pskHint: nil)
+    }
+    
+    /// Create a TLS configuration for use with server-side or client-side contexts that uses Pre-Shared Keys for TLS 1.2 and below.
+    ///
+    /// This provides sensible defaults while requiring that you provide any data that is necessary
+    /// for server-side or client-side functionality.  This configuration uses Pre-Shared Keys instead of certificates.
+    ///
+    /// For customising fields, modify the returned TLSConfiguration object.
+    public static func makePreSharedKeyConfiguration() -> TLSConfiguration {
+        
+        return TLSConfiguration(cipherSuites: defaultCipherSuites,
+                                verifySignatureAlgorithms: nil,
+                                signingSignatureAlgorithms: nil,
+                                minimumTLSVersion: .tlsv1,
+                                maximumTLSVersion: nil,
+                                certificateVerification: .none,
+                                trustRoots: .default,
+                                certificateChain: [],
+                                privateKey: nil,
+                                applicationProtocols: [],
+                                shutdownTimeout: .seconds(5),
+                                keyLogCallback: nil,
+                                renegotiationSupport: .none,
+                                additionalTrustRoots: [],
+                                sendCANameList: false,
+                                pskClientCallback: nil,
+                                pskServerCallback: nil,
+                                pskHint: nil)
     }
 }
 

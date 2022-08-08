@@ -89,6 +89,17 @@ public typealias NIOSSLVerificationCallback = (NIOSSLVerificationResult, NIOSSLC
 /// Note that setting this callback will override _all_ verification logic that BoringSSL provides.
 public typealias NIOSSLCustomVerificationCallback = ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) -> Void
 
+/// A custom verification callback that allows additional peer certificate verification logic after the logic of BoringSSL has completed successfully.
+///
+/// It is invoked with two arguments:
+/// 1. The verified leaf certificate from the peer certificate chain
+/// 2. The channel to which the certificate belongs
+///
+/// The handshake will only succeed if the returned promise completes successfully.
+///
+/// - warning: This API is not guaranteed to be stable and is likely to be changed without further notice, hence the underscore prefix.
+public typealias _NIOAdditionalPeerCertificateVerificationCallback = (NIOSSLCertificate, Channel) -> EventLoopFuture<Void>
+
 
 /// A callback that can be used to implement `SSLKEYLOGFILE` support.
 ///
@@ -130,6 +141,26 @@ extension KeyLogCallbackManager {
     }
 }
 
+/// PSK Server Identity response type used in the callback.
+public struct PSKServerIdentityResponse {
+    public var key: NIOSSLSecureBytes
+    public init(key: NIOSSLSecureBytes) {
+        self.key = key
+    }
+}
+/// PSK Client Identity response type used in the callback.
+public struct PSKClientIdentityResponse {
+    public var key: NIOSSLSecureBytes
+    public var identity: String
+    public init(key: NIOSSLSecureBytes, identity: String) {
+        self.key = key
+        self.identity = identity
+    }
+}
+
+/// PSK Identity Callback Manager
+public typealias NIOPSKClientIdentityCallback = (String) throws -> PSKClientIdentityResponse
+public typealias NIOPSKServerIdentityCallback = (String, String) throws -> PSKServerIdentityResponse
 
 /// A struct that provides helpers for working with a NIOSSLCustomVerificationCallback.
 internal struct CustomVerifyManager {
