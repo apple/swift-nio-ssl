@@ -17,7 +17,7 @@
 /// Wraps a single error from BoringSSL.
 public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
     private enum Backing: Hashable {
-        case boringSSLErrorInfo(UInt32, String, UInt32)
+        case boringSSLErrorInfo(UInt32, String, UInt)
         case synthetic(String)
     }
 
@@ -51,7 +51,7 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
         return "Error: \(errorCode) \(errorMessage ?? "")"
     }
 
-    init(errorCode: UInt32, filename: String, line: UInt32) {
+    init(errorCode: UInt32, filename: String, line: UInt) {
         self.backing = .boringSSLErrorInfo(errorCode, filename, line)
     }
 
@@ -154,7 +154,7 @@ internal extension BoringSSLError {
             let errorCode = CNIOBoringSSL_ERR_get_error_line(&file, &line)
             if errorCode == 0 { break }
             let fileAsString = String(cString: file!)
-            errorStack.append(BoringSSLInternalError(errorCode: errorCode, filename: fileAsString, line: UInt32(line)))
+            errorStack.append(BoringSSLInternalError(errorCode: errorCode, filename: fileAsString, line: UInt(line)))
         }
         
         return errorStack
