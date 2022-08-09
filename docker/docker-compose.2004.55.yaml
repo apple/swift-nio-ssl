@@ -11,12 +11,14 @@ services:
 
   unit-tests:
     image: swift-nio-ssl:20.04-5.5
+    command: /bin/bash -xcl "swift test -Xswiftc -warnings-as-errors"
 
   integration-tests:
     image: swift-nio-ssl:20.04-5.5
 
   test:
     image: swift-nio-ssl:20.04-5.5
+    command: /bin/bash -xcl "swift test -Xswiftc -warnings-as-errors $${SANITIZER_ARG-} && ./scripts/integration_tests.sh"
     environment:
       - MAX_ALLOCS_ALLOWED_simple_handshake=743000
       - MAX_ALLOCS_ALLOWED_many_writes=201000
