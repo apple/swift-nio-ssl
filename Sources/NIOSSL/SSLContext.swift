@@ -214,11 +214,11 @@ private func clientPSKCallback(ssl: OpaquePointer?,
 /// This object is thread-safe and can be shared across TLS connections in your application. Even if the connections
 /// are associated with `Channel`s from different `EventLoop`s.
 ///
-/// - Note: Creating a `NIOSSLContext` is a very expensive operation because BoringSSL will usually need to load and
+/// > Note: Creating a ``NIOSSLContext`` is a very expensive operation because BoringSSL will usually need to load and
 ///         parse large number of certificates from the system trust store. Therefore, creating a
-///         `NIOSSLContext` will likely allocate many thousand times and will also _perform blocking disk I/O_.
+///         ``NIOSSLContext`` will likely allocate many thousand times and will also _perform blocking disk I/O_.
 ///
-/// - Warning: Avoid creating `NIOSSLContext`s on any `EventLoop` because it does _blocking disk I/O_.
+/// > Warning: Avoid creating ``NIOSSLContext``s on any `EventLoop` because it does _blocking disk I/O_.
 public final class NIOSSLContext {
     private let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
@@ -395,11 +395,11 @@ public final class NIOSSLContext {
     /// Initialize a context that will create multiple connections, all with the same
     /// configuration.
     ///
-    /// - Note: Creating a `NIOSSLContext` is a very expensive operation because BoringSSL will usually need to load and
+    /// - Note: Creating a ``NIOSSLContext`` is a very expensive operation because BoringSSL will usually need to load and
     ///         parse large number of certificates from the system trust store. Therefore, creating a
-    ///         `NIOSSLContext` will likely allocate many thousand times and will also _perform blocking disk I/O_.
+    ///         ``NIOSSLContext`` will likely allocate many thousand times and will also _perform blocking disk I/O_.
     ///
-    /// - Warning: Avoid creating `NIOSSLContext`s on any `EventLoop` because it does _blocking disk I/O_.
+    /// - Warning: Avoid creating ``NIOSSLContext``s on any `EventLoop` because it does _blocking disk I/O_.
     public convenience init(configuration: TLSConfiguration) throws {
         try self.init(configuration: configuration, callbackManager: nil)
     }
@@ -408,18 +408,18 @@ public final class NIOSSLContext {
     /// configuration, along with a callback that will be called when needed to decrypt any
     /// encrypted private keys.
     ///
-    /// - Note: Creating a `NIOSSLContext` is a very expensive operation because BoringSSL will usually need to load and
+    /// - Note: Creating a ``NIOSSLContext`` is a very expensive operation because BoringSSL will usually need to load and
     ///         parse large number of certificates from the system trust store. Therefore, creating a
-    ///         `NIOSSLContext` will likely allocate many thousand times and will also _perform blocking disk I/O_.
+    ///         ``NIOSSLContext`` will likely allocate many thousand times and will also _perform blocking disk I/O_.
     ///
-    /// - Warning: Avoid creating `NIOSSLContext`s on any `EventLoop` because it does _blocking disk I/O_.
+    /// - Warning: Avoid creating ``NIOSSLContext``s on any `EventLoop` because it does _blocking disk I/O_.
     ///
     /// - parameters:
-    ///     - configuration: The `TLSConfiguration` to use for all the connections with this
-    ///         `NIOSSLContext`.
+    ///     - configuration: The ``TLSConfiguration`` to use for all the connections with this
+    ///         ``NIOSSLContext``.
     ///     - passphraseCallback: The callback to use to decrypt any private keys used by this
-    ///         `NIOSSLContext`. For more details on this parameter see the documentation for
-    ///         `NIOSSLPassphraseCallback`.
+    ///         ``NIOSSLContext``. For more details on this parameter see the documentation for
+    ///         ``NIOSSLPassphraseCallback``.
     public convenience init<T: Collection>(configuration: TLSConfiguration,
                                            passphraseCallback: @escaping NIOSSLPassphraseCallback<T>) throws where T.Element == UInt8 {
         let manager = BoringSSLPassphraseCallbackManager(userCallback: passphraseCallback)

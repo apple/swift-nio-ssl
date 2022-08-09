@@ -12,11 +12,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-
+/// Auto-zeroing storage for data in memory.
+///
+/// ``NIOSSLSecureBytes`` uses a best-effort strategy to try to remove data from memory when it is no longer in use, by
+/// automatically zeroing the heap memory it uses. This is best-effort becuase it's easy for users to accidentally copy
+/// data out of this structure. To get its best effect, do not copy this data out into another type, but operate on
+/// ``NIOSSLSecureBytes`` generically or specifically.
 public struct NIOSSLSecureBytes {
     @usableFromInline
     var backing: Backing
 
+    /// Create an empty ``NIOSSLSecureBytes``.
     @inlinable
     public init() {
         self = .init(count: 0)
@@ -46,6 +52,9 @@ public struct NIOSSLSecureBytes {
 }
 
 extension NIOSSLSecureBytes {
+    /// Append the contents of a collection of bytes to this ``NIOSSLSecureBytes``.
+    ///
+    /// - parameter data: The `data` to add to the ``NIOSSLSecureBytes``.
     @inlinable
     mutating public func append<C: Collection>(_ data: C) where C.Element == UInt8 {
         let requiredCapacity = self.count + data.count
@@ -57,7 +66,6 @@ extension NIOSSLSecureBytes {
         self.backing._appendBytes(data)
     }
 
-    
     mutating public func reserveCapacity(_ n: Int) {
         if self.backing.capacity >= n {
             return
