@@ -17,7 +17,7 @@
 /// Wraps a single error from BoringSSL.
 public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
     private enum Backing: Hashable {
-        case boringSSLErrorCode(UInt32)
+        case boringSSLErrorCode(UInt32, String, UInt32)
         case synthetic(String)
     }
 
@@ -25,12 +25,13 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
 
     private var errorMessage: String? {
         switch self.backing {
-        case .boringSSLErrorCode(let errorCode):
+        case .boringSSLErrorCode(let errorCode, let filename, let line):
             // TODO(cory): This should become non-optional in the future, as it always succeeds.
             var scratchBuffer = [CChar](repeating: 0, count: 512)
             return scratchBuffer.withUnsafeMutableBufferPointer { pointer in
                 CNIOBoringSSL_ERR_error_string_n(errorCode, pointer.baseAddress!, pointer.count)
-                return String(cString: pointer.baseAddress!)
+                let errorString = String(cString: pointer.baseAddress!)
+                return "\(errorString) at \(filename):\(line)"
             }
         case .synthetic(let description):
             return description
@@ -39,7 +40,7 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
 
     private var errorCode: String {
         switch self.backing {
-        case .boringSSLErrorCode(let code):
+        case .boringSSLErrorCode(let code, _, _):
             return String(code, radix: 10)
         case .synthetic:
             return ""
@@ -50,8 +51,8 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
         return "Error: \(errorCode) \(errorMessage ?? "")"
     }
 
-    init(errorCode: UInt32) {
-        self.backing = .boringSSLErrorCode(errorCode)
+    init(errorCode: UInt32, filename: String, line: UInt32) {
+        self.backing = .boringSSLErrorCode(errorCode, filename, line)
     }
 
     private init(syntheticErrorDescription description: String) {
@@ -148,9 +149,12 @@ internal extension BoringSSLError {
         var errorStack = NIOBoringSSLErrorStack()
         
         while true {
-            let errorCode = CNIOBoringSSL_ERR_get_error()
+            var file: UnsafePointer<CChar>? = nil
+            var line: Int32 = 0
+            let errorCode = CNIOBoringSSL_ERR_get_error_line(&file, &line)
             if errorCode == 0 { break }
-            errorStack.append(BoringSSLInternalError(errorCode: errorCode))
+            let fileAsString = String(cString: file!)
+            errorStack.append(BoringSSLInternalError(errorCode: errorCode, filename: fileAsString, line: UInt32(line)))
         }
         
         return errorStack

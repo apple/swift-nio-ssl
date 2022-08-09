@@ -2026,7 +2026,11 @@ class NIOSSLIntegrationTest: XCTestCase {
         buffer.writeStaticString("GET / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n")
 
         XCTAssertThrowsError(try clientChannel.writeInbound(buffer)) { error in
-            XCTAssertEqual(String(describing: error), "sslError([Error: 268435703 error:100000f7:SSL routines:OPENSSL_internal:WRONG_VERSION_NUMBER])")
+            let errorString = String(describing: error)
+
+            let range = NSRange(location: 0, length: errorString.utf16.count)
+            let regex = try! NSRegularExpression(pattern: "sslError\\(\\[Error\\: 268435703 error\\:100000f7\\:SSL routines\\:OPENSSL_internal\\:WRONG_VERSION_NUMBER at .*\\/[A-Za-z_]+\\.cc\\:[0-9]+\\]\\)")
+            XCTAssertNotNil(regex.firstMatch(in: errorString, options: [], range: range))
         }
         (clientChannel.eventLoop as! EmbeddedEventLoop).run()
         XCTAssertTrue(clientClosed)
