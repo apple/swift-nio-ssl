@@ -17,7 +17,7 @@
 /// Wraps a single error from BoringSSL.
 public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
     private enum Backing: Hashable {
-        case boringSSLErrorCode(UInt32, String, UInt32)
+        case boringSSLErrorInfo(UInt32, String, UInt32)
         case synthetic(String)
     }
 
@@ -25,7 +25,7 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
 
     private var errorMessage: String? {
         switch self.backing {
-        case .boringSSLErrorCode(let errorCode, let filepath, let line):
+        case .boringSSLErrorInfo(let errorCode, let filepath, let line):
             // TODO(cory): This should become non-optional in the future, as it always succeeds.
             var scratchBuffer = [CChar](repeating: 0, count: 512)
             return scratchBuffer.withUnsafeMutableBufferPointer { pointer in
@@ -40,7 +40,7 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
 
     private var errorCode: String {
         switch self.backing {
-        case .boringSSLErrorCode(let code, _, _):
+        case .boringSSLErrorInfo(let code, _, _):
             return String(code, radix: 10)
         case .synthetic:
             return ""
@@ -52,7 +52,7 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
     }
 
     init(errorCode: UInt32, filename: String, line: UInt32) {
-        self.backing = .boringSSLErrorCode(errorCode, filename, line)
+        self.backing = .boringSSLErrorInfo(errorCode, filename, line)
     }
 
     private init(syntheticErrorDescription description: String) {
