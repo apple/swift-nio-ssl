@@ -69,7 +69,7 @@ for language in swift-or-c bash dtrace python; do
   matching_files=( -name '*' )
   case "$language" in
       swift-or-c)
-        exceptions=( -path '*Sources/CNIOBoringSSL/*' -o -name 'Package.swift')
+        exceptions=( -path '*Sources/CNIOBoringSSL/*' -o -name 'Package.swift' -o -name 'Package@swift*.swift')
         matching_files=( -name '*.swift' -o -name '*.c' -o -name '*.h' )
         cat > "$tmp" <<"EOF"
 //===----------------------------------------------------------------------===//
