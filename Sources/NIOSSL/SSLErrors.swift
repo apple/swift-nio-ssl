@@ -25,13 +25,13 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
 
     private var errorMessage: String? {
         switch self.backing {
-        case .boringSSLErrorCode(let errorCode, let filename, let line):
+        case .boringSSLErrorCode(let errorCode, let filepath, let line):
             // TODO(cory): This should become non-optional in the future, as it always succeeds.
             var scratchBuffer = [CChar](repeating: 0, count: 512)
             return scratchBuffer.withUnsafeMutableBufferPointer { pointer in
                 CNIOBoringSSL_ERR_error_string_n(errorCode, pointer.baseAddress!, pointer.count)
                 let errorString = String(cString: pointer.baseAddress!)
-                return "\(errorString) at \(filename):\(line)"
+                return "\(errorString) at \(filepath):\(line)"
             }
         case .synthetic(let description):
             return description
