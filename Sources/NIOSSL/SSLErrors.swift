@@ -150,7 +150,7 @@ internal extension BoringSSLError {
         
         while true {
             var file: UnsafePointer<CChar>? = nil
-            var line: Int32 = 0
+            var line: CInt = 0
             let errorCode = CNIOBoringSSL_ERR_get_error_line(&file, &line)
             if errorCode == 0 { break }
             let fileAsString = String(cString: file!)
