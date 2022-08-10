@@ -101,6 +101,22 @@ public typealias NIOSSLCustomVerificationCallback = ([NIOSSLCertificate], EventL
 public typealias _NIOAdditionalPeerCertificateVerificationCallback = (NIOSSLCertificate, Channel) -> EventLoopFuture<Void>
 
 
+#if swift(>=5.6)
+/// A callback that can be used to implement `SSLKEYLOGFILE` support.
+///
+/// Wireshark can decrypt packet captures that contain encrypted TLS connections if they have access to the
+/// session keys used to perform the encryption. These keys are normally stored in a file that has a specific
+/// file format. This callback is the low-level primitive that can be used to write such a file.
+///
+/// When set, this callback will be invoked once per secret. The provided `ByteBuffer` will contain the bytes
+/// that need to be written into the file, including the newline character.
+///
+/// - warning: Please be aware that enabling support for `SSLKEYLOGFILE` through this callback will put the secrecy of
+///     your connections at risk. You should only do so when you are confident that it will not be possible to
+///     extract those secrets unnecessarily.
+///
+@preconcurrency public typealias NIOSSLKeyLogCallback = @Sendable (ByteBuffer) -> Void
+#else
 /// A callback that can be used to implement `SSLKEYLOGFILE` support.
 ///
 /// Wireshark can decrypt packet captures that contain encrypted TLS connections if they have access to the
@@ -115,6 +131,7 @@ public typealias _NIOAdditionalPeerCertificateVerificationCallback = (NIOSSLCert
 ///     extract those secrets unnecessarily.
 ///
 public typealias NIOSSLKeyLogCallback = (ByteBuffer) -> Void
+#endif
 
 
 /// An object that provides helpers for working with a NIOSSLKeyLogCallback
@@ -171,18 +188,35 @@ public struct PSKClientIdentityResponse: NIOSendable {
     }
 }
 
+#if swift(>=5.6)
+/// The callback used for providing a PSK on the client side.
+///
+/// The callback is invoked on the event loop with the PSK hint. This callback must complete synchronously: it cannot return a future.
+/// Additionally, as it is invoked on the NIO event loop, it is not possible for this to perform any I/O. As a result, lookups must be quick.
+@preconcurrency public typealias NIOPSKClientIdentityCallback = @Sendable (String) throws -> PSKClientIdentityResponse
+#else
 /// The callback used for providing a PSK on the client side.
 ///
 /// The callback is invoked on the event loop with the PSK hint. This callback must complete synchronously: it cannot return a future.
 /// Additionally, as it is invoked on the NIO event loop, it is not possible for this to perform any I/O. As a result, lookups must be quick.
 public typealias NIOPSKClientIdentityCallback = (String) throws -> PSKClientIdentityResponse
+#endif
 
+#if swift(>=5.6)
+/// The callback used for providing a PSK on the server side.
+///
+/// The callback is invoked on the event loop with the PSK hint provided by the server, and the PSK identity provided by the client.
+/// This callback must complete synchronously: it cannot return a future. Additionally, as it is invoked on the NIO event loop, it is
+/// not possible for this to perform any I/O. As a result, lookups must be quick.
+@preconcurrency public typealias NIOPSKServerIdentityCallback = @Sendable (String, String) throws -> PSKServerIdentityResponse
+#else
 /// The callback used for providing a PSK on the server side.
 ///
 /// The callback is invoked on the event loop with the PSK hint provided by the server, and the PSK identity provided by the client.
 /// This callback must complete synchronously: it cannot return a future. Additionally, as it is invoked on the NIO event loop, it is
 /// not possible for this to perform any I/O. As a result, lookups must be quick.
 public typealias NIOPSKServerIdentityCallback = (String, String) throws -> PSKServerIdentityResponse
+#endif
 
 /// A struct that provides helpers for working with a NIOSSLCustomVerificationCallback.
 internal struct CustomVerifyManager {
