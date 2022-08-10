@@ -470,6 +470,11 @@ public final class NIOSSLContext {
     }
 }
 
+#if swift(>=5.5) && canImport(_Concurrency)
+// NIOSSLContext is thread-safe and therefore Sendable
+extension NIOSSLContext: @unchecked Sendable {}
+#endif
+
 
 extension NIOSSLContext {
     private static func useCertificateChainFile(_ path: String, context: OpaquePointer) {
