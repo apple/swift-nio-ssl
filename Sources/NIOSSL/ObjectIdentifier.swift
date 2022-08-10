@@ -15,7 +15,7 @@
 @_implementationOnly import CNIOBoringSSL
 @_implementationOnly import CNIOBoringSSLShims
 
-/// Object Identifier (OID)
+/// A representation of an ASN.1 Object Identifier (OID)
 public struct NIOSSLObjectIdentifier {
     private enum Storage {
         final class Deallocator {
@@ -61,6 +61,7 @@ public struct NIOSSLObjectIdentifier {
     private let storage: Storage
     
     /// Creates a Object Identifier (OID) from its textual dotted representation (e.g. `1.2.3`)
+    ///
     /// - Parameter string: textual dotted representation of an OID
     public init?(_ string: String) {
         let result = string.withCString { string in
@@ -77,6 +78,7 @@ public struct NIOSSLObjectIdentifier {
     }
     
     /// Creates an Object Identifier (OID) from an OpenSSL reference.
+    /// 
     /// - Note: initialising an ``NIOSSLObjectIdentifier`` takes ownership of the reference and will free it after the reference count drops to zero
     /// - Parameter reference: reference to a valid OpenSSL OID aka OBJ
     internal init(takingOwnershipOf reference: OpaquePointer!) {

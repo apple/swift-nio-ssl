@@ -15,7 +15,7 @@
 import NIOCore
 @_implementationOnly import CNIOBoringSSL
 
-/// `NIOSSLCustomPrivateKey` defines the interface of a custom, non-BoringSSL private key.
+/// ``NIOSSLCustomPrivateKey`` defines the interface of a custom, non-BoringSSL private key.
 ///
 /// In a number of circumstances it is advantageous to store a TLS private key in some form of high-security storage,
 /// such as a smart card. In these cases it is not possible to represent the TLS private key directly as a sequence
@@ -23,11 +23,12 @@ import NIOCore
 ///
 /// This protocol allows a type to implement callbacks that perform the specific operation required by the TLS handshake.
 /// Implementers are required to specify what signature algorithms they support, and then must implement **only one** of
-/// the `sign`/`decrypt` functions. For elliptic curve keys, implementers should implement `sign`. For RSA keys,
-/// implementers should implement `sign` and, if supporting RSA key exchange in TLS versions before 1.3, you should
-/// also implement `decrypt`.
+/// the ``NIOSSLCustomPrivateKey/sign(channel:algorithm:data:)`` and ``NIOSSLCustomPrivateKey/decrypt(channel:data:)``
+/// functions. For elliptic curve keys, implementers should implement ``NIOSSLCustomPrivateKey/sign(channel:algorithm:data:)``.
+/// For RSA keys, implementers should implement ``NIOSSLCustomPrivateKey/sign(channel:algorithm:data:)`` and, if supporting
+/// RSA key exchange in TLS versions before 1.3, you should also implement ``NIOSSLCustomPrivateKey/decrypt(channel:data:)``.
 ///
-/// If the same `NIOSSLCustomPrivateKey` implementation is used by multiple channels at once, then no synchronization
+/// If the same ``NIOSSLCustomPrivateKey`` implementation is used by multiple channels at once, then no synchronization
 /// is imposed by SwiftNIO. The calls to the protocol requirements will be made on event loop threads, so if further
 /// synchronization is required it is up to the implementer to provide it. Note that it is unacceptable to block in
 /// these functions, and so potentially blocking operations must delegate to another thread.
@@ -45,7 +46,7 @@ public protocol NIOSSLCustomPrivateKey {
     ///
     /// - parameters:
     ///     - channel: The `Channel` representing the connection for which we are performing the signing operation.
-    ///     - algorithm: The `SignatureAlgorithm` that should be used to generate the signature.
+    ///     - algorithm: The ``SignatureAlgorithm`` that should be used to generate the signature.
     ///     - data: The data to be signed.
     /// - returns: An `EventLoopFuture` that will be fulfilled with a `ByteBuffer` containing the signature bytes, if
     ///     the signing operation completes, or that will be failed with a relevant `Error` if the signature could not

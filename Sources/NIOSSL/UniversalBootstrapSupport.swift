@@ -54,6 +54,15 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
     }
     
     /// Construct the TLS provider with the necessary configuration.
+    ///
+    /// - parameters:
+    ///     - context: The ``NIOSSLContext`` to use with the connection.
+    ///     - serverHostname: The hostname of the server we're trying to connect to, if known. This will be used in the SNI extension,
+    ///         and used to validate the server certificate.
+    ///     - customVerificationCallback: A callback to use that will override NIOSSL's normal verification logic.
+    ///
+    ///         If set, this callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed them. The callback will not be used if the
+    ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
     public init(
         context: NIOSSLContext,
         serverHostname: String?,

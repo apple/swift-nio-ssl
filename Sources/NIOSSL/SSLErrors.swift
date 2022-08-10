@@ -13,9 +13,10 @@
 //===----------------------------------------------------------------------===//
 
 @_implementationOnly import CNIOBoringSSL
+import NIOCore
 
 /// Wraps a single error from BoringSSL.
-public struct BoringSSLInternalError: Equatable, CustomStringConvertible {
+public struct BoringSSLInternalError: Equatable, CustomStringConvertible, NIOSendable {
     private enum Backing: Hashable {
         case boringSSLErrorInfo(UInt32, String, UInt)
         case synthetic(String)
@@ -178,7 +179,7 @@ public enum NIOTLSUnwrappingError: Error {
 }
 
 
-/// This structure contains errors added to NIOSSL after the original `NIOSSLError` enum was
+/// This structure contains errors added to NIOSSL after the original ``NIOSSLError`` enum was
 /// shipped. This is an extensible error object that allows us to evolve it going forward.
 public struct NIOSSLExtraError: Error {
     private var baseError: NIOSSLExtraError.BaseError
@@ -214,7 +215,7 @@ extension NIOSSLExtraError {
 
     /// The SNI hostname requirements have not been met.
     ///
-    /// - note: Should the provided SNI hostname be an IP address instead, `.cannotUseIPAddressInSNI` is thrown instead
+    /// - note: Should the provided SNI hostname be an IP address instead, ``cannotUseIPAddressInSNI`` is thrown instead
     ///         of this error.
     ///
     /// Reasons a hostname might not meet the requirements:

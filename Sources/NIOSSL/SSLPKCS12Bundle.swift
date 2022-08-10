@@ -15,21 +15,21 @@
 @_implementationOnly import CNIOBoringSSL
 
 
-/// A container of a single PKCS#12 bundle.
+/// A container for a single PKCS#12 bundle.
 ///
 /// PKCS#12 is a specification that defines an archive format for storing multiple
 /// cryptographic objects together in one file. Its most common usage, and the one
 /// that SwiftNIO is most interested in, is its use to bundle one or more X.509
-/// certificates (`NIOSSLCertificate`) together with an associated private key
-/// (`NIOSSLPrivateKey`).
+/// certificates (``NIOSSLCertificate``) together with an associated private key
+/// (``NIOSSLPrivateKey``).
 ///
 /// ### Working with TLSConfiguration
 ///
-/// In many cases users will want to configure a `TLSConfiguration` with the data
+/// In many cases users will want to configure a ``TLSConfiguration`` with the data
 /// from a PKCS#12 bundle. This object assists in unpacking that bundle into its
 /// associated pieces.
 ///
-/// If you have a PKCS12 bundle, you configure a `TLSConfiguration` like this:
+/// If you have a PKCS12 bundle, you configure a ``TLSConfiguration`` like this:
 ///
 ///     let p12Bundle = NIOSSLPKCS12Bundle(file: pathToMyP12)
 ///     let config = TLSConfiguration.makeServerConfiguration(
@@ -37,9 +37,12 @@
 ///         privateKey: p12Bundle.privateKey
 ///     )
 ///
-/// The created `TLSConfiguration` can then be safely used for your endpoint.
+/// The created ``TLSConfiguration`` can then be safely used for your endpoint.
 public struct NIOSSLPKCS12Bundle: Hashable {
+    /// The chain of ``NIOSSLCertificate`` objects in the PKCS#12 bundle.
     public let certificateChain: [NIOSSLCertificate]
+
+    /// The ``NIOSSLPrivateKey`` object for the leaf certificate in the PKCS#12 bundle.
     public let privateKey: NIOSSLPrivateKey
 
     private init<Bytes: Collection>(ref: OpaquePointer, passphrase: Bytes?) throws where Bytes.Element == UInt8 {
@@ -77,7 +80,7 @@ public struct NIOSSLPKCS12Bundle: Hashable {
 
     }
 
-    /// Create a `NIOSSLPKCS12Bundle` from the given bytes in memory,
+    /// Create a ``NIOSSLPKCS12Bundle`` from the given bytes in memory,
     /// optionally decrypting the bundle with the given passphrase.
     ///
     /// - parameters:
@@ -104,7 +107,7 @@ public struct NIOSSLPKCS12Bundle: Hashable {
         }
     }
 
-    /// Create a `NIOSSLPKCS12Bundle` from the given bytes on disk,
+    /// Create a ``NIOSSLPKCS12Bundle`` from the given bytes on disk,
     /// optionally decrypting the bundle with the given passphrase.
     ///
     /// - parameters:
@@ -130,10 +133,10 @@ public struct NIOSSLPKCS12Bundle: Hashable {
         }
     }
 
-    /// Create a `NIOSSLPKCS12Bundle` from the given bytes on disk,
+    /// Create a ``NIOSSLPKCS12Bundle`` from the given bytes on disk,
     /// assuming it has no passphrase.
     ///
-    /// If the bundle does have a passphrase, call `init(file:passphrase:)` instead.
+    /// If the bundle does have a passphrase, call ``init(file:passphrase:)`` instead.
     ///
     /// - parameters:
     ///     - file: The path to the PKCS#12 bundle on disk.
@@ -141,10 +144,10 @@ public struct NIOSSLPKCS12Bundle: Hashable {
         try self.init(file: file, passphrase: Optional<[UInt8]>.none)
     }
 
-    /// Create a `NIOSSLPKCS12Bundle` from the given bytes in memory,
+    /// Create a ``NIOSSLPKCS12Bundle`` from the given bytes in memory,
     /// assuming it has no passphrase.
     ///
-    /// If the bundle does have a passphrase, call `init(buffer:passphrase:)` instead.
+    /// If the bundle does have a passphrase, call ``init(buffer:passphrase:)`` instead.
     ///
     /// - parameters:
     ///     - buffer: The bytes of the PKCS#12 bundle.

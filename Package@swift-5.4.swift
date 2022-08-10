@@ -1,4 +1,4 @@
-// swift-tools-version:5.6
+// swift-tools-version:5.4
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the SwiftNIO open source project
@@ -36,8 +36,7 @@ import class Foundation.ProcessInfo
 func generateDependencies() -> [Package.Dependency] {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         return [
-            .package(url: "https://github.com/apple/swift-nio.git", from: "2.34.0"),
-            .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
+            .package(url: "https://github.com/apple/swift-nio.git", from: "2.32.0"),
         ]
     } else {
         return [
