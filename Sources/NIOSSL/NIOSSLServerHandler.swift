@@ -80,3 +80,8 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
         super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout, additionalPeerCertificateVerificationCallback: optionalAdditionalPeerCertificateVerificationCallback)
     }
 }
+
+#if swift(>=5.6)
+@available(*, unavailable)
+extension NIOSSLServerHandler: Sendable {}
+#endif

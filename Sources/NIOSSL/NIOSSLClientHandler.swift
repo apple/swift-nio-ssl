@@ -142,3 +142,8 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
         super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout, additionalPeerCertificateVerificationCallback: optionalAdditionalPeerCertificateVerificationCallback)
     }
 }
+
+#if swift(>=5.6)
+@available(*, unavailable)
+extension NIOSSLClientHandler: Sendable {}
+#endif

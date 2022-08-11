@@ -39,7 +39,7 @@ import struct Glibc.time_t
 /// This class also provides several convenience constructors that allow users
 /// to obtain an in-memory representation of a TLS certificate from a buffer of
 /// bytes or from a file path.
-public class NIOSSLCertificate {
+public final class NIOSSLCertificate {
     @usableFromInline
     internal let _ref: OpaquePointer/*<X509>*/
 
@@ -234,6 +234,12 @@ public class NIOSSLCertificate {
         CNIOBoringSSL_X509_free(ref)
     }
 }
+
+#if swift(>=5.5) && canImport(_Concurrency)
+// NIOSSLCertificate is publicly immutable and we do not internally mutate it after initialisation.
+// It is therefore Sendable.
+extension NIOSSLCertificate: @unchecked Sendable {}
+#endif
 
 // MARK:- Utility Functions
 // We don't really want to get too far down the road of providing helpers for things like certificates
