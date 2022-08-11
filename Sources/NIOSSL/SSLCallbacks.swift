@@ -101,6 +101,22 @@ public typealias NIOSSLCustomVerificationCallback = ([NIOSSLCertificate], EventL
 public typealias _NIOAdditionalPeerCertificateVerificationCallback = (NIOSSLCertificate, Channel) -> EventLoopFuture<Void>
 
 
+#if swift(>=5.6)
+/// A callback that can be used to implement `SSLKEYLOGFILE` support.
+///
+/// Wireshark can decrypt packet captures that contain encrypted TLS connections if they have access to the
+/// session keys used to perform the encryption. These keys are normally stored in a file that has a specific
+/// file format. This callback is the low-level primitive that can be used to write such a file.
+///
+/// When set, this callback will be invoked once per secret. The provided `ByteBuffer` will contain the bytes
+/// that need to be written into the file, including the newline character.
+///
+/// - warning: Please be aware that enabling support for `SSLKEYLOGFILE` through this callback will put the secrecy of
+///     your connections at risk. You should only do so when you are confident that it will not be possible to
+///     extract those secrets unnecessarily.
+///
+public typealias NIOSSLKeyLogCallback = @Sendable (ByteBuffer) -> Void
+#else
 /// A callback that can be used to implement `SSLKEYLOGFILE` support.
 ///
 /// Wireshark can decrypt packet captures that contain encrypted TLS connections if they have access to the
@@ -115,6 +131,7 @@ public typealias _NIOAdditionalPeerCertificateVerificationCallback = (NIOSSLCert
 ///     extract those secrets unnecessarily.
 ///
 public typealias NIOSSLKeyLogCallback = (ByteBuffer) -> Void
+#endif
 
 
 /// An object that provides helpers for working with a NIOSSLKeyLogCallback

@@ -325,9 +325,14 @@ public struct TLSConfiguration {
     /// The amount of time to wait after initiating a shutdown before performing an unclean
     /// shutdown. Defaults to 5 seconds.
     public var shutdownTimeout: TimeAmount
-
+    
+    #if swift(>=5.6)
+    /// A callback that can be used to implement `SSLKEYLOGFILE` support.
+    @preconcurrency public var keyLogCallback: NIOSSLKeyLogCallback?
+    #else
     /// A callback that can be used to implement `SSLKEYLOGFILE` support.
     public var keyLogCallback: NIOSSLKeyLogCallback?
+    #endif
 
     /// Whether renegotiation is supported.
     public var renegotiationSupport: NIORenegotiationSupport
