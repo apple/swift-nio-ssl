@@ -188,7 +188,7 @@ public struct PSKClientIdentityResponse: NIOSendable {
     }
 }
 
-#if swift(>=5.6)
+#if swift(>=5.7)
 /// The callback used for providing a PSK on the client side.
 ///
 /// The callback is invoked on the event loop with the PSK hint. This callback must complete synchronously: it cannot return a future.
@@ -202,7 +202,7 @@ public typealias NIOPSKClientIdentityCallback = @Sendable (String) throws -> PSK
 public typealias NIOPSKClientIdentityCallback = (String) throws -> PSKClientIdentityResponse
 #endif
 
-#if swift(>=5.6)
+#if swift(>=5.7)
 /// The callback used for providing a PSK on the server side.
 ///
 /// The callback is invoked on the event loop with the PSK hint provided by the server, and the PSK identity provided by the client.

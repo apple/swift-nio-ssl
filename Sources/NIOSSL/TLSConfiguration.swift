@@ -288,21 +288,11 @@ public struct TLSConfiguration {
     /// The private key associated with the leaf certificate.
     public var privateKey: NIOSSLPrivateKeySource?
     
-    #if swift(>=5.6)
-    /// PSK Client Callback to get the key based on hint and identity.
-    @preconcurrency public var pskClientCallback: NIOPSKClientIdentityCallback? = nil
-    #else
     /// PSK Client Callback to get the key based on hint and identity.
     public var pskClientCallback: NIOPSKClientIdentityCallback? = nil
-    #endif
     
-    #if swift(>=5.6)
-    /// PSK Server Callback to get the key based on hint and identity.
-    @preconcurrency public var pskServerCallback: NIOPSKServerIdentityCallback? = nil
-    #else
     /// PSK Server Callback to get the key based on hint and identity.
     public var pskServerCallback: NIOPSKServerIdentityCallback? = nil
-    #endif
     
     /// Optional PSK hint to be used during SSLContext create.
     public var pskHint: String? = nil
@@ -326,13 +316,8 @@ public struct TLSConfiguration {
     /// shutdown. Defaults to 5 seconds.
     public var shutdownTimeout: TimeAmount
     
-    #if swift(>=5.6)
-    /// A callback that can be used to implement `SSLKEYLOGFILE` support.
-    @preconcurrency public var keyLogCallback: NIOSSLKeyLogCallback?
-    #else
     /// A callback that can be used to implement `SSLKEYLOGFILE` support.
     public var keyLogCallback: NIOSSLKeyLogCallback?
-    #endif
 
     /// Whether renegotiation is supported.
     public var renegotiationSupport: NIORenegotiationSupport
