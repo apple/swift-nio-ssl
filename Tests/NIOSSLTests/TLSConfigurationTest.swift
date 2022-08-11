@@ -19,6 +19,11 @@ import NIOPosix
 import NIOEmbedded
 @testable import NIOSSL
 import NIOTLS
+#if swift(>=5.8)
+@preconcurrency import Dispatch
+#else
+import Dispatch
+#endif
 
 class ErrorCatcher<T: Error>: ChannelInboundHandler {
     public typealias InboundIn = Any
@@ -754,17 +759,15 @@ class TLSConfigurationTest: XCTestCase {
         let semaphore = DispatchSemaphore(value: 0)
         let group = DispatchGroup()
         let completionsQueue = DispatchQueue(label: "completionsQueue")
-        var completions: [Bool] = []
+        let completions: UnsafeMutableTransferBox<[Bool]> = .init([])
 
-        func keylogCallback(_ ign: ByteBuffer) {
+        let keylogManager = KeyLogCallbackManager { _ in
             completionsQueue.sync {
-                completions.append(true)
+                completions.wrappedValue.append(true)
                 semaphore.wait()
             }
             group.leave()
         }
-
-        let keylogManager = KeyLogCallbackManager(callback: keylogCallback(_:))
 
         // Now we call log twice, from different threads. These will not complete right away so we
         // do those on background threads. They should not both complete.
@@ -785,7 +788,7 @@ class TLSConfigurationTest: XCTestCase {
         semaphore.signal()
         semaphore.signal()
         group.wait()
-        XCTAssertEqual([true, true], completionsQueue.sync { completions })
+        XCTAssertEqual([true, true], completionsQueue.sync { completions.wrappedValue })
     }
     
     func testTheSameHashValue() {
@@ -1063,14 +1066,14 @@ class TLSConfigurationTest: XCTestCase {
 
         let first = TLSConfiguration.makeClientConfiguration()
         
-        func pskClientCallback(hint: String) -> PSKClientIdentityResponse {
+        let pskClientCallback: NIOPSKClientIdentityCallback = { (hint: String) -> PSKClientIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper  PSK.
             var psk = NIOSSLSecureBytes()
             psk.append("hello".utf8)
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
         
-        func pskServerCallback(hint: String, identity: String) -> PSKServerIdentityResponse {
+        let pskServerCallback: NIOPSKServerIdentityCallback = { (hint: String, identity: String) -> PSKServerIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper  PSK.
             var psk = NIOSSLSecureBytes()
             psk.append("hello".utf8)
@@ -1151,14 +1154,14 @@ class TLSConfigurationTest: XCTestCase {
     func testTLSPSKWithTLS13() throws {
         // The idea here is that adding PSKs with certificates in TLS 1.3 should NOT cause a failure.
         // Also note that the usage here of PSKs with TLS 1.3 is not supported by BoringSSL at this point.
-        func pskClientCallback(hint: String) -> PSKClientIdentityResponse {
+        let pskClientCallback: NIOPSKClientIdentityCallback = { (hint: String) -> PSKClientIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper  PSK.
             var psk = NIOSSLSecureBytes()
             psk.append("hello".utf8)
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
         
-        func pskServerCallback(hint: String, identity: String) -> PSKServerIdentityResponse {
+        let pskServerCallback: NIOPSKServerIdentityCallback = { (hint: String, identity: String) -> PSKServerIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper  PSK.
             var psk = NIOSSLSecureBytes()
             psk.append("hello".utf8)
@@ -1187,14 +1190,14 @@ class TLSConfigurationTest: XCTestCase {
     
     func testTLSPSKWithTLS12() throws {
         // This test ensures that PSK-TLS is supported for TLS 1.2.
-        func pskClientCallback(hint: String) -> PSKClientIdentityResponse {
+        let pskClientCallback: NIOPSKClientIdentityCallback = { (hint: String) -> PSKClientIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper  PSK.
             var psk = NIOSSLSecureBytes()
             psk.append("hello".utf8)
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
         
-        func pskServerCallback(hint: String, identity: String) throws -> PSKServerIdentityResponse {
+        let pskServerCallback: NIOPSKServerIdentityCallback = { (hint: String, identity: String) -> PSKServerIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             var psk = NIOSSLSecureBytes()
             psk.append("hello".utf8)
@@ -1218,14 +1221,14 @@ class TLSConfigurationTest: XCTestCase {
     
     func testTLSPSKWithPinnedCiphers() throws {
         // This test ensures that PSK-TLS is supported with pinned ciphers.
-        func pskClientCallback(hint: String) -> PSKClientIdentityResponse {
+        let pskClientCallback: NIOPSKClientIdentityCallback = { (hint: String) -> PSKClientIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper  PSK.
             var psk = NIOSSLSecureBytes()
             psk.append("hello".utf8)
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
         
-        func pskServerCallback(hint: String, identity: String) -> PSKServerIdentityResponse {
+        let pskServerCallback: NIOPSKServerIdentityCallback = { (hint: String, identity: String) -> PSKServerIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             var psk = NIOSSLSecureBytes()
             psk.append("hello".utf8)
@@ -1257,14 +1260,14 @@ class TLSConfigurationTest: XCTestCase {
     
     func testTLSPSKFailure() throws {
         // This test ensures that different PSKs used on the client and server fail when passed in.
-        func pskClientCallback(hint: String) -> PSKClientIdentityResponse {
+        let pskClientCallback: NIOPSKClientIdentityCallback = { (hint: String) -> PSKClientIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper  PSK.
             var psk = NIOSSLSecureBytes()
             psk.append("hello".utf8)
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
         
-        func pskServerCallback(hint: String, identity: String) -> PSKServerIdentityResponse {
+        let pskServerCallback: NIOPSKServerIdentityCallback = { (hint: String, identity: String) -> PSKServerIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper  PSK.
             var psk = NIOSSLSecureBytes()
             psk.append("server".utf8) // Failure

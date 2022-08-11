@@ -290,8 +290,14 @@ internal func serverTLSChannel(context: NIOSSLContext,
         }.bind(host: "127.0.0.1", port: 0).wait(), file: file, line: line)
 }
 
+#if swift(>=5.7)
+typealias SendableAdditionalPeerCertificateVerificationCallback = @Sendable (NIOSSLCertificate, Channel) -> EventLoopFuture<Void>
+#else
+typealias SendableAdditionalPeerCertificateVerificationCallback = (NIOSSLCertificate, Channel) -> EventLoopFuture<Void>
+#endif
+
 internal func clientTLSChannel(context: NIOSSLContext,
-                               additionalPeerCertificateVerificationCallback: _NIOAdditionalPeerCertificateVerificationCallback? = nil,
+                               additionalPeerCertificateVerificationCallback: SendableAdditionalPeerCertificateVerificationCallback? = nil,
                                preHandlers: [ChannelHandler],
                                postHandlers: [ChannelHandler],
                                group: EventLoopGroup,
@@ -2164,11 +2170,11 @@ class NIOSSLIntegrationTest: XCTestCase {
     }
 
     func testKeyLoggingClientAndServer() throws {
-        var clientLines: [ByteBuffer] = []
-        var serverLines: [ByteBuffer] = []
+        let clientLines: UnsafeMutableTransferBox<[ByteBuffer]> = .init([])
+        let serverLines: UnsafeMutableTransferBox<[ByteBuffer]> = .init([])
 
-        let clientContext = try assertNoThrowWithValue(self.configuredSSLContext(keyLogCallback: { clientLines.append($0) }))
-        let serverContext = try assertNoThrowWithValue(self.configuredSSLContext(keyLogCallback: { serverLines.append($0) }))
+        let clientContext = try assertNoThrowWithValue(self.configuredSSLContext(keyLogCallback: { clientLines.wrappedValue.append($0) }))
+        let serverContext = try assertNoThrowWithValue(self.configuredSSLContext(keyLogCallback: { serverLines.wrappedValue.append($0) }))
 
         let serverChannel = EmbeddedChannel()
         let clientChannel = EmbeddedChannel()
@@ -2193,17 +2199,17 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertTrue(handshakeHandler.handshakeSucceeded)
 
         // In our code this should do TLS 1.3, so we expect 5 lines each.
-        XCTAssertEqual(clientLines.count, 5)
-        XCTAssertEqual(serverLines.count, 5)
+        XCTAssertEqual(clientLines.wrappedValue.count, 5)
+        XCTAssertEqual(serverLines.wrappedValue.count, 5)
 
         // Each in the same order.
-        XCTAssertEqual(clientLines, serverLines)
+        XCTAssertEqual(clientLines.wrappedValue, serverLines.wrappedValue)
 
         // Each line should be newline terminated.
-        for line in clientLines {
+        for line in clientLines.wrappedValue {
             XCTAssertTrue(line.readableBytesView.last! == UInt8(ascii: "\n"))
         }
-        for line in serverLines {
+        for line in serverLines.wrappedValue {
             XCTAssertTrue(line.readableBytesView.last! == UInt8(ascii: "\n"))
         }
 

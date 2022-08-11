@@ -290,7 +290,7 @@ public struct TLSConfiguration {
     
     /// PSK Client Callback to get the key based on hint and identity.
     public var pskClientCallback: NIOPSKClientIdentityCallback? = nil
-
+    
     /// PSK Server Callback to get the key based on hint and identity.
     public var pskServerCallback: NIOPSKServerIdentityCallback? = nil
     
@@ -315,7 +315,7 @@ public struct TLSConfiguration {
     /// The amount of time to wait after initiating a shutdown before performing an unclean
     /// shutdown. Defaults to 5 seconds.
     public var shutdownTimeout: TimeAmount
-
+    
     /// A callback that can be used to implement `SSLKEYLOGFILE` support.
     public var keyLogCallback: NIOSSLKeyLogCallback?
 
