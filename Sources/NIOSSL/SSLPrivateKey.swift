@@ -111,7 +111,7 @@ func globalBoringSSLPassphraseCallback(buf: UnsafeMutablePointer<CChar>?,
 /// This class also provides several convenience constructors that allow users
 /// to obtain an in-memory representation of a key from a buffer of
 /// bytes or from a file path.
-public class NIOSSLPrivateKey {
+public final class NIOSSLPrivateKey {
     @usableFromInline
     internal enum Representation {
         case native(UnsafeMutableRawPointer /*<EVP_PKEY*/)
@@ -313,6 +313,12 @@ public class NIOSSLPrivateKey {
         }
     }
 }
+
+#if swift(>=5.6)
+// NIOSSLPrivateKey is publicly immutable and we do not internally mutate it after initialisation.
+// It is therefore Sendable.
+extension NIOSSLPrivateKey: @unchecked Sendable {}
+#endif
 
 
 // MARK:- Utilities

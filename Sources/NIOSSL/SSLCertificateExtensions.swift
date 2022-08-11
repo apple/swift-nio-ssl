@@ -97,6 +97,11 @@ extension NIOSSLCertificate {
     }
 }
 
+#if swift(>=5.5) && canImport(_Concurrency)
+// NIOSSLCertificate._Extensions is immutable and therefore Sendable
+extension NIOSSLCertificate._Extensions: @unchecked Sendable {}
+#endif
+
 extension NIOSSLCertificate {
     public var _extensions: NIOSSLCertificate._Extensions {
         NIOSSLCertificate._Extensions(borrowing: CNIOBoringSSL_X509_get0_extensions(self._ref), owner: self)
@@ -165,6 +170,11 @@ extension NIOSSLCertificate {
     }
 }
 
+#if swift(>=5.5) && canImport(_Concurrency)
+// NIOSSLCertificate._Extension is immutable and therefore Sendable
+extension NIOSSLCertificate._Extension: @unchecked Sendable {}
+#endif
+
 extension NIOSSLCertificate._Extension {
     public struct Data {
         // only part of this type to keep a strong reference to the underlying storage of `buffer`
@@ -193,6 +203,11 @@ extension NIOSSLCertificate._Extension {
         }
     }
 }
+
+#if swift(>=5.5) && canImport(_Concurrency)
+// NIOSSLCertificate._Extension.Data is immutable and therefore Sendable
+extension NIOSSLCertificate._Extension.Data: @unchecked Sendable {}
+#endif
 
 extension NIOSSLCertificate._Extension.Data: RandomAccessCollection {
     @inlinable public var startIndex: Int { self.buffer.startIndex }

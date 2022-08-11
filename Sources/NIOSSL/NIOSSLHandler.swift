@@ -619,6 +619,11 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     }
 }
 
+#if swift(>=5.6)
+@available(*, unavailable)
+extension NIOSSLHandler: Sendable {}
+#endif
+
 extension NIOSSLHandler {
     /// Variable that can be queried during the connection lifecycle to grab the ``TLSVersion`` used on this connection.
     ///
