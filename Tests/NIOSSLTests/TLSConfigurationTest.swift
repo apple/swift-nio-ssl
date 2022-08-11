@@ -19,6 +19,11 @@ import NIOPosix
 import NIOEmbedded
 @testable import NIOSSL
 import NIOTLS
+#if swift(>=5.8)
+@preconcurrency import Dispatch
+#else
+import Dispatch
+#endif
 
 class ErrorCatcher<T: Error>: ChannelInboundHandler {
     public typealias InboundIn = Any
