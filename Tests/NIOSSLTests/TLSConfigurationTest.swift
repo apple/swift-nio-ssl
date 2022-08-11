@@ -754,17 +754,15 @@ class TLSConfigurationTest: XCTestCase {
         let semaphore = DispatchSemaphore(value: 0)
         let group = DispatchGroup()
         let completionsQueue = DispatchQueue(label: "completionsQueue")
-        var completions: [Bool] = []
+        let completions: UnsafeMutableTransferBox<[Bool]> = .init([])
 
-        func keylogCallback(_ ign: ByteBuffer) {
+        let keylogManager = KeyLogCallbackManager { _ in
             completionsQueue.sync {
-                completions.append(true)
+                completions.wrappedValue.append(true)
                 semaphore.wait()
             }
             group.leave()
         }
-
-        let keylogManager = KeyLogCallbackManager(callback: keylogCallback(_:))
 
         // Now we call log twice, from different threads. These will not complete right away so we
         // do those on background threads. They should not both complete.
@@ -785,7 +783,7 @@ class TLSConfigurationTest: XCTestCase {
         semaphore.signal()
         semaphore.signal()
         group.wait()
-        XCTAssertEqual([true, true], completionsQueue.sync { completions })
+        XCTAssertEqual([true, true], completionsQueue.sync { completions.wrappedValue })
     }
     
     func testTheSameHashValue() {
