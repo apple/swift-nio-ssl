@@ -370,6 +370,10 @@ public struct TLSConfiguration {
     }
 }
 
+#if swift(>=5.7)
+extension TLSConfiguration: Sendable {}
+#endif
+
 // MARK: BestEffortHashable
 extension TLSConfiguration {
     /// Returns a best effort result of whether two ``TLSConfiguration`` objects are equal.
