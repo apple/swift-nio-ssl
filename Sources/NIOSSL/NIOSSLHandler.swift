@@ -16,6 +16,12 @@ import NIOCore
 @_implementationOnly import CNIOBoringSSL
 import NIOTLS
 
+/// The default maximum write size. We cannot pass writes larger than this size to
+/// BoringSSL.
+///
+/// We have this default here instead of hardcoded into the software for testing purposes.
+internal let defaultMaxWriteSize = Int(CInt.max)
+
 /// The base class for all NIOSSL handlers.
 ///
 /// This class cannot actually be instantiated by users directly: instead, users must select
@@ -52,12 +58,13 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private var storedContext: ChannelHandlerContext? = nil
     private var shutdownTimeout: TimeAmount
     private let additionalPeerCertificateVerificationCallback: _NIOAdditionalPeerCertificateVerificationCallback?
+    private let maxWriteSize: Int
 
     internal var channel: Channel? {
         return self.storedContext?.channel
     }
     
-    internal init(connection: SSLConnection, shutdownTimeout: TimeAmount, additionalPeerCertificateVerificationCallback: _NIOAdditionalPeerCertificateVerificationCallback?) {
+    internal init(connection: SSLConnection, shutdownTimeout: TimeAmount, additionalPeerCertificateVerificationCallback: _NIOAdditionalPeerCertificateVerificationCallback?, maxWriteSize: Int) {
         let configuration = connection.parentContext.configuration
         precondition(
             additionalPeerCertificateVerificationCallback == nil ||
@@ -68,6 +75,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         self.bufferedWrites = MarkedCircularBuffer(initialCapacity: 96)  // 96 brings the total size of the buffer to just shy of one page
         self.shutdownTimeout = shutdownTimeout
         self.additionalPeerCertificateVerificationCallback = additionalPeerCertificateVerificationCallback
+        self.maxWriteSize = maxWriteSize
     }
 
     public func handlerAdded(context: ChannelHandlerContext) {
@@ -725,8 +733,7 @@ extension NIOSSLHandler {
         //
         // During the short writes we set the promise to `nil` to make sure they only arrive at the end.
         // Note that we make sure that there's always a single write, at the end, that holds the promise.
-        let maxWriteSize = Int(CInt.max)
-        while data.readableBytes > maxWriteSize, let slice = data.readSlice(length: maxWriteSize) {
+        while data.readableBytes > self.maxWriteSize, let slice = data.readSlice(length: self.maxWriteSize) {
             bufferedWrites.append((data: slice, promise: nil))
         }
 

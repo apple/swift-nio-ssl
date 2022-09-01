@@ -2415,12 +2415,11 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertEqual(newBuffer, originalBuffer)
     }
 
-    func testGiantWrite() throws {
-        // This test validates that we can write more than 2^31 bytes in one go. This is a regression test
-        // for an existing bug.
-        // We only run this test on 64-bit systems where we can safely allocate enough memory.
-        try XCTSkipIf(MemoryLayout<Int>.size <= 4)
-        let targetSize = Int(CInt.max) + 1
+    func testWriteSplitting() throws {
+        // This test validates that we chunk writes larger than a certain value. This is an attempt
+        // to regression test part of our defense against large writes, without requiring that the value end up being giant.
+        let maxWriteSize = 1024
+        let targetSize = (maxWriteSize * 4) + 1
         let write = ByteBuffer(repeating: 0, count: targetSize)
 
         let b2b = BackToBackEmbeddedChannel()
@@ -2438,7 +2437,13 @@ class NIOSSLIntegrationTest: XCTestCase {
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
         XCTAssertNoThrow(
             try b2b.client.pipeline.syncOperations.addHandler(
-                try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost")
+                try NIOSSLClientHandler(
+                    context: clientContext,
+                    serverHostname: "localhost",
+                    optionalCustomVerificationCallback: nil,
+                    optionalAdditionalPeerCertificateVerificationCallback: nil,
+                    maxWriteSize: maxWriteSize
+                )
             )
         )
         XCTAssertNoThrow(
@@ -2452,6 +2457,14 @@ class NIOSSLIntegrationTest: XCTestCase {
         let promise = b2b.loop.makePromise(of: Void.self)
         promise.futureResult.whenComplete { _ in completed = true }
 
+        let recordObserver = TLS13RecordObserver()
+        XCTAssertNoThrow(
+            try b2b.client.pipeline.syncOperations.addHandler(
+                recordObserver,
+                position: .first
+            )
+        )
+
         b2b.client.writeAndFlush(write, promise: promise)
         try b2b.interactInMemory()
 
@@ -2462,6 +2475,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         let totalReadBytes = reads.reduce(into: 0, { $0 += $1.readableBytes })
         XCTAssertEqual(totalReadBytes, targetSize)
         XCTAssertTrue(completed)
+        XCTAssertEqual(recordObserver.writtenRecords.filter { $0.contentType == .applicationData }.count, 5)
 
         b2b.client.close(promise: nil)
         try b2b.interactInMemory()

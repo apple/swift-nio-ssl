@@ -86,7 +86,7 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
             connection.setVerificationCallback(verificationCallback)
         }
 
-        super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout, additionalPeerCertificateVerificationCallback: nil)
+        super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout, additionalPeerCertificateVerificationCallback: nil, maxWriteSize: defaultMaxWriteSize)
     }
 
     /// Construct a new ``NIOSSLClientHandler`` with the given `context` and a specific `serverHostname`.
@@ -117,7 +117,8 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
         context: NIOSSLContext,
         serverHostname: String?,
         optionalCustomVerificationCallback: NIOSSLCustomVerificationCallback?,
-        optionalAdditionalPeerCertificateVerificationCallback: _NIOAdditionalPeerCertificateVerificationCallback?
+        optionalAdditionalPeerCertificateVerificationCallback: _NIOAdditionalPeerCertificateVerificationCallback?,
+        maxWriteSize: Int = defaultMaxWriteSize
     ) throws {
         guard let connection = context.createConnection() else {
             fatalError("Failed to create new connection in NIOSSLContext")
@@ -139,7 +140,12 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
             connection.setCustomVerificationCallback(CustomVerifyManager(callback: verificationCallback))
         }
 
-        super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout, additionalPeerCertificateVerificationCallback: optionalAdditionalPeerCertificateVerificationCallback)
+        super.init(
+            connection: connection,
+            shutdownTimeout: context.configuration.shutdownTimeout,
+            additionalPeerCertificateVerificationCallback: optionalAdditionalPeerCertificateVerificationCallback,
+            maxWriteSize: maxWriteSize
+        )
     }
 }
 

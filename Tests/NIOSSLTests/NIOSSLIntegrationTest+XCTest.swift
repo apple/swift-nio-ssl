@@ -69,7 +69,7 @@ extension NIOSSLIntegrationTest {
                 ("testWriteFromFailureOfWrite", testWriteFromFailureOfWrite),
                 ("testChannelInactiveDuringHandshakeSucceeded", testChannelInactiveDuringHandshakeSucceeded),
                 ("testTrustedFirst", testTrustedFirst),
-                ("testGiantWrite", testGiantWrite),
+                ("testWriteSplitting", testWriteSplitting),
            ]
    }
 }
