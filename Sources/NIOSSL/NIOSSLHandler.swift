@@ -16,12 +16,6 @@ import NIOCore
 @_implementationOnly import CNIOBoringSSL
 import NIOTLS
 
-/// The default maximum write size. We cannot pass writes larger than this size to
-/// BoringSSL.
-///
-/// We have this default here instead of hardcoded into the software for testing purposes.
-internal let defaultMaxWriteSize = Int(CInt.max)
-
 /// The base class for all NIOSSL handlers.
 ///
 /// This class cannot actually be instantiated by users directly: instead, users must select
@@ -32,6 +26,12 @@ internal let defaultMaxWriteSize = Int(CInt.max)
 /// For this reason almost the entirety of the implementation for the channel and server
 /// handlers in NIOSSL is shared, in the form of this parent class.
 public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, RemovableChannelHandler {
+    /// The default maximum write size. We cannot pass writes larger than this size to
+    /// BoringSSL.
+    ///
+    /// We have this default here instead of hardcoded into the software for testing purposes.
+    internal static let defaultMaxWriteSize = Int(CInt.max)
+
     public typealias OutboundIn = ByteBuffer
     public typealias OutboundOut = ByteBuffer
     public typealias InboundIn = ByteBuffer

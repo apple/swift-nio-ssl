@@ -86,7 +86,7 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
             connection.setVerificationCallback(verificationCallback)
         }
 
-        super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout, additionalPeerCertificateVerificationCallback: nil, maxWriteSize: defaultMaxWriteSize)
+        super.init(connection: connection, shutdownTimeout: context.configuration.shutdownTimeout, additionalPeerCertificateVerificationCallback: nil, maxWriteSize: NIOSSLHandler.defaultMaxWriteSize)
     }
 
     /// Construct a new ``NIOSSLClientHandler`` with the given `context` and a specific `serverHostname`.
