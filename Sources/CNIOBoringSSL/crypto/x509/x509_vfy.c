@@ -457,17 +457,6 @@ int X509_verify_cert(X509_STORE_CTX *ctx) {
     goto end;
   }
 
-  int err = X509_chain_check_suiteb(&ctx->error_depth, NULL, ctx->chain,
-                                    ctx->param->flags);
-  if (err != X509_V_OK) {
-    ctx->error = err;
-    ctx->current_cert = sk_X509_value(ctx->chain, ctx->error_depth);
-    ok = ctx->verify_cb(0, ctx);
-    if (!ok) {
-      goto end;
-    }
-  }
-
   // At this point, we have a chain and need to verify it
   if (ctx->verify != NULL) {
     ok = ctx->verify(ctx);
@@ -689,7 +678,7 @@ end:
 }
 
 static int reject_dns_name_in_common_name(X509 *x509) {
-  X509_NAME *name = X509_get_subject_name(x509);
+  const X509_NAME *name = X509_get_subject_name(x509);
   int i = -1;
   for (;;) {
     i = X509_NAME_get_index_by_NID(name, NID_commonName, i);
@@ -697,8 +686,8 @@ static int reject_dns_name_in_common_name(X509 *x509) {
       return X509_V_OK;
     }
 
-    X509_NAME_ENTRY *entry = X509_NAME_get_entry(name, i);
-    ASN1_STRING *common_name = X509_NAME_ENTRY_get_data(entry);
+    const X509_NAME_ENTRY *entry = X509_NAME_get_entry(name, i);
+    const ASN1_STRING *common_name = X509_NAME_ENTRY_get_data(entry);
     unsigned char *idval;
     int idlen = ASN1_STRING_to_UTF8(&idval, common_name);
     if (idlen < 0) {
@@ -982,18 +971,21 @@ err:
 // Check CRL times against values in X509_STORE_CTX
 
 static int check_crl_time(X509_STORE_CTX *ctx, X509_CRL *crl, int notify) {
-  time_t *ptime;
-  int i;
+  if (ctx->param->flags & X509_V_FLAG_NO_CHECK_TIME) {
+    return 1;
+  }
+
   if (notify) {
     ctx->current_crl = crl;
   }
+  time_t *ptime;
   if (ctx->param->flags & X509_V_FLAG_USE_CHECK_TIME) {
     ptime = &ctx->param->check_time;
   } else {
     ptime = NULL;
   }
 
-  i = X509_cmp_time(X509_CRL_get0_lastUpdate(crl), ptime);
+  int i = X509_cmp_time(X509_CRL_get0_lastUpdate(crl), ptime);
   if (i == 0) {
     if (!notify) {
       return 0;
@@ -1108,7 +1100,7 @@ static int get_crl_sk(X509_STORE_CTX *ctx, X509_CRL **pcrl, X509_CRL **pdcrl,
 // both present or both absent. If both present all fields must be identical.
 
 static int crl_extension_match(X509_CRL *a, X509_CRL *b, int nid) {
-  ASN1_OCTET_STRING *exta, *extb;
+  const ASN1_OCTET_STRING *exta, *extb;
   int i;
   i = X509_CRL_get_ext_by_NID(a, nid, -1);
   if (i >= 0) {
@@ -1646,15 +1638,6 @@ static int check_crl(X509_STORE_CTX *ctx, X509_CRL *crl) {
         goto err;
       }
     } else {
-      int rv;
-      rv = X509_CRL_check_suiteb(crl, ikey, ctx->param->flags);
-      if (rv != X509_V_OK) {
-        ctx->error = rv;
-        ok = ctx->verify_cb(0, ctx);
-        if (!ok) {
-          goto err;
-        }
-      }
       // Verify CRL signature
       if (X509_CRL_verify(crl, ikey) <= 0) {
         ctx->error = X509_V_ERR_CRL_SIGNATURE_FAILURE;
@@ -1710,6 +1693,9 @@ static int check_policy(X509_STORE_CTX *ctx) {
   if (ctx->parent) {
     return 1;
   }
+  // TODO(davidben): Historically, outputs of the |X509_policy_check| were saved
+  // on |ctx| and accessible via the public API. This has since been removed, so
+  // remove the fields from |X509_STORE_CTX|.
   ret = X509_policy_check(&ctx->tree, &ctx->explicit_policy, ctx->chain,
                           ctx->param->policies, ctx->param->flags);
   if (ret == 0) {
@@ -1756,16 +1742,18 @@ static int check_policy(X509_STORE_CTX *ctx) {
 }
 
 static int check_cert_time(X509_STORE_CTX *ctx, X509 *x) {
-  time_t *ptime;
-  int i;
+  if (ctx->param->flags & X509_V_FLAG_NO_CHECK_TIME) {
+    return 1;
+  }
 
+  time_t *ptime;
   if (ctx->param->flags & X509_V_FLAG_USE_CHECK_TIME) {
     ptime = &ctx->param->check_time;
   } else {
     ptime = NULL;
   }
 
-  i = X509_cmp_time(X509_get_notBefore(x), ptime);
+  int i = X509_cmp_time(X509_get_notBefore(x), ptime);
   if (i == 0) {
     ctx->error = X509_V_ERR_ERROR_IN_CERT_NOT_BEFORE_FIELD;
     ctx->current_cert = x;
@@ -1889,66 +1877,13 @@ int X509_cmp_current_time(const ASN1_TIME *ctm) {
 }
 
 int X509_cmp_time(const ASN1_TIME *ctm, time_t *cmp_time) {
-  static const size_t utctime_length = sizeof("YYMMDDHHMMSSZ") - 1;
-  static const size_t generalizedtime_length = sizeof("YYYYMMDDHHMMSSZ") - 1;
-  ASN1_TIME *asn1_cmp_time = NULL;
-  int i, day, sec, ret = 0;
-
-  // Note that ASN.1 allows much more slack in the time format than RFC 5280.
-  // In RFC 5280, the representation is fixed:
-  // UTCTime: YYMMDDHHMMSSZ
-  // GeneralizedTime: YYYYMMDDHHMMSSZ
-  //
-  // We do NOT currently enforce the following RFC 5280 requirement:
-  // "CAs conforming to this profile MUST always encode certificate
-  //  validity dates through the year 2049 as UTCTime; certificate validity
-  //  dates in 2050 or later MUST be encoded as GeneralizedTime."
-  switch (ctm->type) {
-    case V_ASN1_UTCTIME:
-      if (ctm->length != (int)(utctime_length)) {
-        return 0;
-      }
-      break;
-    case V_ASN1_GENERALIZEDTIME:
-      if (ctm->length != (int)(generalizedtime_length)) {
-        return 0;
-      }
-      break;
-    default:
-      return 0;
-  }
-
-  //*
-  // Verify the format: the ASN.1 functions we use below allow a more
-  // flexible format than what's mandated by RFC 5280.
-  // Digit and date ranges will be verified in the conversion methods.
-  for (i = 0; i < ctm->length - 1; i++) {
-    if (!isdigit(ctm->data[i])) {
-      return 0;
-    }
-  }
-  if (ctm->data[ctm->length - 1] != 'Z') {
+  int64_t ctm_time;
+  if (!ASN1_TIME_to_posix(ctm, &ctm_time)) {
     return 0;
   }
-
-  // There is ASN1_UTCTIME_cmp_time_t but no
-  // ASN1_GENERALIZEDTIME_cmp_time_t or ASN1_TIME_cmp_time_t,
-  // so we go through ASN.1
-  asn1_cmp_time = X509_time_adj(NULL, 0, cmp_time);
-  if (asn1_cmp_time == NULL) {
-    goto err;
-  }
-  if (!ASN1_TIME_diff(&day, &sec, ctm, asn1_cmp_time)) {
-    goto err;
-  }
-
-  // X509_cmp_time comparison is <=.
+  int64_t compare_time = (cmp_time == NULL) ? time(NULL) : *cmp_time;
   // The return value 0 is reserved for errors.
-  ret = (day >= 0 && sec >= 0) ? -1 : 1;
-
-err:
-  ASN1_TIME_free(asn1_cmp_time);
-  return ret;
+  return (ctm_time - compare_time <= 0) ? -1 : 1;
 }
 
 ASN1_TIME *X509_gmtime_adj(ASN1_TIME *s, long offset_sec) {
@@ -2042,8 +1977,7 @@ X509_CRL *X509_CRL_diff(X509_CRL *base, X509_CRL *newer, EVP_PKEY *skey,
   // number to correct value too.
 
   for (i = 0; i < X509_CRL_get_ext_count(newer); i++) {
-    X509_EXTENSION *ext;
-    ext = X509_CRL_get_ext(newer, i);
+    const X509_EXTENSION *ext = X509_CRL_get_ext(newer, i);
     if (!X509_CRL_add_ext(crl, ext, -1)) {
       goto memerr;
     }
@@ -2356,9 +2290,14 @@ err:
 // Set alternative lookup method: just a STACK of trusted certificates. This
 // avoids X509_STORE nastiness where it isn't needed.
 
-void X509_STORE_CTX_trusted_stack(X509_STORE_CTX *ctx, STACK_OF(X509) *sk) {
+void X509_STORE_CTX_set0_trusted_stack(X509_STORE_CTX *ctx,
+                                       STACK_OF(X509) *sk) {
   ctx->other_ctx = sk;
   ctx->get_issuer = get_issuer_sk;
+}
+
+void X509_STORE_CTX_trusted_stack(X509_STORE_CTX *ctx, STACK_OF(X509) *sk) {
+  X509_STORE_CTX_set0_trusted_stack(ctx, sk);
 }
 
 void X509_STORE_CTX_cleanup(X509_STORE_CTX *ctx) {
@@ -2404,14 +2343,6 @@ X509 *X509_STORE_CTX_get0_cert(X509_STORE_CTX *ctx) { return ctx->cert; }
 void X509_STORE_CTX_set_verify_cb(X509_STORE_CTX *ctx,
                                   int (*verify_cb)(int, X509_STORE_CTX *)) {
   ctx->verify_cb = verify_cb;
-}
-
-X509_POLICY_TREE *X509_STORE_CTX_get0_policy_tree(X509_STORE_CTX *ctx) {
-  return ctx->tree;
-}
-
-int X509_STORE_CTX_get_explicit_policy(X509_STORE_CTX *ctx) {
-  return ctx->explicit_policy;
 }
 
 int X509_STORE_CTX_set_default(X509_STORE_CTX *ctx, const char *name) {

@@ -105,7 +105,9 @@ int X509_REQ_print_ex(BIO *bio, X509_REQ *x, unsigned long nmflags,
   }
   if (!(cflag & X509_FLAG_NO_VERSION)) {
     l = X509_REQ_get_version(x);
-    assert(l == X509_REQ_VERSION_1);
+    // Only zero, |X509_REQ_VERSION_1|, is valid but our parser accepts some
+    // invalid values for compatibility.
+    assert(0 <= l && l <= 2);
     if (BIO_printf(bio, "%8sVersion: %ld (0x%lx)\n", "", l + 1,
                    (unsigned long)l) <= 0) {
       goto err;
@@ -206,13 +208,12 @@ int X509_REQ_print_ex(BIO *bio, X509_REQ *x, unsigned long nmflags,
     if (exts) {
       BIO_printf(bio, "%8sRequested Extensions:\n", "");
 
-      size_t i;
-      for (i = 0; i < sk_X509_EXTENSION_num(exts); i++) {
-        X509_EXTENSION *ex = sk_X509_EXTENSION_value(exts, i);
+      for (size_t i = 0; i < sk_X509_EXTENSION_num(exts); i++) {
+        const X509_EXTENSION *ex = sk_X509_EXTENSION_value(exts, i);
         if (BIO_printf(bio, "%12s", "") <= 0) {
           goto err;
         }
-        ASN1_OBJECT *obj = X509_EXTENSION_get_object(ex);
+        const ASN1_OBJECT *obj = X509_EXTENSION_get_object(ex);
         i2a_ASN1_OBJECT(bio, obj);
         const int is_critical = X509_EXTENSION_get_critical(ex);
         if (BIO_printf(bio, ": %s\n", is_critical ? "critical" : "") <= 0) {

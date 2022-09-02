@@ -20,6 +20,7 @@
 #include <CNIOBoringSSL_aead.h>
 #include <CNIOBoringSSL_aes.h>
 #include <CNIOBoringSSL_bn.h>
+#include <CNIOBoringSSL_ctrdrbg.h>
 #include <CNIOBoringSSL_dh.h>
 #include <CNIOBoringSSL_digest.h>
 #include <CNIOBoringSSL_ec.h>
