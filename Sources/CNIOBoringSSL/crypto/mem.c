@@ -72,8 +72,7 @@ OPENSSL_MSVC_PRAGMA(warning(pop))
 
 
 #define OPENSSL_MALLOC_PREFIX 8
-OPENSSL_STATIC_ASSERT(OPENSSL_MALLOC_PREFIX >= sizeof(size_t),
-                      "size_t too large");
+static_assert(OPENSSL_MALLOC_PREFIX >= sizeof(size_t), "size_t too large");
 
 #if defined(OPENSSL_ASAN)
 void __asan_poison_memory_region(const volatile void *addr, size_t size);
@@ -183,6 +182,7 @@ void OPENSSL_free(void *orig_ptr) {
 
 // ASan knows to intercept malloc and free, but not sdallocx.
 #if defined(OPENSSL_ASAN)
+  (void)sdallocx;
   free(ptr);
 #else
   if (sdallocx) {

@@ -26,6 +26,7 @@
 #include "CNIOBoringSSL_boringssl_prefix_symbols_asm.h"
 #include "CNIOBoringSSL_cast.h"
 #include "CNIOBoringSSL_chacha.h"
+#include "CNIOBoringSSL_ctrdrbg.h"
 #include "CNIOBoringSSL_cmac.h"
 #include "CNIOBoringSSL_conf.h"
 #include "CNIOBoringSSL_cpu.h"
@@ -62,6 +63,7 @@
 #include "CNIOBoringSSL_srtp.h"
 #include "CNIOBoringSSL_ssl.h"
 #include "CNIOBoringSSL_trust_token.h"
+#include "CNIOBoringSSL_type_check.h"
 #include "CNIOBoringSSL_x509_vfy.h"
 #include "CNIOBoringSSL_x509v3.h"
 

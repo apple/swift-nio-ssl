@@ -56,13 +56,13 @@
 
 #include <CNIOBoringSSL_asn1.h>
 
+#include <assert.h>
 #include <limits.h>
 #include <string.h>
 
 #include <CNIOBoringSSL_bytestring.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_mem.h>
-#include <CNIOBoringSSL_type_check.h>
 
 #include "../internal.h"
 
@@ -353,7 +353,7 @@ static long asn1_string_get_long(const ASN1_STRING *a, int type) {
     i64 = (int64_t)v;
     fits_in_i64 = i64 >= 0;
   }
-  OPENSSL_STATIC_ASSERT(sizeof(long) <= sizeof(int64_t), "long is too big");
+  static_assert(sizeof(long) <= sizeof(int64_t), "long is too big");
 
   if (fits_in_i64 && LONG_MIN <= i64 && i64 <= LONG_MAX) {
     return (long)i64;

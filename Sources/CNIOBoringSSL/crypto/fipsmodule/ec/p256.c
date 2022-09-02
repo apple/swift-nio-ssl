@@ -22,7 +22,6 @@
 #include <CNIOBoringSSL_ec.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_mem.h>
-#include <CNIOBoringSSL_type_check.h>
 
 #include <assert.h>
 #include <string.h>
