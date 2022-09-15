@@ -50,8 +50,15 @@ let client = ClientBootstrap(group: group)
         [...]
     }
 ```
-Note that SwiftNIO SSL currently requires Swift 5.4 and above. Release 2.13.x and prior support Swift 5.0 and 5.1, Release 2.18.x and prior supports Swift 5.2 and 5.3.
 
+The most recent versions of SwiftNIO SSL support Swift 5.5 and newer. The minimum Swift version supported by SwiftNIO SSL releases are detailed below:
+
+SwiftNIO SSL        | Minimum Swift Version
+--------------------|----------------------
+`2.0.0 ..< 2.14.0`  | 5.0
+`2.14.0 ..< 2.19.0` | 5.2
+`2.19.0 ..< 2.23.0` | 5.4
+`2.23.0 ...`        | 5.5
 
 ## Topics
 
