@@ -1625,7 +1625,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
 
         var completionPromiseFired: Bool = false
-        let completionPromiseFiredLock = Lock()
+        let completionPromiseFiredLock = NIOLock()
 
         let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
         completionPromise.futureResult.whenComplete { _ in
@@ -1689,7 +1689,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
 
         var completionPromiseFired: Bool = false
-        let completionPromiseFiredLock = Lock()
+        let completionPromiseFiredLock = NIOLock()
 
         let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
         completionPromise.futureResult.whenComplete { _ in
