@@ -1181,12 +1181,10 @@ struct DTLS_OUTGOING_MESSAGE {
   DTLS_OUTGOING_MESSAGE() {}
   DTLS_OUTGOING_MESSAGE(const DTLS_OUTGOING_MESSAGE &) = delete;
   DTLS_OUTGOING_MESSAGE &operator=(const DTLS_OUTGOING_MESSAGE &) = delete;
-  ~DTLS_OUTGOING_MESSAGE() { Clear(); }
 
   void Clear();
 
-  uint8_t *data = nullptr;
-  uint32_t len = 0;
+  Array<uint8_t> data;
   uint16_t epoch = 0;
   bool is_ccs = false;
 };
@@ -1837,8 +1835,14 @@ struct SSL_HANDSHAKE {
   // ClientHelloInner.
   uint8_t inner_client_random[SSL3_RANDOM_SIZE] = {0};
 
-  // cookie is the value of the cookie received from the server, if any.
+  // cookie is the value of the cookie in HelloRetryRequest, or empty if none
+  // was received.
   Array<uint8_t> cookie;
+
+  // dtls_cookie is the value of the cookie in DTLS HelloVerifyRequest. If
+  // empty, either none was received or HelloVerifyRequest contained an empty
+  // cookie.
+  Array<uint8_t> dtls_cookie;
 
   // ech_client_outer contains the outer ECH extension to send in the
   // ClientHello, excluding the header and type byte.
@@ -2854,8 +2858,6 @@ struct SSL3_STATE {
 };
 
 // lengths of messages
-#define DTLS1_COOKIE_LENGTH 256
-
 #define DTLS1_RT_HEADER_LENGTH 13
 
 #define DTLS1_HM_HEADER_LENGTH 12
@@ -2920,9 +2922,6 @@ struct DTLS1_STATE {
   // processed at least one message. This is used to detect whether we or the
   // peer sent the final flight.
   bool flight_has_reply : 1;
-
-  uint8_t cookie[DTLS1_COOKIE_LENGTH] = {0};
-  size_t cookie_len = 0;
 
   // The current data and handshake epoch.  This is initially undefined, and
   // starts at zero once the initial handshake is completed.
