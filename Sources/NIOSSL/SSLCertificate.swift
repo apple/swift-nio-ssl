@@ -235,11 +235,9 @@ public final class NIOSSLCertificate {
     }
 }
 
-#if swift(>=5.5) && canImport(_Concurrency)
 // NIOSSLCertificate is publicly immutable and we do not internally mutate it after initialisation.
 // It is therefore Sendable.
 extension NIOSSLCertificate: @unchecked Sendable {}
-#endif
 
 // MARK:- Utility Functions
 // We don't really want to get too far down the road of providing helpers for things like certificates

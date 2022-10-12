@@ -101,10 +101,8 @@ public struct NIOSSLObjectIdentifier {
     }
 }
 
-#if swift(>=5.5) && canImport(_Concurrency)
 // NIOSSLObjectIdentifier is immutable and therefore Sendable
 extension NIOSSLObjectIdentifier: @unchecked Sendable {}
-#endif
 
 extension NIOSSLObjectIdentifier: Equatable {
     public static func == (lhs: NIOSSLObjectIdentifier, rhs: NIOSSLObjectIdentifier) -> Bool {

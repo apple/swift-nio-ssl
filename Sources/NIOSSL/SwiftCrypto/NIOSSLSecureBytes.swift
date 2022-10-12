@@ -51,10 +51,8 @@ public struct NIOSSLSecureBytes {
     }
 }
 
-#if swift(>=5.5) && canImport(_Concurrency)
 // NIOSSLSecureBytes is a Copy on Write (CoW) type and therefore Sendable
 extension NIOSSLSecureBytes: @unchecked Sendable {}
-#endif
 
 extension NIOSSLSecureBytes {
     /// Append the contents of a collection of bytes to this ``NIOSSLSecureBytes``.
