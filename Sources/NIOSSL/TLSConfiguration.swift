@@ -16,7 +16,7 @@
 import NIOCore
 
 /// Known and supported TLS versions.
-public enum TLSVersion: NIOSendable {
+public enum TLSVersion: Sendable {
     case tlsv1
     case tlsv11
     case tlsv12
@@ -24,7 +24,7 @@ public enum TLSVersion: NIOSendable {
 }
 
 /// Places NIOSSL can obtain certificates from.
-public enum NIOSSLCertificateSource: Hashable, NIOSendable {
+public enum NIOSSLCertificateSource: Hashable, Sendable {
     @available(*, deprecated, message: "Use 'NIOSSLCertificate.fromPEMFile(_:)' to load the certificate(s) and use the '.certificate(NIOSSLCertificate)' case to provide them as a source")
     case file(String)
     case certificate(NIOSSLCertificate)
@@ -41,7 +41,7 @@ extension NIOSSLPrivateKeySource: Sendable {}
 #endif
 
 /// Places NIOSSL can obtain a trust store from.
-public enum NIOSSLTrustRoots: Hashable, NIOSendable {
+public enum NIOSSLTrustRoots: Hashable, Sendable {
     /// Path to either a file of CA certificates in PEM format, or a directory containing CA certificates in PEM format.
     ///
     /// If a path to a file is provided, the file can contain several CA certificates identified by
@@ -73,7 +73,7 @@ public enum NIOSSLTrustRoots: Hashable, NIOSendable {
 }
 
 /// Places NIOSSL can obtain additional trust roots from.
-public enum NIOSSLAdditionalTrustRoots: Hashable, NIOSendable {
+public enum NIOSSLAdditionalTrustRoots: Hashable, Sendable {
     /// See ``NIOSSLTrustRoots/file(_:)``
     case file(String)
 
@@ -82,7 +82,7 @@ public enum NIOSSLAdditionalTrustRoots: Hashable, NIOSendable {
 }
 
 /// Available ciphers to use for TLS instead of a string based representation.
-public struct NIOTLSCipher: RawRepresentable, Hashable, NIOSendable {
+public struct NIOTLSCipher: RawRepresentable, Hashable, Sendable {
     /// Construct a ``NIOTLSCipher`` from the RFC code point for that cipher.
     public init(rawValue: UInt16) {
         self.rawValue = rawValue
@@ -126,13 +126,13 @@ public struct NIOTLSCipher: RawRepresentable, Hashable, NIOSendable {
 }
 
 /// Formats NIOSSL supports for serializing keys and certificates.
-public enum NIOSSLSerializationFormats: NIOSendable {
+public enum NIOSSLSerializationFormats: Sendable {
     case pem
     case der
 }
 
 /// Certificate verification modes.
-public enum CertificateVerification: NIOSendable {
+public enum CertificateVerification: Sendable {
     /// All certificate verification disabled.
     case none
 
@@ -151,7 +151,7 @@ public enum CertificateVerification: NIOSendable {
 /// Renegotiation is only supported in TLS 1.2 and earlier, and generally does not work very well. NIOSSL will
 /// disallow most uses of renegotiation: the only supported use-case is to perform post-connection authentication
 /// *as a client*. There is no way to initiate a TLS renegotiation in NIOSSL.
-public enum NIORenegotiationSupport: NIOSendable {
+public enum NIORenegotiationSupport: Sendable {
     /// No support for TLS renegotiation. The default and recommended setting.
     case none
 
@@ -163,7 +163,7 @@ public enum NIORenegotiationSupport: NIOSendable {
 }
 
 /// Signature algorithms. The values are defined as in TLS 1.3
-public struct SignatureAlgorithm : RawRepresentable, Hashable, NIOSendable {
+public struct SignatureAlgorithm : RawRepresentable, Hashable, Sendable {
     
     public typealias RawValue = UInt16
     public var rawValue: UInt16
