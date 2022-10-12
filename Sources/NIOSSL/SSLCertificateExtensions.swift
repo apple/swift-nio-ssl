@@ -97,10 +97,8 @@ extension NIOSSLCertificate {
     }
 }
 
-#if swift(>=5.5) && canImport(_Concurrency)
 // NIOSSLCertificate._Extensions is immutable and therefore Sendable
 extension NIOSSLCertificate._Extensions: @unchecked Sendable {}
-#endif
 
 extension NIOSSLCertificate {
     public var _extensions: NIOSSLCertificate._Extensions {
@@ -170,10 +168,8 @@ extension NIOSSLCertificate {
     }
 }
 
-#if swift(>=5.5) && canImport(_Concurrency)
 // NIOSSLCertificate._Extension is immutable and therefore Sendable
 extension NIOSSLCertificate._Extension: @unchecked Sendable {}
-#endif
 
 extension NIOSSLCertificate._Extension {
     public struct Data {
@@ -204,10 +200,8 @@ extension NIOSSLCertificate._Extension {
     }
 }
 
-#if swift(>=5.5) && canImport(_Concurrency)
 // NIOSSLCertificate._Extension.Data is immutable and therefore Sendable
 extension NIOSSLCertificate._Extension.Data: @unchecked Sendable {}
-#endif
 
 extension NIOSSLCertificate._Extension.Data: RandomAccessCollection {
     @inlinable public var startIndex: Int { self.buffer.startIndex }

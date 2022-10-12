@@ -69,10 +69,8 @@ public struct _SubjectAlternativeNames {
     }
 }
 
-#if swift(>=5.5) && canImport(_Concurrency)
 // _SubjectAlternativeNames is immutable and therefore Sendable
 extension _SubjectAlternativeNames: @unchecked Sendable {}
-#endif
 
 extension _SubjectAlternativeNames: RandomAccessCollection {
     
@@ -132,13 +130,11 @@ public struct _SubjectAlternativeName {
     public var contents: Contents
 }
 
-#if swift(>=5.5) && canImport(_Concurrency)
 // _SubjectAlternativeName is immutable and therefore Sendable
 extension _SubjectAlternativeName: @unchecked Sendable {}
 
 // _SubjectAlternativeName.Contents is immutable and therefore Sendable
 extension _SubjectAlternativeName.Contents: @unchecked Sendable {}
-#endif
 
 extension _SubjectAlternativeName.Contents: RandomAccessCollection {
     
