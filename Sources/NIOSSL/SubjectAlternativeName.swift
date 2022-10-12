@@ -87,7 +87,7 @@ extension _SubjectAlternativeNames: RandomAccessCollection {
 
 public struct _SubjectAlternativeName {
     
-    public struct NameType: Hashable, NIOSendable {
+    public struct NameType: Hashable, Sendable {
         public var rawValue: Int
 
         public init(_ rawCode: Int) {

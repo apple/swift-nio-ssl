@@ -24,7 +24,7 @@ import Glibc
 #endif
 
 /// The result of an attempt to verify an X.509 certificate.
-public enum NIOSSLVerificationResult: NIOSendable {
+public enum NIOSSLVerificationResult: Sendable {
     /// The certificate was successfully verified.
     case certificateVerified
 
@@ -159,7 +159,7 @@ extension KeyLogCallbackManager {
 }
 
 /// PSK Server Identity response type used in the callback.
-public struct PSKServerIdentityResponse: NIOSendable {
+public struct PSKServerIdentityResponse: Sendable {
     /// The negotiated PSK.
     public var key: NIOSSLSecureBytes
 
@@ -171,7 +171,7 @@ public struct PSKServerIdentityResponse: NIOSendable {
     }
 }
 /// PSK Client Identity response type used in the callback.
-public struct PSKClientIdentityResponse: NIOSendable {
+public struct PSKClientIdentityResponse: Sendable {
     /// The negotiated PSK.
     public var key: NIOSSLSecureBytes
 

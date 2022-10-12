@@ -16,7 +16,7 @@
 import NIOCore
 
 /// Wraps a single error from BoringSSL.
-public struct BoringSSLInternalError: Equatable, CustomStringConvertible, NIOSendable {
+public struct BoringSSLInternalError: Equatable, CustomStringConvertible, Sendable {
     private enum Backing: Hashable {
         case boringSSLErrorInfo(UInt32, String, UInt)
         case synthetic(String)
