@@ -466,9 +466,11 @@
 %xdefine _CBB_add_asn1 _ %+ BORINGSSL_PREFIX %+ _CBB_add_asn1
 %xdefine _CBB_add_asn1_bool _ %+ BORINGSSL_PREFIX %+ _CBB_add_asn1_bool
 %xdefine _CBB_add_asn1_int64 _ %+ BORINGSSL_PREFIX %+ _CBB_add_asn1_int64
+%xdefine _CBB_add_asn1_int64_with_tag _ %+ BORINGSSL_PREFIX %+ _CBB_add_asn1_int64_with_tag
 %xdefine _CBB_add_asn1_octet_string _ %+ BORINGSSL_PREFIX %+ _CBB_add_asn1_octet_string
 %xdefine _CBB_add_asn1_oid_from_text _ %+ BORINGSSL_PREFIX %+ _CBB_add_asn1_oid_from_text
 %xdefine _CBB_add_asn1_uint64 _ %+ BORINGSSL_PREFIX %+ _CBB_add_asn1_uint64
+%xdefine _CBB_add_asn1_uint64_with_tag _ %+ BORINGSSL_PREFIX %+ _CBB_add_asn1_uint64_with_tag
 %xdefine _CBB_add_bytes _ %+ BORINGSSL_PREFIX %+ _CBB_add_bytes
 %xdefine _CBB_add_space _ %+ BORINGSSL_PREFIX %+ _CBB_add_space
 %xdefine _CBB_add_u16 _ %+ BORINGSSL_PREFIX %+ _CBB_add_u16
@@ -1025,6 +1027,8 @@
 %xdefine _EVP_HPKE_KDF_id _ %+ BORINGSSL_PREFIX %+ _EVP_HPKE_KDF_id
 %xdefine _EVP_HPKE_KEM_enc_len _ %+ BORINGSSL_PREFIX %+ _EVP_HPKE_KEM_enc_len
 %xdefine _EVP_HPKE_KEM_id _ %+ BORINGSSL_PREFIX %+ _EVP_HPKE_KEM_id
+%xdefine _EVP_HPKE_KEM_private_key_len _ %+ BORINGSSL_PREFIX %+ _EVP_HPKE_KEM_private_key_len
+%xdefine _EVP_HPKE_KEM_public_key_len _ %+ BORINGSSL_PREFIX %+ _EVP_HPKE_KEM_public_key_len
 %xdefine _EVP_HPKE_KEY_cleanup _ %+ BORINGSSL_PREFIX %+ _EVP_HPKE_KEY_cleanup
 %xdefine _EVP_HPKE_KEY_copy _ %+ BORINGSSL_PREFIX %+ _EVP_HPKE_KEY_copy
 %xdefine _EVP_HPKE_KEY_free _ %+ BORINGSSL_PREFIX %+ _EVP_HPKE_KEY_free
@@ -2228,7 +2232,6 @@
 %xdefine _USERNOTICE_free _ %+ BORINGSSL_PREFIX %+ _USERNOTICE_free
 %xdefine _USERNOTICE_it _ %+ BORINGSSL_PREFIX %+ _USERNOTICE_it
 %xdefine _USERNOTICE_new _ %+ BORINGSSL_PREFIX %+ _USERNOTICE_new
-%xdefine _UTF8_putc _ %+ BORINGSSL_PREFIX %+ _UTF8_putc
 %xdefine _X25519 _ %+ BORINGSSL_PREFIX %+ _X25519
 %xdefine _X25519_keypair _ %+ BORINGSSL_PREFIX %+ _X25519_keypair
 %xdefine _X25519_public_from_private _ %+ BORINGSSL_PREFIX %+ _X25519_public_from_private
@@ -3935,9 +3938,11 @@
 %xdefine CBB_add_asn1 BORINGSSL_PREFIX %+ _CBB_add_asn1
 %xdefine CBB_add_asn1_bool BORINGSSL_PREFIX %+ _CBB_add_asn1_bool
 %xdefine CBB_add_asn1_int64 BORINGSSL_PREFIX %+ _CBB_add_asn1_int64
+%xdefine CBB_add_asn1_int64_with_tag BORINGSSL_PREFIX %+ _CBB_add_asn1_int64_with_tag
 %xdefine CBB_add_asn1_octet_string BORINGSSL_PREFIX %+ _CBB_add_asn1_octet_string
 %xdefine CBB_add_asn1_oid_from_text BORINGSSL_PREFIX %+ _CBB_add_asn1_oid_from_text
 %xdefine CBB_add_asn1_uint64 BORINGSSL_PREFIX %+ _CBB_add_asn1_uint64
+%xdefine CBB_add_asn1_uint64_with_tag BORINGSSL_PREFIX %+ _CBB_add_asn1_uint64_with_tag
 %xdefine CBB_add_bytes BORINGSSL_PREFIX %+ _CBB_add_bytes
 %xdefine CBB_add_space BORINGSSL_PREFIX %+ _CBB_add_space
 %xdefine CBB_add_u16 BORINGSSL_PREFIX %+ _CBB_add_u16
@@ -4494,6 +4499,8 @@
 %xdefine EVP_HPKE_KDF_id BORINGSSL_PREFIX %+ _EVP_HPKE_KDF_id
 %xdefine EVP_HPKE_KEM_enc_len BORINGSSL_PREFIX %+ _EVP_HPKE_KEM_enc_len
 %xdefine EVP_HPKE_KEM_id BORINGSSL_PREFIX %+ _EVP_HPKE_KEM_id
+%xdefine EVP_HPKE_KEM_private_key_len BORINGSSL_PREFIX %+ _EVP_HPKE_KEM_private_key_len
+%xdefine EVP_HPKE_KEM_public_key_len BORINGSSL_PREFIX %+ _EVP_HPKE_KEM_public_key_len
 %xdefine EVP_HPKE_KEY_cleanup BORINGSSL_PREFIX %+ _EVP_HPKE_KEY_cleanup
 %xdefine EVP_HPKE_KEY_copy BORINGSSL_PREFIX %+ _EVP_HPKE_KEY_copy
 %xdefine EVP_HPKE_KEY_free BORINGSSL_PREFIX %+ _EVP_HPKE_KEY_free
@@ -5697,7 +5704,6 @@
 %xdefine USERNOTICE_free BORINGSSL_PREFIX %+ _USERNOTICE_free
 %xdefine USERNOTICE_it BORINGSSL_PREFIX %+ _USERNOTICE_it
 %xdefine USERNOTICE_new BORINGSSL_PREFIX %+ _USERNOTICE_new
-%xdefine UTF8_putc BORINGSSL_PREFIX %+ _UTF8_putc
 %xdefine X25519 BORINGSSL_PREFIX %+ _X25519
 %xdefine X25519_keypair BORINGSSL_PREFIX %+ _X25519_keypair
 %xdefine X25519_public_from_private BORINGSSL_PREFIX %+ _X25519_public_from_private
