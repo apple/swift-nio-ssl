@@ -687,7 +687,7 @@ SSL_CONFIG::SSL_CONFIG(SSL *ssl_arg)
       signed_cert_timestamps_enabled(false),
       ocsp_stapling_enabled(false),
       channel_id_enabled(false),
-      enforce_rsa_key_usage(false),
+      enforce_rsa_key_usage(true),
       retain_only_sha256_of_client_certs(false),
       handoff(false),
       shed_handshake_config(false),
@@ -2823,20 +2823,19 @@ int SSL_get_ivs(const SSL *ssl, const uint8_t **out_read_iv,
 }
 
 uint64_t SSL_get_read_sequence(const SSL *ssl) {
-  // TODO(davidben): Internally represent sequence numbers as uint64_t.
   if (SSL_is_dtls(ssl)) {
     // max_seq_num already includes the epoch.
     assert(ssl->d1->r_epoch == (ssl->d1->bitmap.max_seq_num >> 48));
     return ssl->d1->bitmap.max_seq_num;
   }
-  return CRYPTO_load_u64_be(ssl->s3->read_sequence);
+  return ssl->s3->read_sequence;
 }
 
 uint64_t SSL_get_write_sequence(const SSL *ssl) {
-  uint64_t ret = CRYPTO_load_u64_be(ssl->s3->write_sequence);
+  uint64_t ret = ssl->s3->write_sequence;
   if (SSL_is_dtls(ssl)) {
     assert((ret >> 48) == 0);
-    ret |= ((uint64_t)ssl->d1->w_epoch) << 48;
+    ret |= uint64_t{ssl->d1->w_epoch} << 48;
   }
   return ret;
 }

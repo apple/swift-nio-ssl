@@ -3931,13 +3931,14 @@ OPENSSL_EXPORT int SSL_get_ivs(const SSL *ssl, const uint8_t **out_read_iv,
                                const uint8_t **out_write_iv,
                                size_t *out_iv_len);
 
-// SSL_get_key_block_len returns the length of |ssl|'s key block. It is an error
-// to call this function during a handshake.
+// SSL_get_key_block_len returns the length of |ssl|'s key block, for TLS 1.2
+// and below. It is an error to call this function during a handshake, or if
+// |ssl| negotiated TLS 1.3.
 OPENSSL_EXPORT size_t SSL_get_key_block_len(const SSL *ssl);
 
 // SSL_generate_key_block generates |out_len| bytes of key material for |ssl|'s
-// current connection state. It is an error to call this function during a
-// handshake.
+// current connection state, for TLS 1.2 and below. It is an error to call this
+// function during a handshake, or if |ssl| negotiated TLS 1.3.
 OPENSSL_EXPORT int SSL_generate_key_block(const SSL *ssl, uint8_t *out,
                                           size_t out_len);
 
@@ -5352,62 +5353,6 @@ BORINGSSL_MAKE_DELETER(SSL_ECH_KEYS, SSL_ECH_KEYS_free)
 BORINGSSL_MAKE_UP_REF(SSL_ECH_KEYS, SSL_ECH_KEYS_up_ref)
 BORINGSSL_MAKE_DELETER(SSL_SESSION, SSL_SESSION_free)
 BORINGSSL_MAKE_UP_REF(SSL_SESSION, SSL_SESSION_up_ref)
-
-enum class OpenRecordResult {
-  kOK,
-  kDiscard,
-  kIncompleteRecord,
-  kAlertCloseNotify,
-  kError,
-};
-
-//  *** EXPERIMENTAL -- DO NOT USE ***
-//
-// OpenRecord decrypts the first complete SSL record from |in| in-place, sets
-// |out| to the decrypted application data, and |out_record_len| to the length
-// of the encrypted record. Returns:
-// - kOK if an application-data record was successfully decrypted and verified.
-// - kDiscard if a record was sucessfully processed, but should be discarded.
-// - kIncompleteRecord if |in| did not contain a complete record.
-// - kAlertCloseNotify if a record was successfully processed but is a
-//   close_notify alert.
-// - kError if an error occurred or the record is invalid. |*out_alert| will be
-//   set to an alert to emit, or zero if no alert should be emitted.
-OPENSSL_EXPORT OpenRecordResult OpenRecord(SSL *ssl, Span<uint8_t> *out,
-                                           size_t *out_record_len,
-                                           uint8_t *out_alert,
-                                           Span<uint8_t> in);
-
-OPENSSL_EXPORT size_t SealRecordPrefixLen(const SSL *ssl, size_t plaintext_len);
-
-// SealRecordSuffixLen returns the length of the suffix written by |SealRecord|.
-//
-// |plaintext_len| must be equal to the size of the plaintext passed to
-// |SealRecord|.
-//
-// |plaintext_len| must not exceed |SSL3_RT_MAX_PLAINTEXT_LENGTH|. The returned
-// suffix length will not exceed |SSL3_RT_MAX_ENCRYPTED_OVERHEAD|.
-OPENSSL_EXPORT size_t SealRecordSuffixLen(const SSL *ssl, size_t plaintext_len);
-
-//  *** EXPERIMENTAL -- DO NOT USE ***
-//
-// SealRecord encrypts the cleartext of |in| and scatters the resulting TLS
-// application data record between |out_prefix|, |out|, and |out_suffix|. It
-// returns true on success or false if an error occurred.
-//
-// The length of |out_prefix| must equal |SealRecordPrefixLen|. The length of
-// |out| must equal the length of |in|, which must not exceed
-// |SSL3_RT_MAX_PLAINTEXT_LENGTH|. The length of |out_suffix| must equal
-// |SealRecordSuffixLen|.
-//
-// If enabled, |SealRecord| may perform TLS 1.0 CBC 1/n-1 record splitting.
-// |SealRecordPrefixLen| accounts for the required overhead if that is the case.
-//
-// |out| may equal |in| to encrypt in-place but may not otherwise alias.
-// |out_prefix| and |out_suffix| may not alias anything.
-OPENSSL_EXPORT bool SealRecord(SSL *ssl, Span<uint8_t> out_prefix,
-                               Span<uint8_t> out, Span<uint8_t> out_suffix,
-                               Span<const uint8_t> in);
 
 
 // *** EXPERIMENTAL — DO NOT USE WITHOUT CHECKING ***
