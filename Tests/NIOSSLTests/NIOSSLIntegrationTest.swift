@@ -21,7 +21,7 @@ import NIOPosix
 @testable import NIOSSL
 import NIOTLS
 
-public func assertNoThrowWithValue<T>(_ body: @autoclosure () throws -> T, defaultValue: T? = nil, file: StaticString = #file, line: UInt = #line) throws -> T {
+public func assertNoThrowWithValue<T>(_ body: @autoclosure () throws -> T, defaultValue: T? = nil, file: StaticString = #filePath, line: UInt = #line) throws -> T {
     do {
         return try body()
     } catch {
@@ -253,7 +253,7 @@ private class WriteDelayHandler: ChannelOutboundHandler {
 internal func serverTLSChannel(context: NIOSSLContext,
                                handlers: [ChannelHandler],
                                group: EventLoopGroup,
-                               file: StaticString = #file,
+                               file: StaticString = #filePath,
                                line: UInt = #line) throws -> Channel {
     return try assertNoThrowWithValue(serverTLSChannel(context: context,
                                                        preHandlers: [],
@@ -269,7 +269,7 @@ internal func serverTLSChannel(context: NIOSSLContext,
                                postHandlers: [ChannelHandler],
                                group: EventLoopGroup,
                                customVerificationCallback: NIOSSLCustomVerificationCallback? = nil,
-                               file: StaticString = #file,
+                               file: StaticString = #filePath,
                                line: UInt = #line) throws -> Channel {
     return try assertNoThrowWithValue(ServerBootstrap(group: group)
         .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
@@ -303,7 +303,7 @@ internal func clientTLSChannel(context: NIOSSLContext,
                                group: EventLoopGroup,
                                connectingTo: SocketAddress,
                                serverHostname: String? = nil,
-                               file: StaticString = #file,
+                               file: StaticString = #filePath,
                                line: UInt = #line) throws -> Channel {
     func tlsFactory() -> NIOSSLClientTLSProvider<ClientBootstrap> {
         return try! .init(context: context, serverHostname: serverHostname, additionalPeerCertificateVerificationCallback: additionalPeerCertificateVerificationCallback)
@@ -348,7 +348,7 @@ internal func clientTLSChannel(context: NIOSSLContext,
                                connectingTo: SocketAddress,
                                serverHostname: String? = nil,
                                verificationCallback: @escaping NIOSSLVerificationCallback,
-                               file: StaticString = #file,
+                               file: StaticString = #filePath,
                                line: UInt = #line) throws -> Channel {
     func tlsFactory() -> DeprecatedTLSProviderForTests<ClientBootstrap> {
         return .init(context: context, serverHostname: serverHostname, verificationCallback: verificationCallback)
@@ -369,7 +369,7 @@ internal func clientTLSChannel(context: NIOSSLContext,
                                connectingTo: SocketAddress,
                                serverHostname: String? = nil,
                                customVerificationCallback: @escaping NIOSSLCustomVerificationCallback,
-                               file: StaticString = #file,
+                               file: StaticString = #filePath,
                                line: UInt = #line) throws -> Channel {
     func tlsFactory() -> NIOSSLClientTLSProvider<ClientBootstrap> {
         return try! .init(context: context,
@@ -391,7 +391,7 @@ fileprivate func _clientTLSChannel<TLS: NIOClientTLSProvider>(context: NIOSSLCon
                                                               group: EventLoopGroup,
                                                               connectingTo: SocketAddress,
                                                               tlsFactory: @escaping () -> TLS,
-                                                              file: StaticString = #file,
+                                                              file: StaticString = #filePath,
                                                               line: UInt = #line) throws -> Channel where TLS.Bootstrap == ClientBootstrap {
     let bootstrap = NIOClientTCPBootstrap(ClientBootstrap(group: group),
                                           tls: tlsFactory())
@@ -450,7 +450,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         _ = unlink(NIOSSLIntegrationTest.encryptedKeyPath)
     }
 
-    private func configuredSSLContext(keyLogCallback: NIOSSLKeyLogCallback? = nil, file: StaticString = #file, line: UInt = #line) throws -> NIOSSLContext {
+    private func configuredSSLContext(keyLogCallback: NIOSSLKeyLogCallback? = nil, file: StaticString = #filePath, line: UInt = #line) throws -> NIOSSLContext {
         var config = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
             privateKey: .privateKey(NIOSSLIntegrationTest.key)
@@ -461,7 +461,7 @@ class NIOSSLIntegrationTest: XCTestCase {
     }
 
     private func configuredSSLContext<T: Collection>(passphraseCallback: @escaping NIOSSLPassphraseCallback<T>,
-                                                     file: StaticString = #file, line: UInt = #line) throws -> NIOSSLContext
+                                                     file: StaticString = #filePath, line: UInt = #line) throws -> NIOSSLContext
                                                      where T.Element == UInt8 {
         var config = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
@@ -472,7 +472,7 @@ class NIOSSLIntegrationTest: XCTestCase {
     }
 
     private func configuredClientContext(
-        file: StaticString = #file,
+        file: StaticString = #filePath,
         line: UInt = #line
     ) throws -> NIOSSLContext {
         var config = TLSConfiguration.makeClientConfiguration()
