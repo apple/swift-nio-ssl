@@ -98,7 +98,7 @@ class TLSConfigurationTest: XCTestCase {
     func assertHandshakeError(withClientConfig clientConfig: TLSConfiguration,
                               andServerConfig serverConfig: TLSConfiguration,
                               errorTextContains message: String,
-                              file: StaticString = #file,
+                              file: StaticString = #filePath,
                               line: UInt = #line) throws {
         return try assertHandshakeError(withClientConfig: clientConfig,
                                         andServerConfig: serverConfig,
@@ -110,7 +110,7 @@ class TLSConfigurationTest: XCTestCase {
     func assertHandshakeError(withClientConfig clientConfig: TLSConfiguration,
                               andServerConfig serverConfig: TLSConfiguration,
                               errorTextContainsAnyOf messages: [String],
-                              file: StaticString = #file,
+                              file: StaticString = #filePath,
                               line: UInt = #line) throws {
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig), file: file, line: line)
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig), file: file, line: line)
@@ -145,7 +145,7 @@ class TLSConfigurationTest: XCTestCase {
     func assertPostHandshakeError(withClientConfig clientConfig: TLSConfiguration,
                                   andServerConfig serverConfig: TLSConfiguration,
                                   errorTextContainsAnyOf messages: [String],
-                                  file: StaticString = #file,
+                                  file: StaticString = #filePath,
                                   line: UInt = #line) throws {
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig), file: file, line: line)
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig), file: file, line: line)
@@ -184,7 +184,7 @@ class TLSConfigurationTest: XCTestCase {
     /// callback in use, otherwise it will not be thread-safe.
     func assertHandshakeSucceededInMemory(withClientConfig clientConfig: TLSConfiguration,
                                           andServerConfig serverConfig: TLSConfiguration,
-                                          file: StaticString = #file,
+                                          file: StaticString = #filePath,
                                           line: UInt = #line) throws {
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
@@ -216,7 +216,7 @@ class TLSConfigurationTest: XCTestCase {
     /// This function is thread-safe in the presence of custom verification callbacks.
     func assertHandshakeSucceededEventLoop(withClientConfig clientConfig: TLSConfiguration,
                                            andServerConfig serverConfig: TLSConfiguration,
-                                           file: StaticString = #file,
+                                           file: StaticString = #filePath,
                                            line: UInt = #line) throws {
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig), file: file, line: line)
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig), file: file, line: line)
@@ -247,7 +247,7 @@ class TLSConfigurationTest: XCTestCase {
 
     func assertHandshakeSucceeded(withClientConfig clientConfig: TLSConfiguration,
                                   andServerConfig serverConfig: TLSConfiguration,
-                                  file: StaticString = #file,
+                                  file: StaticString = #filePath,
                                   line: UInt = #line) throws {
         // The only use of a custom callback is on Darwin...
         #if os(Linux)

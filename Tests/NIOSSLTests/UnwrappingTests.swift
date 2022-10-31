@@ -26,7 +26,7 @@ func connectInMemory(client: EmbeddedChannel, server: EmbeddedChannel) throws {
 }
 
 extension ChannelPipeline {
-    func assertContains(handler: ChannelHandler, file: StaticString = #file, line: UInt = #line) {
+    func assertContains(handler: ChannelHandler, file: StaticString = #filePath, line: UInt = #line) {
         do {
             _ = try self.context(handler: handler).wait()
         } catch {
@@ -34,7 +34,7 @@ extension ChannelPipeline {
         }
     }
 
-    func assertDoesNotContain(handler: ChannelHandler, file: StaticString = #file, line: UInt = #line) {
+    func assertDoesNotContain(handler: ChannelHandler, file: StaticString = #filePath, line: UInt = #line) {
         do {
             _ = try self.context(handler: handler).wait()
             XCTFail("Handler \(handler) present in \(self)", file: (file), line: line)
@@ -61,7 +61,7 @@ final class UnwrappingTests: XCTestCase {
         _ = unlink(NIOSSLIntegrationTest.encryptedKeyPath)
     }
 
-    private func configuredSSLContext(file: StaticString = #file, line: UInt = #line) throws -> NIOSSLContext {
+    private func configuredSSLContext(file: StaticString = #filePath, line: UInt = #line) throws -> NIOSSLContext {
         var config = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
             privateKey: .privateKey(NIOSSLIntegrationTest.key)
