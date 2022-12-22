@@ -140,9 +140,6 @@ public enum CertificateVerification: Sendable {
     /// be checked to see if they are valid for the given hostname.
     case noHostnameVerification
 
-    /// Peer certificate is optional
-    case noHostnameNoPeerVerification
-
     /// Certificates will be validated against the trust store and checked
     /// against the hostname of the service we are contacting.
     case fullVerification
@@ -271,6 +268,7 @@ public struct TLSConfiguration {
 
     /// Whether to verify remote certificates.
     public var certificateVerification: CertificateVerification
+    public var certificateRequired: Bool = true
 
     /// The trust roots to use to validate certificates. This only needs to be provided if you intend to validate
     /// certificates.

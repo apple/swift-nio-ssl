@@ -401,7 +401,8 @@ class TLSConfigurationTest: XCTestCase {
             privateKey: .privateKey(TLSConfigurationTest.key1)
         )
         serverConfig.maximumTLSVersion = .tlsv12
-        serverConfig.certificateVerification = .noHostnameNoPeerVerification
+        serverConfig.certificateVerification = .noHostnameVerification
+        serverConfig.certificateRequired = false
         serverConfig.trustRoots = .certificates([TLSConfigurationTest.cert2])
 
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
@@ -417,7 +418,8 @@ class TLSConfigurationTest: XCTestCase {
             privateKey: .privateKey(TLSConfigurationTest.key1)
         )
         serverConfig.minimumTLSVersion = .tlsv13
-        serverConfig.certificateVerification = .noHostnameNoPeerVerification
+        serverConfig.certificateVerification = .noHostnameVerification
+        serverConfig.certificateRequired = false
         serverConfig.trustRoots = .certificates([TLSConfigurationTest.cert2])
 
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
