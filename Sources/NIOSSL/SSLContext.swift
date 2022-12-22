@@ -571,7 +571,7 @@ extension NIOSSLContext {
         // If validation is turned on, set the trust roots and turn on cert validation.
         switch verification {
         case .fullVerification, .noHostnameVerification:
-            let flags = certificateRequired ?  SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT : SSL_VERIFY_PEER
+            let flags = certificateRequired ? SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT : SSL_VERIFY_PEER
             CNIOBoringSSL_SSL_CTX_set_verify(context, flags, nil)
 
             // Also, set TRUSTED_FIRST to work around dumb clients that don't know what they're doing and send
