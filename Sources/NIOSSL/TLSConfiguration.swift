@@ -140,6 +140,9 @@ public enum CertificateVerification: Sendable {
     /// be checked to see if they are valid for the given hostname.
     case noHostnameVerification
 
+    /// Peer certificate is optional
+    case noHostnameNoPeerVerification
+
     /// Certificates will be validated against the trust store and checked
     /// against the hostname of the service we are contacting.
     case fullVerification
