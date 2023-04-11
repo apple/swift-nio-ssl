@@ -6,7 +6,9 @@ SwiftNIO SSL is a Swift package that contains an implementation of TLS based on 
 
 The name is inspired primarily by the names of the library this package uses (BoringSSL), and not because we don't know the name of the protocol. We know the protocol is TLS!
 
-## Using SwiftNIO SSL
+## Overview
+
+### Using SwiftNIO SSL
 
 SwiftNIO SSL provides two `ChannelHandler`s to use to secure a data stream: the ``NIOSSLClientHandler`` and the ``NIOSSLServerHandler``. Each of these can be added to a `Channel` to secure the communications on that channel.
 
