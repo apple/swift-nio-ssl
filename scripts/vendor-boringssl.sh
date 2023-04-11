@@ -88,6 +88,7 @@ function mangle_symbols {
         swift build --triple "arm64-apple-macosx" --product CNIOBoringSSL
         (
             cd "${SRCROOT}"
+            go mod tidy -modcacherw
             go run "util/read_symbols.go" -out "${TMPDIR}/symbols-macOS-intel.txt" "${HERE}/.build/x86_64-apple-macosx/debug/libCNIOBoringSSL.a"
             go run "util/read_symbols.go" -out "${TMPDIR}/symbols-macOS-as.txt" "${HERE}/.build/arm64-apple-macosx/debug/libCNIOBoringSSL.a"
         )
@@ -273,6 +274,7 @@ done
 echo "GENERATING err_data.c"
 (
     cd "$SRCROOT/crypto/err"
+    go mod tidy -modcacherw
     go run err_data_generate.go > "${HERE}/${DSTROOT}/crypto/err/err_data.c"
 )
 
