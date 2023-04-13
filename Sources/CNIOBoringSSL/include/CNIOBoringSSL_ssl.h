@@ -157,11 +157,6 @@
 #include <sys/time.h>
 #endif
 
-// NGINX needs this #include. Consider revisiting this after NGINX 1.14.0 has
-// been out for a year or so (assuming that they fix it in that release.) See
-// https://boringssl-review.googlesource.com/c/boringssl/+/21664.
-#include "CNIOBoringSSL_hmac.h"
-
 // Forward-declare struct timeval. On Windows, it is defined in winsock2.h and
 // Windows headers define too many macros to be included in public headers.
 // However, only a forward declaration is needed.
@@ -2340,6 +2335,8 @@ OPENSSL_EXPORT int SSL_set1_curves_list(SSL *ssl, const char *curves);
 #define SSL_CURVE_SECP521R1 25
 #define SSL_CURVE_X25519 29
 #define SSL_CURVE_CECPQ2 16696
+#define SSL_CURVE_X25519KYBER768 0x6399
+#define SSL_CURVE_P256KYBER768 0xfe32
 
 // SSL_get_curve_id returns the ID of the curve used by |ssl|'s most recently
 // completed handshake or 0 if not applicable.
@@ -2832,7 +2829,7 @@ OPENSSL_EXPORT SSL_CTX *SSL_set_SSL_CTX(SSL *ssl, SSL_CTX *ctx);
 // WARNING: this function is dangerous because it breaks the usual return value
 // convention.
 OPENSSL_EXPORT int SSL_CTX_set_alpn_protos(SSL_CTX *ctx, const uint8_t *protos,
-                                           unsigned protos_len);
+                                           size_t protos_len);
 
 // SSL_set_alpn_protos sets the client ALPN protocol list on |ssl| to |protos|.
 // |protos| must be in wire-format (i.e. a series of non-empty, 8-bit
@@ -2843,7 +2840,7 @@ OPENSSL_EXPORT int SSL_CTX_set_alpn_protos(SSL_CTX *ctx, const uint8_t *protos,
 // WARNING: this function is dangerous because it breaks the usual return value
 // convention.
 OPENSSL_EXPORT int SSL_set_alpn_protos(SSL *ssl, const uint8_t *protos,
-                                       unsigned protos_len);
+                                       size_t protos_len);
 
 // SSL_CTX_set_alpn_select_cb sets a callback function on |ctx| that is called
 // during ClientHello processing in order to select an ALPN protocol from the
@@ -4327,11 +4324,23 @@ OPENSSL_EXPORT void SSL_CTX_set_dos_protection_cb(
 // respected on clients.
 OPENSSL_EXPORT void SSL_CTX_set_reverify_on_resume(SSL_CTX *ctx, int enabled);
 
-// SSL_set_enforce_rsa_key_usage configures whether the keyUsage extension of
-// RSA leaf certificates will be checked for consistency with the TLS
-// usage. This parameter may be set late; it will not be read until after the
+// SSL_set_enforce_rsa_key_usage configures whether, when |ssl| is a client
+// negotiating TLS 1.2 or below, the keyUsage extension of RSA leaf server
+// certificates will be checked for consistency with the TLS usage. In all other
+// cases, this check is always enabled.
+//
+// This parameter may be set late; it will not be read until after the
 // certificate verification callback.
 OPENSSL_EXPORT void SSL_set_enforce_rsa_key_usage(SSL *ssl, int enabled);
+
+// SSL_was_key_usage_invalid returns one if |ssl|'s handshake succeeded despite
+// using TLS parameters which were incompatible with the leaf certificate's
+// keyUsage extension. Otherwise, it returns zero.
+//
+// If |SSL_set_enforce_rsa_key_usage| is enabled or not applicable, this
+// function will always return zero because key usages will be consistently
+// checked.
+OPENSSL_EXPORT int SSL_was_key_usage_invalid(const SSL *ssl);
 
 // SSL_ST_* are possible values for |SSL_state|, the bitmasks that make them up,
 // and some historical values for compatibility. Only |SSL_ST_INIT| and
@@ -4518,13 +4527,6 @@ OPENSSL_EXPORT const char *SSL_CIPHER_description(const SSL_CIPHER *cipher,
 
 // SSL_CIPHER_get_version returns the string "TLSv1/SSLv3".
 OPENSSL_EXPORT const char *SSL_CIPHER_get_version(const SSL_CIPHER *cipher);
-
-// SSL_CIPHER_get_rfc_name returns a newly-allocated string containing the
-// result of |SSL_CIPHER_standard_name| or NULL on error. The caller is
-// responsible for calling |OPENSSL_free| on the result.
-//
-// Use |SSL_CIPHER_standard_name| instead.
-OPENSSL_EXPORT char *SSL_CIPHER_get_rfc_name(const SSL_CIPHER *cipher);
 
 typedef void COMP_METHOD;
 typedef struct ssl_comp_st SSL_COMP;
@@ -5411,6 +5413,18 @@ OPENSSL_EXPORT bool SSL_get_traffic_secrets(
     const SSL *ssl, Span<const uint8_t> *out_read_traffic_secret,
     Span<const uint8_t> *out_write_traffic_secret);
 
+// SSL_CTX_set_aes_hw_override_for_testing sets |override_value| to
+// override checking for aes hardware support for testing. If |override_value|
+// is set to true, the library will behave as if aes hardware support is
+// present. If it is set to false, the library will behave as if aes hardware
+// support is not present.
+OPENSSL_EXPORT void SSL_CTX_set_aes_hw_override_for_testing(
+    SSL_CTX *ctx, bool override_value);
+
+// SSL_set_aes_hw_override_for_testing acts the same as
+// |SSL_CTX_set_aes_override_for_testing| but only configures a single |SSL*|.
+OPENSSL_EXPORT void SSL_set_aes_hw_override_for_testing(SSL *ssl,
+                                                        bool override_value);
 
 BSSL_NAMESPACE_END
 
