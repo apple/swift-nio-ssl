@@ -149,7 +149,5 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
     }
 }
 
-#if swift(>=5.6)
 @available(*, unavailable)
 extension NIOSSLClientHandler: Sendable {}
-#endif

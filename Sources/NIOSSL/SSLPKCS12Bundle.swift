@@ -156,9 +156,7 @@ public struct NIOSSLPKCS12Bundle: Hashable {
     }
 }
 
-#if swift(>=5.6)
 extension NIOSSLPKCS12Bundle: Sendable {}
-#endif
 
 extension Collection where Element == UInt8 {
     /// Provides a contiguous copy of the bytes of this collection in a heap-allocated
