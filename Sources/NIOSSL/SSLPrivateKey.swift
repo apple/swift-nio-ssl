@@ -114,23 +114,23 @@ func globalBoringSSLPassphraseCallback(buf: UnsafeMutablePointer<CChar>?,
 public final class NIOSSLPrivateKey {
     @usableFromInline
     internal enum Representation {
-        case native(UnsafeMutableRawPointer /*<EVP_PKEY*/)
+        case native(OpaquePointer /*<EVP_PKEY*/)
         case custom(AnyNIOSSLCustomPrivateKey)
     }
 
     @usableFromInline
     internal let representation: Representation
 
-    internal func withUnsafeMutableEVPPKEYPointer<ReturnType>(_ body: (UnsafeMutablePointer<EVP_PKEY>) throws -> ReturnType) rethrows -> ReturnType {
+    internal func withUnsafeMutableEVPPKEYPointer<ReturnType>(_ body: (OpaquePointer) throws -> ReturnType) rethrows -> ReturnType {
         guard case .native(let pointer) = self.representation else {
             preconditionFailure()
         }
 
-        return try body(pointer.assumingMemoryBound(to: EVP_PKEY.self))
+        return try body(pointer)
     }
 
-    private init(withReference ref: UnsafeMutablePointer<EVP_PKEY>) {
-        self.representation = .native(UnsafeMutableRawPointer(ref)) // erasing the type for @_implementationOnly import CNIOBoringSSL
+    private init(withReference ref: OpaquePointer) {
+        self.representation = .native(ref)
     }
 
     /// A delegating initializer for `init(file:format:passphraseCallback)` and `init(file:format:)`.
@@ -141,7 +141,7 @@ public final class NIOSSLPrivateKey {
             _ = try? Posix.fclose(file: fileObject)
         }
 
-        let key = withExtendedLifetime(callbackManager) { callbackManager -> UnsafeMutablePointer<EVP_PKEY>? in
+        let key = withExtendedLifetime(callbackManager) { callbackManager -> OpaquePointer? in
             guard let bio = CNIOBoringSSL_BIO_new_fp(fileObject, BIO_NOCLOSE) else {
                 return nil
             }
@@ -172,13 +172,13 @@ public final class NIOSSLPrivateKey {
 
     /// A delegating initializer for `init(buffer:format:passphraseCallback)` and `init(buffer:format:)`.
     private convenience init(bytes: [UInt8], format: NIOSSLSerializationFormats, callbackManager: CallbackManagerProtocol?) throws {
-        let ref = bytes.withUnsafeBytes { (ptr) -> UnsafeMutablePointer<EVP_PKEY>? in
-            let bio = CNIOBoringSSL_BIO_new_mem_buf(ptr.baseAddress!, CInt(ptr.count))!
+        let ref = bytes.withUnsafeBytes { (ptr) -> OpaquePointer? in
+            let bio = CNIOBoringSSL_BIO_new_mem_buf(ptr.baseAddress!, ptr.count)!
             defer {
                 CNIOBoringSSL_BIO_free(bio)
             }
 
-            return withExtendedLifetime(callbackManager) { callbackManager -> UnsafeMutablePointer<EVP_PKEY>? in
+            return withExtendedLifetime(callbackManager) { callbackManager -> OpaquePointer? in
                 switch format {
                 case .pem:
                     if let callbackManager = callbackManager {
@@ -299,14 +299,14 @@ public final class NIOSSLPrivateKey {
     ///
     /// In general, however, this function should be avoided in favour of one of the convenience
     /// initializers, which ensure that the lifetime of the EVP_PKEY object is better-managed.
-    static internal func fromUnsafePointer(takingOwnership pointer: UnsafeMutablePointer<EVP_PKEY>) -> NIOSSLPrivateKey {
+    static internal func fromUnsafePointer(takingOwnership pointer: OpaquePointer) -> NIOSSLPrivateKey {
         return NIOSSLPrivateKey(withReference: pointer)
     }
 
     deinit {
         switch self.representation {
         case .native(let ref):
-            CNIOBoringSSL_EVP_PKEY_free(ref.assumingMemoryBound(to: EVP_PKEY.self))
+            CNIOBoringSSL_EVP_PKEY_free(ref)
         case .custom:
             // Merely dropping the ref is enough.
             ()
@@ -330,7 +330,7 @@ extension NIOSSLPrivateKey {
     /// The pointer provided to the closure is not valid beyond the lifetime of this method call.
     ///
     /// This method is only safe to call on native private keys.
-    private static func withUnsafeDERBuffer<T>(of ref: UnsafeMutablePointer<EVP_PKEY>, _ body: (UnsafeRawBufferPointer) throws -> T) throws -> T {
+    private static func withUnsafeDERBuffer<T>(of ref: OpaquePointer, _ body: (UnsafeRawBufferPointer) throws -> T) throws -> T {
         guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_mem()) else {
             fatalError("Failed to malloc for a BIO handler")
         }
@@ -401,7 +401,7 @@ extension NIOSSLPrivateKey: Hashable {
             // We could attempt the latter, but frankly it causes a lot of pain for minimal gain, so we don't bother. This incurs an allocation,
             // but that's ok. We crash if we hit an error here, as there is no way to recover.
             hasher.combine(0)
-            try! NIOSSLPrivateKey.withUnsafeDERBuffer(of: ref.assumingMemoryBound(to: EVP_PKEY.self)) { hasher.combine(bytes: $0) }
+            try! NIOSSLPrivateKey.withUnsafeDERBuffer(of: ref) { hasher.combine(bytes: $0) }
         case .custom(let custom):
             hasher.combine(1)
             custom.hash(into: &hasher)

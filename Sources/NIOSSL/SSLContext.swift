@@ -545,7 +545,7 @@ extension NIOSSLContext {
         // This copy should be done infrequently, so we don't worry too much about it.
         let protoBuf = protocols.reduce([UInt8](), +)
         let rc = protoBuf.withUnsafeBufferPointer {
-            CNIOBoringSSL_SSL_CTX_set_alpn_protos(context, $0.baseAddress!, CUnsignedInt($0.count))
+            CNIOBoringSSL_SSL_CTX_set_alpn_protos(context, $0.baseAddress!, $0.count)
         }
 
         // Annoyingly this function reverses the error convention: 0 is success, non-zero is failure.
