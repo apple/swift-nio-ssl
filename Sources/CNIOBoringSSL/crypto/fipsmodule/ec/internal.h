@@ -439,11 +439,18 @@ int ec_get_x_coordinate_as_bytes(const EC_GROUP *group, uint8_t *out,
                                  size_t *out_len, size_t max_out,
                                  const EC_RAW_POINT *p);
 
-// ec_point_to_bytes behaves like |EC_POINT_point2oct| but takes an
-// |EC_AFFINE|.
+// ec_point_byte_len returns the number of bytes in the byte representation of
+// a non-infinity point in |group|, encoded according to |form|, or zero if
+// |form| is invalid.
+size_t ec_point_byte_len(const EC_GROUP *group, point_conversion_form_t form);
+
+// ec_point_to_bytes encodes |point| according to |form| and writes the result
+// |buf|. It returns the size of the output on success or zero on error. At most
+// |max_out| bytes will be written. The buffer should be at least
+// |ec_point_byte_len| long to guarantee success.
 size_t ec_point_to_bytes(const EC_GROUP *group, const EC_AFFINE *point,
                          point_conversion_form_t form, uint8_t *buf,
-                         size_t len);
+                         size_t max_out);
 
 // ec_point_from_uncompressed parses |in| as a point in uncompressed form and
 // sets the result to |out|. It returns one on success and zero if the input was
@@ -553,6 +560,12 @@ struct ec_method_st {
   //
   // This function is used in hash-to-curve and may be NULL in curves not used
   // with hash-to-curve.
+  //
+  // TODO(https://crbug.com/boringssl/567): hash-to-curve uses this as part of
+  // computing a square root, which is what compressed coordinates ultimately
+  // needs to avoid |BIGNUM|. Can we unify this a bit? By generalizing to
+  // arbitrary exponentiation, we also miss an opportunity to use a specialized
+  // addition chain.
   void (*felem_exp)(const EC_GROUP *group, EC_FELEM *out, const EC_FELEM *a,
                     const BN_ULONG *exp, size_t num_exp);
 
@@ -643,6 +656,11 @@ void ec_GFp_mont_mul_precomp(const EC_GROUP *group, EC_RAW_POINT *r,
                              const EC_PRECOMP *p0, const EC_SCALAR *scalar0,
                              const EC_PRECOMP *p1, const EC_SCALAR *scalar1,
                              const EC_PRECOMP *p2, const EC_SCALAR *scalar2);
+void ec_GFp_mont_felem_reduce(const EC_GROUP *group, EC_FELEM *out,
+                              const BN_ULONG *words, size_t num);
+void ec_GFp_mont_felem_exp(const EC_GROUP *group, EC_FELEM *out,
+                           const EC_FELEM *a, const BN_ULONG *exp,
+                           size_t num_exp);
 
 // ec_compute_wNAF writes the modified width-(w+1) Non-Adjacent Form (wNAF) of
 // |scalar| to |out|. |out| must have room for |bits| + 1 elements, each of

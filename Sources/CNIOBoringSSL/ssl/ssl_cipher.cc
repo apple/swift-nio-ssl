@@ -1002,8 +1002,7 @@ static bool ssl_cipher_process_rulestr(const char *rule_str,
         rule = CIPHER_ADD;
         l++;
         continue;
-      } else if (!(ch >= 'a' && ch <= 'z') && !(ch >= 'A' && ch <= 'Z') &&
-                 !(ch >= '0' && ch <= '9')) {
+      } else if (!OPENSSL_isalnum(ch)) {
         OPENSSL_PUT_ERROR(SSL, SSL_R_UNEXPECTED_OPERATOR_IN_GROUP);
         return false;
       } else {
@@ -1056,8 +1055,7 @@ static bool ssl_cipher_process_rulestr(const char *rule_str,
       ch = *l;
       buf = l;
       buf_len = 0;
-      while ((ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') ||
-             (ch >= 'a' && ch <= 'z') || ch == '-' || ch == '.' || ch == '_') {
+      while (OPENSSL_isalnum(ch) || ch == '-' || ch == '.' || ch == '_') {
         ch = *(++l);
         buf_len++;
       }
@@ -1150,7 +1148,8 @@ static bool ssl_cipher_process_rulestr(const char *rule_str,
 }
 
 bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
-                            const char *rule_str, bool strict) {
+                            const bool has_aes_hw, const char *rule_str,
+                            bool strict) {
   // Return with error if nothing to do.
   if (rule_str == NULL || out_cipher_list == NULL) {
     return false;
@@ -1181,7 +1180,7 @@ bool ssl_create_cipher_list(UniquePtr<SSLCipherPreferenceList> *out_cipher_list,
   // CHACHA20 unless there is hardware support for fast and constant-time
   // AES_GCM. Of the two CHACHA20 variants, the new one is preferred over the
   // old one.
-  if (EVP_has_aes_hardware()) {
+  if (has_aes_hw) {
     ssl_cipher_apply_rule(0, ~0u, ~0u, SSL_AES128GCM, ~0u, 0, CIPHER_ADD, -1,
                           false, &head, &tail);
     ssl_cipher_apply_rule(0, ~0u, ~0u, SSL_AES256GCM, ~0u, 0, CIPHER_ADD, -1,
@@ -1531,14 +1530,6 @@ const char *SSL_CIPHER_get_kx_name(const SSL_CIPHER *cipher) {
       assert(0);
       return "UNKNOWN";
   }
-}
-
-char *SSL_CIPHER_get_rfc_name(const SSL_CIPHER *cipher) {
-  if (cipher == NULL) {
-    return NULL;
-  }
-
-  return OPENSSL_strdup(SSL_CIPHER_standard_name(cipher));
 }
 
 int SSL_CIPHER_get_bits(const SSL_CIPHER *cipher, int *out_alg_bits) {

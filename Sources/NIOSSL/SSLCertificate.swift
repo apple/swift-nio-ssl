@@ -109,7 +109,7 @@ public final class NIOSSLCertificate {
     ///     - format: The format to use to parse the file.
     public convenience init(bytes: [UInt8], format: NIOSSLSerializationFormats) throws {
         let ref = bytes.withUnsafeBytes { (ptr) -> OpaquePointer? in
-            let bio = CNIOBoringSSL_BIO_new_mem_buf(ptr.baseAddress, CInt(ptr.count))!
+            let bio = CNIOBoringSSL_BIO_new_mem_buf(ptr.baseAddress, ptr.count)!
 
             defer {
                 CNIOBoringSSL_BIO_free(bio)
@@ -137,7 +137,7 @@ public final class NIOSSLCertificate {
         // ContiguousBytes would have been the lowest effort way to reduce this duplication, but we can't use it without
         // bringing Foundation in. Probably we should use Sequence where Element == UInt8 and the withUnsafeContiguousBytesIfAvailable
         // method, but that's a much more substantial refactor. Let's do it later.
-        let bio = CNIOBoringSSL_BIO_new_mem_buf(ptr.baseAddress, CInt(ptr.count))!
+        let bio = CNIOBoringSSL_BIO_new_mem_buf(ptr.baseAddress, ptr.count)!
 
         defer {
             CNIOBoringSSL_BIO_free(bio)
@@ -286,7 +286,7 @@ extension NIOSSLCertificate {
         }
 
         return try bytes.withUnsafeBytes { (ptr) -> [NIOSSLCertificate] in
-            let bio = CNIOBoringSSL_BIO_new_mem_buf(ptr.baseAddress, CInt(ptr.count))!
+            let bio = CNIOBoringSSL_BIO_new_mem_buf(ptr.baseAddress, ptr.count)!
             defer {
                 CNIOBoringSSL_BIO_free(bio)
             }

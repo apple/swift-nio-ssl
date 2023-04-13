@@ -556,7 +556,7 @@ func randomSerialNumber() -> ASN1_INTEGER {
     return asn1int
 }
 
-func generateRSAPrivateKey() -> UnsafeMutablePointer<EVP_PKEY> {
+func generateRSAPrivateKey() -> OpaquePointer {
     let exponent = CNIOBoringSSL_BN_new()
     defer {
         CNIOBoringSSL_BN_free(exponent)
@@ -575,7 +575,7 @@ func generateRSAPrivateKey() -> UnsafeMutablePointer<EVP_PKEY> {
     return pkey
 }
 
-func generateECPrivateKey(curveNID: CInt = NID_X9_62_prime256v1) -> UnsafeMutablePointer<EVP_PKEY> {
+func generateECPrivateKey(curveNID: CInt = NID_X9_62_prime256v1) -> OpaquePointer {
     let ctx = CNIOBoringSSL_EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nil)!
     defer {
         CNIOBoringSSL_EVP_PKEY_CTX_free(ctx)
@@ -584,7 +584,7 @@ func generateECPrivateKey(curveNID: CInt = NID_X9_62_prime256v1) -> UnsafeMutabl
     precondition(CNIOBoringSSL_EVP_PKEY_keygen_init(ctx) == 1)
     precondition(CNIOBoringSSL_EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, curveNID) == 1)
 
-    var pkey: UnsafeMutablePointer<EVP_PKEY>? = nil
+    var pkey: OpaquePointer? = nil
     precondition(CNIOBoringSSL_EVP_PKEY_keygen(ctx, &pkey) == 1)
 
     return pkey!
@@ -601,7 +601,7 @@ func addExtension(x509: OpaquePointer, nid: CInt, value: String) {
     CNIOBoringSSL_X509_EXTENSION_free(ext)
 }
 
-func generateSelfSignedCert(keygenFunction: () -> UnsafeMutablePointer<EVP_PKEY> = generateRSAPrivateKey) -> (NIOSSLCertificate, NIOSSLPrivateKey) {
+func generateSelfSignedCert(keygenFunction: () -> OpaquePointer = generateRSAPrivateKey) -> (NIOSSLCertificate, NIOSSLPrivateKey) {
     let pkey = keygenFunction()
     let x = CNIOBoringSSL_X509_new()!
     CNIOBoringSSL_X509_set_version(x, 2)

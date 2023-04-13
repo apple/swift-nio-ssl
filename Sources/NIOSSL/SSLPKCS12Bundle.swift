@@ -46,7 +46,7 @@ public struct NIOSSLPKCS12Bundle: Hashable {
     public let privateKey: NIOSSLPrivateKey
 
     private init<Bytes: Collection>(ref: OpaquePointer, passphrase: Bytes?) throws where Bytes.Element == UInt8 {
-        var pkey: UnsafeMutablePointer<EVP_PKEY>? = nil
+        var pkey: OpaquePointer?/*<EVP_PKEY>*/ = nil
         var cert: OpaquePointer?/*<X509>*/ = nil
         var caCerts: OpaquePointer? = nil
 
@@ -90,7 +90,7 @@ public struct NIOSSLPKCS12Bundle: Hashable {
         guard boringSSLIsInitialized else { fatalError("Failed to initialize BoringSSL") }
         
         let p12 = buffer.withUnsafeBytes { pointer -> OpaquePointer? in
-            let bio = CNIOBoringSSL_BIO_new_mem_buf(pointer.baseAddress, CInt(pointer.count))!
+            let bio = CNIOBoringSSL_BIO_new_mem_buf(pointer.baseAddress, pointer.count)!
             defer {
                 CNIOBoringSSL_BIO_free(bio)
             }

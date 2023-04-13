@@ -25,7 +25,7 @@ import NIOConcurrencyHelpers
 
 // This is a helper that lets us work with an EVP_PKEY.
 fileprivate final class CustomPKEY {
-    private let ref: UnsafeMutablePointer<EVP_PKEY>
+    private let ref: OpaquePointer
 
     init(from key: NIOSSLPrivateKey) {
         // Extract a copy of the key reference here.
@@ -35,7 +35,7 @@ fileprivate final class CustomPKEY {
         }
     }
 
-    init(from generator: () -> UnsafeMutablePointer<EVP_PKEY>) {
+    init(from generator: () -> OpaquePointer) {
         self.ref = generator()
     }
 
