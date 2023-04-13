@@ -86,7 +86,5 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
     }
 }
 
-#if swift(>=5.6)
 @available(*, unavailable)
 extension NIOSSLServerHandler: Sendable {}
-#endif

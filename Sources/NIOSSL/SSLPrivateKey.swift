@@ -314,11 +314,9 @@ public final class NIOSSLPrivateKey {
     }
 }
 
-#if swift(>=5.6)
 // NIOSSLPrivateKey is publicly immutable and we do not internally mutate it after initialisation.
 // It is therefore Sendable.
 extension NIOSSLPrivateKey: @unchecked Sendable {}
-#endif
 
 
 // MARK:- Utilities

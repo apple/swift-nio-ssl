@@ -32,11 +32,9 @@ public final class NIOSSLPublicKey {
     }
 }
 
-#if swift(>=5.6)
 // NIOSSLPublicKey is publicly immutable and we do not internally mutate it after initialisation.
 // It is therefore Sendable.
 extension NIOSSLPublicKey: @unchecked Sendable {}
-#endif
 
 // MARK:- Helpful initializers
 extension NIOSSLPublicKey {

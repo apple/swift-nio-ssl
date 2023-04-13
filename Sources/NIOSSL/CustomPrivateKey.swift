@@ -80,13 +80,8 @@ public protocol NIOSSLCustomPrivateKey: NIOPreconcurrencySendable {
 internal struct AnyNIOSSLCustomPrivateKey: NIOSSLCustomPrivateKey, Hashable {
     @usableFromInline let _value: NIOSSLCustomPrivateKey
 
-    #if swift(>=5.6)
     @usableFromInline let _equalsFunction: @Sendable (NIOSSLCustomPrivateKey) -> Bool
     @usableFromInline let _hashFunction: @Sendable (inout Hasher) -> Void
-    #else
-    @usableFromInline let _equalsFunction: (NIOSSLCustomPrivateKey) -> Bool
-    @usableFromInline let _hashFunction: (inout Hasher) -> Void
-    #endif
 
     @inlinable init<CustomKey: NIOSSLCustomPrivateKey & Hashable>(_ key: CustomKey) {
         self._value = key

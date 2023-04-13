@@ -36,9 +36,7 @@ public enum NIOSSLPrivateKeySource: Hashable {
     case privateKey(NIOSSLPrivateKey)
 }
 
-#if swift(>=5.6)
 extension NIOSSLPrivateKeySource: Sendable {}
-#endif
 
 /// Places NIOSSL can obtain a trust store from.
 public enum NIOSSLTrustRoots: Hashable, Sendable {
