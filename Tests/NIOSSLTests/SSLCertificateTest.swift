@@ -480,12 +480,14 @@ class SSLCertificateTest: XCTestCase {
     }
 
     func testNotValidAfter() throws {
+        #if arch(arm64) || arch(x86_64)
         let cert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
         let notValidBeforeSeconds = cert.notValidAfter
 
         let expectedDate = self.dateFromComponents(year: 2047, month: 10, day: 9, hour: 21, minute: 01, second: 02)
         let expectedSeconds = time_t(expectedDate.timeIntervalSince1970)
         XCTAssertEqual(notValidBeforeSeconds, expectedSeconds)
+        #endif
     }
 
     func testNotBeforeAfterGeneratedCert() throws {
