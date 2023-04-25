@@ -32,7 +32,7 @@ import NIOCore
 /// is imposed by SwiftNIO. The calls to the protocol requirements will be made on event loop threads, so if further
 /// synchronization is required it is up to the implementer to provide it. Note that it is unacceptable to block in
 /// these functions, and so potentially blocking operations must delegate to another thread.
-public protocol NIOSSLCustomPrivateKey: NIOPreconcurrencySendable {
+public protocol NIOSSLCustomPrivateKey: _NIOPreconcurrencySendable {
     /// The signature algorithms supported by this key.
     var signatureAlgorithms: [SignatureAlgorithm] { get }
 
