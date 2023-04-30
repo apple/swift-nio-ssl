@@ -480,9 +480,7 @@ class SSLCertificateTest: XCTestCase {
     }
 
     func testNotValidAfter() throws {
-        guard MemoryLayout<time_t>.size >= 8 else {
-            throw XCTSkip()
-        }
+        try XCTSkipUnless(MemoryLayout<time_t>.size >= 8, "size of time_t must be 64bit or greater")
         let cert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
         let notValidBeforeSeconds = cert.notValidAfter
 
