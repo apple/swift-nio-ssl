@@ -646,6 +646,9 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertEqual(expectedEvents, serverHandler.events)
     }
 
+    // TODO: test event sequencing
+    // TODO: test subsequent close mode output
+    // TODO: test close all while closing output
     func testSubsequentWritesFailAfterCloseModeOutput() throws {
         let context = try configuredSSLContext()
 
@@ -677,7 +680,7 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         XCTAssertNoThrow(try clientChannel.close(mode: .output).wait())
         XCTAssertThrowsError(try clientChannel.writeAndFlush(buffer).wait()) { error in
-            XCTAssertEqual(.outputClosed, error as? ChannelError)
+            XCTAssertEqual(.ioOnClosedChannel, error as? ChannelError)
         }
     }
 

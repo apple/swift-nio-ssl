@@ -43,9 +43,10 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         case additionalVerification
         case active
         case unwrapping(Scheduled<Void>)
+        case closingOutput(Scheduled<Void>)
         case closing(Scheduled<Void>)
         case unwrapped
-        case outputClosed // TODO: make outputClosed an associated value of .active?
+        case outputClosed
         case closed
     }
 
@@ -169,7 +170,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         switch state {
         case .handshaking:
             doHandshakeStep(context: context)
-        case .active, .outputClosed:
+        case .active, .closingOutput, .outputClosed:
             doDecodeData(context: context)
             doUnbufferWrites(context: context)
         case .closing:
@@ -194,10 +195,6 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     }
 
     public func write(context: ChannelHandlerContext, data: NIOAny, promise: EventLoopPromise<Void>?) {
-        if case .outputClosed = self.state {
-            promise?.fail(ChannelError.outputClosed)
-            return
-        }
         bufferWrite(data: unwrapOutboundIn(data), promise: promise)
     }
 
@@ -206,7 +203,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         case .idle, .handshaking, .additionalVerification:
             // we should not flush immediately as we have not completed the handshake and instead buffer the flush
             self.bufferFlush()
-        case .active, .unwrapping, .closing, .unwrapped, .outputClosed, .closed:
+        case .active, .unwrapping, .closingOutput, .closing, .unwrapped, .outputClosed, .closed: // TODO: .closingOutput correct here?
             self.bufferFlush()
             self.doUnbufferWrites(context: context)
         }
@@ -225,6 +222,14 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
     private func closeOutput(context: ChannelHandlerContext, promise: EventLoopPromise<Void>?) {
         switch state {
+        case .closingOutput:
+            // We're in the process of closing the output, so let's let that happen. However,
+            // we want to cascade the result of the first request into this new one.
+            if let promise = promise, let closeOutputPromise = self.closeOutputPromise {
+                closeOutputPromise.futureResult.cascade(to: promise)
+            } else if let promise = promise {
+                self.closeOutputPromise = promise
+            }
         case .closing:
             // We're in the process of TLS shutdown, which has a higher priority.
             // Therefore we skip the output closing procedure and cascade the result
@@ -246,6 +251,8 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 closeOutputPromise.futureResult.cascade(to: promise)
             } else if let promise = promise {
                 self.closeOutputPromise = promise
+                self.state = .closingOutput(self.scheduleTimedOutShutdown(context: context))
+                self.doShutdownStep(context: context)
             }
 
             self.flush(context: context)
@@ -258,6 +265,8 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
     private func closeAll(context: ChannelHandlerContext, promise: EventLoopPromise<Void>?) {
         switch state {
+        case .closingOutput:
+            fatalError("TODO: escalate to full close")
         case .closing:
             // We're in the process of TLS shutdown, so let's let that happen. However,
             // we want to cascade the result of the first request into this new one.
@@ -374,7 +383,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         context.eventLoop.preconditionInEventLoop()
 
         switch self.state {
-        case .idle, .handshaking, .active, .outputClosed:
+        case .idle, .handshaking, .active:
             preconditionFailure("invalid state \(self.state)")
         case .additionalVerification:
             switch result {
@@ -386,7 +395,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 state = .active
                 completeHandshake(context: context)
             }
-        case .unwrapping, .closing, .unwrapped, .closed:
+        case .unwrapping, .closingOutput, .closing, .unwrapped, .closed, .outputClosed: // TODO: .closingOutput and .outputClosed correct here?
             break
             // we are already about to close, we can safely ignore this event
         }
@@ -413,6 +422,9 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         var uncleanScheduledShutdown: Scheduled<Void>?
         let targetCompleteState: ConnectionState
         switch self.state {
+        case .closingOutput(let scheduledShutdown):
+            uncleanScheduledShutdown = scheduledShutdown
+            targetCompleteState = .outputClosed
         case .closing(let scheduledShutdown):
             uncleanScheduledShutdown = scheduledShutdown
             targetCompleteState = .closed
@@ -426,6 +438,10 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         switch result {
         case .incomplete:
             writeDataToNetwork(context: context, promise: nil)
+
+            if case .outputClosed = targetCompleteState {
+                self.state = targetCompleteState
+            }
         case .complete:
             uncleanScheduledShutdown?.cancel()
             self.state = targetCompleteState
@@ -435,6 +451,8 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             context.fireUserInboundEventTriggered(TLSUserEvent.shutdownCompleted)
 
             switch targetCompleteState {
+            case .outputClosed:
+                break
             case .closed:
                 self.channelClose(context: context, reason: NIOTLSUnwrappingError.closeRequestedDuringUnwrap)
             case .unwrapped:
@@ -455,12 +473,16 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private func scheduleTimedOutShutdown(context: ChannelHandlerContext) -> Scheduled<Void> {
         return context.eventLoop.scheduleTask(in: self.shutdownTimeout) {
             switch self.state {
-            case .idle, .handshaking, .additionalVerification, .active, .outputClosed:
+            case .idle, .handshaking, .additionalVerification, .active:
                 preconditionFailure("Cannot schedule timed out shutdown on non-shutting down handler")
 
-            case .closed, .unwrapped:
+            case .outputClosed, .closed, .unwrapped:
                 // This means we raced with the shutdown completing. We just let this one go: do nothing.
                 return
+
+            case .closingOutput:
+                // We are closing the output, so we don't want to close the entire channel.
+                self.state = .outputClosed
 
             case .closing:
                 // We're closing, the only thing we do here is exit.
@@ -508,14 +530,14 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 switch self.state {
                 case .idle, .handshaking, .additionalVerification:
                     preconditionFailure("Should not get zeroReturn in \(self.state)")
-                case .closed, .unwrapped:
+                case .closed, .unwrapped, .outputClosed: // TODO: .outputClosed correct here?
                     // This is an unexpected place to be, but it's not totally impossible. Assume this
                     // is the result of a wonky I/O pattern and just ignore it.
                     self.plaintextReadBuffer = receiveBuffer
                     break readLoop
-                case .active, .outputClosed:
+                case .active:
                     self.state = .closing(self.scheduleTimedOutShutdown(context: context))
-                case .unwrapping, .closing:
+                case .unwrapping, .closingOutput, .closing:
                     break
                 }
 
@@ -721,6 +743,8 @@ extension NIOSSLHandler {
     ///         completed.
     public func stopTLS(promise: EventLoopPromise<Void>?) {
         switch self.state {
+        case .closingOutput:
+            fatalError("TODO")
         case .unwrapping, .closing:
             // We're shutting down here. Nothing has to be done, but we should keep track of this promise.
             if let promise = promise, let shutdownPromise = self.shutdownPromise {
