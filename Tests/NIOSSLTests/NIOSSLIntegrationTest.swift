@@ -673,12 +673,19 @@ class NIOSSLIntegrationTest: XCTestCase {
             group: group,
             connectingTo: serverChannel.localAddress!
         )
+        defer {
+            // TODO: atm this is expected to fail as server channel does not support half-closure yet and ends the TCP connection before us
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
 
         var buffer = clientChannel.allocator.buffer(capacity: 5)
         buffer.writeString("Hello")
         XCTAssertNoThrow(try clientChannel.writeAndFlush(buffer).wait())
 
         XCTAssertNoThrow(try clientChannel.close(mode: .output).wait())
+        // TODO: Wednesday: NIOSSLHandler is removed after writeAndFlush
+        // TODO: the error here causes the channel to close somehow -> clientChannel.close works when write and flush is not invoked
+        // -> Cory: this is due to a race caused by our server. It does not support half-closure yet and therefore ends the entire TCP connection
         XCTAssertThrowsError(try clientChannel.writeAndFlush(buffer).wait()) { error in
             XCTAssertEqual(.ioOnClosedChannel, error as? ChannelError)
         }
