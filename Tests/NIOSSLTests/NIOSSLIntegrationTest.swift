@@ -646,6 +646,47 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertEqual(expectedEvents, serverHandler.events)
     }
 
+    // TODO: remove
+    func testVanillaTCPHalfClose() throws {
+        // This is just a demo of how a half-close behaves when the NIOSSLHandler is not in place.
+        // It is important to note, that the .allowRemoteHalfClosure ChannelOption has to be set on the server channel.
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+//        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
+
+        // TODO: add half-closure option to serverChannel
+        let serverChannel: Channel = try ServerBootstrap(group: group)
+            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true)
+            .bind(host: "127.0.0.1", port: 0)
+            .wait()
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let clientChannel = try ClientBootstrap(group: group)
+            .channelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
+            .connect(to: serverChannel.localAddress!)
+            .wait()
+
+        defer {
+            // TODO: atm this is expected to fail as server channel does not support half-closure yet and ends the TCP connection before us
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+
+        var buffer = clientChannel.allocator.buffer(capacity: 5)
+        buffer.writeString("Hello")
+        XCTAssertNoThrow(try clientChannel.writeAndFlush(buffer).wait())
+
+        XCTAssertNoThrow(try clientChannel.close(mode: .output).wait())
+        XCTAssertThrowsError(try clientChannel.writeAndFlush(buffer).wait()) { error in
+            XCTAssertEqual(.outputClosed, error as? ChannelError)
+        }
+    }
+
     // TODO: test event sequencing
     // TODO: test subsequent close mode output
     // TODO: test close all while closing output
