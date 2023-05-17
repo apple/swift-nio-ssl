@@ -51,6 +51,8 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     }
 
     private var state: ConnectionState = .idle
+    private var halfClosureAllowed: Bool = false
+    private var inputClosed: Bool = false
     private var connection: SSLConnection
     private var plaintextReadBuffer: ByteBuffer?
     private var bufferedWrites: MarkedCircularBuffer<BufferedWrite>
@@ -105,6 +107,10 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     }
 
     public func channelActive(context: ChannelHandlerContext) {
+        context.channel.getOption(ChannelOptions.allowRemoteHalfClosure).whenSuccess { halfClosureAllowed in
+            self.halfClosureAllowed = halfClosureAllowed
+        }
+
         // We fire this a bit early, entirely on purpose. This is because
         // in doHandshakeStep we may end up closing the channel again, and
         // if we do we want to make sure that the channelInactive message received
@@ -536,14 +542,20 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                     self.plaintextReadBuffer = receiveBuffer
                     break readLoop
                 case .active:
-                    self.state = .closing(self.scheduleTimedOutShutdown(context: context))
+                    if !halfClosureAllowed {
+                        self.state = .closing(self.scheduleTimedOutShutdown(context: context))
+                    }
                 case .unwrapping, .closingOutput, .closing:
                     break
                 }
 
                 // This is a clean EOF: we can just start doing our own clean shutdown.
                 self.doFlushReadData(context: context, receiveBuffer: receiveBuffer, readOnEmptyBuffer: false)
-                doShutdownStep(context: context)
+                if halfClosureAllowed {
+                    inputClosed = true
+                } else {
+                    doShutdownStep(context: context)
+                }
                 writeDataToNetwork(context: context, promise: nil)
                 break readLoop
 
@@ -853,7 +865,11 @@ extension NIOSSLHandler {
             }
         } catch {
             // We encountered an error, it's cleanup time. Close ourselves down.
-            channelClose(context: context, reason: error)
+            // TODO: refactor
+            if case .outputClosed = self.state {
+            } else {
+                channelClose(context: context, reason: error)
+            }
             // Fail any writes we've previously encoded but not flushed.
             promises.forEach { $0.fail(error) }
             // Fail everything else.

@@ -681,7 +681,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         buffer.writeString("Hello")
         XCTAssertNoThrow(try clientChannel.writeAndFlush(buffer).wait())
 
-        XCTAssertNoThrow(try clientChannel.close(mode: .output).wait())
+        try clientChannel.close(mode: .output).wait()
         XCTAssertThrowsError(try clientChannel.writeAndFlush(buffer).wait()) { error in
             XCTAssertEqual(.outputClosed, error as? ChannelError)
         }
