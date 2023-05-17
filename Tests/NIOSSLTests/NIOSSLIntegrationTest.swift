@@ -700,7 +700,25 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
 
-        let serverChannel: Channel = try serverTLSChannel(context: context, handlers: [SimpleEchoServer()], group: group)
+        // TODO: try serverTLSChannel(...
+        let preHandlers: [ChannelHandler] = []
+        let postHandlers = [SimpleEchoServer()]
+        let serverChannel: Channel = try ServerBootstrap(group: group)
+            .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true) // Important!
+            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            .childChannelInitializer { channel in
+                let results = preHandlers.map { channel.pipeline.addHandler($0) }
+                return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop).map {
+                    return NIOSSLServerHandler(context: context)
+                }.flatMap {
+                    channel.pipeline.addHandler($0)
+                }.flatMap {
+                    let results = postHandlers.map { channel.pipeline.addHandler($0) }
+                    return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop)
+                }
+            }
+            .bind(host: "127.0.0.1", port: 0)
+            .wait()
         defer {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
