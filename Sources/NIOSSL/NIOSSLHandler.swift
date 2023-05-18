@@ -803,6 +803,11 @@ extension NIOSSLHandler {
     private typealias BufferedWrite = (data: ByteBuffer, promise: EventLoopPromise<Void>?)
 
     private func bufferWrite(data: ByteBuffer, promise: EventLoopPromise<Void>?) {
+        if case .outputClosed = self.state {
+            promise?.fail(ChannelError.outputClosed)
+            return
+        }
+
         var data = data
 
         // Here we guard against the possibility that any of these writes are larger than CInt.max.

@@ -657,7 +657,6 @@ class NIOSSLIntegrationTest: XCTestCase {
 
 //        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
 
-        // TODO: add half-closure option to serverChannel
         let serverChannel: Channel = try ServerBootstrap(group: group)
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true)
@@ -688,7 +687,7 @@ class NIOSSLIntegrationTest: XCTestCase {
     }
 
     // TODO: test event sequencing
-    // TODO: test subsequent close mode output
+    // TODO: test subsequent close mode output (check https://github.com/apple/swift-nio/blob/7a0ec436a1bee415826f67f5f678ceed00f383d0/Tests/NIOPosixTests/StreamChannelsTest.swift#L267)
     // TODO: test close all while closing output
     func testSubsequentWritesFailAfterCloseModeOutput() throws {
         let context = try configuredSSLContext()
@@ -700,7 +699,6 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
 
-        // TODO: try serverTLSChannel(...
         let preHandlers: [ChannelHandler] = []
         let postHandlers = [SimpleEchoServer()]
         let serverChannel: Channel = try ServerBootstrap(group: group)
@@ -733,7 +731,6 @@ class NIOSSLIntegrationTest: XCTestCase {
             connectingTo: serverChannel.localAddress!
         )
         defer {
-            // TODO: atm this is expected to fail as server channel does not support half-closure yet and ends the TCP connection before us
             XCTAssertNoThrow(try clientChannel.close().wait())
         }
 
@@ -742,11 +739,8 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertNoThrow(try clientChannel.writeAndFlush(buffer).wait())
 
         XCTAssertNoThrow(try clientChannel.close(mode: .output).wait())
-        // TODO: Wednesday: NIOSSLHandler is removed after writeAndFlush
-        // TODO: the error here causes the channel to close somehow -> clientChannel.close works when write and flush is not invoked
-        // -> Cory: this is due to a race caused by our server. It does not support half-closure yet and therefore ends the entire TCP connection
         XCTAssertThrowsError(try clientChannel.writeAndFlush(buffer).wait()) { error in
-            XCTAssertEqual(.ioOnClosedChannel, error as? ChannelError)
+            XCTAssertEqual(.outputClosed, error as? ChannelError)
         }
     }
 
