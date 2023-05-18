@@ -782,6 +782,77 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertEqual(newBuffer, originalBuffer)
     }
 
+    func testMultipleCloseOutput() throws {
+        let context = try configuredSSLContext()
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
+
+        let preHandlers: [ChannelHandler] = []
+        let postHandlers = [SimpleEchoServer()]
+        let serverChannel: Channel = try ServerBootstrap(group: group)
+            .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true) // Important!
+            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            .childChannelInitializer { channel in
+                let results = preHandlers.map { channel.pipeline.addHandler($0) }
+                return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop).map {
+                    return NIOSSLServerHandler(context: context)
+                }.flatMap {
+                    channel.pipeline.addHandler($0)
+                }.flatMap {
+                    let results = postHandlers.map { channel.pipeline.addHandler($0) }
+                    return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop)
+                }
+            }
+            .bind(host: "127.0.0.1", port: 0)
+            .wait()
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let clientChannel = try clientTLSChannel(context: context,
+                                                 preHandlers: [],
+                                                 postHandlers: [PromiseOnReadHandler(promise: completionPromise)],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!)
+        defer {
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        try clientChannel.writeAndFlush(originalBuffer).wait()
+
+        let newBuffer = try completionPromise.futureResult.wait()
+        XCTAssertEqual(newBuffer, originalBuffer)
+
+        // Ok, the connection is definitely up. Now we want to forcibly call close(mode: .output) on the channel several times with
+        // different promises. None of these will fire until clean shutdown happens, but we want to confirm that *all* of them
+        // fire.
+        //
+        // To avoid the risk of the I/O loop actually closing the connection before we're done, we need to hijack the
+        // I/O loop and issue all the closes on that thread. Otherwise, the channel will probably pull off the TLS shutdown
+        // before we get to the third call to close().
+        let promises: [EventLoopPromise<Void>] = [group.next().makePromise(), group.next().makePromise(), group.next().makePromise()]
+        group.next().execute {
+            for promise in promises {
+                clientChannel.close(mode: .output, promise: promise)
+            }
+        }
+
+        XCTAssertNoThrow(try promises.first!.futureResult.wait())
+
+        for promise in promises {
+            // This should never block, but it may throw because the I/O is complete.
+            // Suppress all errors, they're fine.
+            _ = try? promise.futureResult.wait()
+        }
+    }
+
     func testMultipleClose() throws {
         var serverClosed = false
         let context = try configuredSSLContext()
