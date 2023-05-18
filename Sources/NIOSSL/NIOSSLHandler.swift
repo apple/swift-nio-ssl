@@ -870,9 +870,7 @@ extension NIOSSLHandler {
             }
         } catch {
             // We encountered an error, it's cleanup time. Close ourselves down.
-            // TODO: refactor
-            if case .outputClosed = self.state {
-            } else {
+            if case .outputClosed = self.state {} else {
                 channelClose(context: context, reason: error)
             }
             // Fail any writes we've previously encoded but not flushed.
