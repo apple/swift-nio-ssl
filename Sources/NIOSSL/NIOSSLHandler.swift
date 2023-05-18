@@ -46,13 +46,13 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         case closingOutput(Scheduled<Void>)
         case closing(Scheduled<Void>)
         case unwrapped
+        case inputClosed
         case outputClosed
         case closed
     }
 
     private var state: ConnectionState = .idle
     private var halfClosureAllowed: Bool = false
-    private var inputClosed: Bool = false
     private var connection: SSLConnection
     private var plaintextReadBuffer: ByteBuffer?
     private var bufferedWrites: MarkedCircularBuffer<BufferedWrite>
@@ -209,7 +209,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         case .idle, .handshaking, .additionalVerification:
             // we should not flush immediately as we have not completed the handshake and instead buffer the flush
             self.bufferFlush()
-        case .active, .unwrapping, .closingOutput, .closing, .unwrapped, .outputClosed, .closed: // TODO: .closingOutput correct here?
+        case .active, .unwrapping, .closingOutput, .closing, .unwrapped, .inputClosed, .outputClosed, .closed: // TODO: .closingOutput + .inputClosed correct here?
             self.bufferFlush()
             self.doUnbufferWrites(context: context)
         }
@@ -249,7 +249,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             // For idle, outputClosed, closed, unwrapping, and unwrapped connections we immediately pass this on to the next
             // channel handler.
             context.close(mode: .output, promise: promise)
-        case .active, .handshaking, .additionalVerification:
+        case .active, .handshaking, .additionalVerification, .inputClosed:
             // It may occur that we are still in the process of handshaking or additional verification. We'll let that happen.
             // We flush all outstanding writes once the handshake step is complete and set our state to .outputClosed aftwerwards.
             // This prevents any further writes to this channel.
@@ -298,7 +298,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             // For idle, closed, and unwrapped connections we immediately pass this on to the next
             // channel handler.
             context.close(promise: promise)
-        case .active, .outputClosed, .handshaking, .additionalVerification:
+        case .active, .inputClosed, .outputClosed, .handshaking, .additionalVerification:
             // We need to begin processing shutdown now. We can't fire the promise for a
             // while though.
             self.state = .closing(self.scheduleTimedOutShutdown(context: context))
@@ -401,7 +401,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 state = .active
                 completeHandshake(context: context)
             }
-        case .unwrapping, .closingOutput, .closing, .unwrapped, .closed, .outputClosed: // TODO: .closingOutput and .outputClosed correct here?
+        case .unwrapping, .closingOutput, .closing, .unwrapped, .closed, .inputClosed, .outputClosed: // TODO: .closingOutput and .outputClosed correct here?
             break
             // we are already about to close, we can safely ignore this event
         }
@@ -482,7 +482,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             case .idle, .handshaking, .additionalVerification, .active:
                 preconditionFailure("Cannot schedule timed out shutdown on non-shutting down handler")
 
-            case .outputClosed, .closed, .unwrapped:
+            case .inputClosed, .outputClosed, .closed, .unwrapped: // TODO: .inputClosed correct here?
                 // This means we raced with the shutdown completing. We just let this one go: do nothing.
                 return
 
@@ -542,17 +542,17 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                     self.plaintextReadBuffer = receiveBuffer
                     break readLoop
                 case .active:
-                    if !halfClosureAllowed {
+                    if halfClosureAllowed == false {
                         self.state = .closing(self.scheduleTimedOutShutdown(context: context))
                     }
-                case .unwrapping, .closingOutput, .closing:
+                case .unwrapping, .closingOutput, .closing, .inputClosed: // TODO: .inputClosed correct here?
                     break
                 }
 
                 // This is a clean EOF: we can just start doing our own clean shutdown.
                 self.doFlushReadData(context: context, receiveBuffer: receiveBuffer, readOnEmptyBuffer: false)
                 if halfClosureAllowed {
-                    inputClosed = true
+                    self.state = .inputClosed
                 } else {
                     doShutdownStep(context: context)
                 }
@@ -776,7 +776,7 @@ extension NIOSSLHandler {
             self.shutdownPromise = promise
             self.channelUnwrap(context: storedContext)
 
-        case .handshaking, .active, .outputClosed, .additionalVerification:
+        case .handshaking, .active, .inputClosed, .outputClosed, .additionalVerification:
             // Time to try to strip TLS.
             guard let storedContext = self.storedContext else {
                 promise?.fail(NIOTLSUnwrappingError.invalidInternalState)
