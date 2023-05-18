@@ -754,6 +754,7 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
 
+        // TODO: have a server channel with half-closure enabled here
         let serverChannel: Channel = try serverTLSChannel(context: context, handlers: [SimpleEchoServer()], group: group)
         defer {
             XCTAssertNoThrow(try serverChannel.close().wait())

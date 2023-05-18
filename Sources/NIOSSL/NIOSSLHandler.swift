@@ -200,6 +200,52 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         self.writeDataToNetwork(context: context, promise: nil)
     }
 
+    // TODO: how do I test this?
+    public func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
+        switch event {
+        case ChannelEvent.inputClosed:
+            userInboundInputClosedTriggered(context: context)
+        default:
+            context.fireUserInboundEventTriggered(event)
+            // Trigger closure of TCP input as this event has not occured although we are in state .inputClosed already.
+            if case .inputClosed = state {
+                context.fireUserInboundEventTriggered(ChannelEvent.inputClosed)
+            }
+        }
+    }
+
+    private func userInboundInputClosedTriggered(context: ChannelHandlerContext) {
+        let channelError: NIOSSLError
+        switch self.state {
+        case .closed, .idle:
+            return
+        case .inputClosed:
+            context.fireUserInboundEventTriggered(ChannelEvent.inputClosed)
+            return
+        case .handshaking:
+            // In this case the channel is going through the doHandshake steps and
+            // a channelInactive is fired taking down the connection.
+            // This case propogates a .handshakeFailed instead of an .uncleanShutdown.
+            // We use a synthetic error here as the error stack will be empty, and we should try to
+            // provide some diagnostic help.
+            channelError = NIOSSLError.handshakeFailed(.sslError([.eofDuringHandshake]))
+        case .additionalVerification:
+            // In this case the channel is going through the doHandshake steps and
+            // a channelInactive is fired taking down the connection.
+            // This case propogates a .handshakeFailed instead of an .uncleanShutdown.
+            // We use a synthetic error here as the error stack will be empty, and we should try to
+            // provide some diagnostic help.
+            channelError = NIOSSLError.handshakeFailed(.sslError([.eofDuringAdditionalCertficiateChainValidation]))
+        default:
+            // This is a ragged EOF: we weren't sent a CLOSE_NOTIFY. We want to send a user
+            // event to notify about this before we propagate channelInactive. We also want to fail all
+            // these writes.
+            channelError = NIOSSLError.uncleanShutdown
+        }
+        context.fireErrorCaught(channelError)
+
+    }
+
     public func write(context: ChannelHandlerContext, data: NIOAny, promise: EventLoopPromise<Void>?) {
         bufferWrite(data: unwrapOutboundIn(data), promise: promise)
     }
