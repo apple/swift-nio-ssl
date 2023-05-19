@@ -52,7 +52,6 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     }
 
     private var state: ConnectionState = .idle
-    private var halfClosureAllowed: Bool = false
     private var connection: SSLConnection
     private var plaintextReadBuffer: ByteBuffer?
     private var bufferedWrites: MarkedCircularBuffer<BufferedWrite>
@@ -107,10 +106,6 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     }
 
     public func channelActive(context: ChannelHandlerContext) {
-        context.channel.getOption(ChannelOptions.allowRemoteHalfClosure).whenSuccess { halfClosureAllowed in
-            self.halfClosureAllowed = halfClosureAllowed
-        }
-
         // We fire this a bit early, entirely on purpose. This is because
         // in doHandshakeStep we may end up closing the channel again, and
         // if we do we want to make sure that the channelInactive message received
@@ -588,7 +583,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                     self.plaintextReadBuffer = receiveBuffer
                     break readLoop
                 case .active:
-                    if halfClosureAllowed == false {
+                    if self.getAllowRemoteHalfClosureFromChannel(context: context) == false {
                         self.state = .closing(self.scheduleTimedOutShutdown(context: context))
                     }
                 case .unwrapping, .closingOutput, .closing, .inputClosed: // TODO: .inputClosed correct here?
@@ -597,11 +592,13 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
                 // This is a clean EOF: we can just start doing our own clean shutdown.
                 self.doFlushReadData(context: context, receiveBuffer: receiveBuffer, readOnEmptyBuffer: false)
-                if halfClosureAllowed {
+
+                if self.getAllowRemoteHalfClosureFromChannel(context: context) {
                     self.state = .inputClosed
                 } else {
-                    doShutdownStep(context: context)
+                    self.doShutdownStep(context: context)
                 }
+
                 writeDataToNetwork(context: context, promise: nil)
                 break readLoop
 
@@ -613,6 +610,16 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 break readLoop
             }
         }
+    }
+
+    /// Checks if the `allowRemoteHalfClosure` channel option is set.
+    private func getAllowRemoteHalfClosureFromChannel(context: ChannelHandlerContext) -> Bool {
+        var halfClosureAllowed = false
+        if let syncOptions = context.channel.syncOptions {
+            let result = try? syncOptions.getOption(ChannelOptions.allowRemoteHalfClosure)
+            result.map { halfClosureAllowed = $0 }
+        }
+        return halfClosureAllowed
     }
 
     /// Flushes any pending read plaintext. This is called whenever we hit a flush
