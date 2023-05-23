@@ -250,7 +250,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         case .idle, .handshaking, .additionalVerification:
             // we should not flush immediately as we have not completed the handshake and instead buffer the flush
             self.bufferFlush()
-        case .active, .unwrapping, .closingOutput, .closing, .unwrapped, .inputClosed, .outputClosed, .closed: // TODO: .closingOutput + .inputClosed correct here?
+        case .active, .unwrapping, .closingOutput, .closing, .unwrapped, .inputClosed, .outputClosed, .closed:
             self.bufferFlush()
             self.doUnbufferWrites(context: context)
         }
@@ -262,7 +262,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             self.closeOutput(context: context, promise: promise)
         case .all:
             self.closeAll(context: context, promise: promise)
-        default:
+        case .input:
             promise?.fail(ChannelError.operationUnsupported)
         }
     }
