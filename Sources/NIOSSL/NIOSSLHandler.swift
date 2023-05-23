@@ -195,26 +195,21 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         self.writeDataToNetwork(context: context, promise: nil)
     }
 
-    // TODO: how do I test this?
     public func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
         switch event {
         case ChannelEvent.inputClosed:
             userInboundInputClosedTriggered(context: context)
         default:
             context.fireUserInboundEventTriggered(event)
-            // Trigger closure of TCP input as this event has not occured although we are in state .inputClosed already.
-            if case .inputClosed = state {
-                context.fireUserInboundEventTriggered(ChannelEvent.inputClosed)
-            }
         }
     }
 
     private func userInboundInputClosedTriggered(context: ChannelHandlerContext) {
         let channelError: NIOSSLError
         switch self.state {
-        case .closed, .idle:
-            return
         case .inputClosed:
+            return
+        case .closed, .idle:
             context.fireUserInboundEventTriggered(ChannelEvent.inputClosed)
             return
         case .handshaking:
@@ -595,6 +590,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
                 if self.getAllowRemoteHalfClosureFromChannel(context: context) {
                     self.state = .inputClosed
+                    context.fireUserInboundEventTriggered(ChannelEvent.inputClosed)
                 } else {
                     self.doShutdownStep(context: context)
                 }
