@@ -54,7 +54,6 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private var connection: SSLConnection
     private var plaintextReadBuffer: ByteBuffer?
     private var bufferedWrites: MarkedCircularBuffer<BufferedWrite>
-    private var closeOutputPromise: EventLoopPromise<Void>?
     private var closePromise: EventLoopPromise<Void>?
     private var shutdownPromise: EventLoopPromise<Void>?
     private var didDeliverData: Bool = false
@@ -281,7 +280,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             // We flush all outstanding writes once the handshake step is complete and set our state to .outputClosed aftwerwards.
             // This prevents any further writes to this channel.
             self.state = .outputClosed
-            self.closeOutputPromise = promise // TODO: do we even need that promise?
+            self.bufferedWritesCascadeFlushPromise(to: promise, context: context)
             self.flush(context: context)
             self.doShutdownStep(context: context)
         }
@@ -824,6 +823,27 @@ extension NIOSSLHandler {
 extension NIOSSLHandler {
     private typealias BufferedWrite = (data: ByteBuffer, promise: EventLoopPromise<Void>?)
 
+    /// Completes the given promise when all outstanding writes have been flushed.
+    private func bufferedWritesCascadeFlushPromise(
+        to promise: EventLoopPromise<Void>?,
+        context: ChannelHandlerContext
+    ) {
+        let flushFutures = self.bufferedWrites.compactMap(\.promise).map(\.futureResult)
+        if flushFutures.isEmpty == false {
+            let allFlushesFuture = EventLoopFuture.whenAllSucceed(flushFutures, on: context.eventLoop)
+            allFlushesFuture.whenComplete { result in
+                switch result {
+                case .success:
+                    promise?.succeed()
+                case .failure(let error):
+                    promise?.fail(error)
+                }
+            }
+        } else {
+            promise?.succeed()
+        }
+    }
+
     private func bufferWrite(data: ByteBuffer, promise: EventLoopPromise<Void>?) {
         if case .outputClosed = self.state {
             promise?.fail(ChannelError.outputClosed)
@@ -860,7 +880,6 @@ extension NIOSSLHandler {
     private func doUnbufferWrites(context: ChannelHandlerContext) {
         // Return early if the user hasn't called flush.
         guard bufferedWrites.hasMark else {
-            closeOutputPromise?.succeed()
             return
         }
 
@@ -885,10 +904,6 @@ extension NIOSSLHandler {
             if didWrite {
                 let ourPromise: EventLoopPromise<Void>? = promises.flattenPromises(on: context.eventLoop)
                 self.writeDataToNetwork(context: context, promise: ourPromise)
-
-                let closeOutputPromise = self.closeOutputPromise
-                self.closeOutputPromise = nil
-                ourPromise?.futureResult.cascade(to: closeOutputPromise)
             }
         } catch {
             // We encountered an error, it's cleanup time. Close ourselves down.
@@ -899,10 +914,6 @@ extension NIOSSLHandler {
             promises.forEach { $0.fail(error) }
             // Fail everything else.
             self.discardBufferedWrites(reason: error)
-
-            let closeOutputPromise = self.closeOutputPromise
-            self.closeOutputPromise = nil
-            closeOutputPromise?.fail(error)
         }
     }
 
