@@ -416,7 +416,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 state = .active
                 completeHandshake(context: context)
             }
-        case .unwrapping, .closing, .unwrapped, .closed, .inputClosed, .outputClosed: // TODO: .outputClosed correct here?
+        case .unwrapping, .closing, .unwrapped, .closed, .inputClosed, .outputClosed:
             break
             // we are already about to close, we can safely ignore this event
         }
@@ -495,10 +495,10 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private func scheduleTimedOutShutdown(context: ChannelHandlerContext) -> Scheduled<Void> {
         return context.eventLoop.scheduleTask(in: self.shutdownTimeout) {
             switch self.state {
-            case .idle, .handshaking, .additionalVerification, .active:
+            case .inputClosed, .outputClosed, .idle, .handshaking, .additionalVerification, .active:
                 preconditionFailure("Cannot schedule timed out shutdown on non-shutting down handler")
 
-            case .inputClosed, .outputClosed, .closed, .unwrapped: // TODO: .inputClosed correct here?
+            case .closed, .unwrapped:
                 // This means we raced with the shutdown completing. We just let this one go: do nothing.
                 return
 
@@ -548,16 +548,16 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 switch self.state {
                 case .idle, .handshaking, .additionalVerification:
                     preconditionFailure("Should not get zeroReturn in \(self.state)")
-                case .closed, .unwrapped, .outputClosed: // TODO: .outputClosed correct here?
+                case .closed, .unwrapped:
                     // This is an unexpected place to be, but it's not totally impossible. Assume this
                     // is the result of a wonky I/O pattern and just ignore it.
                     self.plaintextReadBuffer = receiveBuffer
                     break readLoop
-                case .active:
+                case .active, .outputClosed:
                     if self.getAllowRemoteHalfClosureFromChannel(context: context) == false {
                         self.state = .closing(self.scheduleTimedOutShutdown(context: context))
                     }
-                case .unwrapping, .closing, .inputClosed: // TODO: .inputClosed correct here?
+                case .unwrapping, .closing, .inputClosed:
                     break
                 }
 
