@@ -472,6 +472,8 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
             switch targetCompleteState {
             case .outputClosed:
+                // No channel close here. We would expect users to invoke a full close regardless of
+                // previously completed half closures.
                 break
             case .closed:
                 self.channelClose(context: context, reason: NIOTLSUnwrappingError.closeRequestedDuringUnwrap)
