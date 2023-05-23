@@ -289,19 +289,12 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             // It may occur that we are still in the process of handshaking or additional verification. We'll let that happen.
             // We flush all outstanding writes once the handshake step is complete and set our state to .outputClosed aftwerwards.
             // This prevents any further writes to this channel.
-            if let promise = promise, let closeOutputPromise = self.closeOutputPromise {
-                closeOutputPromise.futureResult.cascade(to: promise)
-            } else if let promise = promise {
-                self.closeOutputPromise = promise
-                self.state = .closingOutput(self.scheduleTimedOutShutdown(context: context))
-                self.doShutdownStep(context: context)
-            }
+            self.state = .closingOutput(self.scheduleTimedOutShutdown(context: context))
+            self.closeOutputPromise = promise
+            self.doShutdownStep(context: context)
 
+            // TODO: hoist flush
             self.flush(context: context)
-
-            self.closeOutputPromise?.futureResult.whenSuccess {
-                self.state = .outputClosed
-            }
         }
     }
 
