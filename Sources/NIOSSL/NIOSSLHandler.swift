@@ -43,7 +43,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         case additionalVerification
         case active
         case unwrapping(Scheduled<Void>)
-        case closingOutput(Scheduled<Void>)
+        case closingOutput(Scheduled<Void>) // TODO: remove this state (in removable commit)
         case closing(Scheduled<Void>)
         case unwrapped
         case inputClosed
@@ -291,10 +291,8 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             // This prevents any further writes to this channel.
             self.state = .closingOutput(self.scheduleTimedOutShutdown(context: context))
             self.closeOutputPromise = promise
-            self.doShutdownStep(context: context)
-
-            // TODO: hoist flush
             self.flush(context: context)
+            self.doShutdownStep(context: context)
         }
     }
 
