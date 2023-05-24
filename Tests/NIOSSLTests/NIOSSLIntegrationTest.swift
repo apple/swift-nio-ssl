@@ -90,6 +90,22 @@ internal final class PromiseOnReadHandler: ChannelInboundHandler {
     }
 }
 
+private final class PromiseOnChildChannelInitHandler: ChannelInboundHandler {
+    typealias InboundIn = ByteBuffer
+    typealias OutboundOut = ByteBuffer
+
+    private let promise: EventLoopPromise<Channel>
+
+    init(promise: EventLoopPromise<Channel>) {
+        self.promise = promise
+    }
+
+    func channelActive(context: ChannelHandlerContext) {
+        self.promise.succeed(context.channel)
+        context.fireChannelActive()
+    }
+}
+
 private final class ReadRecordingHandler: ChannelInboundHandler {
     public typealias InboundIn = ByteBuffer
 
@@ -646,9 +662,6 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertEqual(expectedEvents, serverHandler.events)
     }
 
-    // TODO: test event sequencing
-    // TODO: test subsequent close mode output (check https://github.com/apple/swift-nio/blob/7a0ec436a1bee415826f67f5f678ceed00f383d0/Tests/NIOPosixTests/StreamChannelsTest.swift#L267)
-    // TODO: test close all while closing output
     func testSubsequentWritesFailAfterCloseModeOutput() throws {
         let context = try configuredSSLContext()
 
@@ -702,6 +715,71 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertThrowsError(try clientChannel.writeAndFlush(buffer).wait()) { error in
             XCTAssertEqual(.outputClosed, error as? ChannelError)
         }
+    }
+
+    func testCloseModeOutputServerAndClient() throws {
+        let context = try configuredSSLContext()
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
+        let childChannelInitPromise: EventLoopPromise<Channel> = group.next().makePromise()
+
+        let preHandlers: [ChannelHandler] = []
+        let postHandlers: [ChannelHandler] = [
+            PromiseOnChildChannelInitHandler(promise: childChannelInitPromise),
+            SimpleEchoServer()
+        ]
+        let serverChannel: Channel = try ServerBootstrap(group: group)
+            .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true) // Important!
+            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            .childChannelInitializer { channel in
+                let results = preHandlers.map { channel.pipeline.addHandler($0) }
+                return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop).map {
+                    return NIOSSLServerHandler(context: context)
+                }.flatMap {
+                    channel.pipeline.addHandler($0)
+                }.flatMap {
+                    let results = postHandlers.map { channel.pipeline.addHandler($0) }
+                    return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop)
+                }
+            }
+            .bind(host: "127.0.0.1", port: 0)
+            .wait()
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let clientChannel = try clientTLSChannel(
+            context: context,
+            preHandlers: [],
+            postHandlers: [
+                PromiseOnReadHandler(promise: completionPromise)
+            ],
+            group: group,
+            connectingTo: serverChannel.localAddress!
+        )
+        defer {
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+        XCTAssertNoThrow(try clientChannel.setOption(ChannelOptions.allowRemoteHalfClosure, value: true).wait())
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        try clientChannel.writeAndFlush(originalBuffer).wait()
+
+        let newBuffer = try completionPromise.futureResult.wait()
+        XCTAssertEqual(newBuffer, originalBuffer)
+
+        // Ok, the connection is definitely up.
+        // Now retrieve the client channel that our server opened for the connection to our client.
+        let connectionChildChannel = try childChannelInitPromise.futureResult.wait()
+
+        XCTAssertNoThrow(try connectionChildChannel.close(mode: .output).wait())
+        XCTAssertNoThrow(try clientChannel.close(mode: .output).wait())
     }
 
     func testCloseModeOutputTriggersFlush() throws {
