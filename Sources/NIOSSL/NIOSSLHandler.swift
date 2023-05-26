@@ -54,6 +54,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private var connection: SSLConnection
     private var plaintextReadBuffer: ByteBuffer?
     private var bufferedWrites: MarkedCircularBuffer<BufferedWrite>
+    private var closeOutputPromise: EventLoopPromise<Void>?
     private var closePromise: EventLoopPromise<Void>?
     private var shutdownPromise: EventLoopPromise<Void>?
     private var didDeliverData: Bool = false
@@ -230,8 +231,8 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             // these writes.
             channelError = NIOSSLError.uncleanShutdown
         }
+        context.fireUserInboundEventTriggered(ChannelEvent.inputClosed)
         context.fireErrorCaught(channelError)
-
     }
 
     public func write(context: ChannelHandlerContext, data: NIOAny, promise: EventLoopPromise<Void>?) {
@@ -280,9 +281,15 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             // We flush all outstanding writes once the handshake step is complete and set our state to .outputClosed aftwerwards.
             // This prevents any further writes to this channel.
             self.state = .outputClosed
-            self.bufferedWritesCascadeFlushPromise(to: promise, context: context)
+            self.closeOutputPromise = promise
+
+            let flushCompletePromise: EventLoopPromise<Void> = context.eventLoop.makePromise()
+            flushCompletePromise.futureResult.whenComplete { _ in
+                self.doShutdownStep(context: context)
+            }
+            bufferedWritesCascadeFlushPromise(to: flushCompletePromise, context: context)
+
             self.flush(context: context)
-            self.doShutdownStep(context: context)
         }
     }
 
@@ -461,6 +468,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
             if case .outputClosed = targetCompleteState {
                 self.state = targetCompleteState
+                self.channelCloseOutput(context: context)
             }
         case .complete:
             uncleanScheduledShutdown?.cancel()
@@ -472,9 +480,9 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
             switch targetCompleteState {
             case .outputClosed:
-                // No channel close here. We would expect users to invoke a full close regardless of
+                // No full channel close here. We would expect users to invoke a full close regardless of
                 // previously completed half closures.
-                break
+                self.channelCloseOutput(context: context)
             case .closed:
                 self.channelClose(context: context, reason: NIOTLSUnwrappingError.closeRequestedDuringUnwrap)
             case .unwrapped:
@@ -545,6 +553,8 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 break readLoop
 
             case .failed(BoringSSLError.zeroReturn):
+                let allowRemoteHalfClosure = self.getAllowRemoteHalfClosureFromChannel(context: context)
+
                 switch self.state {
                 case .idle, .handshaking, .additionalVerification:
                     preconditionFailure("Should not get zeroReturn in \(self.state)")
@@ -554,7 +564,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                     self.plaintextReadBuffer = receiveBuffer
                     break readLoop
                 case .active, .outputClosed:
-                    if self.getAllowRemoteHalfClosureFromChannel(context: context) == false {
+                    if allowRemoteHalfClosure == false {
                         self.state = .closing(self.scheduleTimedOutShutdown(context: context))
                     }
                 case .unwrapping, .closing, .inputClosed:
@@ -564,7 +574,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 // This is a clean EOF: we can just start doing our own clean shutdown.
                 self.doFlushReadData(context: context, receiveBuffer: receiveBuffer, readOnEmptyBuffer: false)
 
-                if self.getAllowRemoteHalfClosureFromChannel(context: context) {
+                if allowRemoteHalfClosure {
                     self.state = .inputClosed
                     context.fireUserInboundEventTriggered(ChannelEvent.inputClosed)
                 } else {
@@ -588,8 +598,9 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private func getAllowRemoteHalfClosureFromChannel(context: ChannelHandlerContext) -> Bool {
         var halfClosureAllowed = false
         if let syncOptions = context.channel.syncOptions {
-            let result = try? syncOptions.getOption(ChannelOptions.allowRemoteHalfClosure)
-            result.map { halfClosureAllowed = $0 }
+            if let result = try? syncOptions.getOption(ChannelOptions.allowRemoteHalfClosure) {
+                halfClosureAllowed = result
+            }
         }
         return halfClosureAllowed
     }
@@ -652,6 +663,14 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         }
 
         context.writeAndFlush(self.wrapInboundOut(dataToWrite), promise: promise)
+    }
+
+    /// Simply calls `ChannelHandlerContext.close(mode: .output)` with
+    /// any promise we may have already been given.
+    private func channelCloseOutput(context: ChannelHandlerContext) {
+        let closeOutputPromise = self.closeOutputPromise
+        self.closeOutputPromise = nil
+        context.close(mode: .output, promise: closeOutputPromise)
     }
 
     /// Close the underlying channel.
@@ -914,6 +933,12 @@ extension NIOSSLHandler {
             }
             // Fail any writes we've previously encoded but not flushed.
             promises.forEach { $0.fail(error) }
+
+            // TODO: Fail close output promise if present
+            let closeOutputPromise = self.closeOutputPromise
+            self.closePromise = nil
+            closeOutputPromise?.fail(error)
+
             // Fail everything else.
             self.discardBufferedWrites(reason: error)
         }
