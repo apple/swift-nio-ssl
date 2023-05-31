@@ -231,8 +231,8 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             // these writes.
             channelError = NIOSSLError.uncleanShutdown
         }
-        context.fireUserInboundEventTriggered(ChannelEvent.inputClosed)
         context.fireErrorCaught(channelError)
+        context.fireUserInboundEventTriggered(ChannelEvent.inputClosed)
     }
 
     public func write(context: ChannelHandlerContext, data: NIOAny, promise: EventLoopPromise<Void>?) {
@@ -411,7 +411,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         context.eventLoop.preconditionInEventLoop()
 
         switch self.state {
-        case .idle, .handshaking, .active:
+        case .idle, .handshaking, .active, .inputClosed, .outputClosed:
             preconditionFailure("invalid state \(self.state)")
         case .additionalVerification:
             switch result {
@@ -423,7 +423,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 state = .active
                 completeHandshake(context: context)
             }
-        case .unwrapping, .closing, .unwrapped, .closed, .inputClosed, .outputClosed:
+        case .unwrapping, .closing, .unwrapped, .closed:
             break
             // we are already about to close, we can safely ignore this event
         }
