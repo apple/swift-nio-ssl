@@ -53,7 +53,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private var state: ConnectionState = .idle
     private var connection: SSLConnection
     private var plaintextReadBuffer: ByteBuffer?
-    private var bufferedWrites: MarkedCircularBuffer<BufferedWrite>
+    private var bufferedActions: MarkedCircularBuffer<BufferedAction>
     private var closeOutputPromise: EventLoopPromise<Void>?
     private var closePromise: EventLoopPromise<Void>?
     private var shutdownPromise: EventLoopPromise<Void>?
@@ -75,7 +75,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             "TLSConfiguration.certificateVerification must be either set to .noHostnameVerification or .fullVerification if additionalPeerCertificateVerificationCallback is specified"
         )
         self.connection = connection
-        self.bufferedWrites = MarkedCircularBuffer(initialCapacity: 96)  // 96 brings the total size of the buffer to just shy of one page
+        self.bufferedActions = MarkedCircularBuffer(initialCapacity: 96)  // 96 brings the total size of the buffer to just shy of one page
         self.shutdownTimeout = shutdownTimeout
         self.additionalPeerCertificateVerificationCallback = additionalPeerCertificateVerificationCallback
         self.maxWriteSize = maxWriteSize
@@ -123,8 +123,8 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
         switch oldState {
         case .closed, .idle:
-            // Nothing to do, but discard any buffered writes we still have.
-            discardBufferedWrites(reason: ChannelError.ioOnClosedChannel)
+            // Nothing to do, but discard any buffered actions we still have.
+            discardBufferedActions(reason: ChannelError.ioOnClosedChannel)
             // Return early
             context.fireChannelInactive()
             return
@@ -156,7 +156,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         shutdownPromise?.fail(channelError)
         closePromise?.fail(channelError)
         context.fireErrorCaught(channelError)
-        discardBufferedWrites(reason: channelError)
+        discardBufferedActions(reason: channelError)
 
         context.fireChannelInactive()
     }
@@ -172,7 +172,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             doHandshakeStep(context: context)
         case .active, .outputClosed:
             doDecodeData(context: context)
-            doUnbufferWrites(context: context)
+            doUnbufferActions(context: context)
         case .closing:
             // Handle both natural close events and close events where data is still in
             // flight.  Sending through doDecodeData will handle both conditions.
@@ -246,7 +246,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             self.bufferFlush()
         case .active, .unwrapping, .closing, .unwrapped, .inputClosed, .outputClosed, .closed:
             self.bufferFlush()
-            self.doUnbufferWrites(context: context)
+            self.doUnbufferActions(context: context)
         }
     }
 
@@ -276,20 +276,22 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             // For idle, outputClosed, closed, unwrapping, and unwrapped connections we immediately pass this on to the next
             // channel handler.
             context.close(mode: .output, promise: promise)
-        case .active, .handshaking, .additionalVerification, .inputClosed:
+        case .handshaking, .additionalVerification:
+            // We are still in the process of handshaking / doing additional verification.
+            // This means our outstanding writes will not get flushed until we have reached the active state.
+            // Therefore we buffer the .closeOuput action and wait for it to be executed after all our
+            // outstanding writes have been flushed in the active state.
+            self.bufferedActions.append(.closeOutput)
+            self.flush(context: context)
+            self.closeOutputPromise = promise
+        case .active, .inputClosed:
             // It may occur that we are still in the process of handshaking or additional verification. We'll let that happen.
             // We flush all outstanding writes once the handshake step is complete and set our state to .outputClosed aftwerwards.
             // This prevents any further writes to this channel.
             self.state = .outputClosed
             self.closeOutputPromise = promise
-
-            let flushCompletePromise: EventLoopPromise<Void> = context.eventLoop.makePromise()
-            flushCompletePromise.futureResult.whenComplete { _ in
-                self.doShutdownStep(context: context)
-            }
-            bufferedWritesCascadeFlushPromise(to: flushCompletePromise, context: context)
-
             self.flush(context: context)
+            self.doShutdownStep(context: context)
         }
     }
 
@@ -400,7 +402,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         if let receiveBuffer = self.plaintextReadBuffer {
             self.doFlushReadData(context: context, receiveBuffer: receiveBuffer, readOnEmptyBuffer: false)
         }
-        self.doUnbufferWrites(context: context)
+        self.doUnbufferActions(context: context)
     }
 
     private func completedAdditionalPeerCertificateVerification(result: Result<Void, Error>) {
@@ -702,8 +704,8 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         // where we are not in the pipeline any more, but we still have a valid context.
         let removalPromise: EventLoopPromise<Void> = context.eventLoop.makePromise()
         let removalFuture = removalPromise.futureResult.map {
-            // Now drop the writes.
-            self.discardBufferedWrites(reason: NIOTLSUnwrappingError.unflushedWriteOnUnwrap)
+            // Now drop all actions.
+            self.discardBufferedActions(reason: NIOTLSUnwrappingError.unflushedWriteOnUnwrap)
 
             if let unconsumedData = self.connection.extractUnconsumedData() {
                 context.fireChannelRead(self.wrapInboundOut(unconsumedData))
@@ -840,29 +842,12 @@ extension NIOSSLHandler {
 }
 
 
-// MARK: Code that handles buffering/unbuffering writes.
+// MARK: Code that handles buffering/unbuffering actions.
 extension NIOSSLHandler {
     private typealias BufferedWrite = (data: ByteBuffer, promise: EventLoopPromise<Void>?)
-
-    /// Completes the given promise when all outstanding writes have been flushed.
-    private func bufferedWritesCascadeFlushPromise(
-        to promise: EventLoopPromise<Void>?,
-        context: ChannelHandlerContext
-    ) {
-        let flushFutures = self.bufferedWrites.compactMap(\.promise).map(\.futureResult)
-        if flushFutures.isEmpty == false {
-            let allFlushesFuture = EventLoopFuture.whenAllSucceed(flushFutures, on: context.eventLoop)
-            allFlushesFuture.whenComplete { result in
-                switch result {
-                case .success:
-                    promise?.succeed()
-                case .failure(let error):
-                    promise?.fail(error)
-                }
-            }
-        } else {
-            promise?.succeed()
-        }
+    private enum BufferedAction {
+        case closeOutput
+        case write(BufferedWrite)
     }
 
     private func bufferWrite(data: ByteBuffer, promise: EventLoopPromise<Void>?) {
@@ -880,27 +865,29 @@ extension NIOSSLHandler {
         // During the short writes we set the promise to `nil` to make sure they only arrive at the end.
         // Note that we make sure that there's always a single write, at the end, that holds the promise.
         while data.readableBytes > self.maxWriteSize, let slice = data.readSlice(length: self.maxWriteSize) {
-            bufferedWrites.append((data: slice, promise: nil))
+            bufferedActions.append(.write((data: slice, promise: nil)))
         }
 
         assert(data.readableBytes <= maxWriteSize)
-        bufferedWrites.append((data: data, promise: promise))
+        bufferedActions.append(.write((data: data, promise: promise)))
     }
 
     private func bufferFlush() {
-        bufferedWrites.mark()
+        bufferedActions.mark()
     }
 
-    private func discardBufferedWrites(reason: Error) {
-        while self.bufferedWrites.count > 0 {
-            let bufferedWrite = self.bufferedWrites.removeFirst()
-            bufferedWrite.promise?.fail(reason)
+    private func discardBufferedActions(reason: Error) {
+        while self.bufferedActions.count > 0 {
+            let bufferedAction = self.bufferedActions.removeFirst()
+            if case .write(let bufferedWrite) = bufferedAction {
+                bufferedWrite.promise?.fail(reason)
+            }
         }
     }
 
-    private func doUnbufferWrites(context: ChannelHandlerContext) {
+    private func doUnbufferActions(context: ChannelHandlerContext) {
         // Return early if the user hasn't called flush.
-        guard bufferedWrites.hasMark else {
+        guard bufferedActions.hasMark else {
             return
         }
 
@@ -910,14 +897,21 @@ extension NIOSSLHandler {
         var didWrite = false
 
         do {
-            try bufferedWrites.forEachElementUntilMark { element in
-                var data = element.data
-                let writeSuccessful = try self._encodeSingleWrite(buf: &data)
-                if writeSuccessful {
-                    didWrite = true
-                    if let promise = element.promise { promises.append(promise) }
+            var invokeCloseOutput = false
+            try bufferedActions.forEachElementUntilMark { element in
+                switch element {
+                case .write(let bufferedWrite):
+                    var data = bufferedWrite.data
+                    let writeSuccessful = try self._encodeSingleWrite(buf: &data)
+                    if writeSuccessful {
+                        didWrite = true
+                        if let promise = bufferedWrite.promise { promises.append(promise) }
+                    }
+                    return writeSuccessful
+                case .closeOutput:
+                    invokeCloseOutput = true
+                    return true
                 }
-                return writeSuccessful
             }
 
             // If we got this far and did a write, we should shove the data out to the
@@ -925,6 +919,13 @@ extension NIOSSLHandler {
             if didWrite {
                 let ourPromise: EventLoopPromise<Void>? = promises.flattenPromises(on: context.eventLoop)
                 self.writeDataToNetwork(context: context, promise: ourPromise)
+            }
+
+            // We detected a .closeOutput action in our action buffer. This means we
+            // close the output after we have written all pending writes.
+            if invokeCloseOutput {
+                self.state = .outputClosed
+                self.doShutdownStep(context: context)
             }
         } catch {
             // We encountered an error, it's cleanup time. Close ourselves down.
@@ -934,13 +935,13 @@ extension NIOSSLHandler {
             // Fail any writes we've previously encoded but not flushed.
             promises.forEach { $0.fail(error) }
 
-            // TODO: Fail close output promise if present
+            // Fail close output promise if present
             let closeOutputPromise = self.closeOutputPromise
             self.closePromise = nil
             closeOutputPromise?.fail(error)
 
             // Fail everything else.
-            self.discardBufferedWrites(reason: error)
+            self.discardBufferedActions(reason: error)
         }
     }
 
