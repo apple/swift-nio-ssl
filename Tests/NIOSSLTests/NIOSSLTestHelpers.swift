@@ -569,7 +569,7 @@ func generateRSAPrivateKey() -> OpaquePointer {
     precondition(generateRC == 1)
 
     let pkey = CNIOBoringSSL_EVP_PKEY_new()!
-    let assignRC = CNIOBoringSSL_EVP_PKEY_assign(pkey, EVP_PKEY_RSA, rsa)
+    let assignRC = CNIOBoringSSL_EVP_PKEY_assign_RSA(pkey, rsa)
     
     precondition(assignRC == 1)
     return pkey
