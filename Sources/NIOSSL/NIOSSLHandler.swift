@@ -285,9 +285,8 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             self.flush(context: context)
             self.closeOutputPromise = promise
         case .active, .inputClosed:
-            // It may occur that we are still in the process of handshaking or additional verification. We'll let that happen.
-            // We flush all outstanding writes once the handshake step is complete and set our state to .outputClosed aftwerwards.
-            // This prevents any further writes to this channel.
+            // We need to begin processing closeOutput now.
+            // We can't fire the promise for a while though.
             self.state = .outputClosed
             self.closeOutputPromise = promise
             self.flush(context: context)
@@ -877,8 +876,7 @@ extension NIOSSLHandler {
     }
 
     private func discardBufferedActions(reason: Error) {
-        while self.bufferedActions.count > 0 {
-            let bufferedAction = self.bufferedActions.removeFirst()
+        while let bufferedAction = self.bufferedActions.popFirst() {
             if case .write(let bufferedWrite) = bufferedAction {
                 bufferedWrite.promise?.fail(reason)
             }
@@ -898,7 +896,8 @@ extension NIOSSLHandler {
 
         do {
             var invokeCloseOutput = false
-            try bufferedActions.forEachElementUntilMark { element in
+            bufferedActionsLoop: while bufferedActions.hasMark {
+                let element = bufferedActions.first!
                 switch element {
                 case .write(let bufferedWrite):
                     var data = bufferedWrite.data
@@ -906,11 +905,12 @@ extension NIOSSLHandler {
                     if writeSuccessful {
                         didWrite = true
                         if let promise = bufferedWrite.promise { promises.append(promise) }
+                        _ = bufferedActions.removeFirst()
                     }
-                    return writeSuccessful
                 case .closeOutput:
                     invokeCloseOutput = true
-                    return true
+                    _ = bufferedActions.removeFirst()
+                    break bufferedActionsLoop
                 }
             }
 
@@ -926,12 +926,17 @@ extension NIOSSLHandler {
             if invokeCloseOutput {
                 self.state = .outputClosed
                 self.doShutdownStep(context: context)
+                self.discardBufferedActions(reason: ChannelError.outputClosed)
             }
         } catch {
             // We encountered an error, it's cleanup time. Close ourselves down.
-            if case .outputClosed = self.state {} else {
+            switch self.state {
+            case .outputClosed:
+                break
+            default:
                 channelClose(context: context, reason: error)
             }
+
             // Fail any writes we've previously encoded but not flushed.
             promises.forEach { $0.fail(error) }
 
@@ -962,19 +967,6 @@ extension NIOSSLHandler {
         }
     }
 }
-
-fileprivate extension MarkedCircularBuffer {
-    mutating func forEachElementUntilMark(callback: (Element) throws -> Bool) rethrows {
-        // This function generates quite a lot of ARC traffic, as it needs to pass a copy of .first
-        // into the closure. Sadly, MarkedCircularBuffer won't let us put something in _front_ of the
-        // marked index, so we cannot ensure that everything has only one owner here. Until we can
-        // do something about that, we just have to live with this.
-        while try self.hasMark && callback(self.first!) {
-            _ = self.removeFirst()
-        }
-    }
-}
-
 
 fileprivate extension Array where Element == EventLoopPromise<Void> {
     /// Given an array of promises, flattens it out to a single promise.
