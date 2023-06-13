@@ -576,7 +576,12 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 self.doFlushReadData(context: context, receiveBuffer: receiveBuffer, readOnEmptyBuffer: false)
 
                 if allowRemoteHalfClosure {
-                    self.state = .inputClosed
+                    switch self.state {
+                    case .active, .outputClosed, .unwrapping:
+                        self.state = .inputClosed
+                    default:
+                        break
+                    }
                     context.fireUserInboundEventTriggered(ChannelEvent.inputClosed)
                 } else {
                     self.doShutdownStep(context: context)
