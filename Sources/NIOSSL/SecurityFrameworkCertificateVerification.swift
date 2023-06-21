@@ -66,7 +66,7 @@ extension SSLConnection {
             callbackQueue.async {
                 let result: OSStatus
 
-                if #available(iOS 13, macOS 10.15, tvOS 13, watchOS 6, *) {
+                if #available(iOS 13, macOS 10.15, tvOS 13, watchOS 6, xrOS 1, *) {
                     result = SecTrustEvaluateAsyncWithError(actualTrust, callbackQueue) { (_, valid, _) in
                         promise.succeed(valid ? .certificateVerified : .failed)
                     }
