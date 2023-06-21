@@ -16,7 +16,7 @@ import NIOCore
 @_implementationOnly import CNIOBoringSSL
 @_implementationOnly import CNIOBoringSSLShims
 
-#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+#if canImport(Darwin)
 import Darwin.C
 #elseif os(Linux) || os(FreeBSD) || os(Android)
 import Glibc

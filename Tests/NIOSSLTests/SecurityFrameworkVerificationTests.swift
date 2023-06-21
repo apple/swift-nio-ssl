@@ -16,7 +16,7 @@ import XCTest
 @testable import NIOSSL
 
 // We can only use Security.framework to validate TLS certificates on Apple platforms.
-#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+#if canImport(Darwin)
 import Dispatch
 import Foundation
 import Security
@@ -33,7 +33,7 @@ final class SecurityFrameworkVerificationTests: XCTestCase {
     }()
 
     func testDefaultVerification() throws {
-        #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+        #if canImport(Darwin)
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             try! group.syncShutdownGracefully()
@@ -52,7 +52,7 @@ final class SecurityFrameworkVerificationTests: XCTestCase {
     }
 
     func testDefaultVerificationCanFail() throws {
-        #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+        #if canImport(Darwin)
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             try! group.syncShutdownGracefully()
@@ -73,7 +73,7 @@ final class SecurityFrameworkVerificationTests: XCTestCase {
     }
 
     func testDefaultVerificationPlusAdditionalCanUseAdditionalRoot() throws {
-        #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+        #if canImport(Darwin)
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             try! group.syncShutdownGracefully()
@@ -97,7 +97,7 @@ final class SecurityFrameworkVerificationTests: XCTestCase {
     }
 
     func testDefaultVerificationPlusAdditionalCanUseDefaultRoots() throws {
-        #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+        #if canImport(Darwin)
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             try! group.syncShutdownGracefully()
@@ -119,7 +119,7 @@ final class SecurityFrameworkVerificationTests: XCTestCase {
     }
 
     func testDefaultVerificationPlusAdditionalCanFailWithUnknownCert() throws {
-        #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+        #if canImport(Darwin)
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             try! group.syncShutdownGracefully()
@@ -143,7 +143,7 @@ final class SecurityFrameworkVerificationTests: XCTestCase {
     }
 }
 
-#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+#if canImport(Darwin)
 extension SecurityFrameworkVerificationTests {
     static let appleComCertChain: [SecCertificate] = {
         // All certs here are PEM format, with the leading/trailing lines stripped.

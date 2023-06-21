@@ -16,7 +16,7 @@ import NIOCore
 @_implementationOnly import CNIOBoringSSL
 @_implementationOnly import CNIOBoringSSLShims
 
-#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+#if canImport(Darwin)
 import Darwin.C
 #elseif os(Linux) || os(FreeBSD) || os(Android)
 import Glibc
@@ -436,7 +436,7 @@ public final class NIOSSLContext {
         let conn = SSLConnection(ownedSSL: ssl, parentContext: self)
 
         // If we need to turn on the validation on Apple platforms, do it here.
-        #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+        #if canImport(Darwin)
         switch self.configuration.trustRoots {
         case .some(.default), .none:
             conn.setCustomVerificationCallback(CustomVerifyManager(callback: {
@@ -845,7 +845,7 @@ internal class DirectoryContents: Sequence, IteratorProtocol {
     let path: String
     // Used to account between the differences of DIR being defined on Darwin.
     // Otherwise an OpaquePointer needs to be used to account for the non-defined type in glibc.
-    #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+    #if canImport(Darwin)
     let dir: UnsafeMutablePointer<DIR>
     #else
     let dir: OpaquePointer

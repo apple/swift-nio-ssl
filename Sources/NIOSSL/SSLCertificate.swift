@@ -16,7 +16,7 @@
 @_implementationOnly import CNIOBoringSSLShims
 import NIOCore
 
-#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+#if canImport(Darwin)
 import Darwin.C
 #elseif os(Linux) || os(FreeBSD) || os(Android)
 import Glibc
@@ -24,7 +24,7 @@ import Glibc
 #error("unsupported os")
 #endif
 
-#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+#if canImport(Darwin)
 import struct Darwin.time_t
 #elseif canImport(Glibc)
 import struct Glibc.time_t

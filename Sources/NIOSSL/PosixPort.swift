@@ -20,7 +20,7 @@
 //
 // The code is an exact port from SwiftNIO, so if that version ever becomes public we
 // can lift anything missing from there and move it over without change.
-#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS)
+#if canImport(Darwin)
 import Darwin.C
 #elseif os(Linux) || os(FreeBSD) || os(Android)
 import Glibc
@@ -42,7 +42,7 @@ private let sysMunlock: @convention(c) (UnsafeRawPointer?, size_t) -> CInt = mun
 private let sysFclose: @convention(c) (FILEPointer?) -> CInt = fclose
 
 // Sadly, stat, lstat, and readlink have different signatures with glibc and macOS libc.
-#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS) || os(Android)
+#if canImport(Darwin) || os(Android)
 private let sysStat: @convention(c) (UnsafePointer<CChar>?, UnsafeMutablePointer<stat>?) -> CInt = stat(_:_:)
 private let sysReadlink: @convention(c) (UnsafePointer<Int8>?, UnsafeMutablePointer<Int8>?, Int) -> Int = readlink
 private let sysLstat:  @convention(c) (UnsafePointer<Int8>?, UnsafeMutablePointer<stat>?) -> Int32 = lstat
