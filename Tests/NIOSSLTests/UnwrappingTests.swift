@@ -53,20 +53,16 @@ final class UnwrappingTests: XCTestCase {
         super.setUp()
         guard boringSSLIsInitialized else { fatalError() }
         let (cert, key) = generateSelfSignedCert()
-        NIOSSLIntegrationTest.cert = cert
-        NIOSSLIntegrationTest.key = key
-    }
-
-    override class func tearDown() {
-        _ = unlink(NIOSSLIntegrationTest.encryptedKeyPath)
+        UnwrappingTests.cert = cert
+        UnwrappingTests.key = key
     }
 
     private func configuredSSLContext(file: StaticString = #filePath, line: UInt = #line) throws -> NIOSSLContext {
         var config = TLSConfiguration.makeServerConfiguration(
-            certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
-            privateKey: .privateKey(NIOSSLIntegrationTest.key)
+            certificateChain: [.certificate(UnwrappingTests.cert)],
+            privateKey: .privateKey(UnwrappingTests.key)
         )
-        config.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
+        config.trustRoots = .certificates([UnwrappingTests.cert])
         return try assertNoThrowWithValue(NIOSSLContext(configuration: config), file: file, line: line)
     }
 
@@ -485,7 +481,7 @@ final class UnwrappingTests: XCTestCase {
         // We haven't spun the event loop, so the handlers are still in the pipeline. Now attempt to unwrap.
         let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
         clientHandler.stopTLS(promise: stopPromise)
-        
+
         XCTAssertThrowsError(try stopPromise.futureResult.wait()) { error in
             XCTAssertEqual(.some(.alreadyClosed), error as? NIOTLSUnwrappingError)
         }
@@ -966,9 +962,9 @@ final class UnwrappingTests: XCTestCase {
         XCTAssertTrue(serverClosed)
         XCTAssertTrue(unwrapped)
     }
-    
+
     func testChannelInactiveDuringHandshake() throws {
-        
+
         let serverChannel = EmbeddedChannel()
         let clientChannel = EmbeddedChannel()
 
@@ -995,15 +991,15 @@ final class UnwrappingTests: XCTestCase {
         // Place the guts of connectInMemory here to abruptly alter the handshake process
         let addr = try assertNoThrowWithValue(SocketAddress(unixDomainSocketPath: "/tmp/whatever2"))
         let _ = clientChannel.connect(to: addr)
-        
+
         XCTAssertFalse(serverClosed)
-        
+
         serverChannel.pipeline.fireChannelActive()
         clientChannel.pipeline.fireChannelActive()
         // doHandshakeStep process should start here out in NIOSSLHandler before fireChannelInactive
         serverChannel.pipeline.fireChannelInactive()
         clientChannel.pipeline.fireChannelInactive()
-        
+
         // Need to test this error as a BoringSSLError because that means success instead of an uncleanShutdown
         do {
             try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
@@ -1017,7 +1013,7 @@ final class UnwrappingTests: XCTestCase {
             }
         }
         clientHandler.stopTLS(promise: nil)
-        
+
         // Go through the process of closing and verifying the close on the server side.
         XCTAssertFalse(serverUnwrapped)
 
@@ -1027,7 +1023,7 @@ final class UnwrappingTests: XCTestCase {
         }
         serverHandler.stopTLS(promise: serverStopPromise)
         XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
-        
+
         (serverChannel.eventLoop as! EmbeddedEventLoop).run()
 
         XCTAssertTrue(serverClosed)
