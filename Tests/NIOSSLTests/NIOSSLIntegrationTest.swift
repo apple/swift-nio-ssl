@@ -92,7 +92,6 @@ internal final class PromiseOnReadHandler: ChannelInboundHandler {
 
 private final class PromiseOnChildChannelInitHandler: ChannelInboundHandler {
     typealias InboundIn = ByteBuffer
-    typealias OutboundOut = ByteBuffer
 
     private let promise: EventLoopPromise<Channel>
 
@@ -103,6 +102,86 @@ private final class PromiseOnChildChannelInitHandler: ChannelInboundHandler {
     func channelActive(context: ChannelHandlerContext) {
         self.promise.succeed(context.channel)
         context.fireChannelActive()
+    }
+}
+
+private final class ChannelInactiveHandler: ChannelInboundHandler {
+    typealias InboundIn = ByteBuffer
+    private let promise: EventLoopPromise<Void>
+
+    init(promise: EventLoopPromise<Void>) {
+        self.promise = promise
+    }
+
+    func channelInactive(context: ChannelHandlerContext) {
+        self.promise.succeed()
+        context.fireChannelActive()
+    }
+}
+
+// Modified version taken from swift-nio/ChannelTests.swift
+enum ShutDownEvent {
+    case input
+    case output
+}
+
+private final class ShutdownVerificationHandler: ChannelInboundHandler {
+    typealias InboundIn = ByteBuffer
+
+    private var inputShutdownEventReceived = false
+    private var outputShutdownEventReceived = false
+
+    private let promise: EventLoopPromise<Void>
+    private let shutdownEvent: ShutDownEvent
+
+    init(shutdownEvent: ShutDownEvent, promise: EventLoopPromise<Void>) {
+        self.promise = promise
+        self.shutdownEvent = shutdownEvent
+    }
+
+    public func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
+        switch event {
+        case let ev as ChannelEvent:
+            switch ev {
+            case .inputClosed:
+                XCTAssertFalse(inputShutdownEventReceived)
+                inputShutdownEventReceived = true
+
+                if shutdownEvent == .input {
+                    promise.succeed(())
+                }
+            case .outputClosed:
+                XCTAssertFalse(outputShutdownEventReceived)
+                outputShutdownEventReceived = true
+
+                if shutdownEvent == .output {
+                    promise.succeed(())
+                }
+            }
+
+            fallthrough
+        default:
+            context.fireUserInboundEventTriggered(event)
+        }
+    }
+
+    public func waitForEvent() {
+        // We always notify it with a success so just force it with !
+        try! promise.futureResult.wait()
+    }
+
+    public func channelInactive(context: ChannelHandlerContext) {
+        switch shutdownEvent {
+        case .input:
+            XCTAssertTrue(inputShutdownEventReceived)
+            XCTAssertFalse(outputShutdownEventReceived)
+        case .output:
+            XCTAssertFalse(inputShutdownEventReceived)
+            XCTAssertTrue(outputShutdownEventReceived)
+        }
+
+        promise.succeed(())
+        context.fireChannelInactive()
     }
 }
 
@@ -753,18 +832,19 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
 
+        let clientChannelInactivePromise: EventLoopPromise<Void> = group.next().makePromise()
+        let closeInputVerificationHandler = ShutdownVerificationHandler(shutdownEvent: .input, promise: group.next().makePromise())
         let clientChannel = try clientTLSChannel(
             context: context,
             preHandlers: [],
             postHandlers: [
-                PromiseOnReadHandler(promise: completionPromise)
+                PromiseOnReadHandler(promise: completionPromise),
+                closeInputVerificationHandler,
+                ChannelInactiveHandler(promise: clientChannelInactivePromise)
             ],
             group: group,
             connectingTo: serverChannel.localAddress!
         )
-        defer {
-            XCTAssertNoThrow(try clientChannel.close().wait())
-        }
         XCTAssertNoThrow(try clientChannel.setOption(ChannelOptions.allowRemoteHalfClosure, value: true).wait())
 
         var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
@@ -778,8 +858,15 @@ class NIOSSLIntegrationTest: XCTestCase {
         // Now retrieve the client channel that our server opened for the connection to our client.
         let connectionChildChannel = try childChannelInitPromise.futureResult.wait()
 
+        // Closing the output of the connection on the server should automatically
+        // close the input of the clientChannel.
         XCTAssertNoThrow(try connectionChildChannel.close(mode: .output).wait())
+        closeInputVerificationHandler.waitForEvent()
+
+        // Closing the output of the client channel (with input closed) should
+        // result in full closure.
         XCTAssertNoThrow(try clientChannel.close(mode: .output).wait())
+        XCTAssertNoThrow(try clientChannelInactivePromise.futureResult.wait())
     }
 
     func testCloseModeOutputTriggersFlush() throws {

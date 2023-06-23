@@ -284,7 +284,11 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             self.bufferedActions.append(.closeOutput)
             self.flush(context: context)
             self.closeOutputPromise = promise
-        case .active, .inputClosed:
+        case .inputClosed:
+            // Input is already closed and we want to close our output.
+            // This escalates to a full closure.
+            self.close(context: context, mode: .all, promise: promise)
+        case .active:
             // We need to begin processing closeOutput now.
             // We can't fire the promise for a while though.
             self.state = .outputClosed
@@ -577,8 +581,12 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
                 if allowRemoteHalfClosure {
                     switch self.state {
-                    case .active, .outputClosed, .unwrapping:
+                    case .active, .unwrapping:
                         self.state = .inputClosed
+                    case .outputClosed:
+                        // Wanting to close input when output is already closed,
+                        // escalate to full shutdown
+                        self.close(context: context, mode: .all, promise: nil)
                     default:
                         break
                     }
