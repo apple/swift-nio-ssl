@@ -485,8 +485,9 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
             switch targetCompleteState {
             case .outputClosed:
-                // No full channel close here. We would expect users to invoke a full close regardless of
-                // previously completed half closures.
+                /// No full channel close here. We expect users to invoke a full close even when the
+                /// connection has been half-closed in one direction.
+                /// Note: half closure for input and output results in a full close.
                 self.channelCloseOutput(context: context)
             case .closed:
                 self.channelClose(context: context, reason: NIOTLSUnwrappingError.closeRequestedDuringUnwrap)
@@ -943,12 +944,7 @@ extension NIOSSLHandler {
             }
         } catch {
             // We encountered an error, it's cleanup time. Close ourselves down.
-            switch self.state {
-            case .outputClosed:
-                break
-            default:
-                channelClose(context: context, reason: error)
-            }
+            channelClose(context: context, reason: error)
 
             // Fail any writes we've previously encoded but not flushed.
             promises.forEach { $0.fail(error) }
