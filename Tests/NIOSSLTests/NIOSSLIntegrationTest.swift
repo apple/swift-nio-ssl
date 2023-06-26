@@ -56,12 +56,12 @@ internal func interactInMemory(clientChannel: EmbeddedChannel, serverChannel: Em
 private final class SimpleEchoServer: ChannelInboundHandler {
     public typealias InboundIn = ByteBuffer
     public typealias OutboundOut = ByteBuffer
-    
+
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         context.write(data, promise: nil)
         context.fireChannelRead(data)
     }
-    
+
     public func channelReadComplete(context: ChannelHandlerContext) {
         context.flush()
         context.fireChannelReadComplete()
@@ -71,14 +71,14 @@ private final class SimpleEchoServer: ChannelInboundHandler {
 internal final class PromiseOnReadHandler: ChannelInboundHandler {
     public typealias InboundIn = ByteBuffer
     public typealias OutboundOut = ByteBuffer
-    
+
     private let promise: EventLoopPromise<ByteBuffer>
     private var data: NIOAny? = nil
-    
+
     init(promise: EventLoopPromise<ByteBuffer>) {
         self.promise = promise
     }
-    
+
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         self.data = data
         context.fireChannelRead(data)
@@ -87,6 +87,101 @@ internal final class PromiseOnReadHandler: ChannelInboundHandler {
     public func channelReadComplete(context: ChannelHandlerContext) {
         promise.succeed(unwrapInboundIn(data!))
         context.fireChannelReadComplete()
+    }
+}
+
+private final class PromiseOnChildChannelInitHandler: ChannelInboundHandler {
+    typealias InboundIn = ByteBuffer
+
+    private let promise: EventLoopPromise<Channel>
+
+    init(promise: EventLoopPromise<Channel>) {
+        self.promise = promise
+    }
+
+    func channelActive(context: ChannelHandlerContext) {
+        self.promise.succeed(context.channel)
+        context.fireChannelActive()
+    }
+}
+
+private final class ChannelInactiveHandler: ChannelInboundHandler {
+    typealias InboundIn = ByteBuffer
+    private let promise: EventLoopPromise<Void>
+
+    init(promise: EventLoopPromise<Void>) {
+        self.promise = promise
+    }
+
+    func channelInactive(context: ChannelHandlerContext) {
+        self.promise.succeed()
+        context.fireChannelActive()
+    }
+}
+
+// Modified version taken from swift-nio/ChannelTests.swift
+enum ShutDownEvent {
+    case input
+    case output
+}
+
+private final class ShutdownVerificationHandler: ChannelInboundHandler {
+    typealias InboundIn = ByteBuffer
+
+    private var inputShutdownEventReceived = false
+    private var outputShutdownEventReceived = false
+
+    private let promise: EventLoopPromise<Void>
+    private let shutdownEvent: ShutDownEvent
+
+    init(shutdownEvent: ShutDownEvent, promise: EventLoopPromise<Void>) {
+        self.promise = promise
+        self.shutdownEvent = shutdownEvent
+    }
+
+    public func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
+        switch event {
+        case let ev as ChannelEvent:
+            switch ev {
+            case .inputClosed:
+                XCTAssertFalse(inputShutdownEventReceived)
+                inputShutdownEventReceived = true
+
+                if shutdownEvent == .input {
+                    promise.succeed(())
+                }
+            case .outputClosed:
+                XCTAssertFalse(outputShutdownEventReceived)
+                outputShutdownEventReceived = true
+
+                if shutdownEvent == .output {
+                    promise.succeed(())
+                }
+            }
+
+            fallthrough
+        default:
+            context.fireUserInboundEventTriggered(event)
+        }
+    }
+
+    public func waitForEvent() {
+        // We always notify it with a success so just force it with !
+        try! promise.futureResult.wait()
+    }
+
+    public func channelInactive(context: ChannelHandlerContext) {
+        switch shutdownEvent {
+        case .input:
+            XCTAssertTrue(inputShutdownEventReceived)
+            XCTAssertFalse(outputShutdownEventReceived)
+        case .output:
+            XCTAssertFalse(inputShutdownEventReceived)
+            XCTAssertTrue(outputShutdownEventReceived)
+        }
+
+        promise.succeed(())
+        context.fireChannelInactive()
     }
 }
 
@@ -436,7 +531,7 @@ class NIOSSLIntegrationTest: XCTestCase {
     static var cert: NIOSSLCertificate!
     static var key: NIOSSLPrivateKey!
     static var encryptedKeyPath: String!
-    
+
     override class func setUp() {
         super.setUp()
         guard boringSSLIsInitialized else { fatalError() }
@@ -521,22 +616,22 @@ class NIOSSLIntegrationTest: XCTestCase {
         precondition(rc == 1)
         return try fn(fileName)
     }
-    
+
     func testSimpleEcho() throws {
         let context = try configuredSSLContext()
-        
+
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
-        
+
         let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
 
         let serverChannel: Channel = try serverTLSChannel(context: context, handlers: [SimpleEchoServer()], group: group)
         defer {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
-        
+
         let clientChannel = try clientTLSChannel(context: context,
                                                  preHandlers: [],
                                                  postHandlers: [PromiseOnReadHandler(promise: completionPromise)],
@@ -545,11 +640,11 @@ class NIOSSLIntegrationTest: XCTestCase {
         defer {
             XCTAssertNoThrow(try clientChannel.close().wait())
         }
-        
+
         var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
         originalBuffer.writeString("Hello")
         try clientChannel.writeAndFlush(originalBuffer).wait()
-        
+
         let newBuffer = try completionPromise.futureResult.wait()
         XCTAssertEqual(newBuffer, originalBuffer)
     }
@@ -644,6 +739,260 @@ class NIOSSLIntegrationTest: XCTestCase {
         ]
 
         XCTAssertEqual(expectedEvents, serverHandler.events)
+    }
+
+    func testSubsequentWritesFailAfterCloseModeOutput() throws {
+        let context = try configuredSSLContext()
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
+
+        let preHandlers: [ChannelHandler] = []
+        let postHandlers = [SimpleEchoServer()]
+        let serverChannel: Channel = try ServerBootstrap(group: group)
+            .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true) // Important!
+            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            .childChannelInitializer { channel in
+                let results = preHandlers.map { channel.pipeline.addHandler($0) }
+                return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop).map {
+                    return NIOSSLServerHandler(context: context)
+                }.flatMap {
+                    channel.pipeline.addHandler($0)
+                }.flatMap {
+                    let results = postHandlers.map { channel.pipeline.addHandler($0) }
+                    return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop)
+                }
+            }
+            .bind(host: "127.0.0.1", port: 0)
+            .wait()
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let clientChannel = try clientTLSChannel(
+            context: context,
+            preHandlers: [],
+            postHandlers: [
+                PromiseOnReadHandler(promise: completionPromise)
+            ],
+            group: group,
+            connectingTo: serverChannel.localAddress!
+        )
+        defer {
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+
+        var buffer = clientChannel.allocator.buffer(capacity: 5)
+        buffer.writeString("Hello")
+        XCTAssertNoThrow(try clientChannel.writeAndFlush(buffer).wait())
+
+        XCTAssertNoThrow(try clientChannel.close(mode: .output).wait())
+        XCTAssertThrowsError(try clientChannel.writeAndFlush(buffer).wait()) { error in
+            XCTAssertEqual(.outputClosed, error as? ChannelError)
+        }
+    }
+
+    func testCloseModeOutputServerAndClient() throws {
+        let context = try configuredSSLContext()
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
+        let childChannelInitPromise: EventLoopPromise<Channel> = group.next().makePromise()
+
+        let preHandlers: [ChannelHandler] = []
+        let postHandlers: [ChannelHandler] = [
+            PromiseOnChildChannelInitHandler(promise: childChannelInitPromise),
+            SimpleEchoServer()
+        ]
+        let serverChannel: Channel = try ServerBootstrap(group: group)
+            .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true) // Important!
+            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            .childChannelInitializer { channel in
+                let results = preHandlers.map { channel.pipeline.addHandler($0) }
+                return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop).map {
+                    return NIOSSLServerHandler(context: context)
+                }.flatMap {
+                    channel.pipeline.addHandler($0)
+                }.flatMap {
+                    let results = postHandlers.map { channel.pipeline.addHandler($0) }
+                    return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop)
+                }
+            }
+            .bind(host: "127.0.0.1", port: 0)
+            .wait()
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let clientChannelInactivePromise: EventLoopPromise<Void> = group.next().makePromise()
+        let closeInputVerificationHandler = ShutdownVerificationHandler(shutdownEvent: .input, promise: group.next().makePromise())
+        let clientChannel = try clientTLSChannel(
+            context: context,
+            preHandlers: [],
+            postHandlers: [
+                PromiseOnReadHandler(promise: completionPromise),
+                closeInputVerificationHandler,
+                ChannelInactiveHandler(promise: clientChannelInactivePromise)
+            ],
+            group: group,
+            connectingTo: serverChannel.localAddress!
+        )
+        XCTAssertNoThrow(try clientChannel.setOption(ChannelOptions.allowRemoteHalfClosure, value: true).wait())
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        try clientChannel.writeAndFlush(originalBuffer).wait()
+
+        let newBuffer = try completionPromise.futureResult.wait()
+        XCTAssertEqual(newBuffer, originalBuffer)
+
+        // Ok, the connection is definitely up.
+        // Now retrieve the client channel that our server opened for the connection to our client.
+        let connectionChildChannel = try childChannelInitPromise.futureResult.wait()
+
+        // Closing the output of the connection on the server should automatically
+        // close the input of the clientChannel.
+        XCTAssertNoThrow(try connectionChildChannel.close(mode: .output).wait())
+        closeInputVerificationHandler.waitForEvent()
+
+        // Closing the output of the client channel (with input closed) should
+        // result in full closure.
+        XCTAssertNoThrow(try clientChannel.close(mode: .output).wait())
+        XCTAssertNoThrow(try clientChannelInactivePromise.futureResult.wait())
+    }
+
+    func testCloseModeOutputTriggersFlush() throws {
+        let context = try configuredSSLContext()
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
+
+        let preHandlers: [ChannelHandler] = []
+        let postHandlers = [SimpleEchoServer()]
+        let serverChannel: Channel = try ServerBootstrap(group: group)
+            .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true) // Important!
+            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            .childChannelInitializer { channel in
+                let results = preHandlers.map { channel.pipeline.addHandler($0) }
+                return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop).map {
+                    return NIOSSLServerHandler(context: context)
+                }.flatMap {
+                    channel.pipeline.addHandler($0)
+                }.flatMap {
+                    let results = postHandlers.map { channel.pipeline.addHandler($0) }
+                    return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop)
+                }
+            }
+            .bind(host: "127.0.0.1", port: 0)
+            .wait()
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let clientChannel = try clientTLSChannel(
+            context: context,
+            preHandlers: [],
+            postHandlers: [
+                PromiseOnReadHandler(promise: completionPromise)
+            ],
+            group: group,
+            connectingTo: serverChannel.localAddress!
+        )
+        defer {
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        let clientWriteFuture = clientChannel.write(originalBuffer)
+        XCTAssertNoThrow(try clientChannel.close(mode: .output).wait())
+        XCTAssertNoThrow(try clientWriteFuture.wait())
+
+        let newBuffer = try assertNoThrowWithValue(completionPromise.futureResult.wait())
+        XCTAssertEqual(newBuffer, originalBuffer)
+    }
+
+    func testMultipleCloseOutput() throws {
+        let context = try configuredSSLContext()
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
+
+        let preHandlers: [ChannelHandler] = []
+        let postHandlers = [SimpleEchoServer()]
+        let serverChannel: Channel = try ServerBootstrap(group: group)
+            .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true) // Important!
+            .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+            .childChannelInitializer { channel in
+                let results = preHandlers.map { channel.pipeline.addHandler($0) }
+                return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop).map {
+                    return NIOSSLServerHandler(context: context)
+                }.flatMap {
+                    channel.pipeline.addHandler($0)
+                }.flatMap {
+                    let results = postHandlers.map { channel.pipeline.addHandler($0) }
+                    return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop)
+                }
+            }
+            .bind(host: "127.0.0.1", port: 0)
+            .wait()
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let clientChannel = try clientTLSChannel(context: context,
+                                                 preHandlers: [],
+                                                 postHandlers: [PromiseOnReadHandler(promise: completionPromise)],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!)
+        defer {
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        try clientChannel.writeAndFlush(originalBuffer).wait()
+
+        let newBuffer = try completionPromise.futureResult.wait()
+        XCTAssertEqual(newBuffer, originalBuffer)
+
+        // Ok, the connection is definitely up. Now we want to forcibly call close(mode: .output) on the channel several times with
+        // different promises. None of these will fire until clean shutdown happens, but we want to confirm that *all* of them
+        // fire.
+        //
+        // To avoid the risk of the I/O loop actually closing the connection before we're done, we need to hijack the
+        // I/O loop and issue all the closes on that thread. Otherwise, the channel will probably pull off the TLS shutdown
+        // before we get to the third call to close().
+        let promises: [EventLoopPromise<Void>] = [group.next().makePromise(), group.next().makePromise(), group.next().makePromise()]
+        group.next().execute {
+            for promise in promises {
+                clientChannel.close(mode: .output, promise: promise)
+            }
+        }
+
+        XCTAssertNoThrow(try promises.first!.futureResult.wait())
+
+        for promise in promises {
+            // This should never block, but it may throw because the I/O is complete.
+            // Suppress all errors, they're fine.
+            _ = try? promise.futureResult.wait()
+        }
     }
 
     func testMultipleClose() throws {
@@ -937,13 +1286,13 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
         try writeFuture.wait()
     }
-    
+
     func testAdditionalValidationOnConnectionSucceeds() throws {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
-        
+
         let serverCtx = try configuredSSLContext()
         let clientCtx = try configuredClientContext()
 
@@ -974,14 +1323,14 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
         try writeFuture.wait()
     }
-    
+
     func testAdditionalValidationOnConnectionFails() throws {
         struct CustomUserError: Error {}
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
-        
+
         let serverCtx = try configuredSSLContext()
         let clientCtx = try configuredClientContext()
 
@@ -991,7 +1340,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         defer {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
-        
+
         let errorHandler = ErrorCatcher<Error>()
         let clientChannel = try clientTLSChannel(
             context: clientCtx,
@@ -1005,7 +1354,7 @@ class NIOSSLIntegrationTest: XCTestCase {
             connectingTo: serverChannel.localAddress!,
             serverHostname: "localhost"
         )
-        
+
         var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
         originalBuffer.writeString("Hello")
         let writeFuture = clientChannel.writeAndFlush(originalBuffer)
@@ -1023,13 +1372,13 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertEqual(actualErrors.count, 1)
         XCTAssertTrue(actualErrors.first is CustomUserError)
     }
-    
+
     func testFlushWhileAdditionalValidationIsInProgressDoesNotActuallyFlush() throws {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
-        
+
         let additionalHandshakePromise = group.next().makePromise(of: Void.self)
         let serverCtx = try configuredSSLContext()
         let clientCtx = try configuredClientContext()
@@ -1236,19 +1585,19 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
 
         XCTAssertNoThrow(try serverChannel.throwIfErrorCaught())
-        
+
         XCTAssertThrowsError(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)) { error in
             XCTAssertEqual(.readInInvalidTLSState, error as? NIOSSLError)
         }
     }
-    
+
     func testUnprocessedDataOnReadPathBeforeClosing() throws {
         let serverChannel = EmbeddedChannel()
         let clientChannel = EmbeddedChannel()
 
         let context = try configuredSSLContext()
-        
-        
+
+
         let completePromise: EventLoopPromise<ByteBuffer> = serverChannel.eventLoop.makePromise()
 
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
@@ -1264,18 +1613,18 @@ class NIOSSLIntegrationTest: XCTestCase {
         // Ok, we're connected. Now we want to close the server, and have that trigger a client CLOSE_NOTIFY.
         // After the CLOSE_NOTIFY create another chunk of data.
         let serverClosePromise = serverChannel.close()
-        
+
         // Create a new chunk of data after the close.
         var clientBuffer = clientChannel.allocator.buffer(capacity: 5)
         clientBuffer.writeStaticString("hello")
         _ = try clientChannel.writeAndFlush(clientBuffer).wait()
         let clientClosePromise = clientChannel.close()
-        
+
         // Use interactInMemory to finish the reads and writes.
         XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
         XCTAssertNoThrow(try clientClosePromise.wait())
         XCTAssertNoThrow(try serverClosePromise.wait())
-        
+
         // Now check what we read.
         var readData = try assertNoThrowWithValue(completePromise.futureResult.wait())
         XCTAssertEqual(readData.readString(length: readData.readableBytes)!, "hello")
@@ -1898,7 +2247,7 @@ class NIOSSLIntegrationTest: XCTestCase {
             // Ignore errors here, the channel should be closed already by the time this happens.
             try? clientChannel.close().wait()
         }
-        
+
         XCTAssertThrowsError(try handshakeResultPromise.futureResult.wait())
     }
 
