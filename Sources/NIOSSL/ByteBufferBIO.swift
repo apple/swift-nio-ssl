@@ -202,6 +202,16 @@ final class ByteBufferBIO {
     /// as possible.
     private var outboundBuffer: ByteBuffer
 
+    /// An allocator to use for new buffers.
+    private let allocator: ByteBufferAllocator
+
+    /// The maximum capacity of the outbound buffer that we'll preserve after clearing it.
+    ///
+    /// When `mustClearOutboundBuffer` is `true`, this value is checked against the capacity.
+    /// If the capacity of the buffer is larger than this value, the buffer is replaced with a new
+    /// empty buffer sufficient to hold the next call to `SSL_write`.
+    private let maximumPreservedOutboundBufferCapacity: Int
+
     /// Whether the outbound buffer should be cleared before writing.
     ///
     /// This is true only if we've flushed the buffer to the network. Rather than track an annoying
@@ -212,7 +222,12 @@ final class ByteBufferBIO {
         return outboundBuffer.readerIndex == outboundBuffer.writerIndex && outboundBuffer.readerIndex > 0
     }
 
-    init(allocator: ByteBufferAllocator) {
+    /// A test helper to provide the outbound buffer capacity.
+    internal var _testOnly_outboundBufferCapacity: Int {
+        return self.outboundBuffer.capacity
+    }
+
+    init(allocator: ByteBufferAllocator, maximumPreservedOutboundBufferCapacity: Int) {
         // We allocate enough space for a single TLS record. We may not actually write a record that size, but we want to
         // give ourselves the option. We may also write more data than that: if we do, the ByteBuffer will just handle it.
         self.outboundBuffer = allocator.buffer(capacity: SSL_MAX_RECORD_SIZE)
@@ -224,6 +239,8 @@ final class ByteBufferBIO {
         // We now need to complete the BIO initialization. The BIO takes an owned reference to self here,
         // which is broken on close().
         self.bioPtr = bio
+        self.maximumPreservedOutboundBufferCapacity = maximumPreservedOutboundBufferCapacity
+        self.allocator = allocator
         CNIOBoringSSL_BIO_set_data(self.bioPtr, Unmanaged.passRetained(self).toOpaque())
         CNIOBoringSSL_BIO_set_init(self.bioPtr, 1)
         CNIOBoringSSL_BIO_set_shutdown(self.bioPtr, 1)
@@ -365,8 +382,12 @@ final class ByteBufferBIO {
     fileprivate func sslWrite(buffer: UnsafeRawBufferPointer) -> CInt {
         if self.mustClearOutboundBuffer {
             // We just flushed, and this is a new write. Let's clear the buffer now.
-            self.outboundBuffer.clear()
-            assert(!self.mustClearOutboundBuffer)
+            if self.outboundBuffer.capacity > self.maximumPreservedOutboundBufferCapacity {
+                self.outboundBuffer = self.allocator.buffer(capacity: max(buffer.count, self.maximumPreservedOutboundBufferCapacity))
+            } else {
+                self.outboundBuffer.clear()
+                assert(!self.mustClearOutboundBuffer)
+            }
         }
 
         let writtenBytes = self.outboundBuffer.writeBytes(buffer)

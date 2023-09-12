@@ -62,16 +62,23 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private var shutdownTimeout: TimeAmount
     private let additionalPeerCertificateVerificationCallback: _NIOAdditionalPeerCertificateVerificationCallback?
     private let maxWriteSize: Int
+    private var configuration: Configuration
 
     internal var channel: Channel? {
         return self.storedContext?.channel
     }
 
-    internal init(connection: SSLConnection, shutdownTimeout: TimeAmount, additionalPeerCertificateVerificationCallback: _NIOAdditionalPeerCertificateVerificationCallback?, maxWriteSize: Int) {
-        let configuration = connection.parentContext.configuration
+    internal init(
+        connection: SSLConnection,
+        shutdownTimeout: TimeAmount,
+        additionalPeerCertificateVerificationCallback: _NIOAdditionalPeerCertificateVerificationCallback?,
+        maxWriteSize: Int,
+        configuration: Configuration
+    ) {
+        let tlsConfiguration = connection.parentContext.configuration
         precondition(
             additionalPeerCertificateVerificationCallback == nil ||
-            configuration.certificateVerification != .none,
+            tlsConfiguration.certificateVerification != .none,
             "TLSConfiguration.certificateVerification must be either set to .noHostnameVerification or .fullVerification if additionalPeerCertificateVerificationCallback is specified"
         )
         self.connection = connection
@@ -79,11 +86,12 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         self.shutdownTimeout = shutdownTimeout
         self.additionalPeerCertificateVerificationCallback = additionalPeerCertificateVerificationCallback
         self.maxWriteSize = maxWriteSize
+        self.configuration = configuration
     }
 
     public func handlerAdded(context: ChannelHandlerContext) {
         self.storedContext = context
-        self.connection.setAllocator(context.channel.allocator)
+        self.connection.setAllocator(context.channel.allocator, maximumPreservedOutboundBufferCapacity: .max)
         self.connection.parentHandler = self
         self.connection.eventLoop = context.eventLoop
 
