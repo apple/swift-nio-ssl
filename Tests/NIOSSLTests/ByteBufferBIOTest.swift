@@ -27,13 +27,13 @@ final class ByteBufferBIOTest: XCTestCase {
 
     /// This leaks on purpose!
     private func retainedBIO() -> UnsafeMutablePointer<BIO> {
-        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator())
+        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator(), maximumPreservedOutboundBufferCapacity: .max)
         swiftBIO.close()
         return swiftBIO.retainedBIO()
     }
 
     func testExtractingBIOWrite() throws {
-        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator())
+        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator(), maximumPreservedOutboundBufferCapacity: .max)
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
@@ -55,7 +55,7 @@ final class ByteBufferBIOTest: XCTestCase {
     }
 
     func testManyBIOWritesAreCoalesced() throws {
-        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator())
+        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator(), maximumPreservedOutboundBufferCapacity: .max)
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
@@ -81,7 +81,7 @@ final class ByteBufferBIOTest: XCTestCase {
     }
 
     func testReadWithNoDataInBIO() throws {
-        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator())
+        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator(), maximumPreservedOutboundBufferCapacity: .max)
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
@@ -97,7 +97,7 @@ final class ByteBufferBIOTest: XCTestCase {
     }
 
     func testReadWithDataInBIO() throws {
-        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator())
+        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator(), maximumPreservedOutboundBufferCapacity: .max)
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
@@ -127,7 +127,7 @@ final class ByteBufferBIOTest: XCTestCase {
     }
 
     func testShortReads() throws {
-        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator())
+        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator(), maximumPreservedOutboundBufferCapacity: .max)
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
@@ -180,7 +180,7 @@ final class ByteBufferBIOTest: XCTestCase {
     }
 
     func testZeroLengthReadsAlwaysSucceed() throws {
-        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator())
+        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator(), maximumPreservedOutboundBufferCapacity: .max)
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
@@ -194,7 +194,7 @@ final class ByteBufferBIOTest: XCTestCase {
     }
 
     func testWriteWhenHoldingBufferTriggersCoW() throws {
-        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator())
+        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator(), maximumPreservedOutboundBufferCapacity: .max)
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
@@ -228,7 +228,7 @@ final class ByteBufferBIOTest: XCTestCase {
             return swiftBIO.outboundCiphertext()?.baseAddress()
         }
 
-        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator())
+        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator(), maximumPreservedOutboundBufferCapacity: .max)
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
@@ -246,7 +246,7 @@ final class ByteBufferBIOTest: XCTestCase {
         // This test works by emulating testWriteWhenHoldingBufferTriggersCoW, but
         // with the second write at zero length. This will not trigger a CoW, as no
         // actual write will occur.
-        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator())
+        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator(), maximumPreservedOutboundBufferCapacity: .max)
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
@@ -269,7 +269,7 @@ final class ByteBufferBIOTest: XCTestCase {
     }
 
     func testSimplePuts() {
-        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator())
+        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator(), maximumPreservedOutboundBufferCapacity: .max)
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
@@ -290,7 +290,7 @@ final class ByteBufferBIOTest: XCTestCase {
     }
 
     func testGetsNotSupported() {
-        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator())
+        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator(), maximumPreservedOutboundBufferCapacity: .max)
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
@@ -311,7 +311,7 @@ final class ByteBufferBIOTest: XCTestCase {
     }
 
     func testBasicCtrlDance() {
-        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator())
+        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator(), maximumPreservedOutboundBufferCapacity: .max)
         let cBIO = swiftBIO.retainedBIO()
         defer {
             CNIOBoringSSL_BIO_free(cBIO)
@@ -332,6 +332,49 @@ final class ByteBufferBIOTest: XCTestCase {
 
         let newShutdown2 = CNIOBoringSSL_BIO_ctrl(cBIO, BIO_CTRL_GET_CLOSE, 0, nil)
         XCTAssertEqual(newShutdown2, CLong(BIO_CLOSE))
+    }
+
+    func testMaximumPreservedCapacityIsObeyed() throws {
+        let swiftBIO = ByteBufferBIO(allocator: ByteBufferAllocator(), maximumPreservedOutboundBufferCapacity: 64)
+        let cBIO = swiftBIO.retainedBIO()
+        defer {
+            CNIOBoringSSL_BIO_free(cBIO)
+            swiftBIO.close()
+        }
+
+        XCTAssertNil(swiftBIO.outboundCiphertext())
+
+        // We're going to write 1kb, then 1 byte, in a loop. After the 1kB write, the capacity of the buffer will be 1kB (or more).
+        // After the 1 byte write, the capacity will be 64 (exactly).
+        var bytesToWrite: [UInt8] = .init(repeating: 0, count: 1024)
+
+        for _ in 0..<10 {
+            var rc = CNIOBoringSSL_BIO_write(cBIO, &bytesToWrite, CInt(bytesToWrite.count))
+            XCTAssertEqual(rc, CInt(bytesToWrite.count))
+
+            let capacity = swiftBIO._testOnly_outboundBufferCapacity
+            XCTAssertGreaterThanOrEqual(capacity, 1024)
+
+            guard swiftBIO.outboundCiphertext() != nil else {
+                XCTFail("No received bytes")
+                return
+            }
+
+            // Capacity hasn't changed yet.
+            XCTAssertEqual(capacity, swiftBIO._testOnly_outboundBufferCapacity)
+
+            // Now write a short chunk.
+            rc = CNIOBoringSSL_BIO_write(cBIO, &bytesToWrite, 1)
+            XCTAssertEqual(rc, 1)
+
+            // Check the capacity. It should be exactly 64.
+            XCTAssertEqual(swiftBIO._testOnly_outboundBufferCapacity, 64)
+
+            guard swiftBIO.outboundCiphertext() != nil else {
+                XCTFail("No received bytes")
+                return
+            }
+        }
     }
 }
 

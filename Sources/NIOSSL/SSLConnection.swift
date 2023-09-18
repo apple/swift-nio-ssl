@@ -89,8 +89,8 @@ internal final class SSLConnection {
         self.role = .client
     }
 
-    func setAllocator(_ allocator: ByteBufferAllocator) {
-        self.bio = ByteBufferBIO(allocator: allocator)
+    func setAllocator(_ allocator: ByteBufferAllocator, maximumPreservedOutboundBufferCapacity: Int) {
+        self.bio = ByteBufferBIO(allocator: allocator, maximumPreservedOutboundBufferCapacity: maximumPreservedOutboundBufferCapacity)
 
         // This weird dance where we pass the *exact same* pointer in to both objects is because, weirdly,
         // the BoringSSL docs claim that only one reference count will be consumed here. We therefore need to
