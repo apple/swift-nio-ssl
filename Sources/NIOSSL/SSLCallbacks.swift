@@ -171,35 +171,18 @@ public struct PSKClientIdentityResponse: Sendable {
     }
 }
 
-#if swift(>=5.7)
 /// The callback used for providing a PSK on the client side.
 ///
 /// The callback is invoked on the event loop with the PSK hint. This callback must complete synchronously: it cannot return a future.
 /// Additionally, as it is invoked on the NIO event loop, it is not possible for this to perform any I/O. As a result, lookups must be quick.
 public typealias NIOPSKClientIdentityCallback = @Sendable (String) throws -> PSKClientIdentityResponse
-#else
-/// The callback used for providing a PSK on the client side.
-///
-/// The callback is invoked on the event loop with the PSK hint. This callback must complete synchronously: it cannot return a future.
-/// Additionally, as it is invoked on the NIO event loop, it is not possible for this to perform any I/O. As a result, lookups must be quick.
-public typealias NIOPSKClientIdentityCallback = (String) throws -> PSKClientIdentityResponse
-#endif
 
-#if swift(>=5.7)
 /// The callback used for providing a PSK on the server side.
 ///
 /// The callback is invoked on the event loop with the PSK hint provided by the server, and the PSK identity provided by the client.
 /// This callback must complete synchronously: it cannot return a future. Additionally, as it is invoked on the NIO event loop, it is
 /// not possible for this to perform any I/O. As a result, lookups must be quick.
 public typealias NIOPSKServerIdentityCallback = @Sendable (String, String) throws -> PSKServerIdentityResponse
-#else
-/// The callback used for providing a PSK on the server side.
-///
-/// The callback is invoked on the event loop with the PSK hint provided by the server, and the PSK identity provided by the client.
-/// This callback must complete synchronously: it cannot return a future. Additionally, as it is invoked on the NIO event loop, it is
-/// not possible for this to perform any I/O. As a result, lookups must be quick.
-public typealias NIOPSKServerIdentityCallback = (String, String) throws -> PSKServerIdentityResponse
-#endif
 
 /// A struct that provides helpers for working with a NIOSSLCustomVerificationCallback.
 internal struct CustomVerifyManager {
