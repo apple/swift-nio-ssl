@@ -385,11 +385,7 @@ internal func serverTLSChannel(context: NIOSSLContext,
         }.bind(host: "127.0.0.1", port: 0).wait(), file: file, line: line)
 }
 
-#if swift(>=5.7)
 typealias SendableAdditionalPeerCertificateVerificationCallback = @Sendable (NIOSSLCertificate, Channel) -> EventLoopFuture<Void>
-#else
-typealias SendableAdditionalPeerCertificateVerificationCallback = (NIOSSLCertificate, Channel) -> EventLoopFuture<Void>
-#endif
 
 internal func clientTLSChannel(context: NIOSSLContext,
                                additionalPeerCertificateVerificationCallback: SendableAdditionalPeerCertificateVerificationCallback? = nil,
