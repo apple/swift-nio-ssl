@@ -148,41 +148,37 @@ extension SecurityFrameworkVerificationTests {
     static let appleComCertChain: [SecCertificate] = {
         // All certs here are PEM format, with the leading/trailing lines stripped.
         let leaf = """
-            MIIGdDCCBhqgAwIBAgIQZ2Hv/Zg3XNIdroj6PdpXdjAKBggqhkjOPQQDAjBRMQsw
+            MIIFsTCCBVigAwIBAgIQIQ9wCUdU9GwHyyI2VrobEDAKBggqhkjOPQQDAjBRMQsw
             CQYDVQQGEwJVUzETMBEGA1UEChMKQXBwbGUgSW5jLjEtMCsGA1UEAxMkQXBwbGUg
-            UHVibGljIEVWIFNlcnZlciBFQ0MgQ0EgMSAtIEcxMB4XDTIzMDUwMjIzMDMzNloX
-            DTIzMTAyOTIzMTMzNlowgcoxGTAXBgNVBAMTEGltYWdlcy5hcHBsZS5jb20xEzAR
-            BgNVBAoTCkFwcGxlIEluYy4xEjAQBgNVBAcTCUN1cGVydGlubzETMBEGA1UECBMK
-            Q2FsaWZvcm5pYTELMAkGA1UEBhMCVVMxETAPBgNVBAUTCEMwODA2NTkyMRswGQYL
-            KwYBBAGCNzwCAQITCkNhbGlmb3JuaWExEzARBgsrBgEEAYI3PAIBAxMCVVMxHTAb
-            BgNVBA8TFFByaXZhdGUgT3JnYW5pemF0aW9uMFkwEwYHKoZIzj0CAQYIKoZIzj0D
-            AQcDQgAESGCOCKkGXa5kh9FiauXGtuMmiAVhX3CKPtSBNHKJJIdd4HN63m4ToJbE
-            PRoXUt08BZ4N4ttCTML51Aw1aBapDaOCBFgwggRUMAwGA1UdEwEB/wQCMAAwHwYD
-            VR0jBBgwFoAU4IVIfROm0xAZn1zLa3gkkviuG64wegYIKwYBBQUHAQEEbjBsMDIG
-            CCsGAQUFBzAChiZodHRwOi8vY2VydHMuYXBwbGUuY29tL2FwZXZzZWNjMWcxLmRl
-            cjA2BggrBgEFBQcwAYYqaHR0cDovL29jc3AuYXBwbGUuY29tL29jc3AwMy1hcGV2
-            c2VjYzFnMTAxMBsGA1UdEQQUMBKCEGltYWdlcy5hcHBsZS5jb20wggESBgNVHSAE
-            ggEJMIIBBTAHBgVngQwBATCB+QYJYIZIAYb9bAIBMIHrMD4GCCsGAQUFBwIBFjJo
-            dHRwczovL3d3dy5hcHBsZS5jb20vY2VydGlmaWNhdGVhdXRob3JpdHkvcHVibGlj
-            LzCBqAYIKwYBBQUHAgIwgZsMgZhSZWxpYW5jZSBvbiB0aGlzIGNlcnRpZmljYXRl
-            IGJ5IGFueSBwYXJ0eSBhc3N1bWVzIGFjY2VwdGFuY2Ugb2YgdGhlIFJlbHlpbmcg
-            UGFydHkgQWdyZWVtZW50IGZvdW5kIGF0IGh0dHBzOi8vd3d3LmFwcGxlLmNvbS9j
-            ZXJ0aWZpY2F0ZWF1dGhvcml0eS9wdWJsaWMvLjATBgNVHSUEDDAKBggrBgEFBQcD
-            ATA1BgNVHR8ELjAsMCqgKKAmhiRodHRwOi8vY3JsLmFwcGxlLmNvbS9hcGV2c2Vj
-            YzFnMS5jcmwwHQYDVR0OBBYEFJJ7SA684vmEsFuyOKe4StG62unlMA4GA1UdDwEB
-            /wQEAwIHgDCCAfcGCisGAQQB1nkCBAIEggHnBIIB4wHhAHYAs3N3B+GEUPhjhtYF
-            qdwRCUp5LbFnDAuH3PADDnk2pZoAAAGH3r4ohwAABAMARzBFAiEAug08j7lk0wkU
-            aRfSKEx9gQ6JptHvjXOsEicMjnYDmV0CIBSRHT6uRTJmW1Sh8oZIUUtFOqfRcET1
-            rzHY5b/36UDXAHUA6D7Q2j71BjUy51covIlryQPTy9ERa+zraeF3fW0GvW4AAAGH
-            3r4obgAABAMARjBEAiBUad4NuoD88Myr+iuXdxP+iBOzx/MKol0q9ecUJIPCkwIg
-            QVyxYVKAMg7nMn97SUpJXblBgucqPmhwFbEup6sYZZUAdwB6MoxU2LcttiDqOOBS
-            HumEFnAyE4VNO9IrwTpXo1LrUgAAAYfeviiHAAAEAwBIMEYCIQDM7+zlZMV3jKJp
-            tBMvfjjNLaF4B5CDPjT64/MX8EOzegIhAKgr0qGT4YmBYAY+rWX/KaeO0YaZnaGS
-            328e2VLhRi2UAHcAtz77JN+cTbp18jnFulj0bF38Qs96nzXEnh0JgSXttJkAAAGH
-            3r4oiQAABAMASDBGAiEAshggN7MlSpMJUSSa9Epx3dtHv94JdAolfCHnPrHRw5EC
-            IQCZCBotNyYvzFpVXZVMjIWJG7WBrUeczvEB+FoLBEWuVzAKBggqhkjOPQQDAgNI
-            ADBFAiEAwboT1owMpJ+QI8Xqw0QK5q5bedNid+kTgiBdb9f6F6wCIF//9mVdazz+
-            yg1qIrFTtejnZCdffuE6G44UpP9A6/2F
+            UHVibGljIEVWIFNlcnZlciBFQ0MgQ0EgMSAtIEcxMB4XDTIzMDkyOTIwMTU1NloX
+            DTIzMTIyODIwMjU1NlowgcMxHTAbBgNVBA8MFFByaXZhdGUgT3JnYW5pemF0aW9u
+            MRMwEQYLKwYBBAGCNzwCAQMTAlVTMRswGQYLKwYBBAGCNzwCAQIMCkNhbGlmb3Ju
+            aWExETAPBgNVBAUTCEMwODA2NTkyMQswCQYDVQQGEwJVUzETMBEGA1UECAwKQ2Fs
+            aWZvcm5pYTESMBAGA1UEBwwJQ3VwZXJ0aW5vMRMwEQYDVQQKDApBcHBsZSBJbmMu
+            MRIwEAYDVQQDDAlhcHBsZS5jb20wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAS4
+            XXZ3dwJQ/9cuEydeAdq+RHKC6Xpe1Zj8aD5mLBkihUMXObQJKJ995upP7gWU/ZdU
+            GLSj9s/F3ksafO/3U/Pio4IDnTCCA5kwDAYDVR0TAQH/BAIwADAfBgNVHSMEGDAW
+            gBTghUh9E6bTEBmfXMtreCSS+K4brjB6BggrBgEFBQcBAQRuMGwwMgYIKwYBBQUH
+            MAKGJmh0dHA6Ly9jZXJ0cy5hcHBsZS5jb20vYXBldnNlY2MxZzEuZGVyMDYGCCsG
+            AQUFBzABhipodHRwOi8vb2NzcC5hcHBsZS5jb20vb2NzcDAzLWFwZXZzZWNjMWcx
+            MDEwFAYDVR0RBA0wC4IJYXBwbGUuY29tMGAGA1UdIARZMFcwSAYFZ4EMAQEwPzA9
+            BggrBgEFBQcCARYxaHR0cHM6Ly93d3cuYXBwbGUuY29tL2NlcnRpZmljYXRlYXV0
+            aG9yaXR5L3B1YmxpYzALBglghkgBhv1sAgEwEwYDVR0lBAwwCgYIKwYBBQUHAwEw
+            NQYDVR0fBC4wLDAqoCigJoYkaHR0cDovL2NybC5hcHBsZS5jb20vYXBldnNlY2Mx
+            ZzEuY3JsMB0GA1UdDgQWBBQPTQTqfOvIC0eQLvqkFBwGGi2nyDAOBgNVHQ8BAf8E
+            BAMCB4AwggH3BgorBgEEAdZ5AgQCBIIB5wSCAeMB4QB2ADtTd3U+LbmAToswWwb+
+            QDtn2E/D9Me9AA0tcm/h+tQXAAABiuKekCwAAAQDAEcwRQIgMiS63cw5tvcJzoVL
+            6KS/d/38bgymgSQRm9Z6jdbqMJcCIQDevDFw17zU8PYuIYlozm6lr0KBO5J6uWDq
+            a/xx6jmgvQB3AOg+0No+9QY1MudXKLyJa8kD08vREWvs62nhd31tBr1uAAABiuKe
+            kBIAAAQDAEgwRgIhAKSMlNH6WCLJkYrDea85iV87mipbBp01Bm9gSqOzlyQ4AiEA
+            uav0konOf+wrdixTDDysFlpedXpr2gntLT+DQSkaFUAAdgCt9776fP8QyIudPZwe
+            PhhqtGcpXc+xDCTKhYY069yCigAAAYrinpBPAAAEAwBHMEUCIQCai8qFvmYAoka8
+            o6PGP+fmBKrVt6NDwoFr8EQ/IYvWqQIgbRIS45zSe61yCmyZg0aoLH/MfqOdJ7WT
+            6oS2UGs1fawAdgC3Pvsk35xNunXyOcW6WPRsXfxCz3qfNcSeHQmBJe20mQAAAYri
+            npAlAAAEAwBHMEUCIQDVwmuvOS4G8oYPLTdhbV+oPudU1wmab9fEZc79EiESCAIg
+            M6VfTftCNbr/RhHzLaglW4ZPbpANTjleFSAl2lBQJFQwCgYIKoZIzj0EAwIDRwAw
+            RAIgVDJVPYVy2rwIAZ3tFwXEHviQKCQejXQAaMUqtqoV/4ECIB2pRQ2GtF/r4yL4
+            xl4pIe5sW636zd/uGtE4pqPy6yrB
             """
 
         let intermediate = """
