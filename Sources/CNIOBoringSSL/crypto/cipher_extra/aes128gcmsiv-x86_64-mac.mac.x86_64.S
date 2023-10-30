@@ -3,16 +3,9 @@
 // This file is generated from a similarly-named Perl script in the BoringSSL
 // source tree. Do not edit by hand.
 
-#if defined(__has_feature)
-#if __has_feature(memory_sanitizer) && !defined(OPENSSL_NO_ASM)
-#define OPENSSL_NO_ASM
-#endif
-#endif
+#include <CNIOBoringSSL_asm_base.h>
 
-#if defined(__x86_64__) && !defined(OPENSSL_NO_ASM) && defined(__APPLE__)
-#if defined(BORINGSSL_PREFIX)
-#include <CNIOBoringSSL_boringssl_prefix_symbols_asm.h>
-#endif
+#if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_X86_64) && defined(__APPLE__)
 .section	__DATA,__const
 
 .p2align	4
@@ -71,7 +64,7 @@ GFMUL:
 	vpxor	%xmm4,%xmm3,%xmm2
 
 	vpxor	%xmm5,%xmm2,%xmm0
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aesgcmsiv_htable_init
@@ -80,6 +73,7 @@ GFMUL:
 .p2align	4
 _aesgcmsiv_htable_init:
 
+_CET_ENDBR
 	vmovdqa	(%rsi),%xmm0
 	vmovdqa	%xmm0,%xmm1
 	vmovdqa	%xmm0,(%rdi)
@@ -97,7 +91,7 @@ _aesgcmsiv_htable_init:
 	vmovdqa	%xmm0,96(%rdi)
 	call	GFMUL
 	vmovdqa	%xmm0,112(%rdi)
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aesgcmsiv_htable6_init
@@ -106,6 +100,7 @@ _aesgcmsiv_htable_init:
 .p2align	4
 _aesgcmsiv_htable6_init:
 
+_CET_ENDBR
 	vmovdqa	(%rsi),%xmm0
 	vmovdqa	%xmm0,%xmm1
 	vmovdqa	%xmm0,(%rdi)
@@ -119,7 +114,7 @@ _aesgcmsiv_htable6_init:
 	vmovdqa	%xmm0,64(%rdi)
 	call	GFMUL
 	vmovdqa	%xmm0,80(%rdi)
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aesgcmsiv_htable_polyval
@@ -128,9 +123,10 @@ _aesgcmsiv_htable6_init:
 .p2align	4
 _aesgcmsiv_htable_polyval:
 
+_CET_ENDBR
 	testq	%rdx,%rdx
 	jnz	L$htable_polyval_start
-	.byte	0xf3,0xc3
+	ret
 
 L$htable_polyval_start:
 	vzeroall
@@ -336,7 +332,7 @@ L$htable_polyval_out:
 
 	vmovdqu	%xmm1,(%rcx)
 	vzeroupper
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aesgcmsiv_polyval_horner
@@ -345,9 +341,10 @@ L$htable_polyval_out:
 .p2align	4
 _aesgcmsiv_polyval_horner:
 
+_CET_ENDBR
 	testq	%rcx,%rcx
 	jnz	L$polyval_horner_start
-	.byte	0xf3,0xc3
+	ret
 
 L$polyval_horner_start:
 
@@ -369,7 +366,7 @@ L$polyval_horner_loop:
 
 
 	vmovdqa	%xmm0,(%rdi)
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aes128gcmsiv_aes_ks
@@ -378,6 +375,7 @@ L$polyval_horner_loop:
 .p2align	4
 _aes128gcmsiv_aes_ks:
 
+_CET_ENDBR
 	vmovdqu	(%rdi),%xmm1
 	vmovdqa	%xmm1,(%rsi)
 
@@ -425,7 +423,7 @@ L$ks128_loop:
 	vpxor	%xmm3,%xmm1,%xmm1
 	vpxor	%xmm2,%xmm1,%xmm1
 	vmovdqa	%xmm1,32(%rsi)
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aes256gcmsiv_aes_ks
@@ -434,6 +432,7 @@ L$ks128_loop:
 .p2align	4
 _aes256gcmsiv_aes_ks:
 
+_CET_ENDBR
 	vmovdqu	(%rdi),%xmm1
 	vmovdqu	16(%rdi),%xmm3
 	vmovdqa	%xmm1,(%rsi)
@@ -473,7 +472,7 @@ L$ks256_loop:
 	vpxor	%xmm4,%xmm1,%xmm1
 	vpxor	%xmm2,%xmm1,%xmm1
 	vmovdqa	%xmm1,32(%rsi)
-	.byte	0xf3,0xc3
+	ret
 
 .globl	_aes128gcmsiv_aes_ks_enc_x1
 .private_extern _aes128gcmsiv_aes_ks_enc_x1
@@ -481,6 +480,7 @@ L$ks256_loop:
 .p2align	4
 _aes128gcmsiv_aes_ks_enc_x1:
 
+_CET_ENDBR
 	vmovdqa	(%rcx),%xmm1
 	vmovdqa	0(%rdi),%xmm4
 
@@ -614,7 +614,7 @@ _aes128gcmsiv_aes_ks_enc_x1:
 
 
 	vmovdqa	%xmm4,0(%rsi)
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aes128gcmsiv_kdf
@@ -623,6 +623,7 @@ _aes128gcmsiv_aes_ks_enc_x1:
 .p2align	4
 _aes128gcmsiv_kdf:
 
+_CET_ENDBR
 
 
 
@@ -707,7 +708,7 @@ _aes128gcmsiv_kdf:
 	vmovdqa	%xmm10,16(%rsi)
 	vmovdqa	%xmm11,32(%rsi)
 	vmovdqa	%xmm12,48(%rsi)
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aes128gcmsiv_enc_msg_x4
@@ -716,9 +717,10 @@ _aes128gcmsiv_kdf:
 .p2align	4
 _aes128gcmsiv_enc_msg_x4:
 
+_CET_ENDBR
 	testq	%r8,%r8
 	jnz	L$128_enc_msg_x4_start
-	.byte	0xf3,0xc3
+	ret
 
 L$128_enc_msg_x4_start:
 	pushq	%r12
@@ -882,7 +884,7 @@ L$128_enc_msg_x4_out:
 
 	popq	%r12
 
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aes128gcmsiv_enc_msg_x8
@@ -891,9 +893,10 @@ L$128_enc_msg_x4_out:
 .p2align	4
 _aes128gcmsiv_enc_msg_x8:
 
+_CET_ENDBR
 	testq	%r8,%r8
 	jnz	L$128_enc_msg_x8_start
-	.byte	0xf3,0xc3
+	ret
 
 L$128_enc_msg_x8_start:
 	pushq	%r12
@@ -1137,7 +1140,7 @@ L$128_enc_msg_x8_out:
 
 	popq	%r12
 
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aes128gcmsiv_dec
@@ -1146,9 +1149,10 @@ L$128_enc_msg_x8_out:
 .p2align	4
 _aes128gcmsiv_dec:
 
+_CET_ENDBR
 	testq	$~15,%r9
 	jnz	L$128_dec_start
-	.byte	0xf3,0xc3
+	ret
 
 L$128_dec_start:
 	vzeroupper
@@ -1629,7 +1633,7 @@ L$128_dec_loop2:
 
 L$128_dec_out:
 	vmovdqu	%xmm0,(%rdx)
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aes128gcmsiv_ecb_enc_block
@@ -1638,6 +1642,7 @@ L$128_dec_out:
 .p2align	4
 _aes128gcmsiv_ecb_enc_block:
 
+_CET_ENDBR
 	vmovdqa	(%rdi),%xmm1
 
 	vpxor	(%rdx),%xmm1,%xmm1
@@ -1654,7 +1659,7 @@ _aes128gcmsiv_ecb_enc_block:
 
 	vmovdqa	%xmm1,(%rsi)
 
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aes256gcmsiv_aes_ks_enc_x1
@@ -1663,6 +1668,7 @@ _aes128gcmsiv_ecb_enc_block:
 .p2align	4
 _aes256gcmsiv_aes_ks_enc_x1:
 
+_CET_ENDBR
 	vmovdqa	con1(%rip),%xmm0
 	vmovdqa	mask(%rip),%xmm15
 	vmovdqa	(%rdi),%xmm8
@@ -1837,7 +1843,7 @@ _aes256gcmsiv_aes_ks_enc_x1:
 	vmovdqu	%xmm1,224(%rdx)
 
 	vmovdqa	%xmm8,(%rsi)
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aes256gcmsiv_ecb_enc_block
@@ -1846,6 +1852,7 @@ _aes256gcmsiv_aes_ks_enc_x1:
 .p2align	4
 _aes256gcmsiv_ecb_enc_block:
 
+_CET_ENDBR
 	vmovdqa	(%rdi),%xmm1
 	vpxor	(%rdx),%xmm1,%xmm1
 	vaesenc	16(%rdx),%xmm1,%xmm1
@@ -1863,7 +1870,7 @@ _aes256gcmsiv_ecb_enc_block:
 	vaesenc	208(%rdx),%xmm1,%xmm1
 	vaesenclast	224(%rdx),%xmm1,%xmm1
 	vmovdqa	%xmm1,(%rsi)
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aes256gcmsiv_enc_msg_x4
@@ -1872,9 +1879,10 @@ _aes256gcmsiv_ecb_enc_block:
 .p2align	4
 _aes256gcmsiv_enc_msg_x4:
 
+_CET_ENDBR
 	testq	%r8,%r8
 	jnz	L$256_enc_msg_x4_start
-	.byte	0xf3,0xc3
+	ret
 
 L$256_enc_msg_x4_start:
 	movq	%r8,%r10
@@ -2064,7 +2072,7 @@ L$256_enc_msg_x4_loop2:
 	jne	L$256_enc_msg_x4_loop2
 
 L$256_enc_msg_x4_out:
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aes256gcmsiv_enc_msg_x8
@@ -2073,9 +2081,10 @@ L$256_enc_msg_x4_out:
 .p2align	4
 _aes256gcmsiv_enc_msg_x8:
 
+_CET_ENDBR
 	testq	%r8,%r8
 	jnz	L$256_enc_msg_x8_start
-	.byte	0xf3,0xc3
+	ret
 
 L$256_enc_msg_x8_start:
 
@@ -2352,7 +2361,7 @@ L$256_enc_msg_x8_loop2:
 	jnz	L$256_enc_msg_x8_loop2
 
 L$256_enc_msg_x8_out:
-	.byte	0xf3,0xc3
+	ret
 
 
 
@@ -2362,9 +2371,10 @@ L$256_enc_msg_x8_out:
 .p2align	4
 _aes256gcmsiv_dec:
 
+_CET_ENDBR
 	testq	$~15,%r9
 	jnz	L$256_dec_start
-	.byte	0xf3,0xc3
+	ret
 
 L$256_dec_start:
 	vzeroupper
@@ -2913,7 +2923,7 @@ L$256_dec_loop2:
 
 L$256_dec_out:
 	vmovdqu	%xmm0,(%rdx)
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_aes256gcmsiv_kdf
@@ -2922,6 +2932,7 @@ L$256_dec_out:
 .p2align	4
 _aes256gcmsiv_kdf:
 
+_CET_ENDBR
 
 
 
@@ -3064,13 +3075,9 @@ _aes256gcmsiv_kdf:
 	vmovdqa	%xmm11,48(%rsi)
 	vmovdqa	%xmm12,64(%rsi)
 	vmovdqa	%xmm13,80(%rsi)
-	.byte	0xf3,0xc3
+	ret
 
 
-#endif
-#if defined(__ELF__)
-// See https://www.airs.com/blog/archives/518.
-.section .note.GNU-stack,"",%progbits
 #endif
 #endif  // defined(__x86_64__) && defined(__APPLE__)
 #if defined(__linux__) && defined(__ELF__)

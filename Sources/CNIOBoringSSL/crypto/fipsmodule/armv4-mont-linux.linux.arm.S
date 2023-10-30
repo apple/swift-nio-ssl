@@ -3,17 +3,9 @@
 // This file is generated from a similarly-named Perl script in the BoringSSL
 // source tree. Do not edit by hand.
 
-#if !defined(__has_feature)
-#define __has_feature(x) 0
-#endif
-#if __has_feature(memory_sanitizer) && !defined(OPENSSL_NO_ASM)
-#define OPENSSL_NO_ASM
-#endif
+#include <CNIOBoringSSL_asm_base.h>
 
-#if !defined(OPENSSL_NO_ASM) && defined(__ARMEL__) && defined(__ELF__)
-#if defined(BORINGSSL_PREFIX)
-#include <CNIOBoringSSL_boringssl_prefix_symbols_asm.h>
-#endif
+#if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_ARM) && defined(__ELF__)
 #include <CNIOBoringSSL_arm_arch.h>
 
 @ Silence ARMv8 deprecated IT instruction warnings. This file is used by both
@@ -203,7 +195,7 @@ bn_mul_mont:
 	add	sp,sp,#2*4		@ skip over {r0,r2}
 	mov	r0,#1
 .Labrt:
-#if __ARM_ARCH__>=5
+#if __ARM_ARCH>=5
 	bx	lr				@ bx lr
 #else
 	tst	lr,#1
@@ -973,11 +965,7 @@ bn_mul8x_mont_neon:
 .comm	OPENSSL_armcap_P,4,4
 .hidden	OPENSSL_armcap_P
 #endif
-#endif  // !OPENSSL_NO_ASM && defined(__ARMEL__) && defined(__ELF__)
-#if defined(__ELF__)
-// See https://www.airs.com/blog/archives/518.
-.section .note.GNU-stack,"",%progbits
-#endif
+#endif  // !OPENSSL_NO_ASM && defined(OPENSSL_ARM) && defined(__ELF__)
 #endif  // defined(__arm__) && defined(__linux__)
 #if defined(__linux__) && defined(__ELF__)
 .section .note.GNU-stack,"",%progbits

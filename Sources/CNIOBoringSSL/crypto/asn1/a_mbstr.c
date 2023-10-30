@@ -73,18 +73,19 @@
 // horrible: it has to be :-( The 'ncopy' form checks minimum and maximum
 // size limits too.
 
-int ASN1_mbstring_copy(ASN1_STRING **out, const unsigned char *in, int len,
-                       int inform, unsigned long mask) {
-  return ASN1_mbstring_ncopy(out, in, len, inform, mask, 0, 0);
+int ASN1_mbstring_copy(ASN1_STRING **out, const unsigned char *in,
+                       ossl_ssize_t len, int inform, unsigned long mask) {
+  return ASN1_mbstring_ncopy(out, in, len, inform, mask, /*minsize=*/0,
+                             /*maxsize=*/0);
 }
 
 OPENSSL_DECLARE_ERROR_REASON(ASN1, INVALID_BMPSTRING)
 OPENSSL_DECLARE_ERROR_REASON(ASN1, INVALID_UNIVERSALSTRING)
 OPENSSL_DECLARE_ERROR_REASON(ASN1, INVALID_UTF8STRING)
 
-int ASN1_mbstring_ncopy(ASN1_STRING **out, const unsigned char *in, int len,
-                        int inform, unsigned long mask, long minsize,
-                        long maxsize) {
+int ASN1_mbstring_ncopy(ASN1_STRING **out, const unsigned char *in,
+                        ossl_ssize_t len, int inform, unsigned long mask,
+                        ossl_ssize_t minsize, ossl_ssize_t maxsize) {
   if (len == -1) {
     len = strlen((const char *)in);
   }
@@ -96,22 +97,22 @@ int ASN1_mbstring_ncopy(ASN1_STRING **out, const unsigned char *in, int len,
   int error;
   switch (inform) {
     case MBSTRING_BMP:
-      decode_func = cbs_get_ucs2_be;
+      decode_func = CBS_get_ucs2_be;
       error = ASN1_R_INVALID_BMPSTRING;
       break;
 
     case MBSTRING_UNIV:
-      decode_func = cbs_get_utf32_be;
+      decode_func = CBS_get_utf32_be;
       error = ASN1_R_INVALID_UNIVERSALSTRING;
       break;
 
     case MBSTRING_UTF8:
-      decode_func = cbs_get_utf8;
+      decode_func = CBS_get_utf8;
       error = ASN1_R_INVALID_UTF8STRING;
       break;
 
     case MBSTRING_ASC:
-      decode_func = cbs_get_latin1;
+      decode_func = CBS_get_latin1;
       error = ERR_R_INTERNAL_ERROR;  // Latin-1 inputs are never invalid.
       break;
 
@@ -161,23 +162,23 @@ int ASN1_mbstring_ncopy(ASN1_STRING **out, const unsigned char *in, int len,
     }
 
     nchar++;
-    utf8_len += cbb_get_utf8_len(c);
+    utf8_len += CBB_get_utf8_len(c);
     if (maxsize > 0 && nchar > (size_t)maxsize) {
       OPENSSL_PUT_ERROR(ASN1, ASN1_R_STRING_TOO_LONG);
-      ERR_add_error_dataf("maxsize=%ld", maxsize);
+      ERR_add_error_dataf("maxsize=%zu", (size_t)maxsize);
       return -1;
     }
   }
 
   if (minsize > 0 && nchar < (size_t)minsize) {
     OPENSSL_PUT_ERROR(ASN1, ASN1_R_STRING_TOO_SHORT);
-    ERR_add_error_dataf("minsize=%ld", minsize);
+    ERR_add_error_dataf("minsize=%zu", (size_t)minsize);
     return -1;
   }
 
   // Now work out output format and string type
   int str_type;
-  int (*encode_func)(CBB *, uint32_t) = cbb_add_latin1;
+  int (*encode_func)(CBB *, uint32_t) = CBB_add_latin1;
   size_t size_estimate = nchar;
   int outform = MBSTRING_ASC;
   if (mask & B_ASN1_PRINTABLESTRING) {
@@ -189,17 +190,17 @@ int ASN1_mbstring_ncopy(ASN1_STRING **out, const unsigned char *in, int len,
   } else if (mask & B_ASN1_BMPSTRING) {
     str_type = V_ASN1_BMPSTRING;
     outform = MBSTRING_BMP;
-    encode_func = cbb_add_ucs2_be;
+    encode_func = CBB_add_ucs2_be;
     size_estimate = 2 * nchar;
   } else if (mask & B_ASN1_UNIVERSALSTRING) {
     str_type = V_ASN1_UNIVERSALSTRING;
-    encode_func = cbb_add_utf32_be;
+    encode_func = CBB_add_utf32_be;
     size_estimate = 4 * nchar;
     outform = MBSTRING_UNIV;
   } else if (mask & B_ASN1_UTF8STRING) {
     str_type = V_ASN1_UTF8STRING;
     outform = MBSTRING_UTF8;
-    encode_func = cbb_add_utf8;
+    encode_func = CBB_add_utf8;
     size_estimate = utf8_len;
   } else {
     OPENSSL_PUT_ERROR(ASN1, ASN1_R_ILLEGAL_CHARACTERS);
