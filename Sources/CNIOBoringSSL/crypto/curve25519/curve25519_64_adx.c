@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, Google Inc.
+/* Copyright (c) 2023, Google Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,26 +13,6 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
 #include "internal.h"
-
-#if (defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)) && \
-    !defined(OPENSSL_STATIC_ARMCAP)
-
-#include <CNIOBoringSSL_arm_arch.h>
-
-
-extern uint32_t OPENSSL_armcap_P;
-
-int CRYPTO_is_NEON_capable_at_runtime(void) {
-  return (OPENSSL_armcap_P & ARMV7_NEON) != 0;
-}
-
-int CRYPTO_is_ARMv8_AES_capable_at_runtime(void) {
-  return (OPENSSL_armcap_P & ARMV8_AES) != 0;
-}
-
-int CRYPTO_is_ARMv8_PMULL_capable_at_runtime(void) {
-  return (OPENSSL_armcap_P & ARMV8_PMULL) != 0;
-}
-
-#endif  /* (defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)) &&
-           !defined(OPENSSL_STATIC_ARMCAP) */
+#if defined(BORINGSSL_FE25519_ADX)
+#include "../../third_party/fiat/curve25519_64_adx.h"
+#endif

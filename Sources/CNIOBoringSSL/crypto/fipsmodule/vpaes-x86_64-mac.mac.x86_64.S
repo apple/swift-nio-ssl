@@ -3,16 +3,9 @@
 // This file is generated from a similarly-named Perl script in the BoringSSL
 // source tree. Do not edit by hand.
 
-#if defined(__has_feature)
-#if __has_feature(memory_sanitizer) && !defined(OPENSSL_NO_ASM)
-#define OPENSSL_NO_ASM
-#endif
-#endif
+#include <CNIOBoringSSL_asm_base.h>
 
-#if defined(__x86_64__) && !defined(OPENSSL_NO_ASM) && defined(__APPLE__)
-#if defined(BORINGSSL_PREFIX)
-#include <CNIOBoringSSL_boringssl_prefix_symbols_asm.h>
-#endif
+#if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_X86_64) && defined(__APPLE__)
 .text	
 
 
@@ -113,7 +106,7 @@ L$enc_entry:
 	movdqa	64(%r11,%r10,1),%xmm1
 	pxor	%xmm4,%xmm0
 .byte	102,15,56,0,193
-	.byte	0xf3,0xc3
+	ret
 
 
 
@@ -288,7 +281,7 @@ L$enc2x_entry:
 	pxor	%xmm12,%xmm6
 .byte	102,15,56,0,193
 .byte	102,15,56,0,241
-	.byte	0xf3,0xc3
+	ret
 
 
 
@@ -396,7 +389,7 @@ L$dec_entry:
 .byte	102,15,56,0,195
 	pxor	%xmm4,%xmm0
 .byte	102,15,56,0,194
-	.byte	0xf3,0xc3
+	ret
 
 
 
@@ -574,7 +567,7 @@ L$schedule_mangle_last_dec:
 	pxor	%xmm5,%xmm5
 	pxor	%xmm6,%xmm6
 	pxor	%xmm7,%xmm7
-	.byte	0xf3,0xc3
+	ret
 
 
 
@@ -603,7 +596,7 @@ _vpaes_schedule_192_smear:
 	pxor	%xmm0,%xmm6
 	movdqa	%xmm6,%xmm0
 	movhlps	%xmm1,%xmm6
-	.byte	0xf3,0xc3
+	ret
 
 
 
@@ -681,7 +674,7 @@ _vpaes_schedule_low_round:
 
 	pxor	%xmm7,%xmm0
 	movdqa	%xmm0,%xmm7
-	.byte	0xf3,0xc3
+	ret
 
 
 
@@ -707,7 +700,7 @@ _vpaes_schedule_transform:
 	movdqa	16(%r11),%xmm0
 .byte	102,15,56,0,193
 	pxor	%xmm2,%xmm0
-	.byte	0xf3,0xc3
+	ret
 
 
 
@@ -801,7 +794,7 @@ L$schedule_mangle_both:
 	addq	$-16,%r8
 	andq	$0x30,%r8
 	movdqu	%xmm3,(%rdx)
-	.byte	0xf3,0xc3
+	ret
 
 
 
@@ -814,6 +807,7 @@ L$schedule_mangle_both:
 .p2align	4
 _vpaes_set_encrypt_key:
 
+_CET_ENDBR
 #ifdef BORINGSSL_DISPATCH_TEST
 
 	movb	$1,_BORINGSSL_function_hit+5(%rip)
@@ -828,7 +822,7 @@ _vpaes_set_encrypt_key:
 	movl	$0x30,%r8d
 	call	_vpaes_schedule_core
 	xorl	%eax,%eax
-	.byte	0xf3,0xc3
+	ret
 
 
 
@@ -838,6 +832,7 @@ _vpaes_set_encrypt_key:
 .p2align	4
 _vpaes_set_decrypt_key:
 
+_CET_ENDBR
 	movl	%esi,%eax
 	shrl	$5,%eax
 	addl	$5,%eax
@@ -852,7 +847,7 @@ _vpaes_set_decrypt_key:
 	xorl	$32,%r8d
 	call	_vpaes_schedule_core
 	xorl	%eax,%eax
-	.byte	0xf3,0xc3
+	ret
 
 
 
@@ -862,6 +857,7 @@ _vpaes_set_decrypt_key:
 .p2align	4
 _vpaes_encrypt:
 
+_CET_ENDBR
 #ifdef BORINGSSL_DISPATCH_TEST
 
 	movb	$1,_BORINGSSL_function_hit+4(%rip)
@@ -870,7 +866,7 @@ _vpaes_encrypt:
 	call	_vpaes_preheat
 	call	_vpaes_encrypt_core
 	movdqu	%xmm0,(%rsi)
-	.byte	0xf3,0xc3
+	ret
 
 
 
@@ -880,11 +876,12 @@ _vpaes_encrypt:
 .p2align	4
 _vpaes_decrypt:
 
+_CET_ENDBR
 	movdqu	(%rdi),%xmm0
 	call	_vpaes_preheat
 	call	_vpaes_decrypt_core
 	movdqu	%xmm0,(%rsi)
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_vpaes_cbc_encrypt
@@ -893,6 +890,7 @@ _vpaes_decrypt:
 .p2align	4
 _vpaes_cbc_encrypt:
 
+_CET_ENDBR
 	xchgq	%rcx,%rdx
 	subq	$16,%rcx
 	jc	L$cbc_abort
@@ -927,7 +925,7 @@ L$cbc_dec_loop:
 L$cbc_done:
 	movdqu	%xmm6,(%r8)
 L$cbc_abort:
-	.byte	0xf3,0xc3
+	ret
 
 
 .globl	_vpaes_ctr32_encrypt_blocks
@@ -936,6 +934,7 @@ L$cbc_abort:
 .p2align	4
 _vpaes_ctr32_encrypt_blocks:
 
+_CET_ENDBR
 
 	xchgq	%rcx,%rdx
 	testq	%rcx,%rcx
@@ -990,7 +989,7 @@ L$ctr32_loop:
 
 L$ctr32_done:
 L$ctr32_abort:
-	.byte	0xf3,0xc3
+	ret
 
 
 
@@ -1011,7 +1010,7 @@ _vpaes_preheat:
 	movdqa	64(%r10),%xmm12
 	movdqa	80(%r10),%xmm15
 	movdqa	96(%r10),%xmm14
-	.byte	0xf3,0xc3
+	ret
 
 
 
@@ -1131,10 +1130,6 @@ L$ctr_add_two:
 .p2align	6
 
 .text	
-#endif
-#if defined(__ELF__)
-// See https://www.airs.com/blog/archives/518.
-.section .note.GNU-stack,"",%progbits
 #endif
 #endif  // defined(__x86_64__) && defined(__APPLE__)
 #if defined(__linux__) && defined(__ELF__)

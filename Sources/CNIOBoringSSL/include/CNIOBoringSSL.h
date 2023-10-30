@@ -16,6 +16,7 @@
 
 #include "CNIOBoringSSL_aes.h"
 #include "CNIOBoringSSL_arm_arch.h"
+#include "CNIOBoringSSL_asm_base.h"
 #include "CNIOBoringSSL_asn1_mac.h"
 #include "CNIOBoringSSL_asn1t.h"
 #include "CNIOBoringSSL_base.h"

@@ -23,7 +23,6 @@
 
 #include <CNIOBoringSSL_arm_arch.h>
 
-extern uint32_t OPENSSL_armcap_P;
 
 void OPENSSL_cpuid_setup(void) {
   uint32_t hwcap;

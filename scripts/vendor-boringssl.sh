@@ -44,8 +44,6 @@ HERE=$(pwd)
 DSTROOT=Sources/CNIOBoringSSL
 TMPDIR=$(mktemp -d /tmp/.workingXXXXXX)
 SRCROOT="${TMPDIR}/src/boringssl.googlesource.com/boringssl"
-CROSS_COMPILE_TARGET_LOCATION="/Library/Developer/Destinations"
-CROSS_COMPILE_VERSION="5.6.1"
 
 # This function namespaces the awkward inline functions declared in OpenSSL
 # and BoringSSL.
@@ -107,13 +105,10 @@ function mangle_symbols {
         )
 
         # Now cross compile for our targets.
-        # If you have trouble with the script around this point, consider
-        # https://github.com/CSCIX65G/SwiftCrossCompilers to obtain cross
-        # compilers for the architectures we care about.
-        for cc_target in "${CROSS_COMPILE_TARGET_LOCATION}"/*"${CROSS_COMPILE_VERSION}"*.json; do
-            echo "Cross compiling for ${cc_target}"
-            swift build --product CNIOBoringSSL --destination "${cc_target}"
-        done;
+        docker run -t -i --rm --privileged -v$(pwd):/src -w/src --platform linux/arm64 swift:5.9-jammy \
+            swift build --product CNIOBoringSSL
+        docker run -t -i --rm --privileged -v$(pwd):/src -w/src --platform linux/amd64 swift:5.9-jammy \
+            swift build --product CNIOBoringSSL
 
         # Now we need to generate symbol mangles for Linux. We can do this in
         # one go for all of them.
@@ -243,6 +238,7 @@ PATTERNS=(
 'crypto/*/*/*.S'
 'crypto/*/*/*/*.c'
 'third_party/fiat/*.h'
+'third_party/fiat/asm/*.S'
 #'third_party/fiat/*.c'
 )
 
@@ -349,6 +345,7 @@ cat << EOF > "$DSTROOT/include/CNIOBoringSSL.h"
 
 #include "CNIOBoringSSL_aes.h"
 #include "CNIOBoringSSL_arm_arch.h"
+#include "CNIOBoringSSL_asm_base.h"
 #include "CNIOBoringSSL_asn1_mac.h"
 #include "CNIOBoringSSL_asn1t.h"
 #include "CNIOBoringSSL_base.h"
@@ -377,6 +374,7 @@ cat << EOF > "$DSTROOT/include/CNIOBoringSSL.h"
 #include "CNIOBoringSSL_hpke.h"
 #include "CNIOBoringSSL_hrss.h"
 #include "CNIOBoringSSL_kdf.h"
+#include "CNIOBoringSSL_kyber.h"
 #include "CNIOBoringSSL_md4.h"
 #include "CNIOBoringSSL_md5.h"
 #include "CNIOBoringSSL_obj_mac.h"
@@ -395,6 +393,7 @@ cat << EOF > "$DSTROOT/include/CNIOBoringSSL.h"
 #include "CNIOBoringSSL_siphash.h"
 #include "CNIOBoringSSL_srtp.h"
 #include "CNIOBoringSSL_ssl.h"
+#include "CNIOBoringSSL_time.h"
 #include "CNIOBoringSSL_trust_token.h"
 #include "CNIOBoringSSL_type_check.h"
 #include "CNIOBoringSSL_x509_vfy.h"
