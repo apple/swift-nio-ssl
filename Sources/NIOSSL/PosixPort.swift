@@ -39,7 +39,7 @@ internal typealias FILEPointer = UnsafeMutablePointer<FILE>
 private let sysFopen: @convention(c) (UnsafePointer<CChar>?, UnsafePointer<CChar>?) -> FILEPointer? = fopen
 private let sysMlock: @convention(c) (UnsafeRawPointer?, size_t) -> CInt = mlock
 private let sysMunlock: @convention(c) (UnsafeRawPointer?, size_t) -> CInt = munlock
-private let sysFclose: @convention(c) (FILEPointer?) -> CInt = fclose
+private let sysFclose: @convention(c) (FILEPointer?) -> CInt =  { fclose($0!) }
 
 // Sadly, stat, lstat, and readlink have different signatures with glibc and macOS libc.
 #if canImport(Darwin) || os(Android)
