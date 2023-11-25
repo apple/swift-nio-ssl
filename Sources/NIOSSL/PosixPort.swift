@@ -36,18 +36,24 @@ internal typealias FILEPointer = OpaquePointer
 internal typealias FILEPointer = UnsafeMutablePointer<FILE>
 #endif
 
+#if os(Android)
+private let sysFopen: @convention(c) (UnsafePointer<CChar>, UnsafePointer<CChar>) -> FILEPointer? = fopen
+private let sysMlock: @convention(c) (UnsafeRawPointer, size_t) -> CInt = mlock
+private let sysMunlock: @convention(c) (UnsafeRawPointer, size_t) -> CInt = munlock
+#else
 private let sysFopen: @convention(c) (UnsafePointer<CChar>?, UnsafePointer<CChar>?) -> FILEPointer? = fopen
 private let sysMlock: @convention(c) (UnsafeRawPointer?, size_t) -> CInt = mlock
 private let sysMunlock: @convention(c) (UnsafeRawPointer?, size_t) -> CInt = munlock
+#endif
 private let sysFclose: @convention(c) (FILEPointer?) -> CInt =  { fclose($0!) }
 
 // Sadly, stat, lstat, and readlink have different signatures with glibc and macOS libc.
-#if canImport(Darwin) || os(Android)
+#if canImport(Darwin)
 private let sysStat: @convention(c) (UnsafePointer<CChar>?, UnsafeMutablePointer<stat>?) -> CInt = stat(_:_:)
 private let sysReadlink: @convention(c) (UnsafePointer<Int8>?, UnsafeMutablePointer<Int8>?, Int) -> Int = readlink
 private let sysLstat:  @convention(c) (UnsafePointer<Int8>?, UnsafeMutablePointer<stat>?) -> Int32 = lstat
 
-#elseif os(Linux) || os(FreeBSD)
+#elseif os(Linux) || os(FreeBSD) || os(Android)
 private let sysStat: @convention(c) (UnsafePointer<CChar>, UnsafeMutablePointer<stat>) -> CInt = stat(_:_:)
 private let sysReadlink: @convention(c) (UnsafePointer<Int8>, UnsafeMutablePointer<Int8>, Int) -> Int = readlink
 private let sysLstat:  @convention(c) (UnsafePointer<Int8>, UnsafeMutablePointer<stat>) -> Int32 = lstat

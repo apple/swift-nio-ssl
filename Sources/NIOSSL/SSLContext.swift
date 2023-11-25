@@ -853,7 +853,7 @@ internal class DirectoryContents: Sequence, IteratorProtocol {
     
     init(path: String) {
         self.path = path
-        self.dir = opendir(path)
+        self.dir = opendir(path)!
     }
     
     func next() -> String? {
