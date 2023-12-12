@@ -62,7 +62,8 @@ MANGLE_END */
             name: "CNIOBoringSSL",
             cSettings: [
               .define("_GNU_SOURCE"),
-              .define("_POSIX_C_SOURCE", to: "200112L")
+              .define("_POSIX_C_SOURCE", to: "200112L"),
+              .define("_DARWIN_C_SOURCE")
             ]),
         .target(
             name: "CNIOBoringSSLShims",
