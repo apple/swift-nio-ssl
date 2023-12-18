@@ -133,12 +133,12 @@ private func serverPSKCallback(ssl: OpaquePointer?,
     guard let serverCallback = parentSwiftContext.pskServerConfigurationCallback,
           let unwrappedIdentity = identity, // Incoming identity
           let strIdentity = String(validatingUTF8: unwrappedIdentity),
-          let configurationHint = parentSwiftContext.configuration.pskHint,
           let outputPSK = psk // Output PSK key.
           else {
         return 0
     }
     
+    let configurationHint = parentSwiftContext.configuration.pskHint ?? ""
     // Take the hint and the possible identity and pass them down to the callback to get associated PSK from callback
     guard let contextPSKIdentityCallback = try? serverCallback(configurationHint, strIdentity) else {
         return 0
@@ -179,13 +179,11 @@ private func clientPSKCallback(ssl: OpaquePointer?,
         return 0
     }
     
-    // If set, build out a hint to pass into the client callback.
-    guard let clientHint = hint,
-          let derivedHint = String(validatingUTF8: clientHint) else {
-        return 0
-    }
+    // If set, build out a hint otherwise fallback to an empty string and pass it into the client callback.
+    let clientHint: String = hint.flatMap({ String(validatingUTF8: $0) }) ?? ""
+    
     // Take the hint and pass it down to the callback to get associated PSK from callback
-    guard let pskIdentityCallback = try? clientCallback(derivedHint) else {
+    guard let pskIdentityCallback = try? clientCallback(clientHint) else {
         return 0
     }
     let clientPSK = pskIdentityCallback.key // Key from the callback
