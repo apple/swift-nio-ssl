@@ -675,6 +675,15 @@ extension NIOSSLContext {
             let errorStack = BoringSSLError.buildErrorStack()
             throw BoringSSLError.unknownError(errorStack)
         }
+        #elseif os(Android)
+        let result = rootCADirectoryPath.withCString { rootCADirectoryPointer in
+            CNIOBoringSSL_SSL_CTX_load_verify_locations(context, nil, rootCADirectoryPointer)
+        }
+
+        if result == 0 {
+            let errorStack = BoringSSLError.buildErrorStack()
+            throw BoringSSLError.unknownError(errorStack)
+        }
         #endif
     }
 
