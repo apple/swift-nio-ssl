@@ -45,6 +45,10 @@ services:
   performance-test:
     <<: *common
     command: /bin/bash -xcl "swift build -c release && ./.build/release/NIOSSLPerformanceTester"
+    
+  cxx-interop-build:
+    <<: *common
+    command: /bin/bash -xcl "./scripts/cxx-interop-compatibility.sh"
 
   # util
 
