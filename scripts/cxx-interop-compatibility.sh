@@ -49,12 +49,7 @@ let package = Package(
                 .product(name: "NIOSSLHTTP1Client", package: "swift-nio-ssl")
             ],
             swiftSettings: [.interoperabilityMode(.Cxx)]
-        ),
-        .testTarget(
-            name: "interopTests",
-            dependencies: ["interop"],
-            swiftSettings: [.interoperabilityMode(.Cxx)]
-        ),
+        )
     ]
 )
 EOF
