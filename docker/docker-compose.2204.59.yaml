@@ -27,6 +27,9 @@ services:
 
   performance-test:
     image: swift-nio-ssl:22.04-5.9
+    
+  cxx-interop-build:
+    image: swift-nio-ssl:22.04-5.9
 
   shell:
     image: swift-nio-ssl:22.04-5.9
