@@ -17,6 +17,7 @@ set -eu
 
 sourcedir=$(pwd)
 workingdir=$(mktemp -d)
+projectname=$(basename $workingdir)
 
 cd $workingdir
 swift package init
@@ -40,9 +41,9 @@ let package = Package(
     targets: [
         .target(
             name: "interop",
+            // Depend on all products of swift-nio-ssl to make sure they're all
+            // compatible with cxx interop.
             dependencies: [
-                // Depend on all products of swift-nio-ssl to make sure they're all
-                // compatible with cxx interop.
                 .product(name: "NIOSSL", package: "swift-nio-ssl"),
                 .product(name: "NIOTLSServer", package: "swift-nio-ssl"),
                 .product(name: "NIOSSLHTTP1Client", package: "swift-nio-ssl")
@@ -56,6 +57,12 @@ let package = Package(
         ),
     ]
 )
+EOF
+
+cat << EOF > Sources/$projectname/$(echo $projectname | tr . _).swift
+import NIOSSL
+import NIOTLSServer
+import NIOSSLHTTP1Client
 EOF
 
 swift build
