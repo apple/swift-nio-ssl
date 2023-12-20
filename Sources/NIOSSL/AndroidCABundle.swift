@@ -24,8 +24,10 @@ internal let rootCADirectoryPath: String? = locateRootCADirectory()
 /// that is not present here, please open a pull request that adds the appropriate search path.
 /// Some distributions do not ship CA directories: as such, it is not a problem if a distribution that is present in rootCAFileSearchPaths
 /// is not present in this list.
+//see https://android.googlesource.com/platform/frameworks/base/+/8b192b19f264a8829eac2cfaf0b73f6fc188d933%5E%21/#F0
 private let rootCADirectorySearchPaths = [
-    "/system/etc/security/cacerts",  // Android
+    "/apex/com.android.conscrypt/cacerts",  // >= Android14
+    "/system/etc/security/cacerts",  // < Android14
 ]
 
 private func locateRootCADirectory() -> String? {
