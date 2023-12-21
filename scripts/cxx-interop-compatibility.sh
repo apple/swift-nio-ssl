@@ -41,12 +41,10 @@ let package = Package(
     targets: [
         .target(
             name: "interop",
-            // Depend on all products of swift-nio-ssl to make sure they're all
-            // compatible with cxx interop.
+            // Depend on all non-executable products of swift-nio-ssl to make
+            // sure they're all compatible with cxx interop.
             dependencies: [
-                .product(name: "NIOSSL", package: "swift-nio-ssl"),
-                .product(name: "NIOTLSServer", package: "swift-nio-ssl"),
-                .product(name: "NIOSSLHTTP1Client", package: "swift-nio-ssl")
+                .product(name: "NIOSSL", package: "swift-nio-ssl")
             ],
             swiftSettings: [.interoperabilityMode(.Cxx)]
         )
@@ -56,8 +54,6 @@ EOF
 
 cat << EOF > Sources/$projectname/$(echo $projectname | tr . _).swift
 import NIOSSL
-import NIOTLSServer
-import NIOSSLHTTP1Client
 EOF
 
 swift build
