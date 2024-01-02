@@ -145,6 +145,10 @@ final class SecurityFrameworkVerificationTests: XCTestCase {
 
 #if canImport(Darwin)
 extension SecurityFrameworkVerificationTests {
+    /// If tests fail because of an expired cert, you can regenerate the leaf and intermediate certificates
+    /// by running the following command, and replacing both served certificates as leaf and intermediate,
+    /// in that order:
+    /// `openssl s_client -connect www.apple.com:443 -servername www.apple.com -showcerts`
     static let appleComCertChain: [SecCertificate] = {
         // All certs here are PEM format, with the leading/trailing lines stripped.
         let leaf = """
