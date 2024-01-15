@@ -223,7 +223,8 @@ internal final class SSLConnection {
         switch error {
         case .wantRead,
              .wantWrite,
-             .wantCertificateVerify:
+             .wantCertificateVerify,
+             .wantX509Lookup:
             return .incomplete
         default:
             return .failed(error)
