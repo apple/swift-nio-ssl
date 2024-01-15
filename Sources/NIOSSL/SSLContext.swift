@@ -853,6 +853,8 @@ extension NIOSSLContext {
                 // saved in the case where we register set_cert_cb
                 futureSSLContext = try parentSwiftContext.sslContextCallback!(values, parentSwiftContext)
             } catch {
+                // Save the user error so we can properly propagate down the pipeline
+                parentSwiftContext.sslContextCallbackResult = .failure(error)
                 return SSL_TLSEXT_ERR_NOACK
             }
 
