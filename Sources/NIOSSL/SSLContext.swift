@@ -839,19 +839,19 @@ extension NIOSSLContext {
             }
 
             // Make sure we get the server name extracted.
-            guard let cServerName = CNIOBoringSSL_SSL_get_servername(ssl, CNIOBoringSSL.TLSEXT_NAMETYPE_host_name) else {
+            guard let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, CNIOBoringSSL.TLSEXT_NAMETYPE_host_name) else {
                 return SSL_TLSEXT_ERR_NOACK
             }
 
-            let serverName = String(cString: cServerName)
+            let serverHostname = String(cString: cServerHostname)
 
             // Can do nothing about empty indicators.
-            guard !serverName.isEmpty else {
+            guard !serverHostname.isEmpty else {
                 return SSL_TLSEXT_ERR_NOACK
             }
 
             // Construct extension values
-            let values = NIOSSLClientExtensionValues(serverName: serverName)
+            let values = NIOSSLClientExtensionValues(serverHostname: serverHostname)
 
             // Issue call to get a new ssl context
             let futureSSLContext: EventLoopFuture<NIOSSLContext>

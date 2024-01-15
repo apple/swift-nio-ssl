@@ -174,10 +174,10 @@ public struct PSKClientIdentityResponse: Sendable {
 }
 
 public struct NIOSSLClientExtensionValues: Hashable {
-    public var serverName: String
+    public var serverHostname: String
 
-    public init(serverName: String) {
-        self.serverName = serverName
+    public init(serverHostname: String) {
+        self.serverHostname = serverHostname
     }
 }
 
