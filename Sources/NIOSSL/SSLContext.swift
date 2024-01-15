@@ -792,11 +792,8 @@ extension NIOSSLContext {
 extension NIOSSLContext {
     static private func setSSLContextCallback(context: OpaquePointer) throws {
         CNIOBoringSSL_SSL_CTX_set_cert_cb(context, { (ssl, arg) in
-            guard let ssl = ssl else {
-                return SSL_TLSEXT_ERR_NOACK
-            }
-
-            let parentSwiftContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl)
+            // This should be a safe force unwrap. If ssl is not set its a singal of a larger problem
+            let parentSwiftContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl!)
 
             // Check if we have a pending context previously set by this callback
             if let sslContextCallbackResult = parentSwiftContext.sslContextCallbackResult {
