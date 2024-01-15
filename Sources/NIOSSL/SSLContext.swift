@@ -865,7 +865,7 @@ extension NIOSSLContext {
             parentSwiftContext.futureSSLContext = futureSSLContext
 
             // Resume the handshake when the future completes
-            futureSSLContext.whenComplete { result in
+            futureSSLContext.whenComplete { _ in
                 CNIOBoringSSL_SSL_do_handshake(ssl)
             }
 
