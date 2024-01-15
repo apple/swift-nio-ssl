@@ -803,8 +803,6 @@ extension NIOSSLContext {
 
             // Check if we have a pending context previously set by this callback
             if let sslContextCallbackResult = parentSwiftContext.sslContextCallbackResult {
-                // If we do and we are executing this callback then the future has already resolved
-                // We can safely call wait() which will resolve immediately
                 let userChosenContext: NIOSSLContext
                 switch sslContextCallbackResult {
                 case .success(let value):
