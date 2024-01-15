@@ -811,7 +811,7 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertFalse(config.bestEffortEquals(differentConfig))
     }
     
-    func testDifferentCallbacksNotEqual() {
+    func testDifferentKeylogCallbacksNotEqual() {
         var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .file("fake.file"))
         config.applicationProtocols = ["http/1.1"]
         config.keyLogCallback = { _ in }
@@ -819,7 +819,24 @@ class TLSConfigurationTest: XCTestCase {
         differentConfig.keyLogCallback = { _ in }
         XCTAssertFalse(config.bestEffortEquals(differentConfig))
     }
-    
+
+    func testDifferentSSLContextCallbacksNotEqual() {
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .file("fake.file"))
+        config.applicationProtocols = ["http/1.1"]
+        config.sslContextCallback = { (_, ctx) in
+            return group.next().makeSucceededFuture(ctx)
+        }
+        var differentConfig = config
+        differentConfig.sslContextCallback = { (_, ctx) in
+            return group.next().makeSucceededFuture(ctx)
+        }
+        XCTAssertFalse(config.bestEffortEquals(differentConfig))
+    }
+
     func testCompatibleCipherSuite() throws {
         // ECDHE_RSA is used here because the public key in .cert1 is derived from a RSA private key.
         // These could also be RSA based, but cannot be ECDHE_ECDSA.
@@ -1060,9 +1077,13 @@ class TLSConfigurationTest: XCTestCase {
     }
 
     func testBestEffortEquatableHashableDifferences() {
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
         // If this assertion fails, DON'T JUST CHANGE THE NUMBER HERE! Make sure you've added any appropriate transforms below
         // so that we're testing these best effort functions.
-        XCTAssertEqual(MemoryLayout<TLSConfiguration>.size, 194, "TLSConfiguration has changed size: you probably need to update this test!")
+        XCTAssertEqual(MemoryLayout<TLSConfiguration>.size, 210, "TLSConfiguration has changed size: you probably need to update this test!")
 
         let first = TLSConfiguration.makeClientConfiguration()
         
@@ -1078,6 +1099,10 @@ class TLSConfigurationTest: XCTestCase {
             var psk = NIOSSLSecureBytes()
             psk.append("hello".utf8)
             return PSKServerIdentityResponse(key: psk)
+        }
+
+        let sslContextCallback: NIOSSLContextCallback = { (values, ctx) in
+            return group.next().makeSucceededFuture(ctx)
         }
 
         let transforms: [(inout TLSConfiguration) -> Void] = [
@@ -1099,6 +1124,7 @@ class TLSConfigurationTest: XCTestCase {
             { $0.sendCANameList = true },
             { $0.pskClientCallback = pskClientCallback },
             { $0.pskServerCallback = pskServerCallback},
+            { $0.sslContextCallback = sslContextCallback },
             { $0.pskHint = "hint" },
         ]
 
