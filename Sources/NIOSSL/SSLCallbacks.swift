@@ -173,6 +173,26 @@ public struct PSKClientIdentityResponse: Sendable {
     }
 }
 
+public struct NIOSSLClientExtensionValues: Hashable {
+    public var serverName: String
+
+    public init(serverName: String) {
+        self.serverName = serverName
+    }
+}
+
+/// A callback that can used to support multiple or dynamic TLS hosts.
+///
+/// When set, this callback will be invoked once per TLS hello. The provided `NIOSSLClientExtensionValues` will contain the
+/// host name indicated in the TLS client hello, while the provided `NIOSSLContext` will be the current
+/// server context being used for the handshake.
+///
+/// Within this callback, the user can create and return a new server `NIOSSLContext` for the given host,
+/// return the same context provided if it is sufficient to complete the handshake, or return `throw` in the event
+/// of an exception.
+///
+public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues, NIOSSLContext) throws -> EventLoopFuture<NIOSSLContext>
+
 /// The callback used for providing a PSK on the client side.
 ///
 /// The callback is invoked on the event loop with the PSK hint. This callback must complete synchronously: it cannot return a future.

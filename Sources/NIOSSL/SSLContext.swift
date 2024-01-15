@@ -98,9 +98,7 @@ private func alpnCallback(ssl: OpaquePointer?,
     }
 
     // We want to take the SSL pointer and extract the parent Swift object.
-    let parentCtx = CNIOBoringSSL_SSL_get_SSL_CTX(ssl)!
-    let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
-    let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
+    let parentSwiftContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl)
 
     let offeredProtocols = UnsafeBufferPointer(start: `in`, count: Int(inlen))
     guard let (index, length) = parentSwiftContext.alpnSelectCallback(offeredProtocols: offeredProtocols) else {
@@ -126,10 +124,8 @@ private func serverPSKCallback(ssl: OpaquePointer?,
     // TODO (meaton) add TLS 1.3 support when available.
     
     // We want to take the SSL pointer and extract the parent Swift object.
-    let parentCtx = CNIOBoringSSL_SSL_get_SSL_CTX(ssl)!
-    let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
-    let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
-    
+    let parentSwiftContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl)
+
     guard let serverCallback = parentSwiftContext.pskServerConfigurationCallback,
           let unwrappedIdentity = identity, // Incoming identity
           let strIdentity = String(validatingUTF8: unwrappedIdentity),
@@ -168,10 +164,8 @@ private func clientPSKCallback(ssl: OpaquePointer?,
     // TODO (meaton) add TLS 1.3 support when available.
     
     // We want to take the SSL pointer and extract the parent Swift object.
-    let parentCtx = CNIOBoringSSL_SSL_get_SSL_CTX(ssl)!
-    let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
-    let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
-    
+    let parentSwiftContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl)
+
     guard let clientCallback = parentSwiftContext.pskClientConfigurationCallback,
           let unwrappedIdentity = identity, // Output identity that will be later be mapped from client callback
           let outputPSK = psk // Output PSK key that will later be mapped from client callback
@@ -225,8 +219,10 @@ public final class NIOSSLContext {
     private let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
     private var keyLogManager: KeyLogCallbackManager?
+    private var futureSSLContext: EventLoopFuture<NIOSSLContext>?
     internal var pskClientConfigurationCallback: NIOPSKClientIdentityCallback?
     internal var pskServerConfigurationCallback: NIOPSKServerIdentityCallback?
+    internal var sslContextCallback: NIOSSLContextCallback?
     internal let configuration: TLSConfiguration
 
     /// Initialize a context that will create multiple connections, all with the same
@@ -277,7 +273,13 @@ public final class NIOSSLContext {
             self.pskClientConfigurationCallback = pskClientConfigurationsCallback
             CNIOBoringSSL_SSL_CTX_set_psk_client_callback(context, { clientPSKCallback(ssl: $0, hint: $1, identity: $2, max_identity_len: $3, psk: $4, max_psk_len: $5 ) } )
         }
-        
+
+        // Set the SSL Context callback.
+        if let sslContextCallback = configuration.sslContextCallback {
+            self.sslContextCallback = sslContextCallback
+            try NIOSSLContext.setSSLContextCallback(context: context)
+        }
+
         if let pskServerConfigurationCallback = configuration.pskServerCallback {
             self.pskServerConfigurationCallback = pskServerConfigurationCallback
             CNIOBoringSSL_SSL_CTX_set_psk_server_callback(context, { serverPSKCallback(ssl: $0, identity: $1, psk: $2, max_psk_len: $3 )})
@@ -475,6 +477,18 @@ public final class NIOSSLContext {
 // NIOSSLContext is thread-safe and therefore Sendable
 extension NIOSSLContext: @unchecked Sendable {}
 
+// Internal helpers.
+fileprivate class NIOSSLContextHelpers {
+    fileprivate static func getContextFromRawContextAppData(ssl: OpaquePointer) -> NIOSSLContext {
+        // We want to take the SSL pointer and extract the parent Swift object. These force-unwraps are for
+        // safety: a correct NIO program can never fail to set these pointers, and if it does failing loudly is
+        // more useful than failing quietly.
+        let parentCtx = CNIOBoringSSL_SSL_get_SSL_CTX(ssl)!
+        let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
+        let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
+        return parentSwiftContext
+    }
+}
 
 extension NIOSSLContext {
     private static func useCertificateChainFile(_ path: String, context: OpaquePointer) {
@@ -687,9 +701,7 @@ extension NIOSSLContext {
             // We want to take the SSL pointer and extract the parent Swift object. These force-unwraps are for
             // safety: a correct NIO program can never fail to set these pointers, and if it does failing loudly is
             // more useful than failing quietly.
-            let parentCtx = CNIOBoringSSL_SSL_get_SSL_CTX(ssl)!
-            let parentPtr = CNIOBoringSSLShims_SSL_CTX_get_app_data(parentCtx)!
-            let parentSwiftContext: NIOSSLContext = Unmanaged.fromOpaque(parentPtr).takeUnretainedValue()
+            let parentSwiftContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl)
 
             // Similarly, this force-unwrap is safe because a correct NIO program can never fail to unwrap this entry
             // either.
@@ -776,6 +788,95 @@ extension NIOSSLContext {
             }
             return Array(buffers)
         }
+    }
+}
+
+// For utilizing SSL Context callbacks from a SSLContext
+extension NIOSSLContext {
+    static private func setSSLContextCallback(context: OpaquePointer) throws {
+        CNIOBoringSSL_SSL_CTX_set_cert_cb(context, { (ssl, arg) in
+            guard let ssl = ssl else {
+                return SSL_TLSEXT_ERR_NOACK
+            }
+
+            let parentSwiftContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl)
+
+            // Check if we have a pending context previously set by this callback
+            if let futureSSLContext = parentSwiftContext.futureSSLContext {
+                // If we do and we are executing this callback then the future has already resolved
+                // We can safely call wait() which will resolve immediately
+                let userChosenContext: NIOSSLContext
+                do {
+                    userChosenContext = try futureSSLContext.wait()
+                } catch {
+                    return SSL_TLSEXT_ERR_NOACK
+                }
+
+                // The user may or may not retain a reference to the NIOSSLContext
+                // that they return here, if they provide one. The NIOSSLContext finalizer
+                // explicitly decrements the reference count on the underlying SSL_CTX.
+                //
+                // However, SSL_set_SSL_CTX explicitly increases the reference count and
+                // will decrement the count when the SSL* object is destroyed, thus finally
+                // freeing the raw SSL_CTX object, even if the swift reference is orphaned.
+                //
+                // As such, no memory should be leaked or freed too early in the event that
+                // the user fails to retain their created and return NIOSSLContext. In the
+                // event that they do retain it, the reference count will remain at at-least
+                // 1 and thus they can re-use the same context for multiple connections.
+
+                let nativeReturnVal = withExtendedLifetime(userChosenContext) {
+                    return CNIOBoringSSL_SSL_set_SSL_CTX(ssl, userChosenContext.sslContext)
+                }
+
+                if nativeReturnVal == nil {
+                    return SSL_TLSEXT_ERR_NOACK
+                }
+
+                // CNIOBoringSSL_SSL_set_SSL_CTX should return a pointer to the very same context it was
+                // told to assign on success. On error, this will not happen, so we check for equality
+                // here and handle any such errors by signaling the connection to fail.
+                if nativeReturnVal != userChosenContext.sslContext {
+                    return SSL_TLSEXT_ERR_NOACK
+                }
+
+                return SSL_TLSEXT_ERR_OK
+            }
+
+            // Make sure we get the server name extracted.
+            guard let cServerName = CNIOBoringSSL_SSL_get_servername(ssl, CNIOBoringSSL.TLSEXT_NAMETYPE_host_name) else {
+                return SSL_TLSEXT_ERR_NOACK
+            }
+
+            let serverName = String(cString: cServerName)
+
+            // Can do nothing about empty indicators.
+            guard !serverName.isEmpty else {
+                return SSL_TLSEXT_ERR_NOACK
+            }
+
+            // Construct extension values
+            let values = NIOSSLClientExtensionValues(serverName: serverName)
+
+            // Issue call to get a new ssl context
+            let futureSSLContext: EventLoopFuture<NIOSSLContext>
+            do {
+                futureSSLContext = try parentSwiftContext.sslContextCallback!(values, parentSwiftContext)
+            } catch {
+                return SSL_TLSEXT_ERR_NOACK
+            }
+
+            // Save the future as pending on the parent context
+            parentSwiftContext.futureSSLContext = futureSSLContext
+
+            // Resume the handshake when the future completes
+            futureSSLContext.whenComplete { result in
+                CNIOBoringSSL_SSL_do_handshake(ssl)
+            }
+
+            // We must return a negative value to suspend the handshake
+            return -1
+        }, nil)
     }
 }
 
