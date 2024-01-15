@@ -478,7 +478,7 @@ public final class NIOSSLContext {
 extension NIOSSLContext: @unchecked Sendable {}
 
 // Internal helpers.
-fileprivate class NIOSSLContextHelpers {
+fileprivate enum NIOSSLContextHelpers {
     fileprivate static func getContextFromRawContextAppData(ssl: OpaquePointer) -> NIOSSLContext {
         // We want to take the SSL pointer and extract the parent Swift object. These force-unwraps are for
         // safety: a correct NIO program can never fail to set these pointers, and if it does failing loudly is
