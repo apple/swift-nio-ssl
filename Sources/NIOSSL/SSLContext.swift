@@ -698,9 +698,6 @@ extension NIOSSLContext {
                 return
             }
 
-            // We want to take the SSL pointer and extract the parent Swift object. These force-unwraps are for
-            // safety: a correct NIO program can never fail to set these pointers, and if it does failing loudly is
-            // more useful than failing quietly.
             let parentSwiftContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl)
 
             // Similarly, this force-unwrap is safe because a correct NIO program can never fail to unwrap this entry
