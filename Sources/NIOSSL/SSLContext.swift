@@ -855,6 +855,8 @@ extension NIOSSLContext {
             // Issue call to get a new ssl context
             let futureSSLContext: EventLoopFuture<NIOSSLContext>
             do {
+                // This is a safe force unwrap because the context callback is always 
+                // saved in the case where we register set_cert_cb
                 futureSSLContext = try parentSwiftContext.sslContextCallback!(values, parentSwiftContext)
             } catch {
                 return SSL_TLSEXT_ERR_NOACK
