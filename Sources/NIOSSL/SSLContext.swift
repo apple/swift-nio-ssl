@@ -861,8 +861,10 @@ extension NIOSSLContext {
                 // Save the result to the parent context to be inspected after resuming
                 parentSwiftContext.sslContextCallbackResult = result
 
-                // Schedule the handshake to resume. This must be scheduled on next tick
-                // to avoid resuming before suspending below
+                // Schedule the handshake to resume. This must be scheduled on next tick to avoid resuming
+                // before suspending below. Once the handshake is resumed the entire SSL_CTX_set_cert_cb
+                // callback will be executed again, and this time the ssl context result will be saved to
+                // the parent context allowing us to set the new context.
                 futureSSLContext.eventLoop.execute {
                     CNIOBoringSSL_SSL_do_handshake(ssl)
                 }
