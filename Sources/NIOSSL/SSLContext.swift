@@ -219,7 +219,7 @@ public final class NIOSSLContext {
     private let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
     private var keyLogManager: KeyLogCallbackManager?
-    private var futureSSLContext: EventLoopFuture<NIOSSLContext>?
+    private var sslContextCallbackResult: Result<NIOSSLContext, Error>?
     internal var pskClientConfigurationCallback: NIOPSKClientIdentityCallback?
     internal var pskServerConfigurationCallback: NIOPSKServerIdentityCallback?
     internal var sslContextCallback: NIOSSLContextCallback?
@@ -802,13 +802,14 @@ extension NIOSSLContext {
             let parentSwiftContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl)
 
             // Check if we have a pending context previously set by this callback
-            if let futureSSLContext = parentSwiftContext.futureSSLContext {
+            if let sslContextCallbackResult = parentSwiftContext.sslContextCallbackResult {
                 // If we do and we are executing this callback then the future has already resolved
                 // We can safely call wait() which will resolve immediately
                 let userChosenContext: NIOSSLContext
-                do {
-                    userChosenContext = try futureSSLContext.wait()
-                } catch {
+                switch sslContextCallbackResult {
+                case .success(let value):
+                    userChosenContext = value
+                case .failure:
                     return SSL_TLSEXT_ERR_NOACK
                 }
 
@@ -861,12 +862,16 @@ extension NIOSSLContext {
                 return SSL_TLSEXT_ERR_NOACK
             }
 
-            // Save the future as pending on the parent context
-            parentSwiftContext.futureSSLContext = futureSSLContext
-
             // Resume the handshake when the future completes
-            futureSSLContext.whenComplete { _ in
-                CNIOBoringSSL_SSL_do_handshake(ssl)
+            futureSSLContext.whenComplete { result in
+                // Save the result to the parent context to be inspected after resuming
+                parentSwiftContext.sslContextCallbackResult = result
+
+                // Schedule the handshake to resume. This must be scheduled on next tick
+                // to avoid resuming before suspending below
+                futureSSLContext.eventLoop.execute {
+                    CNIOBoringSSL_SSL_do_handshake(ssl)
+                }
             }
 
             // We must return a negative value to suspend the handshake
