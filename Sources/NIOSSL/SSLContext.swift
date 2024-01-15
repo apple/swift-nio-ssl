@@ -832,7 +832,7 @@ extension NIOSSLContext {
             }
 
             // Make sure we get the server name extracted.
-            guard let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, CNIOBoringSSL.TLSEXT_NAMETYPE_host_name) else {
+            guard let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name) else {
                 return SSL_TLSEXT_ERR_NOACK
             }
 
