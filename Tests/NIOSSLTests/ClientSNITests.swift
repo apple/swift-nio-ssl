@@ -102,6 +102,7 @@ class ClientSNITests: XCTestCase {
         XCTAssertThrowsError(try NIOSSLClientHandler(context: context, serverHostname: testString)){ error in
             XCTAssertEqual(.cannotUseIPAddressInSNI, error as? NIOSSLExtraError)
         }
+
     }
 
     func testSNIIsRejectedForEmptyHostname() throws {

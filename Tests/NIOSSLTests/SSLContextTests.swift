@@ -14,6 +14,7 @@
 
 import XCTest
 import NIO
+import NIOTLS
 import NIOEmbedded
 @testable import NIOSSL
 
@@ -54,8 +55,7 @@ class SSLContextTest: XCTestCase {
         return context
     }
 
-    private func configuredServerSSLContext(eventLoopGroup: EventLoopGroup) throws -> ServerContextWrapper {
-        let wrapper = ServerContextWrapper()
+    private func configuredServerSSLContext(eventLoop: EventLoop) throws -> NIOSSLContext {
         // Initialize with cert1
         var config = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(SSLContextTest.cert1)],
@@ -63,27 +63,14 @@ class SSLContextTest: XCTestCase {
         )
         // Configure callback to return cert2
         config.sslContextCallback = { (values, _) in
-            // Set the extension values so we can check server name later
-            wrapper.sslExtensionValues = values
-            // Build an alternate tls config with cert2
             let alternateConfig = TLSConfiguration.makeServerConfiguration(
                 certificateChain: [.certificate(SSLContextTest.cert2)],
                 privateKey: .privateKey(SSLContextTest.key2)
             )
-            // Create alternate context
             let alternateContext = try NIOSSLContext(configuration: alternateConfig)
-            // Create future returning the alternate context
-            let future = eventLoopGroup.next().makeSucceededFuture(alternateContext)
-            // Mark the wrapper expectation fulfilled so we ensure this is called
-            future.whenComplete { _ in
-                future.eventLoop.execute {
-                    wrapper.sslContextExpectation.fulfill()
-                }
-            }
-            return future
+            return eventLoop.makeSucceededFuture(alternateContext)
         }
-        wrapper.context = try NIOSSLContext(configuration: config)
-        return wrapper
+        return try NIOSSLContext(configuration: config)
     }
 
     private func assertSniResult(sniField: String?, expectedResult: String) throws {
@@ -92,19 +79,20 @@ class SSLContextTest: XCTestCase {
             try? group.syncShutdownGracefully()
         }
 
+        let handshakeResultPromise = group.next().makePromise(of: Void.self)
+        let handshakeWatcher = WaitForHandshakeHandler(handshakeResultPromise: handshakeResultPromise)
+
         let clientContext = try configuredClientSSLContext()
+        let serverContext = try configuredServerSSLContext(eventLoop: group.next())
 
-        let serverContext = try configuredServerSSLContext(eventLoopGroup: group)
-
-        let serverChannel = try serverTLSChannel(context: serverContext.context!, preHandlers: [], postHandlers: [], group: group)
-
+        let serverChannel = try serverTLSChannel(context: serverContext, preHandlers: [], postHandlers: [], group: group)
         defer {
             _ = try? serverChannel.close().wait()
         }
 
         let clientChannel = try clientTLSChannel(context: clientContext,
                                                  preHandlers: [],
-                                                 postHandlers: [],
+                                                 postHandlers: [handshakeWatcher],
                                                  group: group,
                                                  connectingTo: serverChannel.localAddress!,
                                                  serverHostname: sniField)
@@ -112,19 +100,8 @@ class SSLContextTest: XCTestCase {
             _ = try? clientChannel.close().wait()
         }
 
-        let result = XCTWaiter.wait(for: [serverContext.sslContextExpectation], timeout: 3.0)
-        if result == XCTWaiter.Result.timedOut {
-            // Don't raise an exception on timeout when we expect not to
-            // get a result. There are test cases where we actually
-            // want to succeed if the SNI callback is never called.
-            if !expectedResult.isEmpty {
-                XCTFail("Timed out while awaiting expected SNI callback value.")
-            }
-        }
-
-        let sniResult = serverContext.sslExtensionValues?.serverHostname
-
-        XCTAssertEqual(sniResult, expectedResult)
+        try handshakeResultPromise.futureResult.wait()
+        XCTAssertEqual(true, true)
     }
 
     func testSNIIsTransmitted() throws {

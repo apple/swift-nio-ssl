@@ -828,7 +828,7 @@ extension NIOSSLContext {
                     return SSL_TLSEXT_ERR_NOACK
                 }
 
-                return SSL_TLSEXT_ERR_OK
+                return 1
             }
 
             // Make sure we get the server name extracted.
