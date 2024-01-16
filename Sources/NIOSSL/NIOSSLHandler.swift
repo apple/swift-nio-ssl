@@ -359,7 +359,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             writeDataToNetwork(context: context, promise: nil)
         case .lookup:
             state = .handshaking
-            checkSSLContextCallbackFuture(context: context)
+            waitForSSLContextCallbackFuture(context: context)
         case .complete:
             do {
                 try validateHostname(context: context)
@@ -402,12 +402,21 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         }
     }
 
-    private func checkSSLContextCallbackFuture(context: ChannelHandlerContext) {
-        guard let future = connection.parentContext.sslContextCallbackFuture else {
-            return
+    private func waitForSSLContextCallbackFuture(context: ChannelHandlerContext) {
+        guard let sslContextCallbackFuture = connection.parentContext.sslContextCallbackFuture else {
+            preconditionFailure("""
+                Missing ssl context future.
+                This should have been set in NIOSSLContext's SSL_CTX_set_cert_cb handler.
+            """)
         }
-        future.whenComplete { [weak self, weak context] _ in
-            guard let self = self, let context = context else { return }
+        sslContextCallbackFuture.whenComplete { result in
+            switch result {
+            case .success(let context):
+                self.connection.parentContext = context
+            case .failure:
+                // TODO: what do we do with error?
+                break
+            }
             self.doHandshakeStep(context: context)
         }
     }

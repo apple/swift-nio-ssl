@@ -67,7 +67,7 @@ class SSLContextTest: XCTestCase {
                 certificateChain: [.certificate(SSLContextTest.cert2)],
                 privateKey: .privateKey(SSLContextTest.key2)
             )
-            let alternateContext = try NIOSSLContext(configuration: alternateConfig)
+            let alternateContext = try! NIOSSLContext(configuration: alternateConfig)
             return eventLoop.makeSucceededFuture(alternateContext)
         }
         return try NIOSSLContext(configuration: config)
@@ -85,7 +85,13 @@ class SSLContextTest: XCTestCase {
         let clientContext = try configuredClientSSLContext()
         let serverContext = try configuredServerSSLContext(eventLoop: group.next())
 
-        let serverChannel = try serverTLSChannel(context: serverContext, preHandlers: [], postHandlers: [], group: group)
+        let sniPromise: EventLoopPromise<SNIResult> = group.next().makePromise()
+        let sniHandler = ByteToMessageHandler(SNIHandler {
+            sniPromise.succeed($0)
+            return group.next().makeSucceededFuture(())
+        })
+
+        let serverChannel = try serverTLSChannel(context: serverContext, preHandlers: [sniHandler], postHandlers: [], group: group)
         defer {
             _ = try? serverChannel.close().wait()
         }
@@ -100,8 +106,13 @@ class SSLContextTest: XCTestCase {
             _ = try? clientChannel.close().wait()
         }
 
-        try handshakeResultPromise.futureResult.wait()
-        XCTAssertEqual(true, true)
+        // This promise ensures we completed the handshake.
+        // If the ssl context callback doesn't properly resume
+        // the handshake this will never resolve.
+        XCTAssertNoThrow(try handshakeResultPromise.futureResult.wait())
+
+        let sniResult = try sniPromise.futureResult.wait()
+        XCTAssertEqual(sniResult, .hostname(expectedResult))
     }
 
     func testSNIIsTransmitted() throws {

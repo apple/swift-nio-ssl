@@ -174,9 +174,9 @@ public struct PSKClientIdentityResponse: Sendable {
 }
 
 public struct NIOSSLClientExtensionValues: Hashable {
-    public var serverHostname: String
+    public var serverHostname: String?
 
-    public init(serverHostname: String) {
+    public init(serverHostname: String?) {
         self.serverHostname = serverHostname
     }
 }
@@ -191,7 +191,7 @@ public struct NIOSSLClientExtensionValues: Hashable {
 /// return the same context provided if it is sufficient to complete the handshake, or return `throw` in the event
 /// of an exception.
 ///
-public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues, NIOSSLContext) throws -> EventLoopFuture<NIOSSLContext>
+public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues, NIOSSLContext) -> EventLoopFuture<NIOSSLContext>
 
 /// The callback used for providing a PSK on the client side.
 ///

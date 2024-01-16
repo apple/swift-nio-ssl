@@ -838,32 +838,15 @@ extension NIOSSLContext {
                 return -1
             }
 
-            // Make sure we get the server name extracted.
-            guard let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name) else {
-                return SSL_TLSEXT_ERR_NOACK
-            }
-
-            let serverHostname = String(cString: cServerHostname)
-
-            // Can do nothing about empty indicators.
-            guard !serverHostname.isEmpty else {
-                return SSL_TLSEXT_ERR_NOACK
-            }
-
             // Construct extension values
+            let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
+            let serverHostname = cServerHostname.map { String(cString: $0) }
             let values = NIOSSLClientExtensionValues(serverHostname: serverHostname)
 
             // Issue call to get a new ssl context
-            let futureSSLContext: EventLoopFuture<NIOSSLContext>
-            do {
-                // This is a safe force unwrap because the context callback is always 
-                // saved in the case where we register set_cert_cb
-                futureSSLContext = try parentSwiftContext.sslContextCallback!(values, parentSwiftContext)
-            } catch {
-                // Save the user error so we can properly propagate down the pipeline
-                parentSwiftContext.sslContextCallbackResult = .failure(error)
-                return SSL_TLSEXT_ERR_NOACK
-            }
+            // This is a safe force unwrap because the context callback
+            // is always saved in the case where we register set_cert_cb
+            let futureSSLContext = parentSwiftContext.sslContextCallback!(values, parentSwiftContext)
 
             // Save the future to parent context
             parentSwiftContext.sslContextCallbackFuture = futureSSLContext
