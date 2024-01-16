@@ -216,7 +216,7 @@ internal final class SSLConnection {
         CNIOBoringSSL_ERR_clear_error()
         let rc = CNIOBoringSSL_SSL_do_handshake(ssl)
         
-        if (rc == 1) {
+        if rc == 1 {
             return .complete(rc)
         }
 
