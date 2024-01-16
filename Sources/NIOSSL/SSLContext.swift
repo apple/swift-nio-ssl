@@ -207,7 +207,7 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
     // This should be a safe force unwrap. If ssl is not set its a singal of a larger problem
     let parentSwiftContext = NIOSSLContext.lookupFromRawContext(ssl: ssl!)
 
-    // Check if we have a pending context previously set by this callback
+    // Check if we have a callback result set from the SSLHandler
     if let sslContextCallbackResult = parentSwiftContext.sslContextCallbackResult {
         let userChosenContext: NIOSSLContext
         switch sslContextCallbackResult {
@@ -244,9 +244,12 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
     }
 
     // Ensure we dont have a pending future already set
-    // If we do then we must return a -1 to continue suspending
+    // If we do then something is wrong with the order of operations in our handshake
     guard parentSwiftContext.sslContextCallbackFuture == nil else {
-        return -1
+        preconditionFailure("""
+            SSL_CTX_set_cert_cb was executed a second time without a pending future. 
+            This should not be possible, please file an issue.
+        """)
     }
 
     // Construct extension values
@@ -261,11 +264,6 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
 
     // Save the future to parent context
     parentSwiftContext.sslContextCallbackFuture = futureSSLContext
-
-    // Save the result to the parent context to be inspected after resuming
-    futureSSLContext.whenComplete { result in
-        parentSwiftContext.sslContextCallbackResult = result
-    }
 
     // We must return a negative value to suspend the handshake
     return -1
@@ -289,7 +287,7 @@ public final class NIOSSLContext {
     internal var pskServerConfigurationCallback: NIOPSKServerIdentityCallback?
     internal fileprivate(set) var sslContextConfigurationCallback: NIOSSLContextCallback?
     internal fileprivate(set) var sslContextCallbackFuture: EventLoopFuture<NIOSSLContext>?
-    internal fileprivate(set) var sslContextCallbackResult: Result<NIOSSLContext, Error>?
+    internal var sslContextCallbackResult: Result<NIOSSLContext, Error>?
     internal let configuration: TLSConfiguration
 
     /// Initialize a context that will create multiple connections, all with the same

@@ -409,15 +409,17 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 This should have been set in NIOSSLContext's SSL_CTX_set_cert_cb handler.
             """)
         }
-        sslContextCallbackFuture.whenComplete { result in
-            switch result {
-            case .success(let context):
-                self.connection.parentContext = context
-            case .failure:
-                // TODO: what do we do with error?
-                break
-            }
+        // This future came from user space so we must hop to the current contexts eventLoop for thread safety
+        sslContextCallbackFuture.hop(to: context.eventLoop).whenComplete { result in
+            // It's our responsibility to save the result on the parent context before continuing the handshake
+            self.connection.parentContext.sslContextCallbackResult = result
+
+            // Once the result is saved we can resumt the connection which will trigger the context cert_cb callback a second time
             self.doHandshakeStep(context: context)
+
+            // TODO: handle result
+            //  - how do we want to handle the new context? Replace the current? Anything to nil out?
+            //  - how do we want to handle an error here? We should continue handshake regardless to allow cert_cb to get an error.
         }
     }
 
