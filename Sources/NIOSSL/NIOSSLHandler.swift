@@ -498,7 +498,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         }
 
         switch result {
-        case .lookup, .incomplete:
+        case .incomplete, .lookup:
             writeDataToNetwork(context: context, promise: nil)
 
             if case .outputClosed = targetCompleteState {
@@ -584,7 +584,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 // Good read. Keep going
                 continue readLoop
 
-            case .lookup, .incomplete:
+            case .incomplete, .lookup:
                 self.plaintextReadBuffer = receiveBuffer
                 break readLoop
 
@@ -996,7 +996,7 @@ extension NIOSSLHandler {
         switch result {
         case .complete:
             return true
-        case .lookup, .incomplete:
+        case .incomplete, .lookup:
             // Ok, we can't write. Let's stop.
             return false
         case .failed(let err):
