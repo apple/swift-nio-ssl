@@ -409,6 +409,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 This should have been set in NIOSSLContext's SSL_CTX_set_cert_cb handler.
             """)
         }
+
         // This future came from user space so we must hop to the current contexts eventLoop for thread safety
         sslContextCallbackFuture.hop(to: context.eventLoop).whenComplete { result in
             // It's our responsibility to save the result on the parent context before continuing the handshake
