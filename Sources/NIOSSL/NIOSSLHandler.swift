@@ -357,6 +357,9 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         case .incomplete:
             state = .handshaking
             writeDataToNetwork(context: context, promise: nil)
+        case .lookup:
+            state = .handshaking
+            checkSSLContextCallbackFuture(context: context)
         case .complete:
             do {
                 try validateHostname(context: context)
@@ -396,6 +399,16 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
             context.fireErrorCaught(NIOSSLError.handshakeFailed(err))
             channelClose(context: context, reason: NIOSSLError.handshakeFailed(err))
+        }
+    }
+
+    private func checkSSLContextCallbackFuture(context: ChannelHandlerContext) {
+        guard let future = connection.parentContext.sslContextCallbackFuture else {
+            return
+        }
+        future.whenComplete { [weak self, weak context] _ in
+            guard let self = self, let context = context else { return }
+            self.doHandshakeStep(context: context)
         }
     }
 
@@ -476,7 +489,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         }
 
         switch result {
-        case .incomplete:
+        case .lookup, .incomplete:
             writeDataToNetwork(context: context, promise: nil)
 
             if case .outputClosed = targetCompleteState {
@@ -562,7 +575,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 // Good read. Keep going
                 continue readLoop
 
-            case .incomplete:
+            case .lookup, .incomplete:
                 self.plaintextReadBuffer = receiveBuffer
                 break readLoop
 
@@ -974,7 +987,7 @@ extension NIOSSLHandler {
         switch result {
         case .complete:
             return true
-        case .incomplete:
+        case .lookup, .incomplete:
             // Ok, we can't write. Let's stop.
             return false
         case .failed(let err):

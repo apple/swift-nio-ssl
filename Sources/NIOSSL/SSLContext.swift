@@ -219,10 +219,11 @@ public final class NIOSSLContext {
     private let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
     private var keyLogManager: KeyLogCallbackManager?
-    private var sslContextCallbackResult: Result<NIOSSLContext, Error>?
     internal var pskClientConfigurationCallback: NIOPSKClientIdentityCallback?
     internal var pskServerConfigurationCallback: NIOPSKServerIdentityCallback?
     internal var sslContextCallback: NIOSSLContextCallback?
+    internal private(set) var sslContextCallbackFuture: EventLoopFuture<NIOSSLContext>?
+    internal private(set) var sslContextCallbackResult: Result<NIOSSLContext, Error>?
     internal let configuration: TLSConfiguration
 
     /// Initialize a context that will create multiple connections, all with the same
@@ -831,6 +832,12 @@ extension NIOSSLContext {
                 return 1
             }
 
+            // Ensure we dont have a pending future already set
+            // If we do then we must return a -1 to continue suspending
+            guard parentSwiftContext.sslContextCallbackFuture == nil else {
+                return -1
+            }
+
             // Make sure we get the server name extracted.
             guard let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name) else {
                 return SSL_TLSEXT_ERR_NOACK
@@ -858,18 +865,12 @@ extension NIOSSLContext {
                 return SSL_TLSEXT_ERR_NOACK
             }
 
-            // Resume the handshake when the future completes
-            futureSSLContext.whenComplete { result in
-                // Save the result to the parent context to be inspected after resuming
-                parentSwiftContext.sslContextCallbackResult = result
+            // Save the future to parent context
+            parentSwiftContext.sslContextCallbackFuture = futureSSLContext
 
-                // Schedule the handshake to resume. This must be scheduled on next tick to avoid resuming
-                // before suspending below. Once the handshake is resumed the entire SSL_CTX_set_cert_cb
-                // callback will be executed again, and this time the ssl context result will be saved to
-                // the parent context allowing us to set the new context.
-                futureSSLContext.eventLoop.execute {
-                    CNIOBoringSSL_SSL_do_handshake(ssl)
-                }
+            // Save the result to the parent context to be inspected after resuming
+            futureSSLContext.whenComplete { result in
+                parentSwiftContext.sslContextCallbackResult = result
             }
 
             // We must return a negative value to suspend the handshake
