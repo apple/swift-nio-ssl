@@ -98,7 +98,7 @@ private func alpnCallback(ssl: OpaquePointer?,
     }
 
     // We want to take the SSL pointer and extract the parent Swift object.
-    let parentSwiftContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl)
+    let parentSwiftContext = NIOSSLContext.lookupFromRawContext(ssl: ssl)
 
     let offeredProtocols = UnsafeBufferPointer(start: `in`, count: Int(inlen))
     guard let (index, length) = parentSwiftContext.alpnSelectCallback(offeredProtocols: offeredProtocols) else {
@@ -123,8 +123,7 @@ private func serverPSKCallback(ssl: OpaquePointer?,
     // Initial implementation only supports TLS 1.2 due API support exposed from BoringSSL.
     // TODO (meaton) add TLS 1.3 support when available.
     
-    // We want to take the SSL pointer and extract the parent Swift object.
-    let parentSwiftContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl)
+    let parentSwiftContext = NIOSSLContext.lookupFromRawContext(ssl: ssl)
 
     guard let serverCallback = parentSwiftContext.pskServerConfigurationCallback,
           let unwrappedIdentity = identity, // Incoming identity
@@ -163,8 +162,7 @@ private func clientPSKCallback(ssl: OpaquePointer?,
     // Initial implementation only supports TLS 1.2 due API support exposed from BoringSSL.
     // TODO (meaton) add TLS 1.3 support when available.
     
-    // We want to take the SSL pointer and extract the parent Swift object.
-    let parentSwiftContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl)
+    let parentSwiftContext = NIOSSLContext.lookupFromRawContext(ssl: ssl)
 
     guard let clientCallback = parentSwiftContext.pskClientConfigurationCallback,
           let unwrappedIdentity = identity, // Output identity that will be later be mapped from client callback
@@ -207,7 +205,7 @@ private func clientPSKCallback(ssl: OpaquePointer?,
 
 private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointer?) -> Int32 {
     // This should be a safe force unwrap. If ssl is not set its a singal of a larger problem
-    let parentSwiftContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl!)
+    let parentSwiftContext = NIOSSLContext.lookupFromRawContext(ssl: ssl!)
 
     // Check if we have a pending context previously set by this callback
     if let sslContextCallbackResult = parentSwiftContext.sslContextCallbackResult {
@@ -547,9 +545,8 @@ public final class NIOSSLContext {
 // NIOSSLContext is thread-safe and therefore Sendable
 extension NIOSSLContext: @unchecked Sendable {}
 
-// Internal helpers.
-fileprivate enum NIOSSLContextHelpers {
-    fileprivate static func getContextFromRawContextAppData(ssl: OpaquePointer) -> NIOSSLContext {
+extension NIOSSLContext {
+    fileprivate static func lookupFromRawContext(ssl: OpaquePointer) -> NIOSSLContext {
         // We want to take the SSL pointer and extract the parent Swift object. These force-unwraps are for
         // safety: a correct NIO program can never fail to set these pointers, and if it does failing loudly is
         // more useful than failing quietly.
@@ -768,7 +765,7 @@ extension NIOSSLContext {
                 return
             }
 
-            let parentSwiftContext = NIOSSLContextHelpers.getContextFromRawContextAppData(ssl: ssl)
+            let parentSwiftContext = NIOSSLContext.lookupFromRawContext(ssl: ssl)
 
             // Similarly, this force-unwrap is safe because a correct NIO program can never fail to unwrap this entry
             // either.
