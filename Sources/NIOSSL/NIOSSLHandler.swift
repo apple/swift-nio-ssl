@@ -359,7 +359,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             writeDataToNetwork(context: context, promise: nil)
         case .lookup:
             state = .handshaking
-            waitForSSLContextCallbackFuture(context: context)
+            waitForLookup(context: context)
         case .complete:
             do {
                 try validateHostname(context: context)
@@ -402,7 +402,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         }
     }
 
-    private func waitForSSLContextCallbackFuture(context: ChannelHandlerContext) {
+    private func waitForLookup(context: ChannelHandlerContext) {
         guard let sslContextCallbackFuture = connection.parentContext.sslContextCallbackFuture else {
             preconditionFailure("""
                 Missing ssl context future.
