@@ -414,7 +414,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             // It's our responsibility to save the result on the parent context before continuing the handshake
             self.connection.parentContext.sslContextCallbackResult = result
 
-            // Once the result is saved we can resumt the connection which will trigger the context cert_cb callback a second time
+            // Once the result is saved we can resume the connection which will trigger the context cert_cb callback a second time
             self.doHandshakeStep(context: context)
 
             // TODO: handle result

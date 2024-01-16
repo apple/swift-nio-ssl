@@ -43,7 +43,7 @@ enum AsyncOperationResult<T> {
 /// used to create the connection.
 internal final class SSLConnection {
     private let ssl: OpaquePointer
-    internal var parentContext: NIOSSLContext
+    internal let parentContext: NIOSSLContext
     private var bio: ByteBufferBIO?
     internal var expectedHostname: String?
     internal var role: ConnectionRole?
