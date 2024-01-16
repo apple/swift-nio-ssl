@@ -289,7 +289,7 @@ public final class NIOSSLContext {
     private var keyLogManager: KeyLogCallbackManager?
     internal var pskClientConfigurationCallback: NIOPSKClientIdentityCallback?
     internal var pskServerConfigurationCallback: NIOPSKServerIdentityCallback?
-    internal var sslContextConfigurationCallback: NIOSSLContextCallback?
+    internal fileprivate(set) var sslContextConfigurationCallback: NIOSSLContextCallback?
     internal fileprivate(set) var sslContextCallbackFuture: EventLoopFuture<NIOSSLContext>?
     internal fileprivate(set) var sslContextCallbackResult: Result<NIOSSLContext, Error>?
     internal let configuration: TLSConfiguration
