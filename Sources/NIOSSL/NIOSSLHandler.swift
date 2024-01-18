@@ -357,9 +357,6 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         case .incomplete:
             state = .handshaking
             writeDataToNetwork(context: context, promise: nil)
-        case .lookup:
-            state = .handshaking
-            waitForLookup(context: context)
         case .complete:
             do {
                 try validateHostname(context: context)
@@ -399,28 +396,6 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
 
             context.fireErrorCaught(NIOSSLError.handshakeFailed(err))
             channelClose(context: context, reason: NIOSSLError.handshakeFailed(err))
-        }
-    }
-
-    private func waitForLookup(context: ChannelHandlerContext) {
-        guard let sslContextCallbackFuture = connection.parentContext.sslContextCallbackFuture else {
-            preconditionFailure("""
-                Missing ssl context future.
-                This should have been set in NIOSSLContext's SSL_CTX_set_cert_cb handler.
-            """)
-        }
-
-        // This future came from user space so we must hop to the current contexts eventLoop for thread safety
-        sslContextCallbackFuture.hop(to: context.eventLoop).whenComplete { result in
-            // It's our responsibility to save the result on the parent context before continuing the handshake
-            self.connection.parentContext.sslContextCallbackResult = result
-
-            // Once the result is saved we can resume the connection which will trigger the context cert_cb callback a second time
-            self.doHandshakeStep(context: context)
-
-            // TODO: handle result
-            //  - how do we want to handle the new context? Replace the current? Anything to nil out?
-            //  - how do we want to handle an error here? We should continue handshake regardless to allow cert_cb to get an error.
         }
     }
 
@@ -501,7 +476,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         }
 
         switch result {
-        case .incomplete, .lookup:
+        case .incomplete:
             writeDataToNetwork(context: context, promise: nil)
 
             if case .outputClosed = targetCompleteState {
@@ -587,7 +562,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 // Good read. Keep going
                 continue readLoop
 
-            case .incomplete, .lookup:
+            case .incomplete:
                 self.plaintextReadBuffer = receiveBuffer
                 break readLoop
 
@@ -999,7 +974,7 @@ extension NIOSSLHandler {
         switch result {
         case .complete:
             return true
-        case .incomplete, .lookup:
+        case .incomplete:
             // Ok, we can't write. Let's stop.
             return false
         case .failed(let err):

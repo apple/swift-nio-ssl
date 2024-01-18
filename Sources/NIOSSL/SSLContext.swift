@@ -204,8 +204,14 @@ private func clientPSKCallback(ssl: OpaquePointer?,
 }
 
 private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointer?) -> Int32 {
-    // This should be a safe force unwrap. If ssl is not set its a singal of a larger problem
-    let parentSwiftContext = NIOSSLContext.lookupFromRawContext(ssl: ssl!)
+    guard let ssl = ssl else {
+        preconditionFailure("""
+            SSL_CTX_set_cert_cb was executed with an invalid ssl pointer.
+            This should not be possible, please file an issue.
+        """)
+    }
+
+    let parentSwiftContext = NIOSSLContext.lookupFromRawContext(ssl: ssl)
 
     // Check if we have a callback result set from the SSLHandler
     if let sslContextCallbackResult = parentSwiftContext.sslContextCallbackResult {
@@ -264,6 +270,29 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
 
     // Save the future to parent context
     parentSwiftContext.sslContextCallbackFuture = futureSSLContext
+
+    // Load the attached connection so we can resume handshake when future resolves
+    let connection = SSLConnection.loadConnectionFromSSL(ssl)
+
+    // Ensure we have an event loop
+    guard let eventLoop = connection.eventLoop else {
+        preconditionFailure("""
+            SSL_CTX_set_cert_cb was executed without an event loop assigned to the connection.
+            This should not be possible, please file an issue.
+        """)
+    }
+
+    // Attach a completion handler to resume connection and save result
+    // This is a safe unwrap as the connection must be associated with an event loop in this context
+    futureSSLContext.hop(to: eventLoop).whenComplete { result in
+        // Save the result to the parent context
+        parentSwiftContext.sslContextCallbackResult = result
+
+        // Resume the handshake on the next tick to ensure the suspend below happens first
+        eventLoop.execute {
+            connection.parentHandler!.resumeHandshake()
+        }
+    }
 
     // We must return a negative value to suspend the handshake
     return -1

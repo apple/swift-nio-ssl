@@ -31,7 +31,6 @@ internal let sslConnectionExDataIndex = CNIOBoringSSL_SSL_get_ex_new_index(0, ni
 /// handle the "must wait for more data" case by calling it out directly.
 enum AsyncOperationResult<T> {
     case incomplete
-    case lookup
     case complete(T)
     case failed(BoringSSLError)
 }
@@ -226,10 +225,9 @@ internal final class SSLConnection {
         switch error {
         case .wantRead,
              .wantWrite,
-             .wantCertificateVerify:
+             .wantCertificateVerify,
+             .wantX509Lookup:
             return .incomplete
-        case .wantX509Lookup:
-            return .lookup
         default:
             return .failed(error)
         }
