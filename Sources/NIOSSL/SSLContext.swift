@@ -217,8 +217,22 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
     let contextManager = parentSwiftContext.customContextManager!
 
     switch contextManager.state {
-    case .loading:
-        preconditionFailure("This callback should never be fired in a loading state. Please file an issue.")
+    case .none:
+        // Construct extension values
+        let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
+        let serverHostname = cServerHostname.map { String(cString: $0) }
+        let values = NIOSSLClientExtensionValues(serverHostname: serverHostname)
+
+        // Load the attached connection so we can resume handshake when future resolves
+        let connection = SSLConnection.loadConnectionFromSSL(ssl)
+
+        // Issue call to get a new ssl context
+        // This is a safe force unwrap because the context callback
+        // is always saved in the case where we register set_cert_cb
+        contextManager.loadContext(values: values, on: connection)
+
+        // We must return a negative value to suspend the handshake
+        return -1
     case .complete(let sslContextCallbackResult):
         let userChosenContext: NIOSSLContext
         switch sslContextCallbackResult {
@@ -253,22 +267,8 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
         
         // We must return 1 to signal a successful load of the new context
         return 1
-    case .none:
-        // Construct extension values
-        let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
-        let serverHostname = cServerHostname.map { String(cString: $0) }
-        let values = NIOSSLClientExtensionValues(serverHostname: serverHostname)
-
-        // Load the attached connection so we can resume handshake when future resolves
-        let connection = SSLConnection.loadConnectionFromSSL(ssl)
-
-        // Issue call to get a new ssl context
-        // This is a safe force unwrap because the context callback
-        // is always saved in the case where we register set_cert_cb
-        contextManager.loadContext(values: values, on: connection)
-
-        // We must return a negative value to suspend the handshake
-        return -1
+    case .loading:
+        preconditionFailure("This callback should never be fired in a loading state. Please file an issue.")
     }
 }
 
