@@ -196,18 +196,17 @@ public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues,
 /// A struct that provides helpers for working with a NIOSSLContextCallback.
 internal class CustomContextManager {
     internal enum State {
-        case pre
         case loading(_ future: EventLoopFuture<NIOSSLContext>)
         case complete(_ result: Result<NIOSSLContext, Error>)
     }
 
     internal private(set) var callback: NIOSSLContextCallback
 
-    internal var state: State
+    internal var state: State?
 
     init(callback: @escaping NIOSSLContextCallback) {
         self.callback = callback
-        self.state = .pre
+        self.state = nil
     }
 
     func loadContext(values: NIOSSLClientExtensionValues, on connection: SSLConnection) {
