@@ -202,7 +202,7 @@ internal class CustomContextManager {
 
     internal private(set) var callback: NIOSSLContextCallback
 
-    internal var state: State?
+    internal private(set) var state: State?
 
     init(callback: @escaping NIOSSLContextCallback) {
         self.callback = callback
