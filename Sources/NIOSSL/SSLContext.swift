@@ -268,7 +268,10 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
         // We must return 1 to signal a successful load of the new context
         return 1
     case .loading:
-        preconditionFailure("This callback should never be fired in a loading state. Please file an issue.")
+        preconditionFailure("""
+            SSL_CTX_set_cert_cb was executed in a pending state.
+            This should not be possible, please file an issue.
+        """)
     }
 }
 
