@@ -213,8 +213,11 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
 
     let parentSwiftContext = NIOSSLContext.lookupFromRawContext(ssl: ssl)
 
+    // This is a safe force unwrap as this callback is only register directly after setting the manager
+    let contextManager = parentSwiftContext.customContextManager!
+
     // Check if we have a callback result set from the SSLHandler
-    if let sslContextCallbackResult = parentSwiftContext.sslContextCallbackResult {
+    if case .complete(let sslContextCallbackResult) = contextManager.state {
         let userChosenContext: NIOSSLContext
         switch sslContextCallbackResult {
         case .success(let value):
@@ -249,50 +252,18 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
         return 1
     }
 
-    // Ensure we dont have a pending future already set
-    // If we do then something is wrong with the order of operations in our handshake
-    guard parentSwiftContext.sslContextCallbackFuture == nil else {
-        preconditionFailure("""
-            SSL_CTX_set_cert_cb was executed a second time without a pending future. 
-            This should not be possible, please file an issue.
-        """)
-    }
-
     // Construct extension values
     let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
     let serverHostname = cServerHostname.map { String(cString: $0) }
     let values = NIOSSLClientExtensionValues(serverHostname: serverHostname)
 
-    // Issue call to get a new ssl context
-    // This is a safe force unwrap because the context callback
-    // is always saved in the case where we register set_cert_cb
-    let futureSSLContext = parentSwiftContext.sslContextConfigurationCallback!(values, parentSwiftContext)
-
-    // Save the future to parent context
-    parentSwiftContext.sslContextCallbackFuture = futureSSLContext
-
     // Load the attached connection so we can resume handshake when future resolves
     let connection = SSLConnection.loadConnectionFromSSL(ssl)
 
-    // Ensure we have an event loop
-    guard let eventLoop = connection.eventLoop else {
-        preconditionFailure("""
-            SSL_CTX_set_cert_cb was executed without an event loop assigned to the connection.
-            This should not be possible, please file an issue.
-        """)
-    }
-
-    // Attach a completion handler to resume connection and save result
-    // This is a safe unwrap as the connection must be associated with an event loop in this context
-    futureSSLContext.hop(to: eventLoop).whenComplete { result in
-        // Save the result to the parent context
-        parentSwiftContext.sslContextCallbackResult = result
-
-        // Resume the handshake on the next tick to ensure the suspend below happens first
-        eventLoop.execute {
-            connection.parentHandler!.resumeHandshake()
-        }
-    }
+    // Issue call to get a new ssl context
+    // This is a safe force unwrap because the context callback
+    // is always saved in the case where we register set_cert_cb
+    contextManager.loadContext(values: values, on: connection)
 
     // We must return a negative value to suspend the handshake
     return -1
@@ -312,11 +283,9 @@ public final class NIOSSLContext {
     fileprivate let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
     private var keyLogManager: KeyLogCallbackManager?
+    fileprivate var customContextManager: CustomContextManager?
     internal var pskClientConfigurationCallback: NIOPSKClientIdentityCallback?
     internal var pskServerConfigurationCallback: NIOPSKServerIdentityCallback?
-    internal fileprivate(set) var sslContextConfigurationCallback: NIOSSLContextCallback?
-    internal fileprivate(set) var sslContextCallbackFuture: EventLoopFuture<NIOSSLContext>?
-    internal var sslContextCallbackResult: Result<NIOSSLContext, Error>?
     internal let configuration: TLSConfiguration
 
     /// Initialize a context that will create multiple connections, all with the same
@@ -376,7 +345,7 @@ public final class NIOSSLContext {
 
         // Set the SSL Context Configuration callback.
         if let sslContextConfigurationCallback = configuration.sslContextCallback {
-            self.sslContextConfigurationCallback = sslContextConfigurationCallback
+            self.customContextManager = CustomContextManager(callback: sslContextConfigurationCallback)
             CNIOBoringSSL_SSL_CTX_set_cert_cb(context, sslContextCallback, nil)
         }
 

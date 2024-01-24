@@ -193,6 +193,58 @@ public struct NIOSSLClientExtensionValues: Hashable {
 ///
 public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues, NIOSSLContext) -> EventLoopFuture<NIOSSLContext>
 
+/// A struct that provides helpers for working with a NIOSSLContextCallback.
+internal class CustomContextManager {
+    internal enum State {
+        case pre
+        case loading(_ future: EventLoopFuture<NIOSSLContext>)
+        case complete(_ result: Result<NIOSSLContext, Error>)
+    }
+
+    internal private(set) var callback: NIOSSLContextCallback
+
+    internal var state: State
+
+    init(callback: @escaping NIOSSLContextCallback) {
+        self.callback = callback
+        self.state = .pre
+    }
+
+    func loadContext(values: NIOSSLClientExtensionValues, on connection: SSLConnection) {
+        // Run callback to load a new context
+        let future = self.callback(values, connection.parentContext)
+
+        // Update our state to loading
+        self.state = .loading(future)
+
+        // Ensure we have an event loop
+        guard let eventLoop = connection.eventLoop else {
+            preconditionFailure("""
+                SSL_CTX_set_cert_cb was executed without an event loop assigned to the connection.
+                This should not be possible, please file an issue.
+            """)
+        }
+
+        // Ensure we have a parent handler to resume the connection
+        guard let parentHandler = connection.parentHandler else {
+            preconditionFailure("""
+                SSL_CTX_set_cert_cb was executed without a parent handler assigned to the connection.
+                This should not be possible, please file an issue.
+            """)
+        }
+
+        future.hop(to: eventLoop).whenComplete { result in
+            // Update our state with complete result
+            self.state = .complete(result)
+
+            // Resume the handshake on the next tick to ensure the suspend below happens first
+            eventLoop.execute {
+                parentHandler.resumeHandshake()
+            }
+        }
+    }
+}
+
 /// The callback used for providing a PSK on the client side.
 ///
 /// The callback is invoked on the event loop with the PSK hint. This callback must complete synchronously: it cannot return a future.
