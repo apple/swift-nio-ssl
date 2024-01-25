@@ -214,10 +214,10 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
     let parentSwiftContext = NIOSSLContext.lookupFromRawContext(ssl: ssl)
 
     // This is a safe force unwrap as this callback is only register directly after setting the manager
-    let contextManager = parentSwiftContext.customContextManager!
+    var contextManager = parentSwiftContext.customContextManager!
 
     switch contextManager.state {
-    case .none:
+    case .notStarted:
         // Construct extension values
         let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
         let serverHostname = cServerHostname.map { String(cString: $0) }
@@ -232,6 +232,9 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
         contextManager.loadContext(values: values, on: connection)
 
         // We must return a negative value to suspend the handshake
+        return -1
+    case .pendingResult:
+        // We are still loading the new context so continue to suspend the handshake
         return -1
     case .complete(let sslContextCallbackResult):
         let userChosenContext: NIOSSLContext
@@ -267,11 +270,6 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
         
         // We must return 1 to signal a successful load of the new context
         return 1
-    case .loading:
-        preconditionFailure("""
-            SSL_CTX_set_cert_cb was executed in a pending state.
-            This should not be possible, please file an issue.
-        """)
     }
 }
 
@@ -289,7 +287,7 @@ public final class NIOSSLContext {
     fileprivate let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
     private var keyLogManager: KeyLogCallbackManager?
-    fileprivate var customContextManager: CustomContextManager?
+    internal var customContextManager: CustomContextManager?
     internal var pskClientConfigurationCallback: NIOPSKClientIdentityCallback?
     internal var pskServerConfigurationCallback: NIOPSKServerIdentityCallback?
     internal let configuration: TLSConfiguration

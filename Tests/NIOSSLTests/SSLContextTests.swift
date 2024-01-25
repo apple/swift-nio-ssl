@@ -63,12 +63,15 @@ class SSLContextTest: XCTestCase {
         )
         // Configure callback to return cert2
         config.sslContextCallback = { (values, _) in
-            let alternateConfig = TLSConfiguration.makeServerConfiguration(
-                certificateChain: [.certificate(SSLContextTest.cert2)],
-                privateKey: .privateKey(SSLContextTest.key2)
-            )
-            let alternateContext = try! NIOSSLContext(configuration: alternateConfig)
-            return eventLoop.makeSucceededFuture(alternateContext)
+            let promise = eventLoop.makePromise(of: NIOSSLContext.self)
+            promise.completeWithTask {
+                let alternateConfig = TLSConfiguration.makeServerConfiguration(
+                    certificateChain: [.certificate(SSLContextTest.cert2)],
+                    privateKey: .privateKey(SSLContextTest.key2)
+                )
+                return try NIOSSLContext(configuration: alternateConfig)
+            }
+            return promise
         }
         return try NIOSSLContext(configuration: config)
     }

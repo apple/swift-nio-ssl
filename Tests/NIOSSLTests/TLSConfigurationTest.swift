@@ -824,11 +824,15 @@ class TLSConfigurationTest: XCTestCase {
         var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .file("fake.file"))
         config.applicationProtocols = ["http/1.1"]
         config.sslContextCallback = { (_, ctx) in
-            return EmbeddedEventLoop().makeSucceededFuture(ctx)
+            let promise = EmbeddedEventLoop().makePromise(of: NIOSSLContext.self)
+            promise.completeWithTask { ctx }
+            return promise
         }
         var differentConfig = config
         differentConfig.sslContextCallback = { (_, ctx) in
-            return EmbeddedEventLoop().makeSucceededFuture(ctx)
+            let promise = EmbeddedEventLoop().makePromise(of: NIOSSLContext.self)
+            promise.completeWithTask { ctx }
+            return promise
         }
         XCTAssertFalse(config.bestEffortEquals(differentConfig))
     }
@@ -1094,7 +1098,9 @@ class TLSConfigurationTest: XCTestCase {
         }
 
         let sslContextCallback: NIOSSLContextCallback = { (values, ctx) in
-            return EmbeddedEventLoop().makeSucceededFuture(ctx)
+            let promise = EmbeddedEventLoop().makePromise(of: NIOSSLContext.self)
+            promise.completeWithTask { ctx }
+            return promise
         }
 
         let transforms: [(inout TLSConfiguration) -> Void] = [

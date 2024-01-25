@@ -191,30 +191,35 @@ public struct NIOSSLClientExtensionValues: Hashable {
 /// return the same context provided if it is sufficient to complete the handshake, or return `throw` in the event
 /// of an exception.
 ///
-public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues, NIOSSLContext) -> EventLoopFuture<NIOSSLContext>
+public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues, NIOSSLContext) -> EventLoopPromise<NIOSSLContext>
 
 /// A struct that provides helpers for working with a NIOSSLContextCallback.
-internal class CustomContextManager {
-    internal enum State {
-        case loading(_ future: EventLoopFuture<NIOSSLContext>)
-        case complete(_ result: Result<NIOSSLContext, Error>)
-    }
+internal struct CustomContextManager {
+    private let callback: NIOSSLContextCallback
 
-    internal private(set) var callback: NIOSSLContextCallback
-
-    internal private(set) var state: State?
+    internal private(set) var state: State
 
     init(callback: @escaping NIOSSLContextCallback) {
         self.callback = callback
-        self.state = nil
+        self.state = .notStarted
     }
+}
 
-    func loadContext(values: NIOSSLClientExtensionValues, on connection: SSLConnection) {
+extension CustomContextManager {
+    internal enum State {
+        case notStarted
+        case pendingResult
+        case complete(Result<NIOSSLContext, Error>)
+    }
+}
+
+extension CustomContextManager {
+    mutating func loadContext(values: NIOSSLClientExtensionValues, on connection: SSLConnection) {
         // Run callback to load a new context
-        let future = self.callback(values, connection.parentContext)
+        let promise = self.callback(values, connection.parentContext)
 
         // Update our state to loading
-        self.state = .loading(future)
+        self.state = .pendingResult
 
         // Ensure we have an event loop
         guard let eventLoop = connection.eventLoop else {
@@ -232,9 +237,9 @@ internal class CustomContextManager {
             """)
         }
 
-        future.hop(to: eventLoop).whenComplete { result in
+        promise.futureResult.whenComplete { result in
             // Update our state with complete result
-            self.state = .complete(result)
+            connection.parentContext.customContextManager?.state = .complete(result)
 
             // Resume the handshake on the next tick to ensure the suspend below happens first
             eventLoop.execute {
