@@ -208,7 +208,9 @@ internal struct CustomContextManager {
 extension CustomContextManager {
     internal enum State {
         case notStarted
+
         case pendingResult
+
         case complete(Result<NIOSSLContext, Error>)
     }
 }
