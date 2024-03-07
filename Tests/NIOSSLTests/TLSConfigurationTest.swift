@@ -823,17 +823,9 @@ class TLSConfigurationTest: XCTestCase {
     func testDifferentSSLContextCallbacksNotEqual() {
         var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .file("fake.file"))
         config.applicationProtocols = ["http/1.1"]
-        config.sslContextCallback = { (_, ctx) in
-            let promise = EmbeddedEventLoop().makePromise(of: NIOSSLContext.self)
-            promise.completeWithTask { ctx }
-            return promise
-        }
+        config.sslContextCallback = { _, _ in }
         var differentConfig = config
-        differentConfig.sslContextCallback = { (_, ctx) in
-            let promise = EmbeddedEventLoop().makePromise(of: NIOSSLContext.self)
-            promise.completeWithTask { ctx }
-            return promise
-        }
+        differentConfig.sslContextCallback = { _, _ in }
         XCTAssertFalse(config.bestEffortEquals(differentConfig))
     }
 
@@ -1097,11 +1089,7 @@ class TLSConfigurationTest: XCTestCase {
             return PSKServerIdentityResponse(key: psk)
         }
 
-        let sslContextCallback: NIOSSLContextCallback = { (values, ctx) in
-            let promise = EmbeddedEventLoop().makePromise(of: NIOSSLContext.self)
-            promise.completeWithTask { ctx }
-            return promise
-        }
+        let sslContextCallback: NIOSSLContextCallback = { _, _ in }
 
         let transforms: [(inout TLSConfiguration) -> Void] = [
             { $0.minimumTLSVersion = .tlsv13 },

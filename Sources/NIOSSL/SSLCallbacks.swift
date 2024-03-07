@@ -191,7 +191,7 @@ public struct NIOSSLClientExtensionValues: Hashable {
 /// return the same context provided if it is sufficient to complete the handshake, or return `throw` in the event
 /// of an exception.
 ///
-public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues, NIOSSLContext) -> EventLoopPromise<NIOSSLContext>
+public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues, EventLoopPromise<NIOSSLContext>) -> Void
 
 /// A struct that provides helpers for working with a NIOSSLContextCallback.
 internal struct CustomContextManager {
@@ -217,13 +217,6 @@ extension CustomContextManager {
 
 extension CustomContextManager {
     mutating func loadContext(values: NIOSSLClientExtensionValues, on connection: SSLConnection) {
-        // Run callback to load a new context
-        let promise = self.callback(values, connection.parentContext)
-
-        // Update our state to loading
-        self.state = .pendingResult
-
-        // Ensure we have an event loop
         guard let eventLoop = connection.eventLoop else {
             preconditionFailure("""
                 SSL_CTX_set_cert_cb was executed without an event loop assigned to the connection.
@@ -231,21 +224,18 @@ extension CustomContextManager {
             """)
         }
 
-        // Ensure we have a parent handler to resume the connection
-        guard let parentHandler = connection.parentHandler else {
-            preconditionFailure("""
-                SSL_CTX_set_cert_cb was executed without a parent handler assigned to the connection.
-                This should not be possible, please file an issue.
-            """)
-        }
-
-        promise.futureResult.whenComplete { result in
-            // Update our state with complete result
-            connection.parentContext.customContextManager?.state = .complete(result)
-
-            // Resume the handshake on the next tick to ensure the suspend below happens first
-            eventLoop.execute {
-                parentHandler.resumeHandshake()
+        self.state = .pendingResult
+        
+        // We're responsible for creating the promise and the user provided callback will fulfill it
+        let promise = eventLoop.makePromise(of: NIOSSLContext.self)
+        self.callback(values, promise)
+        
+        // Ensure we execute any completion on the next event loop tick
+        // This ensures that we suspend before calling resume
+        eventLoop.execute {
+            promise.futureResult.whenComplete { result in
+                connection.parentContext.customContextManager?.state = .complete(result)
+                connection.parentHandler?.resumeHandshake()
             }
         }
     }
