@@ -244,8 +244,8 @@ extension CustomContextManager {
 
             guard let eventLoop = connection.eventLoop else {
                 preconditionFailure("""
-                SSL_CTX_set_cert_cb was executed without an event loop assigned to the connection.
-                This should not be possible, please file an issue.
+                    SSL_CTX_set_cert_cb was executed without an event loop assigned to the connection.
+                    This should not be possible, please file an issue.
                 """)
             }
             
