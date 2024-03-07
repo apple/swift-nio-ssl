@@ -152,46 +152,46 @@ extension SecurityFrameworkVerificationTests {
     static let appleComCertChain: [SecCertificate] = {
         // All certs here are PEM format, with the leading/trailing lines stripped.
         let leaf = """
-            MIIHajCCBlKgAwIBAgIQCO+5dUUbFllBBrKS6mewJTANBgkqhkiG9w0BAQsFADBR
+            MIIHaDCCBlCgAwIBAgIQGlJBK94cAoE2uzia5yfkEjANBgkqhkiG9w0BAQsFADBR
             MQswCQYDVQQGEwJVUzETMBEGA1UEChMKQXBwbGUgSW5jLjEtMCsGA1UEAxMkQXBw
-            bGUgUHVibGljIEVWIFNlcnZlciBSU0EgQ0EgMiAtIEcxMB4XDTIzMTEwODIxNTcy
-            MFoXDTI0MDIwNjIyMDcyMFowgccxHTAbBgNVBA8MFFByaXZhdGUgT3JnYW5pemF0
+            bGUgUHVibGljIEVWIFNlcnZlciBSU0EgQ0EgMiAtIEcxMB4XDTI0MDEwOTExNTIz
+            NVoXDTI0MDcwNzEyMDIzNVowgccxHTAbBgNVBA8MFFByaXZhdGUgT3JnYW5pemF0
             aW9uMRMwEQYLKwYBBAGCNzwCAQMTAlVTMRswGQYLKwYBBAGCNzwCAQIMCkNhbGlm
             b3JuaWExETAPBgNVBAUTCEMwODA2NTkyMQswCQYDVQQGEwJVUzETMBEGA1UECAwK
             Q2FsaWZvcm5pYTESMBAGA1UEBwwJQ3VwZXJ0aW5vMRMwEQYDVQQKDApBcHBsZSBJ
             bmMuMRYwFAYDVQQDDA13d3cuYXBwbGUuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOC
-            AQ8AMIIBCgKCAQEA9TEgBCyRtb6FtN6rCnAmQ4Ac3gtseS1PiszZK8zA1AYWPEZz
-            bPsk9XZ+rjrYwWcc0Pfg+xGZU0lNKGUlB39okWj9y4E4diIAtVyAdCzW3o9rUZhY
-            HFfSvuBf1867i+ERLeJ8n+ANh8xvr+6eD2dZyQB3qRggTJvvoDz1GpvkqY9FlS5Q
-            k18zrs5KBwyN03aka8n5wmvPh4Nj3tPfmFqG6XauKL60g6+HwfC49DTO0WHmCVSi
-            wcsv0dgr+NnlORgenorKS4cbVC84qjODMXFVoAoK1xjlRuor1MCu22OG/G4EgHjV
-            MmC3mgM/M9THlBkmwR+VnnSgtz5LwFQCncf88QIDAQABo4IDxTCCA8EwDAYDVR0T
+            AQ8AMIIBCgKCAQEAlWlHIMw9HIMbCMqv+pBgZTboQDO6nd5ZgXIEUg9wlexfhqS0
+            /qDMx5hu++5GlFE3O/EkYLGLG1qY55WBRmlKb1TVjwgJe+UDtzZOEf8YMKCS4N2q
+            Bw/zBn5uCboA8j7QX4ZjZvR6mfHDjf0ltRFjeaQRDy4zChZXzlHuKA7tAMdQqLEp
+            vltmmKD13UPZFDG3K1OBVxBvLbXb43cTWqQRSrgizr8aeT9V8EOy2abua1JcyBc5
+            wPKO+zq1QnJTQEGCH9usvCkGyY159HGper2fPvlvOdEesivyAvjSaw/Pc4vzWmUy
+            Dxv4vquQIm2l6rZ3PDtIWS/FUMFzoH7hnupneQIDAQABo4IDwzCCA78wDAYDVR0T
             AQH/BAIwADAfBgNVHSMEGDAWgBRQVatDoa+pSCtawaKHiQTkeg7K2jB6BggrBgEF
             BQcBAQRuMGwwMgYIKwYBBQUHMAKGJmh0dHA6Ly9jZXJ0cy5hcHBsZS5jb20vYXBl
             dnNyc2EyZzEuZGVyMDYGCCsGAQUFBzABhipodHRwOi8vb2NzcC5hcHBsZS5jb20v
-            b2NzcDAzLWFwZXZzcnNhMmcxMDEwPAYDVR0RBDUwM4IQaW1hZ2VzLmFwcGxlLmNv
-            bYINd3d3LmFwcGxlLmNvbYIQd3d3LmFwcGxlLmNvbS5jbjBgBgNVHSAEWTBXMEgG
+            b2NzcDAzLWFwZXZzcnNhMmcxMDEwPAYDVR0RBDUwM4IQd3d3LmFwcGxlLmNvbS5j
+            boIQaW1hZ2VzLmFwcGxlLmNvbYINd3d3LmFwcGxlLmNvbTBgBgNVHSAEWTBXMEgG
             BWeBDAEBMD8wPQYIKwYBBQUHAgEWMWh0dHBzOi8vd3d3LmFwcGxlLmNvbS9jZXJ0
             aWZpY2F0ZWF1dGhvcml0eS9wdWJsaWMwCwYJYIZIAYb9bAIBMBMGA1UdJQQMMAoG
             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
-            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
+            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
+            lRI1Yjivr9q+0DBObrwJXFK7qay5S9td0g0LNg==
             """
 
         let intermediate = """
