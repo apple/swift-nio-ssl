@@ -173,9 +173,23 @@ public struct PSKClientIdentityResponse: Sendable {
     }
 }
 
+/// A structure representing values from client extensions in the SSL/TLS handshake.
+///
+/// This struct contains values obtained from the client hello message extensions during the TLS handshake process and
+/// can be manipulated or introspected by the `NIOSSLContextCallback` to alter the TLS handshake behaviour dynamically
+/// based on these values.
 public struct NIOSSLClientExtensionValues: Hashable {
+
+    /// The hostname value from the Server Name Indication (SNI) extension.
+    ///
+    /// This value, if available, indicates the requested server hostname by the client.
+    /// In a context where a service is handling multiple hostnames (virtual hosts, for example),
+    /// this value could be used to decide which SSLContext to use for the handshake.
     public var serverHostname: String?
 
+    /// Initializes a new `NIOSSLClientExtensionValues` struct.
+    ///
+    /// - parameter serverHostname: The hostname value from the SNI extension.
     public init(serverHostname: String?) {
         self.serverHostname = serverHostname
     }
