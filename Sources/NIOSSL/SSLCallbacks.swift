@@ -232,7 +232,7 @@ extension CustomContextManager {
                 preconditionFailure("""
                 SSL_CTX_set_cert_cb was executed without an event loop assigned to the connection.
                 This should not be possible, please file an issue.
-            """)
+                """)
             }
             
             // Construct extension values to be passed to callback
