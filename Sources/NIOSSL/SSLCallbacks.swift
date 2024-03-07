@@ -197,7 +197,7 @@ public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues,
 internal struct CustomContextManager {
     private let callback: NIOSSLContextCallback
 
-    internal private(set) var state: State
+    private var state: State
 
     init(callback: @escaping NIOSSLContextCallback) {
         self.callback = callback
@@ -206,7 +206,7 @@ internal struct CustomContextManager {
 }
 
 extension CustomContextManager {
-    internal enum State {
+    private enum State {
         case notStarted
 
         case pendingResult
@@ -216,27 +216,46 @@ extension CustomContextManager {
 }
 
 extension CustomContextManager {
-    mutating func loadContext(values: NIOSSLClientExtensionValues, on connection: SSLConnection) {
-        guard let eventLoop = connection.eventLoop else {
-            preconditionFailure("""
+    mutating func loadContext(ssl: OpaquePointer) -> Result<NIOSSLContext, Error>? {
+        switch state {
+        case .pendingResult:
+            // In the pending case we just return nil
+            return nil
+        case .complete(let result):
+            // In the complete we can return our result
+            return result
+        case .notStarted:
+            // Load the attached connection so we can resume handshake when future resolves
+            let connection = SSLConnection.loadConnectionFromSSL(ssl)
+
+            guard let eventLoop = connection.eventLoop else {
+                preconditionFailure("""
                 SSL_CTX_set_cert_cb was executed without an event loop assigned to the connection.
                 This should not be possible, please file an issue.
             """)
-        }
-
-        self.state = .pendingResult
-        
-        // We're responsible for creating the promise and the user provided callback will fulfill it
-        let promise = eventLoop.makePromise(of: NIOSSLContext.self)
-        self.callback(values, promise)
-        
-        // Ensure we execute any completion on the next event loop tick
-        // This ensures that we suspend before calling resume
-        eventLoop.execute {
-            promise.futureResult.whenComplete { result in
-                connection.parentContext.customContextManager?.state = .complete(result)
-                connection.parentHandler?.resumeHandshake()
             }
+
+            let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
+            let serverHostname = cServerHostname.map { String(cString: $0) }
+            let values = NIOSSLClientExtensionValues(serverHostname: serverHostname)
+
+            // We're responsible for creating the promise and the user provided callback will fulfill it
+            let promise = eventLoop.makePromise(of: NIOSSLContext.self)
+            self.callback(values, promise)
+
+            // After invoking the user callback we can update our state to pending
+            self.state = .pendingResult
+
+            // Ensure we execute any completion on the next event loop tick
+            // This ensures that we suspend before calling resume
+            eventLoop.execute {
+                promise.futureResult.whenComplete { result in
+                    connection.parentContext.customContextManager?.state = .complete(result)
+                    connection.parentHandler?.resumeHandshake()
+                }
+            }
+
+            return nil
         }
     }
 }
