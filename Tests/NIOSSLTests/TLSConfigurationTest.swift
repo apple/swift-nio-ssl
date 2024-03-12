@@ -1288,6 +1288,44 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.pskHint = "pskHint"
         try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["SSLV3_ALERT_BAD_RECORD_MAC"])
     }
+    
+    func testTLSPSKNoServerHint() throws {
+        let expectation = expectation(description: "pskClientCallback is called")
+        // This test ensures that different PSKs used on the client and server fail when passed in.
+        let pskClientCallback: NIOPSKClientIdentityCallback = { (hint: String) -> PSKClientIdentityResponse in
+            expectation.fulfill()
+            // Ensure server hint is empty
+            XCTAssertEqual(hint, "")
+            // Evaluate hint and clientIdentity to send back proper  PSK.
+            var psk = NIOSSLSecureBytes()
+            psk.append("hello".utf8)
+            return PSKClientIdentityResponse(key: psk, identity: "world")
+        }
+        
+        let pskServerCallback: NIOPSKServerIdentityCallback = { (hint: String, identity: String) -> PSKServerIdentityResponse in
+            // Ensure server hint is empty
+            XCTAssertEqual(hint, "")
+            // Evaluate hint and clientIdentity to send back proper  PSK.
+            var psk = NIOSSLSecureBytes()
+            psk.append("hello".utf8) // Failure
+            return PSKServerIdentityResponse(key: psk)
+        }
+        
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .none
+        clientConfig.minimumTLSVersion = .tlsv1
+        clientConfig.maximumTLSVersion = .tlsv12
+        clientConfig.pskClientCallback = pskClientCallback
+        clientConfig.pskHint = "pskHint"
+        
+        var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
+        serverConfig.minimumTLSVersion = .tlsv1
+        serverConfig.maximumTLSVersion = .tlsv12
+        serverConfig.pskServerCallback = pskServerCallback
+        serverConfig.pskHint = nil
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+        waitForExpectations(timeout: 1)
+    }
 }
 
 extension EmbeddedChannel {
