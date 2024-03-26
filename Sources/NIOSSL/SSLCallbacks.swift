@@ -261,10 +261,10 @@ extension CustomContextManager {
             // After invoking the user callback we can update our state to pending
             self.state = .pendingResult
 
-            // Ensure we execute any completion on the next event loop tick
-            // This ensures that we suspend before calling resume
-            eventLoop.execute {
-                promise.futureResult.whenComplete { result in
+            promise.futureResult.whenComplete { result in
+                // Ensure we execute any completion on the next event loop tick
+                // This ensures that we suspend before calling resume
+                eventLoop.execute {
                     connection.parentContext.customContextManager?.state = .complete(result)
                     connection.parentHandler?.resumeHandshake()
                 }
