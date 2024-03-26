@@ -6,7 +6,8 @@ services:
     image: swift-nio-ssl:22.04-5.10
     build:
       args:
-        base_image: "swiftlang/swift:nightly-5.10-jammy"
+        ubuntu_version: "jammy"
+        swift_version: "5.10"
 
   unit-tests:
     image: swift-nio-ssl:22.04-5.10
@@ -25,6 +26,9 @@ services:
       - IMPORT_CHECK_ARG=--explicit-target-dependency-import-check error
 
   performance-test:
+    image: swift-nio-ssl:22.04-5.10
+
+  cxx-interop-build:
     image: swift-nio-ssl:22.04-5.10
 
   shell:
