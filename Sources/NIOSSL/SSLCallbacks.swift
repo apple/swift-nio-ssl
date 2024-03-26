@@ -173,6 +173,108 @@ public struct PSKClientIdentityResponse: Sendable {
     }
 }
 
+/// A structure representing values from client extensions in the SSL/TLS handshake.
+///
+/// This struct contains values obtained from the client hello message extensions during the TLS handshake process and
+/// can be manipulated or introspected by the `NIOSSLContextCallback` to alter the TLS handshake behaviour dynamically
+/// based on these values.
+public struct NIOSSLClientExtensionValues: Hashable {
+
+    /// The hostname value from the Server Name Indication (SNI) extension.
+    ///
+    /// This value, if available, indicates the requested server hostname by the client.
+    /// In a context where a service is handling multiple hostnames (virtual hosts, for example),
+    /// this value could be used to decide which SSLContext to use for the handshake.
+    public var serverHostname: String?
+
+    /// Initializes a new `NIOSSLClientExtensionValues` struct.
+    ///
+    /// - parameter serverHostname: The hostname value from the SNI extension.
+    public init(serverHostname: String?) {
+        self.serverHostname = serverHostname
+    }
+}
+
+/// A callback that can used to support multiple or dynamic TLS hosts.
+///
+/// When set, this callback will be invoked once per TLS hello. The provided `NIOSSLClientExtensionValues` will contain the
+/// host name indicated in the TLS client hello, while the provided `NIOSSLContext` will be the current
+/// server context being used for the handshake.
+///
+/// Within this callback, the user can create and return a new server `NIOSSLContext` for the given host,
+/// return the same context provided if it is sufficient to complete the handshake, or return `throw` in the event
+/// of an exception.
+///
+public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues, EventLoopPromise<NIOSSLContext>) -> Void
+
+/// A struct that provides helpers for working with a NIOSSLContextCallback.
+internal struct CustomContextManager {
+    private let callback: NIOSSLContextCallback
+
+    private var state: State
+
+    init(callback: @escaping NIOSSLContextCallback) {
+        self.callback = callback
+        self.state = .notStarted
+    }
+}
+
+extension CustomContextManager {
+    private enum State {
+        case notStarted
+
+        case pendingResult
+
+        case complete(Result<NIOSSLContext, Error>)
+    }
+}
+
+extension CustomContextManager {
+    mutating func loadContext(ssl: OpaquePointer) -> Result<NIOSSLContext, Error>? {
+        switch state {
+        case .pendingResult:
+            // In the pending case we just return nil
+            return nil
+        case .complete(let result):
+            // In the complete we can return our result
+            return result
+        case .notStarted:
+            // Load the attached connection so we can resume handshake when future resolves
+            let connection = SSLConnection.loadConnectionFromSSL(ssl)
+
+            guard let eventLoop = connection.eventLoop else {
+                preconditionFailure("""
+                    SSL_CTX_set_cert_cb was executed without an event loop assigned to the connection.
+                    This should not be possible, please file an issue.
+                """)
+            }
+            
+            // Construct extension values to be passed to callback
+            let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
+            let serverHostname = cServerHostname.map { String(cString: $0) }
+            let values = NIOSSLClientExtensionValues(serverHostname: serverHostname)
+
+            // We're responsible for creating the promise and the user provided callback will fulfill it
+            let promise = eventLoop.makePromise(of: NIOSSLContext.self)
+            self.callback(values, promise)
+
+            // After invoking the user callback we can update our state to pending
+            self.state = .pendingResult
+
+            promise.futureResult.whenComplete { result in
+                // Ensure we execute any completion on the next event loop tick
+                // This ensures that we suspend before calling resume
+                eventLoop.execute {
+                    connection.parentContext.customContextManager?.state = .complete(result)
+                    connection.parentHandler?.resumeHandshake()
+                }
+            }
+
+            return nil
+        }
+    }
+}
+
 /// The callback used for providing a PSK on the client side.
 ///
 /// The callback is invoked on the event loop with the PSK hint. This callback must complete synchronously: it cannot return a future.
