@@ -46,6 +46,15 @@ func generateDependencies() -> [Package.Dependency] {
     }
 }
 
+// This doesn't work when cross-compiling: the privacy manifest will be included in the Bundle and
+// Foundation will be linked. This is, however, strictly better than unconditionally adding the
+// resource.
+#if os(Linux) || os(Android)
+let includePrivacyManifest = false
+#else
+let includePrivacyManifest = true
+#endif
+
 let package = Package(
     name: "swift-nio-ssl",
     products: [
@@ -82,7 +91,9 @@ MANGLE_END */
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
                 .product(name: "NIOTLS", package: "swift-nio"),
-            ]),
+            ],
+            resources: includePrivacyManifest ? [.copy("ProcessInfo.xcprivacy")] : []
+        ),
         .executableTarget(
             name: "NIOTLSServer",
             dependencies: [
