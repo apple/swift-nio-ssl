@@ -49,10 +49,10 @@ func generateDependencies() -> [Package.Dependency] {
 // This doesn't work when cross-compiling: the privacy manifest will be included in the Bundle and
 // Foundation will be linked. This is, however, strictly better than unconditionally adding the
 // resource.
-#if os(Linux) || os(Android)
-let includePrivacyManifest = false
-#else
+#if canImport(Darwin)
 let includePrivacyManifest = true
+#else
+let includePrivacyManifest = false
 #endif
 
 let package = Package(
