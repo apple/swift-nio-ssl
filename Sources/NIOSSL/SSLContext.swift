@@ -530,8 +530,7 @@ extension NIOSSLContext {
         case .some("der"), .some("key"):
             fileType = SSL_FILETYPE_ASN1
         default:
-            // TODO(cory): Again, error handling here would be good.
-            fatalError("Unknown private key file type.")
+            throw NIOSSLExtraError.unknownPrivateKeyFileType(path: path)
         }
         
         let result = path.withCString { (pointer) -> CInt in
