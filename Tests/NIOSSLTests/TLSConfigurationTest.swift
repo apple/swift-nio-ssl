@@ -19,7 +19,7 @@ import NIOPosix
 import NIOEmbedded
 @testable import NIOSSL
 import NIOTLS
-#if swift(>=5.8)
+#if compiler(>=5.8)
 @preconcurrency import Dispatch
 #else
 import Dispatch
