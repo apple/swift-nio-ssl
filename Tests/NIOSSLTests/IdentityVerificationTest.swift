@@ -17,46 +17,34 @@ import NIOCore
 @testable import NIOSSL
 
 /// This cert contains the following SAN fields:
-/// DNS:*.wildcard.example.com - A straightforward wildcard, should be accepted
-/// DNS:fo*.example.com - A suffix wildcard, should be accepted
-/// DNS:*ar.example.com - A prefix wildcard, should be accepted
-/// DNS:b*z.example.com - An infix wildcard
-/// DNS:trailing.period.example.com. - A domain with a trailing period, should match
-/// DNS:xn--strae-oqa.unicode.example.com. - An IDN A-label, should match.
-/// DNS:xn--x*-gia.unicode.example.com. - An IDN A-label with a wildcard, invalid.
-/// DNS:weirdwildcard.*.example.com. - A wildcard not in the leftmost label, invalid.
-/// DNS:*.*.double.example.com. - Two wildcards, invalid.
-/// DNS:*.xn--strae-oqa.example.com. - A wildcard followed by a new IDN A-label, this is fine.
+/// DNS:*.WILDCARD.EXAMPLE.com - A straightforward wildcard, should be accepted
+/// DNS:FO*.EXAMPLE.com - A suffix wildcard, should be accepted
+/// DNS:*AR.EXAMPLE.com - A prefix wildcard, should be accepted
+/// DNS:B*Z.EXAMPLE.com - An infix wildcard
+/// DNS:TRAILING.PERIOD.EXAMPLE.com. - A domain with a trailing period, should match
+/// DNS:XN--STRAE-OQA.UNICODE.EXAMPLE.com. - An IDN A-label, should match.
+/// DNS:XN--X*-GIA.UNICODE.EXAMPLE.com. - An IDN A-label with a wildcard, invalid.
+/// DNS:WEIRDWILDCARD.*.EXAMPLE.com. - A wildcard not in the leftmost label, invalid.
+/// DNS:*.*.DOUBLE.EXAMPLE.com. - Two wildcards, invalid.
+/// DNS:*.XN--STRAE-OQA.EXAMPLE.com. - A wildcard followed by a new IDN A-label, this is fine.
 /// A SAN with a null in it, should be ignored.
 ///
 /// This also contains a commonName of httpbin.org.
-///
-/// Note that to get the NULL into the SAN I needed to edit it by hand, so this cert has
-/// an invalid signature. Don't worry about it: it doesn't affect these tests.
 private let weirdoPEMCert = """
 -----BEGIN CERTIFICATE-----
-MIID9TCCAt2gAwIBAgIUK5EI2ZoG1RLBWJ142HK7vjC9plQwDQYJKoZIhvcNAQEL
-BQAwFjEUMBIGA1UEAwwLaHR0cGJpbi5vcmcwHhcNMTcxMTAyMTExNjUzWhcNNDAw
-MTAxMDAwMDAwWjAWMRQwEgYDVQQDDAtodHRwYmluLm9yZzCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBAOYuPFg8hmACy7UL9mxbnkd4+kYGoDFNUi34tSHG
-8pGsV+1ZgJH0+p6+DcEVFTRTjG4jmiQHxVV8Uu82u8pvc4Ol/+kGXgIsmkSUOan6
-cYNsVJ5W5ZuQe7spL4dilyFPOi7hcP2OgG29NBIYnf4LUlznMF/G1wdKAhAAqeRr
-u5HQK/VDw6G85ycxbcaevV6jUd2sslcqMrh4MXP9txZwUdLfXFEP3r0yGhQP48Wm
-1NjCG82U1YpykrWGQYqYMXun3/9xVPoy3k+teRHBCcHhIi6qy7V9JDa+STzEzkbh
-7JUCUEHz4zJJ6vc1598UcQNW/aTtKeshuyX6NFpvrmkcwv0CAwEAAaOCATkwggE1
-MIIBIwYDVR0RBIIBGjCCARaCFioud2lsZGNhcmQuZXhhbXBsZS5jb22CD2ZvKi5l
-eGFtcGxlLmNvbYIPKmFyLmV4YW1wbGUuY29tgg9iKnouZXhhbXBsZS5jb22CHHRy
-YWlsaW5nLnBlcmlvZC5leGFtcGxlLmNvbS6CInhuLS1zdHJhZS1vcWEudW5pY29k
-ZS5leGFtcGxlLmNvbS6CH3huLS14Ki1naWEudW5pY29kZS5leGFtcGxlLmNvbS6C
-HHdlaXJkd2lsZGNhcmQuKi5leGFtcGxlLmNvbS6CFyouKi5kb3VibGUuZXhhbXBs
-ZS5jb20ughwqLnhuLS1zdHJhZS1vcWEuZXhhbXBsZS5jb20ughFudWwAbC5leGFt
-cGxlLmNvbTAMBgNVHRMBAf8EAjAAMA0GCSqGSIb3DQEBCwUAA4IBAQBoNHwL0Lix
-mtPoxFDA8w/5nF/hP/O+iQKYpR18gLqVZ2gmKgpSVwXZQB9891SKe1RYD8U1zsyt
-YbV45wSp3kdBvH6uu26fC2btiXasfiFCieZqyNnqDy1PhPHiVldddeksvf0D1hsk
-VwdBkqe3U47vRALvAWk9VVLYBtQuX4kkY4nEM4N+Dt0qW/8ZdIkLlD9pjTY2WC1G
-L+KFdw92R9DCEqE0nOUxU85D8Sfsoi19nx2LwhtCA40kuQNUZcW5ZElJ0kwxvd1Z
-6FhTJ0ACxsfKo3kS4Z4Zz4aib8D1gRdUrK2oKPFRIzwaoYuJw4gez+aSMqaGReSt
-rwIUx8hwcI3A
+MIICZjCCAgygAwIBAgIURNa5MCGhhy1TUo57ogfm5OvVBr8wCgYIKoZIzj0EAwIw
+FjEUMBIGA1UEAwwLaHR0cGJpbi5vcmcwHhcNMjQwNTEzMTI1MjUwWhcNNDAwMTAx
+MDAwMDAwWjAWMRQwEgYDVQQDDAtodHRwYmluLm9yZzBZMBMGByqGSM49AgEGCCqG
+SM49AwEHA0IABHC44jasAWsWYtYdo+cnLOAEuMQHt1zI5A7td2avNIHEfEXqiizj
+t1VPWYR6wbL/X7ZXb7IjED8v5ZeN/yK0jpGjggE2MIIBMjAJBgNVHRMEAjAAMIIB
+IwYDVR0RBIIBGjCCARaCFiouV0lMRENBUkQuRVhBTVBMRS5jb22CD0ZPKi5FWEFN
+UExFLmNvbYIPKkFSLkVYQU1QTEUuY29tgg9CKlouRVhBTVBMRS5jb22CHFRSQUlM
+SU5HLlBFUklPRC5FWEFNUExFLmNvbS6CIlhOLS1TVFJBRS1PUUEuVU5JQ09ERS5F
+WEFNUExFLmNvbS6CH1hOLS1YKi1HSUEuVU5JQ09ERS5FWEFNUExFLmNvbS6CHFdF
+SVJEV0lMRENBUkQuKi5FWEFNUExFLmNvbS6CFyouKi5ET1VCTEUuRVhBTVBMRS5j
+b20ughwqLlhOLS1TVFJBRS1PUUEuRVhBTVBMRS5jb20ughFOVUwATC5FWEFNUExF
+LmNvbTAKBggqhkjOPQQDAgNIADBFAiEAoZP9/AT/kI4XV9ComU/3TOBavn2HT4KJ
+GLTqsl138zwCIFAGdxsBH3CGfuFNYXOdYZOJ/FIqv7Ev0eGxXvTZ+bcs
 -----END CERTIFICATE-----
 """
 

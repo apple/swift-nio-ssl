@@ -71,6 +71,11 @@ extension Collection {
     }
 }
 
+extension Sequence<UInt8> {
+    fileprivate func caseInsensitiveElementsEqual(_ other: some Sequence<UInt8>) -> Bool {
+        self.elementsEqual(other) { $0.lowercased() == $1.lowercased() }
+    }
+}
 
 extension UInt8 {
     /// Whether this character is a valid DNS character, which is the ASCII
@@ -82,6 +87,10 @@ extension UInt8 {
         default:
             return false
         }
+    }
+
+    fileprivate func lowercased() -> UInt8 {
+        asciiCapitals.contains(self) ? self | 0x20 : self
     }
 }
 
@@ -268,7 +277,7 @@ fileprivate struct AnalysedCertificateHostname {
         // Now we can finally initialize ourself.
         if let asteriskIndex = asteriskIndex {
             // One final check: if we found a wildcard, we need to confirm that the first label isn't an IDNA A label.
-            guard baseName.prefix(4) != asciiIDNAIdentifier else {
+            if baseName.prefix(4).caseInsensitiveElementsEqual(asciiIDNAIdentifier) {
                 return nil
             }
 
@@ -283,7 +292,7 @@ fileprivate struct AnalysedCertificateHostname {
         switch self.name {
         case .singleName(let baseName):
             // For non-wildcard names, we just do a straightforward string comparison.
-            return baseName == target
+            return baseName.caseInsensitiveElementsEqual(target)
 
         case .wildcard(let baseName, asteriskIndex: let asteriskIndex, firstPeriodIndex: let firstPeriodIndex):
             // The wildcard can appear more-or-less anywhere in the first label. The wildcard
@@ -299,7 +308,7 @@ fileprivate struct AnalysedCertificateHostname {
             let (wildcardLabel, remainingComponents) = baseName.splitAroundIndex(firstPeriodIndex)
             let (targetFirstLabel, targetRemainingComponents) = target.splitAroundIndex(firstPeriodIndexForName)
 
-            guard remainingComponents == targetRemainingComponents else {
+            guard remainingComponents.caseInsensitiveElementsEqual(targetRemainingComponents) else {
                 // Wildcard is irrelevant, the remaining components don't match.
                 return false
             }
@@ -310,9 +319,13 @@ fileprivate struct AnalysedCertificateHostname {
             }
 
             let (wildcardLabelPrefix, wildcardLabelSuffix) = wildcardLabel.splitAroundIndex(asteriskIndex)
+            let targetBeforeWildcard = targetFirstLabel.prefix(wildcardLabelPrefix.count)
+            let targetAfterWildcard = targetFirstLabel.suffix(wildcardLabelSuffix.count)
 
-            return (targetFirstLabel.prefix(wildcardLabelPrefix.count) == wildcardLabelPrefix &&
-                    targetFirstLabel.suffix(wildcardLabelSuffix.count) == wildcardLabelSuffix)
+            let leadingBytesMatch = targetBeforeWildcard.caseInsensitiveElementsEqual(wildcardLabelPrefix)
+            let trailingBytesMatch = targetAfterWildcard.caseInsensitiveElementsEqual(wildcardLabelSuffix)
+
+            return leadingBytesMatch && trailingBytesMatch
         }
     }
 }
