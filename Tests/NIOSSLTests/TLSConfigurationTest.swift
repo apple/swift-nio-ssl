@@ -19,7 +19,7 @@ import NIOPosix
 import NIOEmbedded
 @testable import NIOSSL
 import NIOTLS
-#if swift(>=5.8)
+#if compiler(>=5.8)
 @preconcurrency import Dispatch
 #else
 import Dispatch
@@ -1299,6 +1299,19 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.pskServerCallback = pskServerCallback
         serverConfig.pskHint = "pskHint"
         try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["SSLV3_ALERT_BAD_RECORD_MAC"])
+    }
+
+    func testUnknownPrivateKeyFileType() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.privateKey = .file("key.invalidExtension")
+
+        XCTAssertThrowsError(try NIOSSLContext(configuration: clientConfig)) { error in
+            guard let sslError = error as? NIOSSLExtraError else {
+                return XCTFail("Expected NIOSSLExtraError but got \(error)")
+            }
+
+            XCTAssertEqual(sslError, .unknownPrivateKeyFileType)
+        }
     }
 }
 

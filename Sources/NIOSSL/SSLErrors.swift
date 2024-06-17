@@ -199,6 +199,7 @@ extension NIOSSLExtraError {
         case serverHostnameImpossibleToMatch
         case cannotUseIPAddressInSNI
         case invalidSNIHostname
+        case unknownPrivateKeyFileType
     }
 }
 
@@ -224,6 +225,9 @@ extension NIOSSLExtraError {
     /// - hostname contains the `0` unicode scalar (which would be encoded as the `0` byte which is unsupported).
     public static let invalidSNIHostname = NIOSSLExtraError(baseError: .invalidSNIHostname, description: nil)
 
+    /// The private key file for the TLS configuration has an unknown type.
+    public static let unknownPrivateKeyFileType = NIOSSLExtraError(baseError: .unknownPrivateKeyFileType, description: nil)
+
     @inline(never)
     internal static func failedToValidateHostname(expectedName: String) -> NIOSSLExtraError {
         let description = "Couldn't find \(expectedName) in certificate from peer"
@@ -241,6 +245,12 @@ extension NIOSSLExtraError {
         let description = "IP addresses cannot validly be used for Server Name Indication, got \(ipAddress)"
         return NIOSSLExtraError(baseError: .cannotUseIPAddressInSNI, description: description)
     }
+
+    @inline(never)
+    internal static func unknownPrivateKeyFileType(path: String) -> NIOSSLExtraError {
+        let description = "Unknown private key file type for \(path)"
+        return NIOSSLExtraError(baseError: .unknownPrivateKeyFileType, description: description)
+  }
 }
 
 
