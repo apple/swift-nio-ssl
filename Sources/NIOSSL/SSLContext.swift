@@ -225,29 +225,24 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
         return -1
     case .failure:
         // If loading a context failed then we must signal as such
-        return SSL_TLSEXT_ERR_NOACK
-    case .success(let userChosenContext):
-        // The user may or may not retain a reference to the NIOSSLContext
-        // that they return here, if they provide one. The NIOSSLContext finalizer
-        // explicitly decrements the reference count on the underlying SSL_CTX.
-        //
-        // However, SSL_set_SSL_CTX explicitly increases the reference count and
-        // will decrement the count when the SSL* object is destroyed, thus finally
-        // freeing the raw SSL_CTX object, even if the swift reference is orphaned.
-        //
-        // As such, no memory should be leaked or freed too early in the event that
-        // the user fails to retain their created and return NIOSSLContext. In the
-        // event that they do retain it, the reference count will remain at at-least
-        // 1 and thus they can re-use the same context for multiple connections.
-        let nativeContextValue = withExtendedLifetime(userChosenContext) {
-            return CNIOBoringSSL_SSL_set_SSL_CTX(ssl, userChosenContext.sslContext)
+        return 0
+    case .success(let changes):
+        // Attempt to load the new certificate chain and abort on failure
+        if let chain = changes.certificateChain {
+            do {
+                try NIOSSLContext.useCertificateChain(chain, context: parentSwiftContext.sslContext)
+            } catch {
+                return 0
+            }
         }
 
-        // CNIOBoringSSL_SSL_set_SSL_CTX should return a pointer to the very same context it was
-        // told to assign on success. On error, this will not happen, so we check for equality
-        // here and handle any such errors by signaling the connection to fail.
-        if nativeContextValue != userChosenContext.sslContext {
-            return SSL_TLSEXT_ERR_NOACK
+        // Attempt to load the new private key and abort on failure
+        if let pkey = changes.privateKey {
+            do {
+                try NIOSSLContext.usePrivateKeySource(pkey, context: parentSwiftContext.sslContext)
+            } catch {
+                return 0
+            }
         }
 
         // We must return 1 to signal a successful load of the new context
@@ -399,29 +394,10 @@ public final class NIOSSLContext {
             CNIOBoringSSL_SSL_CTX_set_default_passwd_cb_userdata(context, Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
         }
 
-        var leaf = true
-        try configuration.certificateChain.forEach {
-            switch $0 {
-            case .file(let p):
-                NIOSSLContext.useCertificateChainFile(p, context: context)
-                leaf = false
-            case .certificate(let cert):
-                if leaf {
-                    try NIOSSLContext.setLeafCertificate(cert, context: context)
-                    leaf = false
-                } else {
-                    try NIOSSLContext.addAdditionalChainCertificate(cert, context: context)
-                }
-            }
-        }
+        try NIOSSLContext.useCertificateChain(configuration.certificateChain, context: context)
 
         if let pkey = configuration.privateKey {
-            switch pkey {
-            case .file(let p):
-                try NIOSSLContext.usePrivateKeyFile(p, context: context)
-            case .privateKey(let key):
-                try NIOSSLContext.setPrivateKey(key, context: context)
-            }
+            try NIOSSLContext.usePrivateKeySource(pkey, context: context)
         }
 
         if configuration.encodedApplicationProtocols.count > 0 {
@@ -540,6 +516,24 @@ extension NIOSSLContext {
 }
 
 extension NIOSSLContext {
+    fileprivate static func useCertificateChain(_ certificateChain: [NIOSSLCertificateSource], context: OpaquePointer) throws {
+        var leaf = true
+        for source in certificateChain {
+            switch source {
+            case .file(let p):
+                NIOSSLContext.useCertificateChainFile(p, context: context)
+                leaf = false
+            case .certificate(let cert):
+                if leaf {
+                    try NIOSSLContext.setLeafCertificate(cert, context: context)
+                    leaf = false
+                } else {
+                    try NIOSSLContext.addAdditionalChainCertificate(cert, context: context)
+                }
+            }
+        }
+    }
+
     private static func useCertificateChainFile(_ path: String, context: OpaquePointer) {
         // TODO(cory): This shouldn't be an assert but should instead be actual error handling.
         // assert(path.isFileURL)
@@ -568,7 +562,16 @@ extension NIOSSLContext {
             throw NIOSSLError.failedToLoadCertificate
         }
     }
-    
+
+    fileprivate static func usePrivateKeySource(_ privateKey: NIOSSLPrivateKeySource, context: OpaquePointer) throws {
+        switch privateKey {
+        case .file(let p):
+            try NIOSSLContext.usePrivateKeyFile(p, context: context)
+        case .privateKey(let key):
+            try NIOSSLContext.setPrivateKey(key, context: context)
+        }
+    }
+
     private static func setPrivateKey(_ key: NIOSSLPrivateKey, context: OpaquePointer) throws {
         switch key.representation {
         case .native:

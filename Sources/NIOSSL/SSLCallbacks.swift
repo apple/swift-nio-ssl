@@ -195,17 +195,26 @@ public struct NIOSSLClientExtensionValues: Hashable {
     }
 }
 
+/// A structure representing changes to the SSL/TLS configuration that can be applied 
+/// after the client hello message extensions have been processed.
+public struct NIOSSLContextPostExtensionConfigurationChange {
+
+    /// The new certificate chain to use for the handshake.
+    public var certificateChain: [NIOSSLCertificateSource]?
+
+    /// The new private key to use for the handshake.
+    public var privateKey: NIOSSLPrivateKeySource?
+}
+
 /// A callback that can used to support multiple or dynamic TLS hosts.
 ///
 /// When set, this callback will be invoked once per TLS hello. The provided `NIOSSLClientExtensionValues` will contain the
-/// host name indicated in the TLS client hello, while the provided `NIOSSLContext` will be the current
-/// server context being used for the handshake.
+/// host name indicated in the TLS client hello.
 ///
-/// Within this callback, the user can create and return a new server `NIOSSLContext` for the given host,
-/// return the same context provided if it is sufficient to complete the handshake, or return `throw` in the event
-/// of an exception.
+/// Within this callback, the user can create and return a new `NIOSSLClientPostExtensionConfigurationChange` for the given host,
+/// and the delta will be applied to the current handshake configuration.
 ///
-public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues, EventLoopPromise<NIOSSLContext>) -> Void
+public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues, EventLoopPromise<NIOSSLContextPostExtensionConfigurationChange>) -> Void
 
 /// A struct that provides helpers for working with a NIOSSLContextCallback.
 internal struct CustomContextManager {
@@ -225,12 +234,12 @@ extension CustomContextManager {
 
         case pendingResult
 
-        case complete(Result<NIOSSLContext, Error>)
+        case complete(Result<NIOSSLContextPostExtensionConfigurationChange, Error>)
     }
 }
 
 extension CustomContextManager {
-    mutating func loadContext(ssl: OpaquePointer) -> Result<NIOSSLContext, Error>? {
+    mutating func loadContext(ssl: OpaquePointer) -> Result<NIOSSLContextPostExtensionConfigurationChange, Error>? {
         switch state {
         case .pendingResult:
             // In the pending case we just return nil
@@ -255,7 +264,7 @@ extension CustomContextManager {
             let values = NIOSSLClientExtensionValues(serverHostname: serverHostname)
 
             // We're responsible for creating the promise and the user provided callback will fulfill it
-            let promise = eventLoop.makePromise(of: NIOSSLContext.self)
+            let promise = eventLoop.makePromise(of: NIOSSLContextPostExtensionConfigurationChange.self)
             self.callback(values, promise)
 
             // After invoking the user callback we can update our state to pending
