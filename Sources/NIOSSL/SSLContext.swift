@@ -227,26 +227,22 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
         // If loading a context failed then we must signal as such
         return 0
     case .success(let changes):
-        // Attempt to load the new certificate chain and abort on failure
-        if let chain = changes.certificateChain {
-            do {
+        do {
+            // Attempt to load the new certificate chain and abort on failure
+            if let chain = changes.certificateChain {
                 try NIOSSLContext.useCertificateChain(chain, context: parentSwiftContext.sslContext)
-            } catch {
-                return 0
             }
-        }
 
-        // Attempt to load the new private key and abort on failure
-        if let pkey = changes.privateKey {
-            do {
+            // Attempt to load the new private key and abort on failure
+            if let pkey = changes.privateKey {
                 try NIOSSLContext.usePrivateKeySource(pkey, context: parentSwiftContext.sslContext)
-            } catch {
-                return 0
             }
-        }
 
-        // We must return 1 to signal a successful load of the new context
-        return 1
+            // We must return 1 to signal a successful load of the new context
+            return 1
+        } catch {
+            return 0
+        }
     }
 }
 

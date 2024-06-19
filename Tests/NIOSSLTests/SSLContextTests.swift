@@ -64,7 +64,7 @@ class SSLContextTest: XCTestCase {
         // Configure callback to return cert2
         config.sslContextCallback = { (values, promise) in
             promise.completeWithTask {
-                return NIOSSLContextPostExtensionConfigurationChange(
+                return NIOSSLContextConfigurationOverride(
                     certificateChain: [.certificate(SSLContextTest.cert2)],
                     privateKey: .privateKey(SSLContextTest.key2)
                 )
