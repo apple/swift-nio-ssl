@@ -64,10 +64,10 @@ class SSLContextTest: XCTestCase {
         // Configure callback to return cert2
         config.sslContextCallback = { (values, promise) in
             promise.completeWithTask {
-                return NIOSSLContextConfigurationOverride(
-                    certificateChain: [.certificate(SSLContextTest.cert2)],
-                    privateKey: .privateKey(SSLContextTest.key2)
-                )
+                var override = NIOSSLContextConfigurationOverride()
+                override.certificateChain = [.certificate(SSLContextTest.cert2)]
+                override.privateKey = .privateKey(SSLContextTest.key2)
+                return override
             }
         }
         return try NIOSSLContext(configuration: config)

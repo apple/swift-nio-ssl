@@ -205,13 +205,7 @@ public struct NIOSSLContextConfigurationOverride {
     /// The new private key to use for the handshake.
     public var privateKey: NIOSSLPrivateKeySource?
 
-    public init(
-        certificateChain: [NIOSSLCertificateSource]? = nil,
-        privateKey: NIOSSLPrivateKeySource? = nil
-    ) {
-        self.certificateChain = certificateChain
-        self.privateKey = privateKey
-    }
+    public init() {}
 }
 
 /// A callback that can used to support multiple or dynamic TLS hosts.
