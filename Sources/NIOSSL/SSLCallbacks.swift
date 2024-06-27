@@ -208,6 +208,12 @@ public struct NIOSSLContextConfigurationOverride {
     public init() {}
 }
 
+extension NIOSSLContextConfigurationOverride {
+
+    /// Return inside `NIOSSLContextCallback` when there are no changes to be made
+    public static let noChanges = Self()
+}
+
 /// A callback that can used to support multiple or dynamic TLS hosts.
 ///
 /// When set, this callback will be invoked once per TLS hello. The provided `NIOSSLClientExtensionValues` will contain the
