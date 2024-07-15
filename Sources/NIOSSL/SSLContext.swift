@@ -20,8 +20,10 @@ import NIOCore
 import Darwin.C
 #elseif canImport(Musl)
 import Musl
-#elseif os(Linux) || os(FreeBSD) || os(Android)
+#elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Android)
+import Android
 #else
 #error("unsupported os")
 #endif
@@ -44,7 +46,7 @@ internal enum FileSystemObject {
         }
 
 #if os(Android) && arch(arm)
-        return (statObj.st_mode & UInt32(Glibc.S_IFDIR)) != 0 ? .directory : .file
+        return (statObj.st_mode & UInt32(S_IFDIR)) != 0 ? .directory : .file
 #else
         return (statObj.st_mode & S_IFDIR) != 0 ? .directory : .file
 #endif
@@ -733,7 +735,7 @@ extension NIOSSLContext {
         let _ = try Posix.lstat(path: path, buf: &buffer)
         // Check the mode to make sure this is a symlink
 #if os(Android) && arch(arm)
-        if (buffer.st_mode & UInt32(Glibc.S_IFMT)) != UInt32(Glibc.S_IFLNK) { return false }
+        if (buffer.st_mode & UInt32(S_IFMT)) != UInt32(S_IFLNK) { return false }
 #else
         if (buffer.st_mode & S_IFMT) != S_IFLNK { return false }
 #endif
