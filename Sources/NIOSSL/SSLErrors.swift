@@ -200,6 +200,7 @@ extension NIOSSLExtraError {
         case cannotUseIPAddressInSNI
         case invalidSNIHostname
         case unknownPrivateKeyFileType
+        case noForwardProgress
     }
 }
 
@@ -228,6 +229,12 @@ extension NIOSSLExtraError {
     /// The private key file for the TLS configuration has an unknown type.
     public static let unknownPrivateKeyFileType = NIOSSLExtraError(baseError: .unknownPrivateKeyFileType, description: nil)
 
+    /// No forward progress is being made.
+    ///
+    /// This can happen when the `NIOSSLHandler` is unbuffering actions and gets into a state where
+    /// it would potentially spin loop indefinitely.
+    static let noForwardProgress = NIOSSLExtraError(baseError: .noForwardProgress, description: nil)
+
     @inline(never)
     internal static func failedToValidateHostname(expectedName: String) -> NIOSSLExtraError {
         let description = "Couldn't find \(expectedName) in certificate from peer"
@@ -250,7 +257,7 @@ extension NIOSSLExtraError {
     internal static func unknownPrivateKeyFileType(path: String) -> NIOSSLExtraError {
         let description = "Unknown private key file type for \(path)"
         return NIOSSLExtraError(baseError: .unknownPrivateKeyFileType, description: description)
-  }
+    }
 }
 
 
