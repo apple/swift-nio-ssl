@@ -18,8 +18,10 @@ import NIOCore
 import Darwin.C
 #elseif canImport(Musl)
 import Musl
-#elseif os(Linux) || os(FreeBSD) || os(Android)
+#elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Android)
+import Android
 #else
 #error("unsupported os")
 #endif
