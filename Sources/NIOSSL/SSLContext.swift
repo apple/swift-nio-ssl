@@ -243,6 +243,8 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
             // We must return 1 to signal a successful load of the new context
             return 1
         } catch {
+            // Althought the load was successful, the context changes failed and we must mark as such
+            contextManager.setLoadContextError(error)
             return 0
         }
     }

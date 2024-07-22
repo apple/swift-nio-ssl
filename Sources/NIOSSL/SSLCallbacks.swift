@@ -227,10 +227,10 @@ extension NIOSSLContextConfigurationOverride {
 public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues, EventLoopPromise<NIOSSLContextConfigurationOverride>) -> Void
 
 /// A struct that provides helpers for working with a NIOSSLContextCallback.
-internal struct CustomContextManager {
+internal struct CustomContextManager: Sendable {
     private let callback: NIOSSLContextCallback
 
-    private var state: State
+    internal private(set) var state: State
 
     init(callback: @escaping NIOSSLContextCallback) {
         self.callback = callback
@@ -239,12 +239,24 @@ internal struct CustomContextManager {
 }
 
 extension CustomContextManager {
-    private enum State {
+    internal enum State {
         case notStarted
 
         case pendingResult
 
         case complete(Result<NIOSSLContextConfigurationOverride, Error>)
+    }
+}
+
+extension CustomContextManager {
+
+    internal var loadContextError: (any Error)? {
+        switch self.state {
+        case .complete(.failure(let error)):
+            return error
+        default:
+            return nil
+        }
     }
 }
 
@@ -291,6 +303,10 @@ extension CustomContextManager {
 
             return nil
         }
+    }
+
+    mutating func setLoadContextError(_ error: any Error) {
+        self.state = .complete(.failure(error))
     }
 }
 
