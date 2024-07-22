@@ -249,7 +249,6 @@ extension CustomContextManager {
 }
 
 extension CustomContextManager {
-
     internal var loadContextError: (any Error)? {
         switch self.state {
         case .complete(.failure(let error)):
