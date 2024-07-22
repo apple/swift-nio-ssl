@@ -13,7 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
-import NIO
+import NIOCore
+import NIOPosix
 import NIOTLS
 import NIOEmbedded
 @testable import NIOSSL
