@@ -180,7 +180,7 @@ public struct PSKClientIdentityResponse: Sendable {
 /// This struct contains values obtained from the client hello message extensions during the TLS handshake process and
 /// can be manipulated or introspected by the `NIOSSLContextCallback` to alter the TLS handshake behaviour dynamically
 /// based on these values.
-public struct NIOSSLClientExtensionValues: Hashable {
+public struct NIOSSLClientExtensionValues: Hashable, Sendable {
 
     /// The hostname value from the Server Name Indication (SNI) extension.
     ///
