@@ -230,7 +230,7 @@ public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues,
 internal struct CustomContextManager: Sendable {
     private let callback: NIOSSLContextCallback
 
-    internal private(set) var state: State
+    private var state: State
 
     init(callback: @escaping NIOSSLContextCallback) {
         self.callback = callback
@@ -239,7 +239,7 @@ internal struct CustomContextManager: Sendable {
 }
 
 extension CustomContextManager {
-    internal enum State {
+    private enum State {
         case notStarted
 
         case pendingResult
