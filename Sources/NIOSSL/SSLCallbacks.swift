@@ -199,7 +199,7 @@ public struct NIOSSLClientExtensionValues: Hashable {
 
 /// A structure representing changes to the SSL/TLS configuration that can be applied 
 /// after the client hello message extensions have been processed.
-public struct NIOSSLContextConfigurationOverride {
+public struct NIOSSLContextConfigurationOverride: Sendable {
 
     /// The new certificate chain to use for the handshake.
     public var certificateChain: [NIOSSLCertificateSource]?
