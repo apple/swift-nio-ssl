@@ -946,18 +946,10 @@ extension NIOSSLHandler {
                             didWrite = true
                             if let promise = bufferedWrite.promise { promises.append(promise) }
                             _ = self.bufferedActions.removeFirst()
-                        } else if didWrite {
-                            // The write into BoringSSL unsuccessful. This happens when BoringSSL
-                            // throws a 'want read' or 'want write' error.
-                            //
-                            // As a write was previously successful it's assumed that the error is
-                            // 'wants write'. Break the write loop so any data is written to the
-                            // network before resuming.
-                            break writeLoop
                         } else {
-                            // No write was successful in this loop, so assume the error
-                            // was 'wants read'.
-                            self.doDecodeData(context: context)
+                            // The write into BoringSSL unsuccessful. Break the write loop so any
+                            // data is written to the network before resuming.
+                            break writeLoop
                         }
                     case .closeOutput:
                         invokeCloseOutput = true
