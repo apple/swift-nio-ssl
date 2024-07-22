@@ -273,7 +273,7 @@ extension CustomContextManager {
             let serverHostname = cServerHostname.map { String(cString: $0) }
             let values = NIOSSLClientExtensionValues(serverHostname: serverHostname)
 
-            // After invoking the user callback we can update our state to pending
+            // Before invoking the user callback we can update our state to pending
             self.state = .pendingResult
 
             // We're responsible for creating the promise and the user provided callback will fulfill it
