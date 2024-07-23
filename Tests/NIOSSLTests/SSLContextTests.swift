@@ -30,6 +30,10 @@ class SSLContextTest: XCTestCase {
         }
     }
 
+    fileprivate enum TestError: Error {
+        case contextError
+    }
+
     static var cert1: NIOSSLCertificate!
     static var key1: NIOSSLPrivateKey!
 
@@ -56,7 +60,10 @@ class SSLContextTest: XCTestCase {
         return context
     }
 
-    private func configuredServerSSLContext(eventLoop: EventLoop) throws -> NIOSSLContext {
+    private func configuredServerSSLContext(
+        eventLoop: EventLoop,
+        throwing error: TestError? = nil
+    ) throws -> NIOSSLContext {
         // Initialize with cert1
         var config = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(SSLContextTest.cert1)],
@@ -65,6 +72,9 @@ class SSLContextTest: XCTestCase {
         // Configure callback to return cert2
         config.sslContextCallback = { (values, promise) in
             promise.completeWithTask {
+                if let error {
+                    throw error
+                }
                 var override = NIOSSLContextConfigurationOverride()
                 override.certificateChain = [.certificate(SSLContextTest.cert2)]
                 override.privateKey = .privateKey(SSLContextTest.key2)
@@ -116,7 +126,58 @@ class SSLContextTest: XCTestCase {
         XCTAssertEqual(sniResult, .hostname(expectedResult))
     }
 
+    private func assertSniError(sniField: String?, expectedError: TestError) throws {
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            try? group.syncShutdownGracefully()
+        }
+
+        let handshakeResultPromise = group.next().makePromise(of: Void.self)
+        let handshakeWatcher = WaitForHandshakeHandler(handshakeResultPromise: handshakeResultPromise)
+
+        let clientContext = try configuredClientSSLContext()
+        let serverContext = try configuredServerSSLContext(eventLoop: group.next(), throwing: expectedError)
+
+        let sniPromise: EventLoopPromise<SNIResult> = group.next().makePromise()
+        let sniHandler = ByteToMessageHandler(SNIHandler {
+            sniPromise.succeed($0)
+            return group.next().makeSucceededFuture(())
+        })
+
+        let eventHandler = ErrorCatcher<any Error>()
+
+        let serverChannel = try serverTLSChannel(context: serverContext,
+                                                 preHandlers: [sniHandler],
+                                                 postHandlers: [eventHandler],
+                                                 group: group)
+        defer {
+            _ = try? serverChannel.close().wait()
+        }
+
+        let clientChannel = try clientTLSChannel(context: clientContext,
+                                                 preHandlers: [],
+                                                 postHandlers: [handshakeWatcher],
+                                                 group: group,
+                                                 connectingTo: serverChannel.localAddress!,
+                                                 serverHostname: sniField)
+        defer {
+            _ = try? clientChannel.close().wait()
+        }
+
+        // This promise ensures we completed the handshake.
+        // If the ssl context callback doesn't properly resume
+        // the handshake this will never resolve.
+        XCTAssertThrowsError(try handshakeResultPromise.futureResult.wait())
+
+        // The first caught item should be the error from the context callback.
+        XCTAssertEqual(eventHandler.errors[0] as! TestError, expectedError)
+    }
+
     func testSNIIsTransmitted() throws {
         try assertSniResult(sniField: "httpbin.org", expectedResult: "httpbin.org")
+    }
+
+    func testSNIContextError() throws {
+        try assertSniError(sniField: "httpbin.org", expectedError: .contextError)
     }
 }
