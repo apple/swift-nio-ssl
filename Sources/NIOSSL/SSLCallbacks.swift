@@ -189,11 +189,41 @@ public struct NIOSSLClientExtensionValues: Hashable, Sendable {
     /// this value could be used to decide which SSLContext to use for the handshake.
     public var serverHostname: String?
 
+    /// The TLS version used in the handshake.
+    public var tlsVersion: Int32?
+
+    /// The cipher suites offered by the client.
+    public var cipherSuites: [UInt16]?
+
+    /// The extensions offered by the client.
+    public var extensions: [UInt16]?
+
+    /// The signature algorithms supported by the client.
+    public var signatureAlgorithms: [UInt16]?
+
+    /// The ALPN protocols offered by the client.
+    public var alpnProtocols: [String]?
+
     /// Initializes a new `NIOSSLClientExtensionValues` struct.
     ///
     /// - parameter serverHostname: The hostname value from the SNI extension.
-    public init(serverHostname: String?) {
+    /// - parameter tlsVersion: The TLS version value from the SNI extension.
+    /// - parameter cipherSuites: The cipher suites value from the SNI extension.
+    /// - parameter extensions: The extensions value from the SNI extension.
+    /// - parameter signatureAlgorithms: The signature algorithms value from the SNI extension.
+    /// - parameter alpnProtocols: The ALPN protocols value from the SNI extension.
+    public init(serverHostname: String?,
+                tlsVersion: Int32?,
+                cipherSuites: [UInt16]?,
+                extensions: [UInt16]?,
+                signatureAlgorithms: [UInt16]?,
+                alpnProtocols: [String]?) {
         self.serverHostname = serverHostname
+        self.tlsVersion = tlsVersion
+        self.cipherSuites = cipherSuites
+        self.extensions = extensions
+        self.signatureAlgorithms = signatureAlgorithms
+        self.alpnProtocols = alpnProtocols
     }
 }
 
@@ -280,9 +310,7 @@ extension CustomContextManager {
             }
             
             // Construct extension values to be passed to callback
-            let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
-            let serverHostname = cServerHostname.map { String(cString: $0) }
-            let values = NIOSSLClientExtensionValues(serverHostname: serverHostname)
+            let values = connection.getClientExtensionValues()
 
             // Before invoking the user callback we can update our state to pending
             self.state = .pendingResult

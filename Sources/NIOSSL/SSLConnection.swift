@@ -432,6 +432,66 @@ internal final class SSLConnection {
     }
 }
 
+extension SSLConnection {
+    func getJA4Fingerprint() -> JA4Fingerprint {
+        let values = getClientExtensionValues()
+        return JA4Fingerprint(clientExtensionValues: values, networkProtocol: "t")
+    }
+}
+
+extension SSLConnection {
+    func getClientExtensionValues() -> NIOSSLClientExtensionValues {
+        let cServerHostname = CNIOBoringSSL_SSL_get_servername(self.ssl, TLSEXT_NAMETYPE_host_name)
+        let serverHostname = cServerHostname.map { String(cString: $0) }
+        let tlsVersion = CNIOBoringSSL_SSL_version(self.ssl)
+        let cipherSuites = parseCipherSuitesFromContext()
+        let signatureAlgorithms = parseSignatureAlgorithmsFromContext()
+        let alpnProtocols = getAlpnProtocol().map { [$0] }
+        return NIOSSLClientExtensionValues(
+            serverHostname: serverHostname,
+            tlsVersion: tlsVersion,
+            cipherSuites: cipherSuites,
+            extensions: nil, // TODO: implement extensions
+            signatureAlgorithms: signatureAlgorithms,
+            alpnProtocols: alpnProtocols
+        )
+    }
+
+    private func parseCipherSuitesFromContext() -> [UInt16]? {
+        guard let ciphers = CNIOBoringSSL_SSL_get_ciphers(self.ssl) else {
+            return nil
+        }
+
+        var cipherSuites: [UInt16] = []
+        var index = 0
+
+        while true {
+            let cipher = CNIOBoringSSL_sk_SSL_CIPHER_value(ciphers, index)
+            guard let cipher = cipher else {
+                break
+            }
+
+            let id = CNIOBoringSSL_SSL_CIPHER_get_protocol_id(cipher)
+            cipherSuites.append(UInt16(id))
+
+            index += 1
+        }
+
+        return cipherSuites
+    }
+
+    private func parseSignatureAlgorithmsFromContext() -> [UInt16]? {
+        var signatureAlgorithmsPtr: UnsafePointer<UInt16>?
+        let count = CNIOBoringSSL_SSL_get0_peer_verify_algorithms(self.ssl, &signatureAlgorithmsPtr)
+
+        guard count > 0, let signatureAlgorithmsPtr = signatureAlgorithmsPtr else {
+            return nil
+        }
+
+        return Array(UnsafeBufferPointer(start: signatureAlgorithmsPtr, count: count))
+    }
+}
+
 
 /// MARK: ConnectionRole
 extension SSLConnection {
