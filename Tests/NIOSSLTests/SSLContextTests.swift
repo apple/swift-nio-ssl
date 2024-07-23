@@ -170,7 +170,15 @@ class SSLContextTest: XCTestCase {
         XCTAssertThrowsError(try handshakeResultPromise.futureResult.wait())
 
         // The first caught item should be the error from the context callback.
-        XCTAssertEqual(eventHandler.errors[0] as! TestError, expectedError)
+        try serverChannel.eventLoop.submit {
+            XCTAssertEqual(eventHandler.errors.count, 2)
+            switch eventHandler.errors[0] {
+            case let error as TestError:
+                XCTAssertEqual(error, expectedError)
+            default:
+                XCTFail("Unexpected error: \(eventHandler.errors[0])")
+            }
+        }.wait()
     }
 
     func testSNIIsTransmitted() throws {
