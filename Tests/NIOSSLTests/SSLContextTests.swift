@@ -84,7 +84,7 @@ class SSLContextTest: XCTestCase {
         return try NIOSSLContext(configuration: config)
     }
 
-    private func assertSniResult(sniField: String?, expectedResult: String) throws {
+    private func assertSniResult(sniField: String?, expectedResult: String?) throws {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             try? group.syncShutdownGracefully()
@@ -123,7 +123,11 @@ class SSLContextTest: XCTestCase {
         XCTAssertNoThrow(try handshakeResultPromise.futureResult.wait())
 
         let sniResult = try sniPromise.futureResult.wait()
-        XCTAssertEqual(sniResult, .hostname(expectedResult))
+        if let expectedResult {
+            XCTAssertEqual(sniResult, .hostname(expectedResult))
+        } else {
+            XCTAssertEqual(sniResult, .fallback)
+        }
     }
 
     private func assertSniError(sniField: String?, expectedError: TestError) throws {
@@ -183,6 +187,10 @@ class SSLContextTest: XCTestCase {
 
     func testSNIIsTransmitted() throws {
         try assertSniResult(sniField: "httpbin.org", expectedResult: "httpbin.org")
+    }
+
+    func testSNIIsNotTransmitted() throws {
+        try assertSniResult(sniField: nil, expectedResult: nil)
     }
 
     func testSNIContextError() throws {
