@@ -1,9 +1,16 @@
+//===----------------------------------------------------------------------===//
 //
-//  File.swift
-//  
+// This source file is part of the SwiftNIO open source project
 //
-//  Created by Andrew Barba on 7/23/24.
+// Copyright (c) 2017-2021 Apple Inc. and the SwiftNIO project authors
+// Licensed under Apache License v2.0
 //
+// See LICENSE.txt for license information
+// See CONTRIBUTORS.txt for the list of SwiftNIO project authors
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
 
 @_implementationOnly import CNIOBoringSSL
 
