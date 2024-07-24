@@ -72,7 +72,7 @@ internal final class SSLConnection {
 
         self.setRenegotiationSupport(self.parentContext.configuration.renegotiationSupport)
     }
-    
+
     deinit {
         CNIOBoringSSL_SSL_free(ssl)
     }
@@ -214,16 +214,19 @@ internal final class SSLConnection {
     func doHandshake() -> AsyncOperationResult<CInt> {
         CNIOBoringSSL_ERR_clear_error()
         let rc = CNIOBoringSSL_SSL_do_handshake(ssl)
-        
-        if (rc == 1) { return .complete(rc) }
-        
+
+        if rc == 1 {
+            return .complete(rc)
+        }
+
         let result = CNIOBoringSSL_SSL_get_error(ssl, rc)
         let error = BoringSSLError.fromSSLGetErrorResult(result)!
-        
+
         switch error {
         case .wantRead,
              .wantWrite,
-             .wantCertificateVerify:
+             .wantCertificateVerify,
+             .wantX509Lookup:
             return .incomplete
         default:
             return .failed(error)
@@ -240,7 +243,7 @@ internal final class SSLConnection {
     func doShutdown() -> AsyncOperationResult<CInt> {
         CNIOBoringSSL_ERR_clear_error()
         let rc = CNIOBoringSSL_SSL_shutdown(ssl)
-        
+
         switch rc {
         case 1:
             return .complete(rc)
@@ -249,7 +252,7 @@ internal final class SSLConnection {
         default:
             let result = CNIOBoringSSL_SSL_get_error(ssl, rc)
             let error = BoringSSLError.fromSSLGetErrorResult(result)!
-            
+
             switch error {
             case .wantRead,
                  .wantWrite:
@@ -259,7 +262,7 @@ internal final class SSLConnection {
             }
         }
     }
-    
+
     /// Given some unprocessed data from the remote peer, places it into
     /// BoringSSL's receive buffer ready for handling by BoringSSL.
     ///
@@ -303,13 +306,13 @@ internal final class SSLConnection {
             bytesRead = CNIOBoringSSL_SSL_read(self.ssl, pointer.baseAddress, readSize)
             return bytesRead >= 0 ? Int(bytesRead) : 0
         }
-        
+
         if bytesRead > 0 {
             return .complete(rc)
         } else {
             let result = CNIOBoringSSL_SSL_get_error(ssl, CInt(bytesRead))
             let error = BoringSSLError.fromSSLGetErrorResult(result)!
-            
+
             switch error {
             case .wantRead,
                  .wantWrite:
@@ -334,7 +337,7 @@ internal final class SSLConnection {
         let writtenBytes = data.withUnsafeReadableBytes { (pointer) -> CInt in
             return CNIOBoringSSL_SSL_write(ssl, pointer.baseAddress, CInt(pointer.count))
         }
-        
+
         if writtenBytes > 0 {
             // The default behaviour of SSL_write is to only return once *all* of the data has been written,
             // unless the underlying BIO cannot satisfy the need (in which case WANT_WRITE will be returned).
@@ -346,7 +349,7 @@ internal final class SSLConnection {
         } else {
             let result = CNIOBoringSSL_SSL_get_error(ssl, writtenBytes)
             let error = BoringSSLError.fromSSLGetErrorResult(result)!
-            
+
             switch error {
             case .wantRead, .wantWrite:
                 return .incomplete
@@ -410,7 +413,7 @@ internal final class SSLConnection {
     func extractUnconsumedData() -> ByteBuffer? {
         return self.bio?.evacuateInboundData()
     }
-    
+
     /// Returns  an optional `TLSVersion` used on a `Channel` through the `NIOSSLHandler` APIs.
     func getTLSVersionForConnection() -> TLSVersion? {
         let uint16Version = CNIOBoringSSL_SSL_version(self.ssl)
@@ -426,6 +429,66 @@ internal final class SSLConnection {
         default:
             return nil
         }
+    }
+}
+
+extension SSLConnection {
+    func getJA4Fingerprint() -> JA4Fingerprint {
+        let values = getClientExtensionValues()
+        return JA4Fingerprint(clientExtensionValues: values, transportProtocol: .tcp)
+    }
+}
+
+extension SSLConnection {
+    func getClientExtensionValues() -> NIOSSLClientExtensionValues {
+        let cServerHostname = CNIOBoringSSL_SSL_get_servername(self.ssl, TLSEXT_NAMETYPE_host_name)
+        let serverHostname = cServerHostname.map { String(cString: $0) }
+        let tlsVersion = CNIOBoringSSL_SSL_version(self.ssl)
+        let cipherSuites = parseCipherSuitesFromContext()
+        let signatureAlgorithms = parseSignatureAlgorithmsFromContext()
+        let alpnProtocols = getAlpnProtocol().map { [$0] }
+        return NIOSSLClientExtensionValues(
+            serverHostname: serverHostname,
+            tlsVersion: tlsVersion,
+            cipherSuites: cipherSuites,
+            extensions: nil, // TODO: implement extensions
+            signatureAlgorithms: signatureAlgorithms,
+            alpnProtocols: alpnProtocols
+        )
+    }
+
+    private func parseCipherSuitesFromContext() -> [UInt16]? {
+        guard let ciphers = CNIOBoringSSL_SSL_get_ciphers(self.ssl) else {
+            return nil
+        }
+
+        var cipherSuites: [UInt16] = []
+        var index = 0
+
+        while true {
+            let cipher = CNIOBoringSSL_sk_SSL_CIPHER_value(ciphers, index)
+            guard let cipher = cipher else {
+                break
+            }
+
+            let id = CNIOBoringSSL_SSL_CIPHER_get_protocol_id(cipher)
+            cipherSuites.append(UInt16(id))
+
+            index += 1
+        }
+
+        return cipherSuites
+    }
+
+    private func parseSignatureAlgorithmsFromContext() -> [UInt16]? {
+        var signatureAlgorithmsPtr: UnsafePointer<UInt16>?
+        let count = CNIOBoringSSL_SSL_get0_peer_verify_algorithms(self.ssl, &signatureAlgorithmsPtr)
+
+        guard count > 0, let signatureAlgorithmsPtr = signatureAlgorithmsPtr else {
+            return nil
+        }
+
+        return Array(UnsafeBufferPointer(start: signatureAlgorithmsPtr, count: count))
     }
 }
 
