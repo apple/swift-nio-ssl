@@ -72,7 +72,7 @@ internal final class SSLConnection {
 
         self.setRenegotiationSupport(self.parentContext.configuration.renegotiationSupport)
     }
-    
+
     deinit {
         CNIOBoringSSL_SSL_free(ssl)
     }
@@ -214,14 +214,14 @@ internal final class SSLConnection {
     func doHandshake() -> AsyncOperationResult<CInt> {
         CNIOBoringSSL_ERR_clear_error()
         let rc = CNIOBoringSSL_SSL_do_handshake(ssl)
-        
+
         if rc == 1 {
             return .complete(rc)
         }
 
         let result = CNIOBoringSSL_SSL_get_error(ssl, rc)
         let error = BoringSSLError.fromSSLGetErrorResult(result)!
-        
+
         switch error {
         case .wantRead,
              .wantWrite,
@@ -243,7 +243,7 @@ internal final class SSLConnection {
     func doShutdown() -> AsyncOperationResult<CInt> {
         CNIOBoringSSL_ERR_clear_error()
         let rc = CNIOBoringSSL_SSL_shutdown(ssl)
-        
+
         switch rc {
         case 1:
             return .complete(rc)
@@ -252,7 +252,7 @@ internal final class SSLConnection {
         default:
             let result = CNIOBoringSSL_SSL_get_error(ssl, rc)
             let error = BoringSSLError.fromSSLGetErrorResult(result)!
-            
+
             switch error {
             case .wantRead,
                  .wantWrite:
@@ -262,7 +262,7 @@ internal final class SSLConnection {
             }
         }
     }
-    
+
     /// Given some unprocessed data from the remote peer, places it into
     /// BoringSSL's receive buffer ready for handling by BoringSSL.
     ///
@@ -306,13 +306,13 @@ internal final class SSLConnection {
             bytesRead = CNIOBoringSSL_SSL_read(self.ssl, pointer.baseAddress, readSize)
             return bytesRead >= 0 ? Int(bytesRead) : 0
         }
-        
+
         if bytesRead > 0 {
             return .complete(rc)
         } else {
             let result = CNIOBoringSSL_SSL_get_error(ssl, CInt(bytesRead))
             let error = BoringSSLError.fromSSLGetErrorResult(result)!
-            
+
             switch error {
             case .wantRead,
                  .wantWrite:
@@ -337,7 +337,7 @@ internal final class SSLConnection {
         let writtenBytes = data.withUnsafeReadableBytes { (pointer) -> CInt in
             return CNIOBoringSSL_SSL_write(ssl, pointer.baseAddress, CInt(pointer.count))
         }
-        
+
         if writtenBytes > 0 {
             // The default behaviour of SSL_write is to only return once *all* of the data has been written,
             // unless the underlying BIO cannot satisfy the need (in which case WANT_WRITE will be returned).
@@ -349,7 +349,7 @@ internal final class SSLConnection {
         } else {
             let result = CNIOBoringSSL_SSL_get_error(ssl, writtenBytes)
             let error = BoringSSLError.fromSSLGetErrorResult(result)!
-            
+
             switch error {
             case .wantRead, .wantWrite:
                 return .incomplete
@@ -413,7 +413,7 @@ internal final class SSLConnection {
     func extractUnconsumedData() -> ByteBuffer? {
         return self.bio?.evacuateInboundData()
     }
-    
+
     /// Returns  an optional `TLSVersion` used on a `Channel` through the `NIOSSLHandler` APIs.
     func getTLSVersionForConnection() -> TLSVersion? {
         let uint16Version = CNIOBoringSSL_SSL_version(self.ssl)
@@ -435,7 +435,7 @@ internal final class SSLConnection {
 extension SSLConnection {
     func getJA4Fingerprint() -> JA4Fingerprint {
         let values = getClientExtensionValues()
-        return JA4Fingerprint(clientExtensionValues: values, networkProtocol: "t")
+        return JA4Fingerprint(clientExtensionValues: values, transportProtocol: .tcp)
     }
 }
 

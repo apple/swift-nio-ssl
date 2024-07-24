@@ -16,7 +16,7 @@
 
 public struct JA4Fingerprint {
     // JA4_a
-    var networkProtocol: String
+    var transportProtocol: TransportProtocol
     var tlsVersion: Int32
     var sni: String
     var numberOfCipherSuites: Int
@@ -30,8 +30,8 @@ public struct JA4Fingerprint {
     var extensions: [UInt16]
     var signatureAlgorithms: [UInt16]
 
-    init(clientExtensionValues: NIOSSLClientExtensionValues, networkProtocol: String) {
-        self.networkProtocol = networkProtocol
+    init(clientExtensionValues: NIOSSLClientExtensionValues, transportProtocol: TransportProtocol) {
+        self.transportProtocol = transportProtocol
         self.tlsVersion = clientExtensionValues.tlsVersion ?? 0
         self.sni = clientExtensionValues.serverHostname != nil ? "d" : "i"
         self.numberOfCipherSuites = clientExtensionValues.cipherSuites?.filter { !isGREASEUint16($0) }.count ?? 0
@@ -41,12 +41,21 @@ public struct JA4Fingerprint {
         self.extensions = clientExtensionValues.extensions?.filter { !isGREASEUint16($0) }.sorted() ?? []
         self.signatureAlgorithms = clientExtensionValues.signatureAlgorithms ?? []
     }
+}
 
+extension JA4Fingerprint {
+    internal enum TransportProtocol: String, Sendable {
+        case tcp = "t"
+        case udp = "u"
+    }
+}
+
+extension JA4Fingerprint {
     public func digest() -> String {
         let tls = tlsVersionString(tlsVersion: self.tlsVersion)
 
         let ja4a = String(format: "%@%@%@%02d%02d%@",
-                          self.networkProtocol,
+                          self.transportProtocol.rawValue,
                           tls,
                           self.sni,
                           self.numberOfCipherSuites,
