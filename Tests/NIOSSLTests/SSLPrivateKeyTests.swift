@@ -237,6 +237,18 @@ class SSLPrivateKeyTest: XCTestCase {
         }
     }
 
+    @available(*, deprecated, message: "`.file` NIOSSLPrivateKeySource option deprecated")
+    func testMissingPassword() {
+        let configuration = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [],
+            privateKey: .file(SSLPrivateKeyTest.passwordPemKeyFilePath)
+        )
+
+        XCTAssertThrowsError(try NIOSSLContext(configuration: configuration)) { error in
+            XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
+        }
+    }
+
     func testECKeysWorkProperly() throws {
         let keyDerBytes = [UInt8](sampleECDerKey)
         let keyPemBytes = [UInt8](sampleECPemKey.utf8)

@@ -1288,6 +1288,20 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.pskHint = "pskHint"
         try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["SSLV3_ALERT_BAD_RECORD_MAC"])
     }
+    
+    @available(*, deprecated, message: "`.file` NIOSSLPrivateKeySource option deprecated")
+    func testUnknownPrivateKeyFileType() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.privateKey = .file("key.invalidExtension")
+
+        XCTAssertThrowsError(try NIOSSLContext(configuration: clientConfig)) { error in
+            guard let sslError = error as? NIOSSLExtraError else {
+                return XCTFail("Expected NIOSSLExtraError but got \(error)")
+            }
+
+            XCTAssertEqual(sslError, .unknownPrivateKeyFileType)
+        }
+    }
 }
 
 extension EmbeddedChannel {
