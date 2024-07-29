@@ -744,7 +744,7 @@ class TLSConfigurationTest: XCTestCase {
     }
 
     func testComputedApplicationProtocols() throws {
-        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .file("fake.file"))
+        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .privateKey(TLSConfigurationTest.key1))
         config.applicationProtocols = ["http/1.1"]
         XCTAssertEqual(config.applicationProtocols, ["http/1.1"])
         XCTAssertEqual(config.encodedApplicationProtocols, [[8, 104, 116, 116, 112, 47, 49, 46, 49]])
@@ -792,7 +792,7 @@ class TLSConfigurationTest: XCTestCase {
     }
     
     func testTheSameHashValue() {
-        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .file("fake.file"))
+        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .privateKey(TLSConfigurationTest.key1))
         config.applicationProtocols = ["http/1.1"]
         let theSameConfig = config
         var hasher = Hasher()
@@ -804,15 +804,15 @@ class TLSConfigurationTest: XCTestCase {
     }
     
     func testDifferentHashValues() {
-        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .file("fake.file"))
+        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .privateKey(TLSConfigurationTest.key1))
         config.applicationProtocols = ["http/1.1"]
         var differentConfig = config
-        differentConfig.privateKey = .file("fake2.file")
+        differentConfig.privateKey = .privateKey(TLSConfigurationTest.key2)
         XCTAssertFalse(config.bestEffortEquals(differentConfig))
     }
     
     func testDifferentCallbacksNotEqual() {
-        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .file("fake.file"))
+        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .privateKey(TLSConfigurationTest.key1))
         config.applicationProtocols = ["http/1.1"]
         config.keyLogCallback = { _ in }
         var differentConfig = config
@@ -1287,19 +1287,6 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.pskServerCallback = pskServerCallback
         serverConfig.pskHint = "pskHint"
         try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["SSLV3_ALERT_BAD_RECORD_MAC"])
-    }
-
-    func testUnknownPrivateKeyFileType() throws {
-        var clientConfig = TLSConfiguration.makeClientConfiguration()
-        clientConfig.privateKey = .file("key.invalidExtension")
-
-        XCTAssertThrowsError(try NIOSSLContext(configuration: clientConfig)) { error in
-            guard let sslError = error as? NIOSSLExtraError else {
-                return XCTFail("Expected NIOSSLExtraError but got \(error)")
-            }
-
-            XCTAssertEqual(sslError, .unknownPrivateKeyFileType)
-        }
     }
 }
 

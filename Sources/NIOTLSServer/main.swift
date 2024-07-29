@@ -30,9 +30,10 @@ private final class EchoHandler: ChannelInboundHandler {
 }
 
 let certificateChain = try NIOSSLCertificate.fromPEMFile("cert.pem")
+let privateKey = try! NIOSSLPrivateKey(file: "key.pem", format: .pem)
 let sslContext = try! NIOSSLContext(configuration: TLSConfiguration.makeServerConfiguration(
     certificateChain: certificateChain.map { .certificate($0) },
-    privateKey: .file("key.pem"))
+    privateKey: .privateKey(privateKey))
 )
 
 
