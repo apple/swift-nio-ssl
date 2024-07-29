@@ -82,7 +82,7 @@ if let c = arguments.dropFirst(2).first {
     cert.append(contentsOf: try NIOSSLCertificate.fromPEMFile(c).map { .certificate($0) })
 }
 if let k = arguments.dropFirst(3).first {
-    key = .file(k)
+    try! key = .privateKey(.init(file: k, format: .pem))
 }
 if let r = arguments.dropFirst(4).first {
     trustRoot = .file(r)

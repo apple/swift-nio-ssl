@@ -237,6 +237,7 @@ class SSLPrivateKeyTest: XCTestCase {
         }
     }
 
+    @available(*, deprecated, message: "`.file` NIOSSLPrivateKeySource option deprecated")
     func testMissingPassword() {
         let configuration = TLSConfiguration.makeServerConfiguration(
             certificateChain: [],
