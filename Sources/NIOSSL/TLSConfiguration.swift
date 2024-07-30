@@ -300,7 +300,10 @@ public struct TLSConfiguration {
     
     /// PSK Server Callback to get the key based on hint and identity.
     public var pskServerCallback: NIOPSKServerIdentityCallback? = nil
-    
+
+    /// SSL Context Callback to provide dynamic context based on server name
+    public var sslContextCallback: NIOSSLContextCallback? = nil
+
     /// Optional PSK hint to be used during SSLContext create.
     public var pskHint: String? = nil
 
@@ -351,6 +354,7 @@ public struct TLSConfiguration {
                  sendCANameList: Bool = false,
                  pskClientCallback: NIOPSKClientIdentityCallback? = nil,
                  pskServerCallback: NIOPSKServerIdentityCallback? = nil,
+                 sslContextCallback: NIOSSLContextCallback? = nil,
                  pskHint: String? = nil) {
         self.cipherSuites = cipherSuites
         self.verifySignatureAlgorithms = verifySignatureAlgorithms
@@ -370,6 +374,7 @@ public struct TLSConfiguration {
         self.keyLogCallback = keyLogCallback
         self.pskClientCallback = pskClientCallback
         self.pskServerCallback = pskServerCallback
+        self.sslContextCallback = sslContextCallback
         self.pskHint = pskHint
         if !cipherSuiteValues.isEmpty {
             self.cipherSuiteValues = cipherSuiteValues
@@ -402,7 +407,12 @@ extension TLSConfiguration {
                 return pskServerCallback1.elementsEqual(pskServerCallback2)
             }
         }
-        
+        let isSSLContextCallbackEqual = withUnsafeBytes(of: self.sslContextCallback) { sslContextCallback1 in
+            return withUnsafeBytes(of: comparing.sslContextCallback) { sslContextCallback2 in
+                return sslContextCallback1.elementsEqual(sslContextCallback2)
+            }
+        }
+
         return self.minimumTLSVersion == comparing.minimumTLSVersion &&
             self.maximumTLSVersion == comparing.maximumTLSVersion &&
             self.cipherSuites == comparing.cipherSuites &&
@@ -420,6 +430,7 @@ extension TLSConfiguration {
             self.sendCANameList == comparing.sendCANameList &&
             isPSKClientCallbackEqual &&
             isPSKServerCallbackEqual &&
+            isSSLContextCallbackEqual &&
             self.pskHint == comparing.pskHint
     }
     
@@ -452,6 +463,9 @@ extension TLSConfiguration {
         withUnsafeBytes(of: pskServerCallback) { closureServerBits in
             hasher.combine(bytes: closureServerBits)
         }
+        withUnsafeBytes(of: sslContextCallback) { closureServerBits in
+            hasher.combine(bytes: closureServerBits)
+        }
         hasher.combine(pskHint)
     }
 
@@ -479,6 +493,7 @@ extension TLSConfiguration {
                                 sendCANameList: false,
                                 pskClientCallback: nil,
                                 pskServerCallback: nil,
+                                sslContextCallback: nil,
                                 pskHint: nil)
     }
 

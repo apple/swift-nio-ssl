@@ -215,15 +215,18 @@ internal final class SSLConnection {
         CNIOBoringSSL_ERR_clear_error()
         let rc = CNIOBoringSSL_SSL_do_handshake(ssl)
         
-        if (rc == 1) { return .complete(rc) }
-        
+        if rc == 1 {
+            return .complete(rc)
+        }
+
         let result = CNIOBoringSSL_SSL_get_error(ssl, rc)
         let error = BoringSSLError.fromSSLGetErrorResult(result)!
         
         switch error {
         case .wantRead,
              .wantWrite,
-             .wantCertificateVerify:
+             .wantCertificateVerify,
+             .wantX509Lookup:
             return .incomplete
         default:
             return .failed(error)

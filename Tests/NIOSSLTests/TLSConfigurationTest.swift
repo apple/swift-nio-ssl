@@ -810,7 +810,7 @@ class TLSConfigurationTest: XCTestCase {
         differentConfig.privateKey = .privateKey(TLSConfigurationTest.key2)
         XCTAssertFalse(config.bestEffortEquals(differentConfig))
     }
-    
+
     func testDifferentCallbacksNotEqual() {
         var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .privateKey(TLSConfigurationTest.key1))
         config.applicationProtocols = ["http/1.1"]
@@ -819,7 +819,16 @@ class TLSConfigurationTest: XCTestCase {
         differentConfig.keyLogCallback = { _ in }
         XCTAssertFalse(config.bestEffortEquals(differentConfig))
     }
-    
+
+    func testDifferentSSLContextCallbacksNotEqual() {
+        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .file("fake.file"))
+        config.applicationProtocols = ["http/1.1"]
+        config.sslContextCallback = { _, _ in }
+        var differentConfig = config
+        differentConfig.sslContextCallback = { _, _ in }
+        XCTAssertFalse(config.bestEffortEquals(differentConfig))
+    }
+
     func testCompatibleCipherSuite() throws {
         // ECDHE_RSA is used here because the public key in .cert1 is derived from a RSA private key.
         // These could also be RSA based, but cannot be ECDHE_ECDSA.
@@ -1062,7 +1071,7 @@ class TLSConfigurationTest: XCTestCase {
     func testBestEffortEquatableHashableDifferences() {
         // If this assertion fails, DON'T JUST CHANGE THE NUMBER HERE! Make sure you've added any appropriate transforms below
         // so that we're testing these best effort functions.
-        XCTAssertEqual(MemoryLayout<TLSConfiguration>.size, 194, "TLSConfiguration has changed size: you probably need to update this test!")
+        XCTAssertEqual(MemoryLayout<TLSConfiguration>.size, 210, "TLSConfiguration has changed size: you probably need to update this test!")
 
         let first = TLSConfiguration.makeClientConfiguration()
         
@@ -1079,6 +1088,8 @@ class TLSConfigurationTest: XCTestCase {
             psk.append("hello".utf8)
             return PSKServerIdentityResponse(key: psk)
         }
+
+        let sslContextCallback: NIOSSLContextCallback = { _, _ in }
 
         let transforms: [(inout TLSConfiguration) -> Void] = [
             { $0.minimumTLSVersion = .tlsv13 },
@@ -1099,6 +1110,7 @@ class TLSConfigurationTest: XCTestCase {
             { $0.sendCANameList = true },
             { $0.pskClientCallback = pskClientCallback },
             { $0.pskServerCallback = pskServerCallback},
+            { $0.sslContextCallback = sslContextCallback },
             { $0.pskHint = "hint" },
         ]
 
