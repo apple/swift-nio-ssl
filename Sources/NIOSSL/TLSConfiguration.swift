@@ -32,7 +32,16 @@ public enum NIOSSLCertificateSource: Hashable, Sendable {
 
 /// Places NIOSSL can obtain private keys from.
 public enum NIOSSLPrivateKeySource: Hashable {
+    /// Path to file in PEM or ASN1 format to load private key from
+    ///
+    /// File Extensions | Expected file format
+    /// --------------- | --------------------
+    /// `.pem`          | PEM
+    /// `.der or .key`  | ASN1
+    @available(*, deprecated, message: "Use 'NIOSSLPrivateKeySource.privateKey(NIOSSLPrivateKey)' to set private key")
     case file(String)
+    
+    /// Loaded Private key
     case privateKey(NIOSSLPrivateKey)
 }
 

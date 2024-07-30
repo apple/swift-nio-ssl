@@ -250,7 +250,7 @@ extension NIOSSLExtraError {
     internal static func unknownPrivateKeyFileType(path: String) -> NIOSSLExtraError {
         let description = "Unknown private key file type for \(path)"
         return NIOSSLExtraError(baseError: .unknownPrivateKeyFileType, description: description)
-  }
+    }
 }
 
 
