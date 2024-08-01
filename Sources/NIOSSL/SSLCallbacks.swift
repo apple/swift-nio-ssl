@@ -145,6 +145,44 @@ extension KeyLogCallbackManager {
     }
 }
 
+/// PSK Server Context provided to the callback.
+public struct PSKServerContext: Sendable {
+    /// Optional identity hint provided to the client by the server.
+    public let hint: String?
+    /// Identity provided by the client to the server.
+    public let clientIdentity: String
+    /// Maximum length of the returned PSK.
+    public let maxPSKLength: Int
+    
+    /// Constructs a ``PSKServerContext``.
+    ///
+    /// - parameter hint: Optional identity hint provided to the client.
+    /// - parameter clientIdentity: Client identity received from the client.
+    /// - parameter maxPSKLength: Maximum possible length of the Pre Shared Key.
+    internal init(hint: String?, clientIdentity: String, maxPSKLength: Int) {
+        self.hint = hint
+        self.clientIdentity = clientIdentity
+        self.maxPSKLength = maxPSKLength
+    }
+}
+
+/// PSK Client Context provided to the callback.
+public struct PSKClientContext: Sendable {
+    /// Optional identity hint provided by the server to the client.
+    public let hint: String?
+    /// Maximum length of the returned PSK.
+    public let maxPSKLength: Int
+    
+    /// Constructs a ``PSKClientContext``.
+    ///
+    /// - parameter hint: Optional identity hint provided by the server.
+    /// - parameter maxPSKLength: Maximum possible length of the Pre Shared Key.
+    internal init(hint: String?, maxPSKLength: Int) {
+        self.hint = hint
+        self.maxPSKLength = maxPSKLength
+    }
+}
+
 /// PSK Server Identity response type used in the callback.
 public struct PSKServerIdentityResponse: Sendable {
     /// The negotiated PSK.
@@ -181,12 +219,40 @@ public struct PSKClientIdentityResponse: Sendable {
 /// Additionally, as it is invoked on the NIO event loop, it is not possible for this to perform any I/O. As a result, lookups must be quick.
 public typealias NIOPSKClientIdentityCallback = @Sendable (String) throws -> PSKClientIdentityResponse
 
+/// The callback used for providing a PSK on the client side.
+///
+/// The callback is invoked on the event loop with a PSK context.
+/// The context include the optional hint provided by the server.
+/// This callback must complete synchronously: it cannot return a future.
+/// Additionally, as it is invoked on the NIO event loop, it is not possible for this to perform any I/O. As a result, lookups must be quick.
+public typealias NIOPSKClientIdentityProvider = @Sendable (PSKClientContext) throws -> PSKClientIdentityResponse
+
 /// The callback used for providing a PSK on the server side.
 ///
 /// The callback is invoked on the event loop with the PSK hint provided by the server, and the PSK identity provided by the client.
 /// This callback must complete synchronously: it cannot return a future. Additionally, as it is invoked on the NIO event loop, it is
 /// not possible for this to perform any I/O. As a result, lookups must be quick.
 public typealias NIOPSKServerIdentityCallback = @Sendable (String, String) throws -> PSKServerIdentityResponse
+
+/// The callback used for providing a PSK on the server side.
+///
+/// The callback is invoked on the event loop with a PSK context provided by the server and the client, and the PSK identity provided by the client
+/// The context includes the optional hint.
+/// This callback must complete synchronously: it cannot return a future. Additionally, as it is invoked on the NIO event loop, it is
+/// not possible for this to perform any I/O. As a result, lookups must be quick.
+public typealias NIOPSKServerIdentityProvider = @Sendable (PSKServerContext) throws -> PSKServerIdentityResponse
+
+/// Allow internally to maintain the compatibility with the deprecated callback
+internal enum _NIOPSKServerIdentityProvider {
+    case callback(NIOPSKServerIdentityCallback)
+    case provider(NIOPSKServerIdentityProvider)
+}
+
+/// Allow internally to maintain the compatibility with the deprecated callback
+internal enum _NIOPSKClientIdentityProvider {
+    case callback(NIOPSKClientIdentityCallback)
+    case provider(NIOPSKClientIdentityProvider)
+}
 
 /// A struct that provides helpers for working with a NIOSSLCustomVerificationCallback.
 internal struct CustomVerifyManager {
