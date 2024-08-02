@@ -275,6 +275,7 @@ public struct TLSConfiguration {
 
     /// Whether to verify remote certificates.
     public var certificateVerification: CertificateVerification
+    public var certificateRequired: Bool = true
 
     /// The trust roots to use to validate certificates. This only needs to be provided if you intend to validate
     /// certificates.
