@@ -1167,6 +1167,7 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertEqual(channelTLSVersion!, .tlsv11)
     }
     
+    @available(*, deprecated, message: "`TLSConfiguration.pskClientCallback` and `TLSConfiguration.pskClientCallback` are deprecated")
     func testTLSPSKWithTLS13Deprecated() throws {
         // The idea here is that adding PSKs with certificates in TLS 1.3 should NOT cause a failure.
         // Also note that the usage here of PSKs with TLS 1.3 is not supported by BoringSSL at this point.
@@ -1204,6 +1205,7 @@ class TLSConfigurationTest: XCTestCase {
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
     
+    @available(*, deprecated, message: "`TLSConfiguration.pskClientCallback` and `TLSConfiguration.pskClientCallback` are deprecated")
     func testTLSPSKWithTLS12Deprecated() throws {
         // This test ensures that PSK-TLS is supported for TLS 1.2.
         let pskClientCallback: NIOPSKClientIdentityCallback = { (hint: String) -> PSKClientIdentityResponse in
@@ -1235,6 +1237,7 @@ class TLSConfigurationTest: XCTestCase {
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
     
+    @available(*, deprecated, message: "`TLSConfiguration.pskClientCallback` and `TLSConfiguration.pskClientCallback` are deprecated")
     func testTLSPSKWithPinnedCiphersDeprecated() throws {
         // This test ensures that PSK-TLS is supported with pinned ciphers.
         let pskClientCallback: NIOPSKClientIdentityCallback = { (hint: String) -> PSKClientIdentityResponse in
@@ -1274,6 +1277,7 @@ class TLSConfigurationTest: XCTestCase {
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
     
+    @available(*, deprecated, message: "`TLSConfiguration.pskClientCallback` and `TLSConfiguration.pskClientCallback` are deprecated")
     func testTLSPSKFailureDeprecated() throws {
         // This test ensures that different PSKs used on the client and server fail when passed in.
         let pskClientCallback: NIOPSKClientIdentityCallback = { (hint: String) -> PSKClientIdentityResponse in
