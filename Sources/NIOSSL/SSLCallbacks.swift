@@ -146,7 +146,7 @@ extension KeyLogCallbackManager {
 }
 
 /// PSK Server Context provided to the callback.
-public struct PSKServerContext: Sendable {
+public struct PSKServerContext: Sendable, Hashable {
     /// Optional identity hint provided to the client by the server.
     public let hint: String?
     /// Identity provided by the client to the server.
@@ -159,7 +159,7 @@ public struct PSKServerContext: Sendable {
     /// - parameter hint: Optional identity hint provided to the client.
     /// - parameter clientIdentity: Client identity received from the client.
     /// - parameter maxPSKLength: Maximum possible length of the Pre Shared Key.
-    internal init(hint: String?, clientIdentity: String, maxPSKLength: Int) {
+    public init(hint: String?, clientIdentity: String, maxPSKLength: Int) {
         self.hint = hint
         self.clientIdentity = clientIdentity
         self.maxPSKLength = maxPSKLength
@@ -167,7 +167,7 @@ public struct PSKServerContext: Sendable {
 }
 
 /// PSK Client Context provided to the callback.
-public struct PSKClientContext: Sendable {
+public struct PSKClientContext: Sendable, Hashable {
     /// Optional identity hint provided by the server to the client.
     public let hint: String?
     /// Maximum length of the returned PSK.
@@ -177,7 +177,7 @@ public struct PSKClientContext: Sendable {
     ///
     /// - parameter hint: Optional identity hint provided by the server.
     /// - parameter maxPSKLength: Maximum possible length of the Pre Shared Key.
-    internal init(hint: String?, maxPSKLength: Int) {
+    public init(hint: String?, maxPSKLength: Int) {
         self.hint = hint
         self.maxPSKLength = maxPSKLength
     }
