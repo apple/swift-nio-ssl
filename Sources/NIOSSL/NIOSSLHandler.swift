@@ -352,11 +352,11 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     /// This method must not be called once the connection is established.
     private func doHandshakeStep(context: ChannelHandlerContext) {
         switch self.state {
-        case .idle, .handshaking, .additionalVerification, .active, .closing, .unwrapping:
-            ()
         case .unwrapped, .inputClosed, .outputClosed, .closed:
             // We shouldn't be handshaking in any of these state.
             return
+        case .idle, .handshaking, .additionalVerification, .active, .closing, .unwrapping:
+            ()
         }
 
         let result = self.connection.doHandshake()
@@ -932,7 +932,7 @@ extension NIOSSLHandler {
         do {
             var invokeCloseOutput = false
             var bufferedActionsLoopCount = 0
-            bufferedActionsLoop: while self.bufferedActions.hasMark {
+            bufferedActionsLoop: while self.bufferedActions.hasMark, bufferedActionsLoopCount < 1000 {
                 bufferedActionsLoopCount += 1
                 var didWrite = false
 
@@ -973,15 +973,14 @@ extension NIOSSLHandler {
                     self.discardBufferedActions(reason: ChannelError.outputClosed)
                     break bufferedActionsLoop
                 }
-
-                // We spun the outer loop too many times, something isn't right so let's bail out
-                // instead of looping any longer.
-                if bufferedActionsLoopCount >= 1000 {
-                    assertionFailure("\(#function) looped too many times, please file a GitHub issue against swift-nio-ssl.")
-                    throw NIOSSLExtraError.noForwardProgress
-                }
             }
 
+            // We spun the outer loop too many times, something isn't right so let's bail out
+            // instead of looping any longer.
+            if bufferedActionsLoopCount >= 1000 {
+                assertionFailure("\(#function) looped too many times, please file a GitHub issue against swift-nio-ssl.")
+                throw NIOSSLExtraError.noForwardProgress
+            }
         } catch {
             // We encountered an error, it's cleanup time. Close ourselves down.
             channelClose(context: context, reason: error)
