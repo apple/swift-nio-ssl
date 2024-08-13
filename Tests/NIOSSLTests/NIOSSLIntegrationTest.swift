@@ -554,9 +554,10 @@ class NIOSSLIntegrationTest: XCTestCase {
     private func configuredSSLContext<T: Collection>(passphraseCallback: @escaping NIOSSLPassphraseCallback<T>,
                                                      file: StaticString = #filePath, line: UInt = #line) throws -> NIOSSLContext
                                                      where T.Element == UInt8 {
+        let privateKey = try NIOSSLPrivateKey(file: NIOSSLIntegrationTest.encryptedKeyPath, format: .pem) { closure in closure("thisisagreatpassword".utf8) }
         var config = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
-            privateKey: .file(NIOSSLIntegrationTest.encryptedKeyPath)
+            privateKey: .privateKey(privateKey)
         )
         config.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
         return try assertNoThrowWithValue(NIOSSLContext(configuration: config, passphraseCallback: passphraseCallback), file: file, line: line)
