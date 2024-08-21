@@ -340,15 +340,15 @@ let sampleDerCertSPKI = Array(Data(base64Encoded: """
 //    Which is required for testing with the CertificateVerification case of .fullVerification.
 //
 // The certs from the custom root expire once a year, so here are the instructions
-// for when they expire again around August 14, 2024:
+// for when they expire again around August 13, 2025:
 //
 // 1. New custom CA:
 // - openssl genpkey -algorithm RSA -out ca_key.pem
-// - openssl req -x509 -new -key ca_key.pem -sha256 -days 1024 -out ca.pem
+// - openssl req -x509 -new -key ca_key.pem -sha256 -days 1024 -out ca.pem -subj "/CN=ca"
 //
 // 2. New server cert:
 // - openssl genpkey -algorithm RSA -out server_key.pem
-// - openssl req -new -key server_key.pem -out server.csr
+// - openssl req -new -key server_key.pem -out server.csr -subj "/CN=localhost"
 // - openssl x509 -req -in server.csr -CA ca.pem -CAkey ca_key.pem -CAcreateserial -out server.pem -days 365 -sha256
 //
 // 3. New client cert:
@@ -359,129 +359,128 @@ let sampleDerCertSPKI = Array(Data(base64Encoded: """
 // # Extensions for client authentication
 // extendedKeyUsage = clientAuth
 // ```
-// - openssl req -new -key client_key.pem -out client.csr
+// - openssl req -new -key client_key.pem -out client.csr -subj "/CN=localhost"
 // - openssl x509 -req -in client.csr -CA ca.pem -CAkey ca_key.pem -CAcreateserial -out client.pem -days 365 -sha256 -extfile client_ext.cnf -extensions v3_req
 //
 // Then, copy the contents of the files into the literal strings below.
 let customCARoot = """
 -----BEGIN CERTIFICATE-----
-MIICrjCCAZYCCQDFInBpelZ7dzANBgkqhkiG9w0BAQsFADAZMRcwFQYDVQQDDA5l
-eGFtcGxlLWNhLmNvbTAeFw0yMzA4MTQwOTE2MjRaFw0yNjA2MDMwOTE2MjRaMBkx
-FzAVBgNVBAMMDmV4YW1wbGUtY2EuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
-MIIBCgKCAQEA3IVnvJbtRqx+Rz4wadq2eRHuZlGrydSGg8RMtImTVrcqyd3WRR3i
-PZrEo9H1KuUusut6TgTTyrSNyVREJqITrZ3v9l+OuFq9LnBmV5Ut9uZWorXFLO4I
-S41BMTJ/2tbgjtqNkaBPpUrQOA0VkttRwLCMcIR/7G7ObxZNxBq+60mtukBpDF7z
-p9lbIXoVunLo31mRanetefbM/YgQfRL0+EAtjfSc/guuomjS2yPtzFyvafXeXiP7
-OtWdax844RnQyj/gdE4N8oI3IKADFDW5sUeNST54BrobV5QmfwHs1XC1ZTGGIBLu
-0tF62MdEqAqL33DTfgrcPo/gchg1xAseBQIDAQABMA0GCSqGSIb3DQEBCwUAA4IB
-AQBjU5UYmYWhmfKq+l23uz3o1JkigKshqTZPrNxLwiDjWAHFl6D8V2mWX3Xf2rT9
-P08Gxw9pHvn0KmgnwNyQW5s1zrnKldsxuRC++sZAcW25iwRSKVT4Mvk8r9UP3sGr
-e45jt+0OnQcijjFBGeQtkfmfGQqQ5hkGqUqgTs3yHHzi7RbueBjIZrQhcft+TJg9
-BUErR1HogGuz/eu4yTGHIsb/CPFWFaKuxJIwjQsKvdoE2HKhDf7sOX8k5SL+KeoQ
-JQwRtRWNZBFhUrzizV/bmKIB2ymBngfH1OB24JX4pPLt9og7FY92Lv+sLAzxfIHS
-JA2SpFYQeLTJNM8nsL/q/dDU
+MIICljCCAX4CCQC4Y0sXrSJWijANBgkqhkiG9w0BAQsFADANMQswCQYDVQQDDAJj
+YTAeFw0yNDA4MTMxMzQ4MjhaFw0yNzA2MDMxMzQ4MjhaMA0xCzAJBgNVBAMMAmNh
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxOnWOl7KYoEtoB0cjKnU
+kHJg2E7MhKiuCaPBLIodz8XxtC8WGc1DFnHakrphHWs850nWsOew1elBL1pLVFUP
+N6KUOgFFNXJ3OY3aD+Naekoefrc6UtljE8S+hlob+98vs1fSaLWIOVCoUiq9CwZN
+zwLC3oRxCPdL1+XndhwRl6o/lQq7iNY2/IAKuSbuugBw2LElVTOUmD5LneDRT17G
+K8iCzQa9pzrRqMv9+85nhSaETQUrTmnA9xVljp67Hi2AJtiZgEmZXP2/UF5svESz
+OfTXQyM/rWSc8wNLMfc5+UOq8uizqymDcbPdSrObFJDHus/UiS9EV+pNo2f8u+r1
+tQIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQAkqa7MfgsPyWNOd7juFXVIN3JJv2t9
+BcBUKMEsZx7ntLUKDgLsJopPLE2jwmyGxY3mKz9KjOifIvbDa1jyhDgditRgc9LQ
+uxwYXYDLTMuDBM7S2LJXgxDLaGuxEq6jeZHl3skXJJbGbfwjtsyvZSYocge7eJ6q
+lNeGVZVoTaEIvQzNr5JBIR9gSxHq4ASe8+w/emK4rUjEJ4RA34WkK7dsmqJdqinj
+u8cia2rDrffFzy/+Pb8q7CGekX/ky3BSyh4WObJ69zbDLQGEODIhe6WiMC1F7b0u
+WzA4SXi/yTa01nbGnQ6+VsqqlyZD4dMtjW34s64XmlyyhJFmsK6a7MuG
 -----END CERTIFICATE-----
 """
 
 let leafCertificateForTLSIssuedFromCustomCARoot = """
 -----BEGIN CERTIFICATE-----
-MIICsjCCAZoCCQD3XtnOig4QMjANBgkqhkiG9w0BAQsFADAZMRcwFQYDVQQDDA5l
-eGFtcGxlLWNhLmNvbTAeFw0yMzA4MTQwOTE3MDJaFw0yNDA4MTMwOTE3MDJaMB0x
-GzAZBgNVBAMMEmV4YW1wbGUtc2VydmVyLmNvbTCCASIwDQYJKoZIhvcNAQEBBQAD
-ggEPADCCAQoCggEBANSngp1ea6XFCi/MsEFsamf3ujH3gDV0qWMi7dt2wIFLfpGX
-CPIyOGn7NLCJIShw/TujvlOHLqwYGUxu+lIN/c5kU0B1PDurYEcUTR10zidOXAmi
-rjFwgccERjYKbugvfxm/mU39lmOob5PkFC3p6V9qFpARwQaK/q2t0j/Sku5tBvaY
-GPtyygi6W/I/+UwI8a7EorjAhk/IOwXUt5f6CcapGTltRZfG/qvpptwaMJTqwjW7
-HFLBUj0e4j0uR7bduhOYlub16Uvn4QKHIcMIBnTBj3ClRQSECf3wdgtLbqBSGmEf
-Xzb9tr02O+/TN3r0s77Y7INghVv7Tt3sNHVOTSECAwEAATANBgkqhkiG9w0BAQsF
-AAOCAQEAnWeiYtVTKynyYOVy0ClN+L0fACM7JG45UCIlybaTpz+c4jnJ2AdacY0z
-iFPJpnjl6NXzENvlZcu+unpWAM9WdeTv3pC5GdVasMfKMx2gMHyl9EAWlfD2z5zi
-AshmWEInbzcrr6XqxfseIu7gI7cuWElxQ4fje4PUaCTz0yaGPhWwzuWpNuG6b1nw
-8pjlKcg1uyUDZqthPNt3sGLJYMKgWfvRlfesPlHtU3pl0MEl3CuHyNuKNCt1DMXI
-kdelPaIiQCZk+sYj5ZIr4yBogoZu06fm0R0FYrcYpB4844GHzLezBjnn1OfJ8DB4
-UqR5CcyLWQfLe/HrAX7CZPh+UxYVWQ==
+MIICnTCCAYUCCQCFiuzjrL/j7TANBgkqhkiG9w0BAQsFADANMQswCQYDVQQDDAJj
+YTAeFw0yNDA4MTMxMzQ4MjhaFw0yNTA4MTMxMzQ4MjhaMBQxEjAQBgNVBAMMCWxv
+Y2FsaG9zdDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAOQ0prmO5wtc
+NTA2ln55ztxWIE9E6P1N0gqRcg2t9wvIXk+n/xWUuBRawYKQ0SahXRF3rAbsSaEm
+CdGdP1kImjLi7nFN+4tII8Ew/JsbLnJPr/UXbMVttJwdaMzDOsWQ9jb8GIqrtw+a
+voGlMI/pfipyvviSgSNTbkZHRGQorJSDyj1lANM6d3RvgRfL10QPhDR2TGzQQ/tx
+dtYdFmI5cUMyIDiB5FIh21q7ubb7I3L5Jw8tb7YhIYN0kQowU8lp0j0xc1i3XQcM
+bK0T/pRsmSmfmIFVxnhzp2tF1eKKmxvXjlBOnLrbxgtZ1QxPFGDrz5U62OU96RUI
+kgJshubN8oECAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAbeRxmsGMThKPX5V9+8RN
+0e51sNYquLLx0Z5tVPvU21C6dVgNc/513P3oULInUnVLxt7TU5kOlOij6JeuXijz
++NGjzE+jv4R5vcr6Hk3s7nPo/YpIAuck9NZsQOW5qhjyNp2nKoUNa4DUb4ixrvTo
+BKtPr+XJDmsVre1scE8kifbTnLjlhfdA85kAN+qLaelzRCxyK8BDyAKRNfyR1JaC
+bJDmUKdzZ78CHr6fsRtas5TedEROF3bwGlVuel3t5tBx1X3OsHqu8QOP7n7EZScJ
+A+UxN/xGlii6lBYINDWGLBlqKj7dh8pCFjP9Q8d7es53X9iY+Zmypac0dvg5GDnY
+DQ==
 -----END CERTIFICATE-----
 """
 
 let privateKeyForLeafCertificate = """
 -----BEGIN PRIVATE KEY-----
-MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDUp4KdXmulxQov
-zLBBbGpn97ox94A1dKljIu3bdsCBS36RlwjyMjhp+zSwiSEocP07o75Thy6sGBlM
-bvpSDf3OZFNAdTw7q2BHFE0ddM4nTlwJoq4xcIHHBEY2Cm7oL38Zv5lN/ZZjqG+T
-5BQt6elfahaQEcEGiv6trdI/0pLubQb2mBj7csoIulvyP/lMCPGuxKK4wIZPyDsF
-1LeX+gnGqRk5bUWXxv6r6abcGjCU6sI1uxxSwVI9HuI9Lke23boTmJbm9elL5+EC
-hyHDCAZ0wY9wpUUEhAn98HYLS26gUhphH182/ba9Njvv0zd69LO+2OyDYIVb+07d
-7DR1Tk0hAgMBAAECggEBAJeUq8L2+e6YzFEUK5MG77YaXEufq3DvLoqu7DNiq4e+
-Q4MN0N+rMpFA8ebgaJVGLQvlBRbPJlKffvD/rkjtFjyXQMyShJPX7fHco7daelSE
-Q5DOuDIfizJMdquwtiulJ4k4DNQN7bQt7RLTIhs0QBi2K00YiqnaS/2LCHJb7EYs
-fldMiJTe405d6gCBqI6tl1IVh56DbJiSEuWoqK2n0UuediN4ZHbDvi+QnRAfBww7
-kc+QJvEZ6XhjLifK7TM9fc1yxgMGcjeAvemdjHsFtp7EbvXuRNTGx5kmUYUaI0qC
-HAvANl8SlBpJLd6ezZIWm+NeHwckg+IrozoR5bEtVm0CgYEA8U3Z38nVJgSOffqA
-Bx665Vha8hxzUVVlDg4cqV/oJzyeclF+9xRp3FHO65icfLYeav3DnATVirTRcZwq
-gyL0akHGDj2c9Xi6LWXHCul1OIgzoz0XOrK2jj31d9NJ3rIgxXOdaVIz6narhbDT
-cwwIF/SPlfhjUdMy1E9dbH+GQQcCgYEA4Zr7vjP91hjTDNB3GuAYhlBkH7DRkNLU
-LU2rmmFXwXQu3YrWq/EDRG4+oh4AZ/WaTV7JoAFIkd1hy5ptYRTPHfI0zgo3Ma8S
-HkjnOieXebAPWKIGkzdUqx1BssRtsTOiMKrIAt0HYE2X1fL/jAy+LopOlfTcRYhQ
-gIgeNiFf/pcCgYAGyw9IKpFymYw9ZbD3All2nW8qA70HXCUVKTaLWiTZ/e3kAAFY
-CV4VksQFg+1b4XCnyG8aVFSCrCZ9UU0tFe3Vk/Z0bi2eB4EOSCA7YWkoZ0U04kJm
-J6PWC05+yhb5SwB7Lo8O6P6HKkIX6Gt7gKo1qm/kY/K/2fdDXNyfclOgPwKBgApO
-fEW6NlR7mdiyBV7y8evg7FIOT+Sf3RWcwMQywkGSPznbx+bfAdk0eCQL3tThAYWb
-WPa4WEphpMAac/jFbJjfoc3v5Ymdh+ReTEH54Q+sHWddL5O2KWYP1hqGosQ/qZ8z
-jiOjWVzq7o7VpRsO0flqVCDBqPZ8PcFBdq/eYnZNAoGAQs9rvJD0fb9mPYm974z1
-z/ynHRZoqB35VlOPs7DTd2wDHXB7PSfd/neadaqaHVQe9T3weZJJn24ugSFKqoGj
-hK0YjA/Td2nrk9fpd2uKGnuEZiEfpkWgLOVBmepUHH2if8VIwSvaWU79U7LtbN4l
-uSMcdpsHt7eQr1f+p7s2rZc=
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDkNKa5jucLXDUw
+NpZ+ec7cViBPROj9TdIKkXINrfcLyF5Pp/8VlLgUWsGCkNEmoV0Rd6wG7EmhJgnR
+nT9ZCJoy4u5xTfuLSCPBMPybGy5yT6/1F2zFbbScHWjMwzrFkPY2/BiKq7cPmr6B
+pTCP6X4qcr74koEjU25GR0RkKKyUg8o9ZQDTOnd0b4EXy9dED4Q0dkxs0EP7cXbW
+HRZiOXFDMiA4geRSIdtau7m2+yNy+ScPLW+2ISGDdJEKMFPJadI9MXNYt10HDGyt
+E/6UbJkpn5iBVcZ4c6drRdXiipsb145QTpy628YLWdUMTxRg68+VOtjlPekVCJIC
+bIbmzfKBAgMBAAECggEARegLGtS32jcI5BgUyfGueLi5dQ77AH2SVkJv2djs0OM0
+YNppvcatDS8wEDskltzfkbZDMGu5sm/gmiG9ghysf+IcgQEOiYAz076Z4znUZJgc
+osvmOiR9K0WnEPLNUjAx/G4FZpVropAYw8ZCthMk3wP/lE3s2VF5enXicXw0Qdn5
+QsaA1D+qPsdl/NcEKX4VrVYiQgFTUv7x6LT13Hq6o3CKeIkrg4/6stx8ErHQrAkM
+7dzoxvoSb/pB/Ik41gBeQXNeDig0FghyrEeHZnT+DwouF+/yOLjJCLMe2DezSDbq
+4jasWm7nbzpEkIJUgqC3ZZhtiQLXqNwErBsgGD/QsQKBgQD14hIsDfvqAlT59/Qi
+q8Q9bu0jwy13Ha+mVlDW5kvLWiPIz7Yp63znJP4tKiwn7vqGKQLAnFiLR4qOq7vv
+ohT76s9ItWmCLOdtxc461z+UueG+TiqYra7Gthk+3EqUblpUGW912pWxYokcsf8S
+FgkjumkycC2XUWgv70+9NcMIZwKBgQDtmGGGpRqp0zLMB9tdeEjWt+tm425mZAcE
+rtcHTtTRv38XfCG5UgtYc6weVg4IwOzQp5wWiu4O8ISiizJ5R7R4cn8k9O+rPB7d
+sGmtUmo32a2rP0g5kOPD3ssSarMnRY/BD2yPK2pSgLPnf4KYFd/XFBni1Irg8Trp
+i6SDQpB81wKBgHEzL2KQ3ZWSlUSv3vnHUoVl+E8qoFfiludhfb4yMFrimO7ukdMi
+01InOc3ZSJLp9vSlFNtQH4Of4C5m6hMc78Q7CktTGcwQmEt1ccitKFx0Z3WRzxKT
+g4+Abob+LGfBllx5iVMc2yXbU3yehevxsSt9usi51IOBuxG2f2OAyNWpAoGBAIvB
+9KwU9kgq+VhWzsx+cqoK6adN5KTJ9e7lQYsE7d6rPAD+fX/bKN1QvU/i4sJ3aVWb
+Ig+IjVuwUvSh2IDKkve+sdd1VH1vEeDpYmAXeG991dBDmyJxfei7Zsxggx14p4Sy
+o/LbYOFC35AuywzW4SJMqqVozIBgpXy3LYAgaYllAoGAbKdFBQSBaREyDl9Rq/YT
+cJId2Ti1Uf4NZ3Rv3ZG2/tU1tCXXPNF+1vWalM/Dxb6wcD38d9qeInth3v4fsi3E
+sS7RcKqjaA/qxL/pyjZCTLJq0e6LNJf8lLjeN1ZtG7rVEJ2OKFCGblePdXSakvIU
+n+6w7fMhLu0vy1cyUMjICco=
 -----END PRIVATE KEY-----
 """
 
 let leafCertificateForClientAuthenticationIssuedFromCustomCARoot = """
 -----BEGIN CERTIFICATE-----
-MIICzDCCAbSgAwIBAgIJAPde2c6KDhAzMA0GCSqGSIb3DQEBCwUAMBkxFzAVBgNV
-BAMMDmV4YW1wbGUtY2EuY29tMB4XDTIzMDgxNDA5MjAwM1oXDTI0MDgxMzA5MjAw
-M1owGTEXMBUGA1UEAwwOZXhhbXBsZS1jbGllbnQwggEiMA0GCSqGSIb3DQEBAQUA
-A4IBDwAwggEKAoIBAQDbu1C/CXQwhTk5QDrjsPDFRkn3ta8WzbCGlab4IvTqLRkU
-7tSJG5vSr7pfwMEpHPhTzJ46TK8Df9TZGkgO9ww/DTY7YPGDN1I4Lfj3fprzRx+C
-UvsMI57nJJBNwIBeAr0dgX3L7z0BTxRdLckrdXvO99rX9AVUXTlzxEPrw4oafgRv
-rljB0Uclh/bopuLsXGLiE4iN6jAM9z5f+ByOwCESJ8BngITuJIvE4hLEBXmZxAuR
-8wxdRwQyjDPHszmhbuMQU8oCtmQdoNKcUTQKekM8+6M3jsBRVLm8nun/56wvmlxl
-wpRBWoenGtlnR+kJ8ZfbWu4PyZ8QXB4o0OyshWWLAgMBAAGjFzAVMBMGA1UdJQQM
-MAoGCCsGAQUFBwMCMA0GCSqGSIb3DQEBCwUAA4IBAQAmEueGA6sOYuhmY6GIq17R
-vWHVFo8valIbEd1BlLe4GDGgFm5NBRIqusnQzHV9g5CS9RQC+97eHciiPt2t875u
-WKiZ5awNyQEHH7cfUY8Fj82xeNqaQ2EHtlNYNxRwcrxkZ6gFewby0a9zuT+kk9z4
-+1fa96zKM2gv3JvwDW9UV2Wfg87NpUygrflwArrRmHYKMKfJyWItM1hROULCFs62
-sJJAbeEdolImUpRkUm+0A9yYKihc2iybvDUATJrveSI5Fuam63sslDvEFmD3ZF3s
-swIUwzhSHvX4LVa35ylN+fL4fkcfCdq29w8OMeL/T7JKbTgcZ6wERHf+BTfzmniH
+MIICuzCCAaOgAwIBAgIJAIWK7OOsv+PuMA0GCSqGSIb3DQEBCwUAMA0xCzAJBgNV
+BAMMAmNhMB4XDTI0MDgxMzEzNDgyOFoXDTI1MDgxMzEzNDgyOFowFDESMBAGA1UE
+AwwJbG9jYWxob3N0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApjBs
+Na28P08R3QmX7bTk56RcMgduRa7ZAmblVwuVjbbc5ik41qzqVYnodGLFMdK+dZ5z
+YkK8M71C1PTDiH6eLQb/cxRB3WKS6gyEsOnc4JsTVIZ+xT4skyci3dpqynW1Z4H4
+6ChUJ6g7QXFNZ1L0lTjwkmy5FQth5CpQ5z/5ZbL/+2Rb+2vEQo5f+PmmT/rn2f9g
+UpapNqH875uwDWJvhjtqt12f3XpJvKxmLX33FDsX3j3wFtFM7aoEb94Q1r+6SQLe
+Du6TibqHE5ohplp7ULb1hUy5y1DlQ6vS8aXtwA5ObinLVCmTDHKqkxmn6VlAdeKv
+MYMpFMw65eo335CzdwIDAQABoxcwFTATBgNVHSUEDDAKBggrBgEFBQcDAjANBgkq
+hkiG9w0BAQsFAAOCAQEAbwppV53MXMOcCpZ7k3uuYiICALmJQLjD6FDv/gp4Q4Fr
+2YVsS+lPYpbdVJVmF1CtSZPTnKn8mYSRq19Ypx48PG+S2Xg3+5VcdUVuTFpRMDCn
++XrQV4TBz+ULUmml79vMwjpBZ6vL/Ddm/fV8nmPtQz2/KTuEYkzVZ33NP/ogtUIj
+krLDfYaPlVuyzXDth9cRQ/ZIOBh7ACW57cTohwkac5NMQmXrjRktwnGzzQ3neRZV
+Isjs54oPSjhBYISOQjEqMgeOq/cflsDVr8jPaYUkIj4Rd278bS5dyjva4ZJiLKEu
+HD03fD1RGeVOWJCOhy0cwErutfPKILZx9koomjet/g==
 -----END CERTIFICATE-----
 """
 
 let privateKeyForClientAuthentication = """
 -----BEGIN PRIVATE KEY-----
-MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDbu1C/CXQwhTk5
-QDrjsPDFRkn3ta8WzbCGlab4IvTqLRkU7tSJG5vSr7pfwMEpHPhTzJ46TK8Df9TZ
-GkgO9ww/DTY7YPGDN1I4Lfj3fprzRx+CUvsMI57nJJBNwIBeAr0dgX3L7z0BTxRd
-LckrdXvO99rX9AVUXTlzxEPrw4oafgRvrljB0Uclh/bopuLsXGLiE4iN6jAM9z5f
-+ByOwCESJ8BngITuJIvE4hLEBXmZxAuR8wxdRwQyjDPHszmhbuMQU8oCtmQdoNKc
-UTQKekM8+6M3jsBRVLm8nun/56wvmlxlwpRBWoenGtlnR+kJ8ZfbWu4PyZ8QXB4o
-0OyshWWLAgMBAAECggEBAM1NIe+sdJwVDddZFOzC2ONpfhjs70/eFU5aKyxy9OSM
-CIBPedM1MY1T1U47+f5g7ADYEQqltWwOlx/V93fMCewrev1V4bHZEYAeLB2KdFpT
-nLQWtiusaH7M4etTrlyoMGyOHaxatmQvr/Yznl91oJ1LZXUasZQWmmR4/4EcLT/7
-vJrobJaVYR2APCj8rVvHfbmkbWAedRlc6T931/tD/K38z67NfdL7NUrsVKHZGXtg
-QSnx0C6ZmWWND4dpR2HPy7E18WgX2ocLYYtKlAeUjnur5DGZAniLanMbKZVPGE9I
-pCol2mbrJwMTxPPSxTFaJhNfngGc1WhbJ44COhTWRYkCgYEA+F5aYvUc0hKhRUq8
-r/xi6UarRlQUZq1YFIyb1ohfHiiW02rQQbYAbENezJ5CTxEo8+OIiX4Rt81RKr0I
-4+hUFgGKMxOG59buXUfJaX3td4ViEXElcTQvMvY/SG1hwWEHQex2F/5j6WZkJl+v
-Eh7p2x0JRvXf14m2V3VJ2Q58cTcCgYEA4nu1A6Vwffmju2yJYkQKrT0hcwAe2ks1
-AvOPajAepXbcZvhxv9U/3HifNR1H3sWwDoU8WdtkX6sGvw6d8roGEhtm/gkjdYII
-70nNV0KLRhHz5jp2yZlmJfvvTuRO7v2DGyGOp/J8WSK4zEZWt3hPF7KcJeGuyONa
-d/oe3NYvaE0CgYBp4q/eKGmVFeQzSl2PGaaBlWNHpGjeLWCzwg5eM915WgyTLaKD
-oTgk78PmsEHMu6Ad+g8nrtuW5K2J7vVvVIkkqJtmkxicloEgu44er1Uh83ePwBEa
-ZgkJTPpFwnw+mUMi09C1AftOchyYT4qvywYgKAzgd8pqdYeLWbGWHBrpmQKBgQCs
-j/EVvCH/+gtkrIfo1UsFQASSaM8ZKCBWBVmKYOuYyv2Xf0i8DzE/PLCheZPfCuTf
-y2h2VpEdy2OyguKZpF8nwLUybagUymUgXS0VhWA0nU0mZ/lGFZkc694kUBRMR+By
-9ZiKIlnYWHpROm6sEADDX5VVz6Sq739o1qxZOuCYKQKBgQDdpvNme2Tapq9xpzP1
-57+kCmw8oINos+epiePxwCHGBi+fD7KHzd3ksbDuJjEHWvOmEiNZlMq2tm+b0z3S
-sY9yNFGm8MReuagVbMrrXQMrKEMgjD16iaJEb/iTNkiuXP8svEplNCtCTx9CPvwF
-yjs/D/6w2xhrlaheHU9naVLj4Q==
+MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCmMGw1rbw/TxHd
+CZfttOTnpFwyB25FrtkCZuVXC5WNttzmKTjWrOpVieh0YsUx0r51nnNiQrwzvULU
+9MOIfp4tBv9zFEHdYpLqDISw6dzgmxNUhn7FPiyTJyLd2mrKdbVngfjoKFQnqDtB
+cU1nUvSVOPCSbLkVC2HkKlDnP/llsv/7ZFv7a8RCjl/4+aZP+ufZ/2BSlqk2ofzv
+m7ANYm+GO2q3XZ/dekm8rGYtffcUOxfePfAW0UztqgRv3hDWv7pJAt4O7pOJuocT
+miGmWntQtvWFTLnLUOVDq9Lxpe3ADk5uKctUKZMMcqqTGafpWUB14q8xgykUzDrl
+6jffkLN3AgMBAAECggEAStoYgvzjguhMNXByu5/0UdkXpXjvU/dyysApn9EZ5SBt
+0kTS0u5DBY/94R3zj4NKQZPCiIliVzNxfJVZ1IqjF8jFGcIQAHS7kytcQIq0730p
+cbK6OoDMduLzs1UDMHlf4WULBRXVAZ+mQM2VfWpBu0xQHsNVgYME7k2Y7u9Dl2gT
+7KR3Mc9rBxyaO/0Fdep+0Veju2AOsn2XG/U7skjXdRXgFgfLSu+6IoYj6fzFGwiI
++kRquj+NerOJTrWjzn2q8BH+xtZxda9lqOra5aHY0gHrTtHY9DLFTQTFXETk6fvU
+alT+PU8mM0WqbXoxOL1q+Jdn4kOofwqhnYUc3BWLYQKBgQDcJrx9yvUv2dzablI7
+N04wEpoltfM2cl0sJPrTjnVK1Sjtf2dVsTrhdFS6pRRqCoN+qVQpUYFef63U3Doj
+xl4bRHcRAiwYONoV4LWROxGuw6ulT/+xZypYix2ojwQ1rt2I+uwOKYVz6rh9U/Zx
+ETX8ue5hDOTNKXpeyOeOVTosWQKBgQDBQDX60vdp6IO332jpFbnyLp0WyPC4oQVE
+BUUf8E7naUStKXZfqErzN3aKfSY08VC9jjrJtrR8Fj5XRzDwcfiH2L2yOgmuiR7J
+e+CpvTMzPJcNqkAlq3Wu+tTPVJ1Nk5GtIW2kTt0NpNv31JRnZzbH1hcqT3cvyV15
+uqxdqVSkTwKBgBwQDAL09iAtY0usuGq3+A2EsYWRFfmgxmO0Kw0Aoc7yMQ9lKCTy
+PJE0pQBNvrZttKlWqFXD//utxtjVYcvho2lSZuMSJdDInnQfesWShASFCMI/2lYg
+0nMK+LLd2CmHqtGlOqXrgQlvqCjBpS5whTM7+DkCzb+hQ+oFLg8kqg+xAoGAYv9m
+58BNWKbxWy+KyeUEZcl1VefIUXzDes4MVElB0pB9ywtzhZtsEd52zolAGl0I1KJZ
+AV6kZPDsLL/elT59Z/Ijc3sB3LSH3gWk2K+A3B2M8EYoKGQGnIYIoNGi58vSE9QN
+G9/+o++xc+slvzcDvCmzokwlLYjFZwe3JyAIqUcCgYBLxSG8z7kTKCMhXNMRTX3Y
+IjCukdcPm7Uh5qQAbNExQHeXaO87BG94XVo4EcsKaI4zi5YrtStJArtdoRAXm/Wc
+pIg/+VE2utJEI9qcwSLwOFQwxXmFZvcVATnYDK4oyxL7ibFuD08x3kxnrDBfB3pi
+UT+vAVNaHZwttUGp5k/hQA==
 -----END PRIVATE KEY-----
 """
 
@@ -561,7 +560,7 @@ func randomSerialNumber() -> ASN1_INTEGER {
     defer {
         CNIOBoringSSL_BN_free(bn)
     }
-    
+
     _ = readBytes.withUnsafeBufferPointer {
         CNIOBoringSSL_BN_bin2bn($0.baseAddress, $0.count, bn)
     }
@@ -591,7 +590,7 @@ func generateRSAPrivateKey() -> OpaquePointer {
 
     let pkey = CNIOBoringSSL_EVP_PKEY_new()!
     let assignRC = CNIOBoringSSL_EVP_PKEY_assign_RSA(pkey, rsa)
-    
+
     precondition(assignRC == 1)
     return pkey
 }
@@ -613,7 +612,7 @@ func generateECPrivateKey(curveNID: CInt = NID_X9_62_prime256v1) -> OpaquePointe
 
 func addExtension(x509: OpaquePointer, nid: CInt, value: String) {
     var extensionContext = X509V3_CTX()
-    
+
     CNIOBoringSSL_X509V3_set_ctx(&extensionContext, x509, x509, nil, nil, 0)
     let ext = value.withCString { (pointer) in
         return CNIOBoringSSL_X509V3_EXT_nconf_nid(nil, &extensionContext, nid, UnsafeMutablePointer(mutating: pointer))
@@ -631,21 +630,21 @@ func generateSelfSignedCert(keygenFunction: () -> OpaquePointer = generateRSAPri
     // safe, there will be no use-after-free.
     var serial = randomSerialNumber()
     CNIOBoringSSL_X509_set_serialNumber(x, &serial)
-    
+
     let notBefore = CNIOBoringSSL_ASN1_TIME_new()!
     var now = time(nil)
     CNIOBoringSSL_ASN1_TIME_set(notBefore, now)
     CNIOBoringSSL_X509_set_notBefore(x, notBefore)
     CNIOBoringSSL_ASN1_TIME_free(notBefore)
-    
+
     now += 60 * 60  // Give ourselves an hour
     let notAfter = CNIOBoringSSL_ASN1_TIME_new()!
     CNIOBoringSSL_ASN1_TIME_set(notAfter, now)
     CNIOBoringSSL_X509_set_notAfter(x, notAfter)
     CNIOBoringSSL_ASN1_TIME_free(notAfter)
-    
+
     CNIOBoringSSL_X509_set_pubkey(x, pkey)
-    
+
     let commonName = "localhost"
     let name = CNIOBoringSSL_X509_get_subject_name(x)
     commonName.withCString { (pointer: UnsafePointer<Int8>) -> Void in
@@ -660,14 +659,14 @@ func generateSelfSignedCert(keygenFunction: () -> OpaquePointer = generateRSAPri
         }
     }
     CNIOBoringSSL_X509_set_issuer_name(x, name)
-    
+
     addExtension(x509: x, nid: NID_basic_constraints, value: "critical,CA:FALSE")
     addExtension(x509: x, nid: NID_subject_key_identifier, value: "hash")
     addExtension(x509: x, nid: NID_subject_alt_name, value: "DNS:localhost")
     addExtension(x509: x, nid: NID_ext_key_usage, value: "critical,serverAuth,clientAuth")
-    
+
     CNIOBoringSSL_X509_sign(x, pkey, CNIOBoringSSL_EVP_sha256())
-    
+
     return (NIOSSLCertificate.fromUnsafePointer(takingOwnership: x), NIOSSLPrivateKey.fromUnsafePointer(takingOwnership: pkey))
 }
 
