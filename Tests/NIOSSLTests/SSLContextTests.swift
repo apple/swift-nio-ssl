@@ -19,7 +19,7 @@ import NIOTLS
 import NIOEmbedded
 @testable import NIOSSL
 
-class SSLContextTest: XCTestCase {
+final class SSLContextTest: XCTestCase {
     fileprivate class ServerContextWrapper {
         let sslContextExpectation: XCTestExpectation
         var context: NIOSSLContext?
