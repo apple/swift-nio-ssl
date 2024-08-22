@@ -2826,4 +2826,59 @@ class NIOSSLIntegrationTest: XCTestCase {
         b2b.client.close(promise: nil)
         try b2b.interactInMemory()
     }
+
+    func testDoesNotSpinLoopWhenInactiveAndActiveAreReversed() throws {
+        // This is a regression test for https://github.com/apple/swift-nio-ssl/issues/467
+        //
+        // If channelInactive occurs before channelActive and a re-entrant write and flush occurred
+        // in channelActive then 'NIOSSLHandler.doUnbufferActions(context:)' would loop
+        // indefinitely.
+        let eventLoop = EmbeddedEventLoop()
+        let promise = eventLoop.makePromise(of: Void.self)
+
+        final class WriteAndFlushOnActive: ChannelInboundHandler {
+            typealias InboundIn = ByteBuffer
+            typealias OutboundOut = ByteBuffer
+
+            private let promise: EventLoopPromise<Void>
+
+            init(promise: EventLoopPromise<Void>) {
+                self.promise = promise
+            }
+
+            func channelActive(context: ChannelHandlerContext) {
+                let buffer = context.channel.allocator.buffer(string: "You spin me right 'round")
+                context.writeAndFlush(self.wrapOutboundOut(buffer), promise: self.promise)
+                context.fireChannelActive()
+            }
+        }
+
+        let context = try self.configuredSSLContext()
+        let handler = try NIOSSLClientHandler(context: context, serverHostname: nil)
+        let channel = EmbeddedChannel(
+            handlers: [handler, WriteAndFlushOnActive(promise: promise)],
+            loop: eventLoop
+        )
+
+        // Close _before_ channel active. This shouldn't (but can https://github.com/apple/swift-nio/issues/2773)
+        // happen for 'real' channels by synchronously closing the channel when the connect promise
+        // is succeeded.
+        channel.pipeline.fireChannelInactive()
+        channel.pipeline.fireChannelActive()
+
+        // The handshake starts in channelActive (and handlerAdded if the channel is already
+        // active). If the events are reordered then the handshake shouldn't start and there
+        // shouldn't be any outbound data.
+        XCTAssertNil(try channel.readOutbound(as: ByteBuffer.self))
+
+        // The write promise should fail.
+        XCTAssertThrowsError(try promise.futureResult.wait()) { error in
+            XCTAssertEqual(error as? ChannelError, .ioOnClosedChannel)
+        }
+
+        // Subsequent writes should also fail.
+        XCTAssertThrowsError(try channel.writeOutbound(ByteBuffer(string: "Like a record, baby, right 'round"))) { error in
+            XCTAssertEqual(error as? ChannelError, .ioOnClosedChannel)
+        }
+    }
 }

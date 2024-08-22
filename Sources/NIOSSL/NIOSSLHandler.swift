@@ -351,7 +351,15 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     ///
     /// This method must not be called once the connection is established.
     private func doHandshakeStep(context: ChannelHandlerContext) {
-        let result = connection.doHandshake()
+        switch self.state {
+        case .unwrapped, .inputClosed, .outputClosed, .closed:
+            // We shouldn't be handshaking in any of these state.
+            return
+        case .idle, .handshaking, .additionalVerification, .active, .closing, .unwrapping:
+            ()
+        }
+
+        let result = self.connection.doHandshake()
 
         switch result {
         case .incomplete:
@@ -872,8 +880,14 @@ extension NIOSSLHandler {
     }
 
     private func bufferWrite(data: ByteBuffer, promise: EventLoopPromise<Void>?) {
-        if case .outputClosed = self.state {
+        switch self.state {
+        case .idle, .handshaking, .additionalVerification, .active, .unwrapping, .closing, .unwrapped, .inputClosed:
+            ()
+        case .outputClosed:
             promise?.fail(ChannelError.outputClosed)
+            return
+        case .closed:
+            promise?.fail(ChannelError.ioOnClosedChannel)
             return
         }
 
@@ -914,41 +928,58 @@ extension NIOSSLHandler {
         // These are some annoying variables we use to persist state across invocations of
         // our closures. A better version of this code might be able to simplify this somewhat.
         var promises: [EventLoopPromise<Void>] = []
-        var didWrite = false
 
         do {
             var invokeCloseOutput = false
-            bufferedActionsLoop: while bufferedActions.hasMark {
-                let element = bufferedActions.first!
-                switch element {
-                case .write(let bufferedWrite):
-                    var data = bufferedWrite.data
-                    let writeSuccessful = try self._encodeSingleWrite(buf: &data)
-                    if writeSuccessful {
-                        didWrite = true
-                        if let promise = bufferedWrite.promise { promises.append(promise) }
-                        _ = bufferedActions.removeFirst()
+            var bufferedActionsLoopCount = 0
+            bufferedActionsLoop: while self.bufferedActions.hasMark, bufferedActionsLoopCount < 1000 {
+                bufferedActionsLoopCount += 1
+                var didWrite = false
+
+                writeLoop: while self.bufferedActions.hasMark {
+                    let element = self.bufferedActions.first!
+                    switch element {
+                    case .write(let bufferedWrite):
+                        var data = bufferedWrite.data
+                        let writeSuccessful = try self._encodeSingleWrite(buf: &data)
+                        if writeSuccessful {
+                            didWrite = true
+                            if let promise = bufferedWrite.promise { promises.append(promise) }
+                            _ = self.bufferedActions.removeFirst()
+                        } else {
+                            // The write into BoringSSL unsuccessful. Break the write loop so any
+                            // data is written to the network before resuming.
+                            break writeLoop
+                        }
+                    case .closeOutput:
+                        invokeCloseOutput = true
+                        _ = self.bufferedActions.removeFirst()
+                        break writeLoop
                     }
-                case .closeOutput:
-                    invokeCloseOutput = true
-                    _ = bufferedActions.removeFirst()
+                }
+
+                // If we got this far and did a write, we should shove the data out to the
+                // network.
+                if didWrite {
+                    let ourPromise: EventLoopPromise<Void>? = promises.flattenPromises(on: context.eventLoop)
+                    self.writeDataToNetwork(context: context, promise: ourPromise)
+                }
+
+                // We detected a .closeOutput action in our action buffer. This means we
+                // close the output after we have written all pending writes.
+                if invokeCloseOutput {
+                    self.state = .outputClosed
+                    self.doShutdownStep(context: context)
+                    self.discardBufferedActions(reason: ChannelError.outputClosed)
                     break bufferedActionsLoop
                 }
             }
 
-            // If we got this far and did a write, we should shove the data out to the
-            // network.
-            if didWrite {
-                let ourPromise: EventLoopPromise<Void>? = promises.flattenPromises(on: context.eventLoop)
-                self.writeDataToNetwork(context: context, promise: ourPromise)
-            }
-
-            // We detected a .closeOutput action in our action buffer. This means we
-            // close the output after we have written all pending writes.
-            if invokeCloseOutput {
-                self.state = .outputClosed
-                self.doShutdownStep(context: context)
-                self.discardBufferedActions(reason: ChannelError.outputClosed)
+            // We spun the outer loop too many times, something isn't right so let's bail out
+            // instead of looping any longer.
+            if bufferedActionsLoopCount >= 1000 {
+                assertionFailure("\(#function) looped too many times, please file a GitHub issue against swift-nio-ssl.")
+                throw NIOSSLExtraError.noForwardProgress
             }
         } catch {
             // We encountered an error, it's cleanup time. Close ourselves down.
