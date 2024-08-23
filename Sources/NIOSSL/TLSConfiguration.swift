@@ -295,15 +295,65 @@ public struct TLSConfiguration {
     /// The private key associated with the leaf certificate.
     public var privateKey: NIOSSLPrivateKeySource?
     
+    internal var _pskClientIdentityProvider: _NIOPSKClientIdentityProvider?
+    internal var _pskServerIdentityProvider: _NIOPSKServerIdentityProvider?
+
     /// PSK Client Callback to get the key based on hint and identity.
-    public var pskClientCallback: NIOPSKClientIdentityCallback? = nil
-    
-    /// PSK Server Callback to get the key based on hint and identity.
-    public var pskServerCallback: NIOPSKServerIdentityCallback? = nil
+    @available(*, deprecated, message: "Deprecated in favor of pskClientProvider which can handle optional hint")
+    public var pskClientCallback: NIOPSKClientIdentityCallback? {
+        get {
+            if case .callback(let callback) = self._pskClientIdentityProvider {
+                return callback
+            }
+            return nil
+        }
+        set {
+            self._pskClientIdentityProvider = newValue.flatMap({ .callback($0) })
+        }
+    }
 
     /// SSL Context Callback to provide dynamic context based on server name
     public var sslContextCallback: NIOSSLContextCallback? = nil
 
+    @available(*, deprecated, message: "Deprecated in favor of pskServerProvider which can handle optional hint")
+    public var pskServerCallback: NIOPSKServerIdentityCallback? {
+        get {
+            if case .callback(let callback) = self._pskServerIdentityProvider {
+                return callback
+            }
+            return nil
+        }
+        set {
+            self._pskServerIdentityProvider = newValue.flatMap({ .callback($0) })
+        }
+    }
+
+    /// PSK Client Callback to get the key based on an optional hint and identity.
+    public var pskClientProvider: NIOPSKClientIdentityProvider? {
+         get {
+            if case .provider(let callback) = self._pskClientIdentityProvider {
+                return callback
+            }
+            return nil
+        }
+        set {
+            self._pskClientIdentityProvider = newValue.flatMap({ .provider($0) })
+        }
+    }
+    
+    /// PSK Server Callback to get the key based on an optional hint and identity.
+    public var pskServerProvider: NIOPSKServerIdentityProvider? {
+        get {
+            if case .provider(let callback) = self._pskServerIdentityProvider {
+                return callback
+            }
+            return nil
+        }
+        set {
+            self._pskServerIdentityProvider = newValue.flatMap({ .provider($0) })
+        }
+    }
+    
     /// Optional PSK hint to be used during SSLContext create.
     public var pskHint: String? = nil
 
@@ -355,6 +405,8 @@ public struct TLSConfiguration {
                  pskClientCallback: NIOPSKClientIdentityCallback? = nil,
                  pskServerCallback: NIOPSKServerIdentityCallback? = nil,
                  sslContextCallback: NIOSSLContextCallback? = nil,
+                 pskClientProvider: NIOPSKClientIdentityProvider? = nil,
+                 pskServerProvider: NIOPSKServerIdentityProvider? = nil,
                  pskHint: String? = nil) {
         self.cipherSuites = cipherSuites
         self.verifySignatureAlgorithms = verifySignatureAlgorithms
@@ -375,6 +427,8 @@ public struct TLSConfiguration {
         self.pskClientCallback = pskClientCallback
         self.pskServerCallback = pskServerCallback
         self.sslContextCallback = sslContextCallback
+        self.pskClientProvider = pskClientProvider
+        self.pskServerProvider = pskServerProvider
         self.pskHint = pskHint
         if !cipherSuiteValues.isEmpty {
             self.cipherSuiteValues = cipherSuiteValues
@@ -397,14 +451,14 @@ extension TLSConfiguration {
                 return callbackPointer1.elementsEqual(callbackPointer2)
             }
         }
-        let isPSKClientCallbackEqual = withUnsafeBytes(of: self.pskClientCallback) { pskClientCallback1 in
-            return withUnsafeBytes(of: comparing.pskClientCallback) { pskClientCallback2 in
-                return pskClientCallback1.elementsEqual(pskClientCallback2)
+        let isPSKClientProviderEqual = withUnsafeBytes(of: self._pskClientIdentityProvider) { pskClientProvider1 in
+            return withUnsafeBytes(of: comparing._pskClientIdentityProvider) { pskClientProvider2 in
+                return pskClientProvider1.elementsEqual(pskClientProvider2)
             }
         }
-        let isPSKServerCallbackEqual = withUnsafeBytes(of: self.pskServerCallback) { pskServerCallback1 in
-            return withUnsafeBytes(of: comparing.pskServerCallback) { pskServerCallback2 in
-                return pskServerCallback1.elementsEqual(pskServerCallback2)
+        let isPSKServerProviderEqual = withUnsafeBytes(of: self._pskServerIdentityProvider) { pskServerProvider1 in
+            return withUnsafeBytes(of: comparing._pskServerIdentityProvider) { pskServerProvider2 in
+                return pskServerProvider1.elementsEqual(pskServerProvider2)
             }
         }
         let isSSLContextCallbackEqual = withUnsafeBytes(of: self.sslContextCallback) { sslContextCallback1 in
@@ -431,6 +485,8 @@ extension TLSConfiguration {
             isPSKClientCallbackEqual &&
             isPSKServerCallbackEqual &&
             isSSLContextCallbackEqual &&
+            isPSKClientProviderEqual &&
+            isPSKServerProviderEqual &&
             self.pskHint == comparing.pskHint
     }
     
@@ -457,10 +513,10 @@ extension TLSConfiguration {
         }
         hasher.combine(renegotiationSupport)
         hasher.combine(sendCANameList)
-        withUnsafeBytes(of: pskClientCallback) { closureClientBits in
+        withUnsafeBytes(of: _pskClientIdentityProvider) { closureClientBits in
             hasher.combine(bytes: closureClientBits)
         }
-        withUnsafeBytes(of: pskServerCallback) { closureServerBits in
+        withUnsafeBytes(of: _pskServerIdentityProvider) { closureServerBits in
             hasher.combine(bytes: closureServerBits)
         }
         withUnsafeBytes(of: sslContextCallback) { closureServerBits in
@@ -494,6 +550,8 @@ extension TLSConfiguration {
                                 pskClientCallback: nil,
                                 pskServerCallback: nil,
                                 sslContextCallback: nil,
+                                pskClientProvider: nil,
+                                pskServerProvider: nil,
                                 pskHint: nil)
     }
 
@@ -522,8 +580,8 @@ extension TLSConfiguration {
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
                                 sendCANameList: false,
-                                pskClientCallback: nil,
-                                pskServerCallback: nil,
+                                pskClientProvider: nil,
+                                pskServerProvider: nil,
                                 pskHint: nil)
     }
     
@@ -550,8 +608,8 @@ extension TLSConfiguration {
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
                                 sendCANameList: false,
-                                pskClientCallback: nil,
-                                pskServerCallback: nil,
+                                pskClientProvider: nil,
+                                pskServerProvider: nil,
                                 pskHint: nil)
     }
 }

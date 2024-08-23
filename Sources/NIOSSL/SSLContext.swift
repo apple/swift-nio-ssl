@@ -121,7 +121,7 @@ private func serverPSKCallback(ssl: OpaquePointer?,
                                  max_psk_len: UInt32) -> UInt32 {
     
     guard let ssl = ssl else { return 0 }
-    
+
     // Initial implementation only supports TLS 1.2 due API support exposed from BoringSSL.
     // TODO (meaton) add TLS 1.3 support when available.
     
@@ -130,17 +130,29 @@ private func serverPSKCallback(ssl: OpaquePointer?,
     guard let serverCallback = parentSwiftContext.pskServerConfigurationCallback,
           let unwrappedIdentity = identity, // Incoming identity
           let strIdentity = String(validatingUTF8: unwrappedIdentity),
-          let configurationHint = parentSwiftContext.configuration.pskHint,
           let outputPSK = psk // Output PSK key.
           else {
         return 0
     }
-    
+
     // Take the hint and the possible identity and pass them down to the callback to get associated PSK from callback
-    guard let contextPSKIdentityCallback = try? serverCallback(configurationHint, strIdentity) else {
+    var identityResponse: PSKServerIdentityResponse? = nil
+    switch serverCallback {
+        case .callback(let callback):
+            // Deprecated callback doesn't accept optional hint value
+            guard let hint = parentSwiftContext.configuration.pskHint else { return 0 }
+            identityResponse = try? callback(hint, strIdentity)
+        case .provider(let provider):
+            identityResponse = try? provider(PSKServerContext(
+                hint: parentSwiftContext.configuration.pskHint,
+                clientIdentity: strIdentity,
+                maxPSKLength: Int(max_psk_len)
+            ))
+    } 
+    guard let identityResponse else {
         return 0
     }
-    let serverPSK = contextPSKIdentityCallback.key // From the callback
+    let serverPSK = identityResponse.key // From the callback
     
     // Make sure the key is returned by the callback and it is of proper length, otherwise, fail.
     if serverPSK.isEmpty || serverPSK.count > max_psk_len {
@@ -161,8 +173,6 @@ private func clientPSKCallback(ssl: OpaquePointer?,
                                  max_psk_len: UInt32) -> UInt32 {
     
     guard let ssl = ssl else { return 0 }
-    // Initial implementation only supports TLS 1.2 due API support exposed from BoringSSL.
-    // TODO (meaton) add TLS 1.3 support when available.
     
     let parentSwiftContext = NIOSSLContext.lookupFromRawContext(ssl: ssl)
 
@@ -173,17 +183,26 @@ private func clientPSKCallback(ssl: OpaquePointer?,
         return 0
     }
     
-    // If set, build out a hint to pass into the client callback.
-    guard let clientHint = hint,
-          let derivedHint = String(validatingUTF8: clientHint) else {
-        return 0
-    }
+    // If set, build out a hint otherwise fallback to an empty string and pass it into the client callback.
+    let clientHint: String? = hint.flatMap({ String(validatingUTF8: $0) })
+
     // Take the hint and pass it down to the callback to get associated PSK from callback
-    guard let pskIdentityCallback = try? clientCallback(derivedHint) else {
-        return 0
+    let pskIdentity: PSKClientIdentityResponse?
+    switch clientCallback {
+        case .callback(let callback):
+            // Deprecated callback doesn't accept optional hint value
+            guard let clientHint else { return 0 }
+            pskIdentity = try? callback(clientHint)
+        case .provider(let provider):
+            pskIdentity = try? provider(PSKClientContext(
+                hint: clientHint, 
+                maxPSKLength: Int(max_psk_len)
+            ))
     }
-    let clientPSK = pskIdentityCallback.key // Key from the callback
-    let clientIdentity = pskIdentityCallback.identity
+    guard let pskIdentity else { return 0 }
+    
+    let clientPSK = pskIdentity.key // Key from the callback
+    let clientIdentity = pskIdentity.identity
     
     // Use max_identity_len so it does not trigger an overrun.
     if clientIdentity.utf8.isEmpty || clientIdentity.utf8.count > max_identity_len {
@@ -265,8 +284,8 @@ public final class NIOSSLContext {
     private let callbackManager: CallbackManagerProtocol?
     private var keyLogManager: KeyLogCallbackManager?
     internal var customContextManager: CustomContextManager?
-    internal var pskClientConfigurationCallback: NIOPSKClientIdentityCallback?
-    internal var pskServerConfigurationCallback: NIOPSKServerIdentityCallback?
+    internal var pskClientConfigurationCallback: _NIOPSKClientIdentityProvider?
+    internal var pskServerConfigurationCallback: _NIOPSKServerIdentityProvider?
     internal let configuration: TLSConfiguration
 
     /// Initialize a context that will create multiple connections, all with the same
@@ -313,13 +332,13 @@ public final class NIOSSLContext {
         precondition(1 == returnCode)
         
         // Set the PSK Client Configuration callback.
-        if let pskClientConfigurationsCallback = configuration.pskClientCallback {
+        if let pskClientConfigurationsCallback = configuration._pskClientIdentityProvider {
             self.pskClientConfigurationCallback = pskClientConfigurationsCallback
             CNIOBoringSSL_SSL_CTX_set_psk_client_callback(context, clientPSKCallback)
         }
-        
+         
         // Set the PSK Server Configuration callback.
-        if let pskServerConfigurationCallback = configuration.pskServerCallback {
+        if let pskServerConfigurationCallback = configuration._pskServerIdentityProvider {
             self.pskServerConfigurationCallback = pskServerConfigurationCallback
             CNIOBoringSSL_SSL_CTX_set_psk_server_callback(context, serverPSKCallback)
         }
