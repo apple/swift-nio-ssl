@@ -331,7 +331,8 @@ public final class NIOSSLContext {
             verification: configuration.certificateVerification,
             trustRoots: configuration.trustRoots,
             additionalTrustRoots: configuration.additionalTrustRoots,
-            sendCANames: configuration.sendCANameList)
+            sendCANames: configuration.sendCANameList,
+            certificateRequired: configuration.certificateRequired)
         
         // Configure verification algorithms
         if let verifySignatureAlgorithms = configuration.verifySignatureAlgorithms {
@@ -586,11 +587,12 @@ extension NIOSSLContext {
 
 // Configuring certificate verification
 extension NIOSSLContext {
-    private static func configureCertificateValidation(context: OpaquePointer, verification: CertificateVerification, trustRoots: NIOSSLTrustRoots?, additionalTrustRoots: [NIOSSLAdditionalTrustRoots], sendCANames: Bool) throws {
+    private static func configureCertificateValidation(context: OpaquePointer, verification: CertificateVerification, trustRoots: NIOSSLTrustRoots?, additionalTrustRoots: [NIOSSLAdditionalTrustRoots], sendCANames: Bool, certificateRequired: Bool) throws {
         // If validation is turned on, set the trust roots and turn on cert validation.
         switch verification {
         case .fullVerification, .noHostnameVerification:
-            CNIOBoringSSL_SSL_CTX_set_verify(context, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, nil)
+            let flags = certificateRequired ? SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT : SSL_VERIFY_PEER
+            CNIOBoringSSL_SSL_CTX_set_verify(context, flags, nil)
 
             // Also, set TRUSTED_FIRST to work around dumb clients that don't know what they're doing and send
             // untrusted root certs. X509_VERIFY_PARAM will or-in the flags, so we don't need to load them first.

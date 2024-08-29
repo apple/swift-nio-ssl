@@ -390,6 +390,40 @@ class TLSConfigurationTest: XCTestCase {
 
         try assertPostHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["CERTIFICATE_REQUIRED"])
     }
+
+    func testMutualValidationOptionalClientCertificatePreTLS13() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.maximumTLSVersion = .tlsv12
+        clientConfig.certificateVerification = .none
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.maximumTLSVersion = .tlsv12
+        serverConfig.certificateVerification = .noHostnameVerification
+        serverConfig.certificateRequired = false
+        serverConfig.trustRoots = .certificates([TLSConfigurationTest.cert2])
+
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    func testMutualValidationOptionalClientCertificatePostTLS13() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.minimumTLSVersion = .tlsv13
+        clientConfig.certificateVerification = .none
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.minimumTLSVersion = .tlsv13
+        serverConfig.certificateVerification = .noHostnameVerification
+        serverConfig.certificateRequired = false
+        serverConfig.trustRoots = .certificates([TLSConfigurationTest.cert2])
+
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
     
     func testIncompatibleSignatures() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
