@@ -153,7 +153,7 @@ public struct PSKServerContext: Sendable, Hashable {
     public let clientIdentity: String
     /// Maximum length of the returned PSK.
     public let maxPSKLength: Int
-    
+
     /// Constructs a ``PSKServerContext``.
     ///
     /// - parameter hint: Optional identity hint provided to the client.
@@ -172,7 +172,7 @@ public struct PSKClientContext: Sendable, Hashable {
     public let hint: String?
     /// Maximum length of the returned PSK.
     public let maxPSKLength: Int
-    
+
     /// Constructs a ``PSKClientContext``.
     ///
     /// - parameter hint: Optional identity hint provided by the server.
@@ -235,7 +235,7 @@ public struct NIOSSLClientExtensionValues: Hashable, Sendable {
     }
 }
 
-/// A structure representing changes to the SSL/TLS configuration that can be applied 
+/// A structure representing changes to the SSL/TLS configuration that can be applied
 /// after the client hello message extensions have been processed.
 public struct NIOSSLContextConfigurationOverride: Sendable {
 
@@ -301,7 +301,7 @@ extension CustomContextManager {
     mutating func loadContext(ssl: OpaquePointer) -> Result<NIOSSLContextConfigurationOverride, Error>? {
         switch state {
         case .pendingResult:
-            // In the pending case we just return nil
+            // In the pending case we return nil
             return nil
         case .complete(let result):
             // In the complete we can return our result
@@ -316,7 +316,7 @@ extension CustomContextManager {
                     This should not be possible, please file an issue.
                 """)
             }
-            
+
             // Construct extension values to be passed to callback
             let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
             let serverHostname = cServerHostname.map { String(cString: $0) }
