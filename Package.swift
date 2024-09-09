@@ -92,6 +92,7 @@ MANGLE_END */
                 .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
                 .product(name: "NIOTLS", package: "swift-nio"),
             ],
+            exclude: includePrivacyManifest ? [] : ["PrivacyInfo.xcprivacy"],
             resources: includePrivacyManifest ? [.copy("PrivacyInfo.xcprivacy")] : []
         ),
         .executableTarget(
