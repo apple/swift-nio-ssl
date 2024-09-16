@@ -40,7 +40,7 @@ public enum NIOSSLPrivateKeySource: Hashable {
     /// `.der or .key`  | ASN1
     @available(*, deprecated, message: "Use 'NIOSSLPrivateKeySource.privateKey(NIOSSLPrivateKey)' to set private key")
     case file(String)
-    
+
     /// Loaded Private key
     case privateKey(NIOSSLPrivateKey)
 }
@@ -103,7 +103,7 @@ public struct NIOTLSCipher: RawRepresentable, Hashable, Sendable {
     /// The RFC code point for the given cipher.
     public var rawValue: UInt16
     public typealias RawValue = UInt16
-    
+
     public static let TLS_RSA_WITH_AES_128_CBC_SHA                    = NIOTLSCipher(rawValue: 0x2F)
     public static let TLS_RSA_WITH_AES_256_CBC_SHA                    = NIOTLSCipher(rawValue: 0x35)
     public static let TLS_PSK_WITH_AES_128_CBC_SHA                    = NIOTLSCipher(rawValue: 0x8C)
@@ -125,7 +125,7 @@ public struct NIOTLSCipher: RawRepresentable, Hashable, Sendable {
     public static let TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384           = NIOTLSCipher(rawValue: 0xC030)
     public static let TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256     = NIOTLSCipher(rawValue: 0xCCA8)
     public static let TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256   = NIOTLSCipher(rawValue: 0xCCA9)
-    
+
     var standardName: String {
         let boringSSLCipher = CNIOBoringSSL_SSL_get_cipher_by_value(self.rawValue)
         return String(cString: CNIOBoringSSL_SSL_CIPHER_standard_name(boringSSLCipher))
@@ -171,14 +171,14 @@ public enum NIORenegotiationSupport: Sendable {
 
 /// Signature algorithms. The values are defined as in TLS 1.3
 public struct SignatureAlgorithm : RawRepresentable, Hashable, Sendable {
-    
+
     public typealias RawValue = UInt16
     public var rawValue: UInt16
-    
+
     public init(rawValue: UInt16) {
         self.rawValue = rawValue
     }
-    
+
     public static let rsaPkcs1Sha1 = SignatureAlgorithm(rawValue: 0x0201)
     public static let rsaPkcs1Sha256 = SignatureAlgorithm(rawValue: 0x0401)
     public static let rsaPkcs1Sha384 = SignatureAlgorithm(rawValue: 0x0501)
@@ -252,7 +252,7 @@ public struct TLSConfiguration {
     /// The pre-TLS1.3 cipher suites supported by this handler. This uses the OpenSSL cipher string format.
     /// TLS 1.3 cipher suites cannot be configured.
     public var cipherSuites: String = defaultCipherSuites
-    
+
     /// Public property used to set the internal ``cipherSuites`` from ``NIOTLSCipher``.
     public var cipherSuiteValues: [NIOTLSCipher] {
         get {
@@ -294,7 +294,7 @@ public struct TLSConfiguration {
 
     /// The private key associated with the leaf certificate.
     public var privateKey: NIOSSLPrivateKeySource?
-    
+
     internal var _pskClientIdentityProvider: _NIOPSKClientIdentityProvider?
     internal var _pskServerIdentityProvider: _NIOPSKServerIdentityProvider?
 
@@ -311,8 +311,10 @@ public struct TLSConfiguration {
             self._pskClientIdentityProvider = newValue.flatMap({ .callback($0) })
         }
     }
-    
-    /// PSK Server Callback to get the key based on hint and identity.
+
+    /// SSL Context Callback to provide dynamic context based on server name
+    public var sslContextCallback: NIOSSLContextCallback? = nil
+
     @available(*, deprecated, message: "Deprecated in favor of pskServerProvider which can handle optional hint")
     public var pskServerCallback: NIOPSKServerIdentityCallback? {
         get {
@@ -338,7 +340,7 @@ public struct TLSConfiguration {
             self._pskClientIdentityProvider = newValue.flatMap({ .provider($0) })
         }
     }
-    
+
     /// PSK Server Callback to get the key based on an optional hint and identity.
     public var pskServerProvider: NIOPSKServerIdentityProvider? {
         get {
@@ -351,7 +353,7 @@ public struct TLSConfiguration {
             self._pskServerIdentityProvider = newValue.flatMap({ .provider($0) })
         }
     }
-    
+
     /// Optional PSK hint to be used during SSLContext create.
     public var pskHint: String? = nil
 
@@ -373,13 +375,13 @@ public struct TLSConfiguration {
     /// The amount of time to wait after initiating a shutdown before performing an unclean
     /// shutdown. Defaults to 5 seconds.
     public var shutdownTimeout: TimeAmount
-    
+
     /// A callback that can be used to implement `SSLKEYLOGFILE` support.
     public var keyLogCallback: NIOSSLKeyLogCallback?
 
     /// Whether renegotiation is supported.
     public var renegotiationSupport: NIORenegotiationSupport
-    
+
     /// Send the CA names derived from the ``trustRoots`` for client authentication.
     /// This instructs the client which identities can be used by evaluating what CA the identity certificate was issued from.
     public var sendCANameList: Bool
@@ -400,6 +402,7 @@ public struct TLSConfiguration {
                  renegotiationSupport: NIORenegotiationSupport,
                  additionalTrustRoots: [NIOSSLAdditionalTrustRoots],
                  sendCANameList: Bool = false,
+                 sslContextCallback: NIOSSLContextCallback? = nil,
                  pskClientProvider: NIOPSKClientIdentityProvider? = nil,
                  pskServerProvider: NIOPSKServerIdentityProvider? = nil,
                  pskHint: String? = nil) {
@@ -419,6 +422,7 @@ public struct TLSConfiguration {
         self.sendCANameList = sendCANameList
         self.applicationProtocols = applicationProtocols
         self.keyLogCallback = keyLogCallback
+        self.sslContextCallback = sslContextCallback
         self.pskClientProvider = pskClientProvider
         self.pskServerProvider = pskServerProvider
         self.pskHint = pskHint
@@ -453,7 +457,12 @@ extension TLSConfiguration {
                 return pskServerProvider1.elementsEqual(pskServerProvider2)
             }
         }
-        
+        let isSSLContextCallbackEqual = withUnsafeBytes(of: self.sslContextCallback) { sslContextCallback1 in
+            return withUnsafeBytes(of: comparing.sslContextCallback) { sslContextCallback2 in
+                return sslContextCallback1.elementsEqual(sslContextCallback2)
+            }
+        }
+
         return self.minimumTLSVersion == comparing.minimumTLSVersion &&
             self.maximumTLSVersion == comparing.maximumTLSVersion &&
             self.cipherSuites == comparing.cipherSuites &&
@@ -469,11 +478,12 @@ extension TLSConfiguration {
             isKeyLoggerCallbacksEqual &&
             self.renegotiationSupport == comparing.renegotiationSupport &&
             self.sendCANameList == comparing.sendCANameList &&
+            isSSLContextCallbackEqual &&
             isPSKClientProviderEqual &&
             isPSKServerProviderEqual &&
             self.pskHint == comparing.pskHint
     }
-    
+
     /// Returns a best effort hash of this TLS configuration.
     ///
     /// The "best effort" stems from the fact that we are hashing the pointer bytes of the ``keyLogCallback`` closure.
@@ -503,6 +513,9 @@ extension TLSConfiguration {
         withUnsafeBytes(of: _pskServerIdentityProvider) { closureServerBits in
             hasher.combine(bytes: closureServerBits)
         }
+        withUnsafeBytes(of: sslContextCallback) { closureServerBits in
+            hasher.combine(bytes: closureServerBits)
+        }
         hasher.combine(pskHint)
     }
 
@@ -528,6 +541,7 @@ extension TLSConfiguration {
                                 renegotiationSupport: .none,
                                 additionalTrustRoots: [],
                                 sendCANameList: false,
+                                sslContextCallback: nil,
                                 pskClientProvider: nil,
                                 pskServerProvider: nil,
                                 pskHint: nil)
@@ -562,7 +576,7 @@ extension TLSConfiguration {
                                 pskServerProvider: nil,
                                 pskHint: nil)
     }
-    
+
     /// Create a TLS configuration for use with server-side or client-side contexts that uses Pre-Shared Keys for TLS 1.2 and below.
     ///
     /// This provides sensible defaults while requiring that you provide any data that is necessary
@@ -570,7 +584,7 @@ extension TLSConfiguration {
     ///
     /// For customising fields, modify the returned TLSConfiguration object.
     public static func makePreSharedKeyConfiguration() -> TLSConfiguration {
-        
+
         return TLSConfiguration(cipherSuites: defaultCipherSuites,
                                 verifySignatureAlgorithms: nil,
                                 signingSignatureAlgorithms: nil,

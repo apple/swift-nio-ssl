@@ -153,7 +153,7 @@ public struct PSKServerContext: Sendable, Hashable {
     public let clientIdentity: String
     /// Maximum length of the returned PSK.
     public let maxPSKLength: Int
-    
+
     /// Constructs a ``PSKServerContext``.
     ///
     /// - parameter hint: Optional identity hint provided to the client.
@@ -172,7 +172,7 @@ public struct PSKClientContext: Sendable, Hashable {
     public let hint: String?
     /// Maximum length of the returned PSK.
     public let maxPSKLength: Int
-    
+
     /// Constructs a ``PSKClientContext``.
     ///
     /// - parameter hint: Optional identity hint provided by the server.
@@ -210,6 +210,140 @@ public struct PSKClientIdentityResponse: Sendable {
     public init(key: NIOSSLSecureBytes, identity: String) {
         self.key = key
         self.identity = identity
+    }
+}
+
+/// A structure representing values from client extensions in the SSL/TLS handshake.
+///
+/// This struct contains values obtained from the client hello message extensions during the TLS handshake process and
+/// can be manipulated or introspected by the `NIOSSLContextCallback` to alter the TLS handshake behaviour dynamically
+/// based on these values.
+public struct NIOSSLClientExtensionValues: Hashable, Sendable {
+
+    /// The hostname value from the Server Name Indication (SNI) extension.
+    ///
+    /// This value, if available, indicates the requested server hostname by the client.
+    /// In a context where a service is handling multiple hostnames (virtual hosts, for example),
+    /// this value could be used to decide which SSLContext to use for the handshake.
+    public var serverHostname: String?
+
+    /// Initializes a new `NIOSSLClientExtensionValues` struct.
+    ///
+    /// - parameter serverHostname: The hostname value from the SNI extension.
+    public init(serverHostname: String?) {
+        self.serverHostname = serverHostname
+    }
+}
+
+/// A structure representing changes to the SSL/TLS configuration that can be applied
+/// after the client hello message extensions have been processed.
+public struct NIOSSLContextConfigurationOverride: Sendable {
+
+    /// The new certificate chain to use for the handshake.
+    public var certificateChain: [NIOSSLCertificateSource]?
+
+    /// The new private key to use for the handshake.
+    public var privateKey: NIOSSLPrivateKeySource?
+
+    public init() {}
+}
+
+extension NIOSSLContextConfigurationOverride {
+
+    /// Return inside `NIOSSLContextCallback` when there are no changes to be made
+    public static let noChanges = Self()
+}
+
+/// A callback that can used to support multiple or dynamic TLS hosts.
+///
+/// When set, this callback will be invoked once per TLS hello. The provided `NIOSSLClientExtensionValues` will contain the
+/// host name indicated in the TLS client hello.
+///
+/// Within this callback, the user can create and return a new `NIOSSLContextConfigurationOverride` for the given host,
+/// and the delta will be applied to the current handshake configuration.
+///
+public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues, EventLoopPromise<NIOSSLContextConfigurationOverride>) -> Void
+
+/// A struct that provides helpers for working with a NIOSSLContextCallback.
+internal struct CustomContextManager: Sendable {
+    private let callback: NIOSSLContextCallback
+
+    private var state: State
+
+    init(callback: @escaping NIOSSLContextCallback) {
+        self.callback = callback
+        self.state = .notStarted
+    }
+}
+
+extension CustomContextManager {
+    private enum State {
+        case notStarted
+
+        case pendingResult
+
+        case complete(Result<NIOSSLContextConfigurationOverride, Error>)
+    }
+}
+
+extension CustomContextManager {
+    internal var loadContextError: (any Error)? {
+        switch self.state {
+        case .complete(.failure(let error)):
+            return error
+        default:
+            return nil
+        }
+    }
+}
+
+extension CustomContextManager {
+    mutating func loadContext(ssl: OpaquePointer) -> Result<NIOSSLContextConfigurationOverride, Error>? {
+        switch state {
+        case .pendingResult:
+            // In the pending case we return nil
+            return nil
+        case .complete(let result):
+            // In the complete we can return our result
+            return result
+        case .notStarted:
+            // Load the attached connection so we can resume handshake when future resolves
+            let connection = SSLConnection.loadConnectionFromSSL(ssl)
+
+            guard let eventLoop = connection.eventLoop else {
+                preconditionFailure("""
+                    SSL_CTX_set_cert_cb was executed without an event loop assigned to the connection.
+                    This should not be possible, please file an issue.
+                """)
+            }
+
+            // Construct extension values to be passed to callback
+            let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
+            let serverHostname = cServerHostname.map { String(cString: $0) }
+            let values = NIOSSLClientExtensionValues(serverHostname: serverHostname)
+
+            // Before invoking the user callback we can update our state to pending
+            self.state = .pendingResult
+
+            // We're responsible for creating the promise and the user provided callback will fulfill it
+            let promise = eventLoop.makePromise(of: NIOSSLContextConfigurationOverride.self)
+            self.callback(values, promise)
+
+            promise.futureResult.whenComplete { result in
+                // Ensure we execute any completion on the next event loop tick
+                // This ensures that we suspend before calling resume
+                eventLoop.execute {
+                    connection.parentContext.customContextManager?.state = .complete(result)
+                    connection.parentHandler?.resumeHandshake()
+                }
+            }
+
+            return nil
+        }
+    }
+
+    mutating func setLoadContextError(_ error: any Error) {
+        self.state = .complete(.failure(error))
     }
 }
 

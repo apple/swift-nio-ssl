@@ -402,6 +402,11 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
                 context.fireErrorCaught(privateKeyError)
             }
 
+            // If there's a failed custom context operation, we fire both errors.
+            if let customContextError = self.connection.parentContext.customContextManager?.loadContextError {
+                context.fireErrorCaught(customContextError)
+            }
+
             context.fireErrorCaught(NIOSSLError.handshakeFailed(err))
             channelClose(context: context, reason: NIOSSLError.handshakeFailed(err))
         }

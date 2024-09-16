@@ -19,7 +19,7 @@ For example:
 ```swift
 let configuration = TLSConfiguration.makeServerConfiguration(
     certificateChain: try NIOSSLCertificate.fromPEMFile("cert.pem").map { .certificate($0) },
-    privateKey: .file("key.pem")
+    privateKey: try .privateKey(.init(file: "key.pem", format: .pem))
 )
 let sslContext = try NIOSSLContext(configuration: configuration)
 
