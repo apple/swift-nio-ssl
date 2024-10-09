@@ -14,6 +14,7 @@
 #ifndef C_NIO_BORINGSSL_H
 #define C_NIO_BORINGSSL_H
 
+#include "CNIOBoringSSL_aead.h"
 #include "CNIOBoringSSL_aes.h"
 #include "CNIOBoringSSL_arm_arch.h"
 #include "CNIOBoringSSL_asm_base.h"
@@ -23,6 +24,7 @@
 #include "CNIOBoringSSL_bio.h"
 #include "CNIOBoringSSL_blake2.h"
 #include "CNIOBoringSSL_blowfish.h"
+#include "CNIOBoringSSL_bn.h"
 #include "CNIOBoringSSL_boringssl_prefix_symbols.h"
 #include "CNIOBoringSSL_boringssl_prefix_symbols_asm.h"
 #include "CNIOBoringSSL_cast.h"
@@ -45,9 +47,10 @@
 #include "CNIOBoringSSL_hpke.h"
 #include "CNIOBoringSSL_hrss.h"
 #include "CNIOBoringSSL_kdf.h"
-#include "CNIOBoringSSL_kyber.h"
 #include "CNIOBoringSSL_md4.h"
 #include "CNIOBoringSSL_md5.h"
+#include "CNIOBoringSSL_mldsa.h"
+#include "CNIOBoringSSL_mlkem.h"
 #include "CNIOBoringSSL_obj_mac.h"
 #include "CNIOBoringSSL_objects.h"
 #include "CNIOBoringSSL_opensslv.h"
@@ -62,6 +65,7 @@
 #include "CNIOBoringSSL_service_indicator.h"
 #include "CNIOBoringSSL_sha.h"
 #include "CNIOBoringSSL_siphash.h"
+#include "CNIOBoringSSL_slhdsa.h"
 #include "CNIOBoringSSL_srtp.h"
 #include "CNIOBoringSSL_ssl.h"
 #include "CNIOBoringSSL_time.h"
@@ -69,5 +73,8 @@
 #include "CNIOBoringSSL_type_check.h"
 #include "CNIOBoringSSL_x509_vfy.h"
 #include "CNIOBoringSSL_x509v3.h"
+#include "experimental/CNIOBoringSSL_dilithium.h"
+#include "experimental/CNIOBoringSSL_kyber.h"
+#include "experimental/CNIOBoringSSL_spx.h"
 
 #endif  // C_NIO_BORINGSSL_H

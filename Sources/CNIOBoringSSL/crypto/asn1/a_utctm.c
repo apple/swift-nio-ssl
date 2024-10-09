@@ -58,7 +58,7 @@
 #include <CNIOBoringSSL_bytestring.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_mem.h>
-#include <CNIOBoringSSL_time.h>
+#include <CNIOBoringSSL_posix_time.h>
 
 #include <stdlib.h>
 #include <string.h>

@@ -95,14 +95,18 @@ bool dtls1_new(SSL *ssl) {
     return false;
   }
 
-  ssl->d1 = d1.release();
+  d1->initial_epoch_state = MakeUnique<DTLSEpochState>();
+  if (!d1->initial_epoch_state) {
+    tls_free(ssl);
+    return false;
+  }
+  d1->initial_epoch_state->aead_write_ctx = SSLAEADContext::CreateNullCipher();
+  if (!d1->initial_epoch_state->aead_write_ctx) {
+    tls_free(ssl);
+    return false;
+  }
 
-  // Set the version to the highest supported version.
-  //
-  // TODO(davidben): Move this field into |s3|, have it store the normalized
-  // protocol version, and implement this pre-negotiation quirk in |SSL_version|
-  // at the API boundary rather than in internal state.
-  ssl->version = DTLS1_2_VERSION;
+  ssl->d1 = d1.release();
   return true;
 }
 

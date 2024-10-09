@@ -81,7 +81,7 @@ typedef uint64_t fe_limb_t;
 #define assert_fe(f)                                                    \
   do {                                                                  \
     for (unsigned _assert_fe_i = 0; _assert_fe_i < 5; _assert_fe_i++) { \
-      assert(f[_assert_fe_i] <= UINT64_C(0x8cccccccccccc));             \
+      declassify_assert(f[_assert_fe_i] <= UINT64_C(0x8cccccccccccc));  \
     }                                                                   \
   } while (0)
 
@@ -98,7 +98,7 @@ typedef uint64_t fe_limb_t;
 #define assert_fe_loose(f)                                              \
   do {                                                                  \
     for (unsigned _assert_fe_i = 0; _assert_fe_i < 5; _assert_fe_i++) { \
-      assert(f[_assert_fe_i] <= UINT64_C(0x1a666666666664));            \
+      declassify_assert(f[_assert_fe_i] <= UINT64_C(0x1a666666666664)); \
     }                                                                   \
   } while (0)
 
@@ -120,8 +120,8 @@ typedef uint32_t fe_limb_t;
 #define assert_fe(f)                                                     \
   do {                                                                   \
     for (unsigned _assert_fe_i = 0; _assert_fe_i < 10; _assert_fe_i++) { \
-      assert(f[_assert_fe_i] <=                                          \
-             ((_assert_fe_i & 1) ? 0x2333333u : 0x4666666u));            \
+      declassify_assert(f[_assert_fe_i] <=                               \
+                        ((_assert_fe_i & 1) ? 0x2333333u : 0x4666666u)); \
     }                                                                    \
   } while (0)
 
@@ -138,8 +138,8 @@ typedef uint32_t fe_limb_t;
 #define assert_fe_loose(f)                                               \
   do {                                                                   \
     for (unsigned _assert_fe_i = 0; _assert_fe_i < 10; _assert_fe_i++) { \
-      assert(f[_assert_fe_i] <=                                          \
-             ((_assert_fe_i & 1) ? 0x6999999u : 0xd333332u));            \
+      declassify_assert(f[_assert_fe_i] <=                               \
+                        ((_assert_fe_i & 1) ? 0x6999999u : 0xd333332u)); \
     }                                                                    \
   } while (0)
 
@@ -150,7 +150,7 @@ static_assert(sizeof(fe) == sizeof(fe_limb_t) * FE_NUM_LIMBS,
 
 static void fe_frombytes_strict(fe *h, const uint8_t s[32]) {
   // |fiat_25519_from_bytes| requires the top-most bit be clear.
-  assert((s[31] & 0x80) == 0);
+  declassify_assert((s[31] & 0x80) == 0);
   fiat_25519_from_bytes(h->v, s);
   assert_fe(h->v);
 }
@@ -1906,6 +1906,8 @@ int ED25519_sign(uint8_t out_sig[64], const uint8_t *message,
   x25519_sc_reduce(hram);
   sc_muladd(out_sig + 32, hram, az, nonce);
 
+  // The signature is computed from the private key, but is public.
+  CONSTTIME_DECLASSIFY(out_sig, 64);
   return 1;
 }
 
@@ -1983,6 +1985,8 @@ void ED25519_keypair_from_seed(uint8_t out_public_key[32],
   ge_p3 A;
   x25519_ge_scalarmult_base(&A, az);
   ge_p3_tobytes(out_public_key, &A);
+  // The public key is derived from the private key, but it is public.
+  CONSTTIME_DECLASSIFY(out_public_key, 32);
 
   OPENSSL_memcpy(out_private_key, seed, 32);
   OPENSSL_memcpy(out_private_key + 32, out_public_key, 32);

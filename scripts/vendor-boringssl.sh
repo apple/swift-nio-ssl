@@ -166,9 +166,9 @@ function mangle_cpp_structures {
         # The nm command grabs all global defined symbols. We then run the C++ demangler over them and look for methods with '::' in them:
         # these are C++ methods. We then exclude any that contain CNIOBoringSSL (as those are already namespaced!) and any that contain swift
         # (as those were put there by the Swift runtime, not us). This gives us a list of symbols. The following cut command
-        # grabs the type name from each of those (the bit preceding the '::'). Finally, we sort and uniqify that list. This gives us all the
-        # structures that need to be renamed.
-        structures=$(nm -gUj "$(swift build --show-bin-path)/libCNIOBoringSSL.a" | c++filt | grep "::" | grep -v -e "CNIOBoringSSL" -e "swift" | cut -d : -f1 | sort | uniq)
+        # grabs the type name from each of those (the bit preceding the '::'). Then, we sort and uniqify that list.
+        # Finally, we remove any symbol that ends in std. This gives us all the structures that need to be renamed.
+        structures=$(nm -gUj "$(swift build --show-bin-path)/libCNIOBoringSSL.a" | c++filt | grep "::" | grep -v -e "CNIOBoringSSL" -e "swift" | cut -d : -f1 | sort | uniq | grep -v "std$")
 
         for struct in ${structures}; do
             echo "#define ${struct} BORINGSSL_ADD_PREFIX(BORINGSSL_PREFIX, ${struct})" >> "${DSTROOT}/include/CNIOBoringSSL_boringssl_prefix_symbols.h"
@@ -226,17 +226,22 @@ echo "GENERATING assembly helpers"
 
 PATTERNS=(
 'include/openssl/*.h'
+'include/openssl/*/*.h'
 'ssl/*.h'
 'ssl/*.cc'
 'crypto/*.h'
 'crypto/*.c'
 'crypto/*/*.h'
 'crypto/*/*.c'
+'crypto/*/*.cc'
 'crypto/*/*.S'
 'crypto/*/*/*.h'
-'crypto/*/*/*.c'
+'crypto/*/*/*.c.inc'
 'crypto/*/*/*.S'
-'crypto/*/*/*/*.c'
+'crypto/*/*/*/*.c.inc'
+'gen/crypto/*.c'
+'gen/crypto/*.S'
+'gen/bcm/*.S'
 'third_party/fiat/*.h'
 'third_party/fiat/asm/*.S'
 #'third_party/fiat/*.c'
@@ -267,24 +272,7 @@ do
   find $DSTROOT -d -name "$exclude" -exec rm -rf {} \;
 done
 
-echo "GENERATING err_data.c"
-(
-    cd "$SRCROOT/crypto/err"
-    go mod tidy -modcacherw
-    go run err_data_generate.go > "${HERE}/${DSTROOT}/crypto/err/err_data.c"
-)
-
-echo "DELETING crypto/fipsmodule/bcm.c"
-rm -f $DSTROOT/crypto/fipsmodule/bcm.c
-
-echo "FIXING missing include"
-perl -pi -e '$_ .= qq(\n#include <openssl/evp.h>\n) if /#include <openssl\/ec_key.h>/' "$DSTROOT/crypto/fipsmodule/self_check/self_check.c"
-
 mangle_symbols
-
-# Removing ASM on 32 bit Apple platforms
-echo "REMOVING assembly on 32-bit Apple platforms"
-$sed -i "/#define OPENSSL_HEADER_BASE_H/a#if defined(__APPLE__) && defined(__i386__)\n#define OPENSSL_NO_ASM\n#endif" "$DSTROOT/include/openssl/base.h"
 
 echo "RENAMING header files"
 (
@@ -299,14 +287,19 @@ echo "RENAMING header files"
     mv include/openssl/* include/
     rmdir "include/openssl"
 
+    # Now let's remove the pki subdirectory, as we don't need it.
+    rm -rf include/pki
+
     # Now change the imports from "<openssl/X> to "<CNIOBoringSSL_X>", apply the same prefix to the 'boringssl_prefix_symbols' headers.
-    find . -name "*.[ch]" -or -name "*.cc" -or -name "*.S" | xargs $sed -i -e 's+include <openssl/+include <CNIOBoringSSL_+' -e 's+include <boringssl_prefix_symbols+include <CNIOBoringSSL_boringssl_prefix_symbols+' -e 's+include "openssl/+include "CNIOBoringSSL_+'
+    find . -name "*.[ch]" -or -name "*.cc" -or -name "*.S" -or -name "*.c.inc" | xargs $sed -i -r -e 's#include <openssl/(([^/>]+/)*)(.+.h)>#include <\1CNIOBoringSSL_\3>#' -e 's+include <boringssl_prefix_symbols+include <CNIOBoringSSL_boringssl_prefix_symbols+' -e 's#include "openssl/(([^/>]+/)*)(.+.h)"#include "\1CNIOBoringSSL_\3"#'
 
     # Okay now we need to rename the headers adding the prefix "CNIOBoringSSL_".
     pushd include
-    find . -name "*.h" | $sed -e "s_./__" | xargs -I {} mv {} CNIOBoringSSL_{}
+    for x in *.h; do mv -- "$x" "CNIOBoringSSL_${x}"; done
+    for x in **/*.h; do mv -- "$x" "${x%/*}/CNIOBoringSSL_${x##*/}"; done
+
     # Finally, make sure we refer to them by their prefixed names, and change any includes from angle brackets to quotation marks.
-    find . -name "*.h" | xargs $sed -i -e 's/include "/include "CNIOBoringSSL_/' -e 's/include <CNIOBoringSSL_\(.*\)>/include "CNIOBoringSSL_\1"/'
+    find . -name "*.h" | xargs $sed -i -r -e 's#include "(([^/"]+/)*)(.+.h)"#include "\1CNIOBoringSSL_\3"#' -e 's/include <CNIOBoringSSL_(.*)>/include "CNIOBoringSSL_\1"/'
     popd
 )
 
@@ -343,6 +336,7 @@ cat << EOF > "$DSTROOT/include/CNIOBoringSSL.h"
 #ifndef C_NIO_BORINGSSL_H
 #define C_NIO_BORINGSSL_H
 
+#include "CNIOBoringSSL_aead.h"
 #include "CNIOBoringSSL_aes.h"
 #include "CNIOBoringSSL_arm_arch.h"
 #include "CNIOBoringSSL_asm_base.h"
@@ -352,6 +346,7 @@ cat << EOF > "$DSTROOT/include/CNIOBoringSSL.h"
 #include "CNIOBoringSSL_bio.h"
 #include "CNIOBoringSSL_blake2.h"
 #include "CNIOBoringSSL_blowfish.h"
+#include "CNIOBoringSSL_bn.h"
 #include "CNIOBoringSSL_boringssl_prefix_symbols.h"
 #include "CNIOBoringSSL_boringssl_prefix_symbols_asm.h"
 #include "CNIOBoringSSL_cast.h"
@@ -374,9 +369,10 @@ cat << EOF > "$DSTROOT/include/CNIOBoringSSL.h"
 #include "CNIOBoringSSL_hpke.h"
 #include "CNIOBoringSSL_hrss.h"
 #include "CNIOBoringSSL_kdf.h"
-#include "CNIOBoringSSL_kyber.h"
 #include "CNIOBoringSSL_md4.h"
 #include "CNIOBoringSSL_md5.h"
+#include "CNIOBoringSSL_mldsa.h"
+#include "CNIOBoringSSL_mlkem.h"
 #include "CNIOBoringSSL_obj_mac.h"
 #include "CNIOBoringSSL_objects.h"
 #include "CNIOBoringSSL_opensslv.h"
@@ -391,6 +387,7 @@ cat << EOF > "$DSTROOT/include/CNIOBoringSSL.h"
 #include "CNIOBoringSSL_service_indicator.h"
 #include "CNIOBoringSSL_sha.h"
 #include "CNIOBoringSSL_siphash.h"
+#include "CNIOBoringSSL_slhdsa.h"
 #include "CNIOBoringSSL_srtp.h"
 #include "CNIOBoringSSL_ssl.h"
 #include "CNIOBoringSSL_time.h"
@@ -398,8 +395,17 @@ cat << EOF > "$DSTROOT/include/CNIOBoringSSL.h"
 #include "CNIOBoringSSL_type_check.h"
 #include "CNIOBoringSSL_x509_vfy.h"
 #include "CNIOBoringSSL_x509v3.h"
+#include "experimental/CNIOBoringSSL_dilithium.h"
+#include "experimental/CNIOBoringSSL_kyber.h"
+#include "experimental/CNIOBoringSSL_spx.h"
 
 #endif  // C_NIO_BORINGSSL_H
+EOF
+cat << EOF > "$DSTROOT/include/module.modulemap"
+module CNIOBoringSSL {
+    umbrella header "CNIOBoringSSL.h"
+    export *
+}
 EOF
 
 echo "RECORDING BoringSSL revision"

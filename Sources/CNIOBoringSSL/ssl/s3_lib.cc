@@ -165,13 +165,11 @@ BSSL_NAMESPACE_BEGIN
 
 SSL3_STATE::SSL3_STATE()
     : skip_early_data(false),
-      have_version(false),
       v2_hello_done(false),
       is_v2_hello(false),
       has_message(false),
       initial_handshake_complete(false),
       session_reused(false),
-      delegated_credential_used(false),
       send_connection_binding(false),
       channel_id_valid(false),
       key_update_pending(false),
@@ -189,21 +187,14 @@ bool tls_new(SSL *ssl) {
     return false;
   }
 
-  s3->aead_read_ctx = SSLAEADContext::CreateNullCipher(SSL_is_dtls(ssl));
-  s3->aead_write_ctx = SSLAEADContext::CreateNullCipher(SSL_is_dtls(ssl));
+  s3->aead_read_ctx = SSLAEADContext::CreateNullCipher();
+  s3->aead_write_ctx = SSLAEADContext::CreateNullCipher();
   s3->hs = ssl_handshake_new(ssl);
   if (!s3->aead_read_ctx || !s3->aead_write_ctx || !s3->hs) {
     return false;
   }
 
   ssl->s3 = s3.release();
-
-  // Set the version to the highest supported version.
-  //
-  // TODO(davidben): Move this field into |s3|, have it store the normalized
-  // protocol version, and implement this pre-negotiation quirk in |SSL_version|
-  // at the API boundary rather than in internal state.
-  ssl->version = TLS1_2_VERSION;
   return true;
 }
 

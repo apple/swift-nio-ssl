@@ -94,7 +94,11 @@ static void __asan_unpoison_memory_region(const void *addr, size_t size) {}
 // Windows doesn't really support weak symbols as of May 2019, and Clang on
 // Windows will emit strong symbols instead. See
 // https://bugs.llvm.org/show_bug.cgi?id=37598
-#if defined(__ELF__) && defined(__GNUC__)
+//
+// EDK2 targets UEFI but builds as ELF and then translates the binary to
+// COFF(!). Thus it builds with __ELF__ defined but cannot actually cope with
+// weak symbols.
+#if !defined(__EDK2_BORINGSSL__) && defined(__ELF__) && defined(__GNUC__)
 #define WEAK_SYMBOL_FUNC(rettype, name, args) \
   rettype name args __attribute__((weak));
 #else
@@ -138,7 +142,7 @@ static CRYPTO_MUTEX malloc_failure_lock = CRYPTO_MUTEX_INIT;
 static uint64_t current_malloc_count = 0;
 static uint64_t malloc_number_to_fail = 0;
 static int malloc_failure_enabled = 0, break_on_malloc_fail = 0,
-           any_malloc_failed = 0;
+           any_malloc_failed = 0, disable_malloc_failures = 0;
 
 static void malloc_exit_handler(void) {
   CRYPTO_MUTEX_lock_read(&malloc_failure_lock);
@@ -168,7 +172,7 @@ static void init_malloc_failure(void) {
 static int should_fail_allocation() {
   static CRYPTO_once_t once = CRYPTO_ONCE_INIT;
   CRYPTO_once(&once, init_malloc_failure);
-  if (!malloc_failure_enabled) {
+  if (!malloc_failure_enabled || disable_malloc_failures) {
     return 0;
   }
 
@@ -192,6 +196,20 @@ static int should_fail_allocation() {
 void OPENSSL_reset_malloc_counter_for_testing(void) {
   CRYPTO_MUTEX_lock_write(&malloc_failure_lock);
   current_malloc_count = 0;
+  CRYPTO_MUTEX_unlock_write(&malloc_failure_lock);
+}
+
+void OPENSSL_disable_malloc_failures_for_testing(void) {
+  CRYPTO_MUTEX_lock_write(&malloc_failure_lock);
+  BSSL_CHECK(!disable_malloc_failures);
+  disable_malloc_failures = 1;
+  CRYPTO_MUTEX_unlock_write(&malloc_failure_lock);
+}
+
+void OPENSSL_enable_malloc_failures_for_testing(void) {
+  CRYPTO_MUTEX_lock_write(&malloc_failure_lock);
+  BSSL_CHECK(disable_malloc_failures);
+  disable_malloc_failures = 0;
   CRYPTO_MUTEX_unlock_write(&malloc_failure_lock);
 }
 
@@ -228,7 +246,7 @@ void *OPENSSL_malloc(size_t size) {
   __asan_poison_memory_region(ptr, OPENSSL_MALLOC_PREFIX);
   return ((uint8_t *)ptr) + OPENSSL_MALLOC_PREFIX;
 
- err:
+err:
   // This only works because ERR does not call OPENSSL_malloc.
   OPENSSL_PUT_ERROR(CRYPTO, ERR_R_MALLOC_FAILURE);
   return NULL;
@@ -384,13 +402,8 @@ char *OPENSSL_strdup(const char *s) {
   if (s == NULL) {
     return NULL;
   }
-  const size_t len = strlen(s) + 1;
-  char *ret = OPENSSL_malloc(len);
-  if (ret == NULL) {
-    return NULL;
-  }
-  OPENSSL_memcpy(ret, s, len);
-  return ret;
+  // Copy the NUL terminator.
+  return OPENSSL_memdup(s, strlen(s) + 1);
 }
 
 int OPENSSL_isalpha(int c) {
@@ -514,7 +527,7 @@ int OPENSSL_vasprintf_internal(char **str, const char *format, va_list args,
   *str = candidate;
   return ret;
 
- err:
+err:
   deallocate(candidate);
   *str = NULL;
   errno = ENOMEM;

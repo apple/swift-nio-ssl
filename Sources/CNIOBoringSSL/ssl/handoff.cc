@@ -244,7 +244,7 @@ static bool apply_remote_features(SSL *ssl, CBS *in) {
 // uses_disallowed_feature returns true iff |ssl| enables a feature that
 // disqualifies it for split handshakes.
 static bool uses_disallowed_feature(const SSL *ssl) {
-  return ssl->method->is_dtls || (ssl->config->cert && ssl->config->cert->dc) ||
+  return ssl->method->is_dtls || !ssl->config->cert->credentials.empty() ||
          ssl->config->quic_transport_params.size() > 0 || ssl->ctx->ech_keys;
 }
 
@@ -329,7 +329,7 @@ bool SSL_serialize_handback(const SSL *ssl, CBB *out) {
   const uint8_t *write_iv = nullptr;
   if ((type == handback_after_session_resumption ||
        type == handback_after_handshake) &&
-      ssl->version == TLS1_VERSION &&
+      ssl->s3->version == TLS1_VERSION &&
       SSL_CIPHER_is_block_cipher(s3->aead_write_ctx->cipher()) &&
       !s3->aead_write_ctx->GetIV(&write_iv, &write_iv_len)) {
     return false;
@@ -337,7 +337,7 @@ bool SSL_serialize_handback(const SSL *ssl, CBB *out) {
   size_t read_iv_len = 0;
   const uint8_t *read_iv = nullptr;
   if (type == handback_after_handshake &&
-      ssl->version == TLS1_VERSION &&
+      ssl->s3->version == TLS1_VERSION &&
       SSL_CIPHER_is_block_cipher(s3->aead_read_ctx->cipher()) &&
       !s3->aead_read_ctx->GetIV(&read_iv, &read_iv_len)) {
       return false;
@@ -433,8 +433,8 @@ bool SSL_serialize_handback(const SSL *ssl, CBB *out) {
                                    hs->server_handshake_secret().size()) ||
         !CBB_add_asn1_octet_string(&seq, hs->secret().data(),
                                    hs->secret().size()) ||
-        !CBB_add_asn1_octet_string(&seq, s3->exporter_secret,
-                                   s3->exporter_secret_len) ||
+        !CBB_add_asn1_octet_string(&seq, s3->exporter_secret.data(),
+                                   s3->exporter_secret.size()) ||
         !CBB_add_asn1_bool(&seq, s3->used_hello_retry_request) ||
         !CBB_add_asn1_bool(&seq, hs->accept_psk_mode) ||
         !CBB_add_asn1_int64(&seq, s3->ticket_age_skew) ||
@@ -637,9 +637,8 @@ bool SSL_apply_handback(SSL *ssl, Span<const uint8_t> handback) {
     s3->early_data_reason = ssl_early_data_protocol_version;
   }
 
-  ssl->version = session->ssl_version;
-  s3->have_version = true;
-  if (!ssl_method_supports_version(ssl->method, ssl->version) ||
+  ssl->s3->version = session->ssl_version;
+  if (!ssl_method_supports_version(ssl->method, ssl->s3->version) ||
       session->cipher != hs->new_cipher ||
       ssl_protocol_version(ssl) < SSL_CIPHER_get_min_version(session->cipher) ||
       SSL_CIPHER_get_max_version(session->cipher) < ssl_protocol_version(ssl)) {
@@ -690,7 +689,6 @@ bool SSL_apply_handback(SSL *ssl, Span<const uint8_t> handback) {
   hs->wait = ssl_hs_flush;
   hs->extended_master_secret = extended_master_secret;
   hs->ticket_expected = ticket_expected;
-  s3->aead_write_ctx->SetVersionIfNullCipher(ssl->version);
   hs->cert_request = cert_request;
 
   if (type != handback_after_handshake &&
@@ -706,11 +704,9 @@ bool SSL_apply_handback(SSL *ssl, Span<const uint8_t> handback) {
         !CopyExact(hs->client_handshake_secret(), &client_handshake_secret) ||
         !CopyExact(hs->server_handshake_secret(), &server_handshake_secret) ||
         !CopyExact(hs->secret(), &secret) ||
-        !CopyExact({s3->exporter_secret, hs->transcript.DigestLen()},
-                   &exporter_secret)) {
+        !s3->exporter_secret.TryCopyFrom(exporter_secret)) {
       return false;
     }
-    s3->exporter_secret_len = CBS_len(&exporter_secret);
 
     if (s3->early_data_accepted &&
         !CopyExact(hs->early_traffic_secret(), &early_traffic_secret)) {
