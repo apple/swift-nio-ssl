@@ -59,6 +59,8 @@
 #include <assert.h>
 #include <limits.h>
 
+#include <algorithm>
+
 #include <CNIOBoringSSL_ec.h>
 #include <CNIOBoringSSL_ec_key.h>
 #include <CNIOBoringSSL_err.h>
@@ -77,52 +79,67 @@ bool ssl_is_key_type_supported(int key_type) {
          key_type == EVP_PKEY_ED25519;
 }
 
-static bool ssl_set_pkey(CERT *cert, EVP_PKEY *pkey) {
-  if (!ssl_is_key_type_supported(EVP_PKEY_id(pkey))) {
-    OPENSSL_PUT_ERROR(SSL, SSL_R_UNKNOWN_CERTIFICATE_TYPE);
-    return false;
-  }
-
-  if (cert->chain != nullptr &&
-      sk_CRYPTO_BUFFER_value(cert->chain.get(), 0) != nullptr &&
-      // Sanity-check that the private key and the certificate match.
-      !ssl_cert_check_private_key(cert, pkey)) {
-    return false;
-  }
-
-  cert->privatekey = UpRef(pkey);
-  return true;
-}
-
 typedef struct {
   uint16_t sigalg;
   int pkey_type;
   int curve;
   const EVP_MD *(*digest_func)(void);
   bool is_rsa_pss;
+  bool tls12_ok;
+  bool tls13_ok;
+  bool client_only;
 } SSL_SIGNATURE_ALGORITHM;
 
 static const SSL_SIGNATURE_ALGORITHM kSignatureAlgorithms[] = {
+    // PKCS#1 v1.5 code points are only allowed in TLS 1.2.
     {SSL_SIGN_RSA_PKCS1_MD5_SHA1, EVP_PKEY_RSA, NID_undef, &EVP_md5_sha1,
-     false},
-    {SSL_SIGN_RSA_PKCS1_SHA1, EVP_PKEY_RSA, NID_undef, &EVP_sha1, false},
-    {SSL_SIGN_RSA_PKCS1_SHA256, EVP_PKEY_RSA, NID_undef, &EVP_sha256, false},
-    {SSL_SIGN_RSA_PKCS1_SHA384, EVP_PKEY_RSA, NID_undef, &EVP_sha384, false},
-    {SSL_SIGN_RSA_PKCS1_SHA512, EVP_PKEY_RSA, NID_undef, &EVP_sha512, false},
+     /*is_rsa_pss=*/false, /*tls12_ok=*/true, /*tls13_ok=*/false,
+     /*client_only=*/false},
+    {SSL_SIGN_RSA_PKCS1_SHA1, EVP_PKEY_RSA, NID_undef, &EVP_sha1,
+     /*is_rsa_pss=*/false, /*tls12_ok=*/true, /*tls13_ok=*/false,
+     /*client_only=*/false},
+    {SSL_SIGN_RSA_PKCS1_SHA256, EVP_PKEY_RSA, NID_undef, &EVP_sha256,
+     /*is_rsa_pss=*/false, /*tls12_ok=*/true, /*tls13_ok=*/false,
+     /*client_only=*/false},
+    {SSL_SIGN_RSA_PKCS1_SHA384, EVP_PKEY_RSA, NID_undef, &EVP_sha384,
+     /*is_rsa_pss=*/false, /*tls12_ok=*/true, /*tls13_ok=*/false,
+     /*client_only=*/false},
+    {SSL_SIGN_RSA_PKCS1_SHA512, EVP_PKEY_RSA, NID_undef, &EVP_sha512,
+     /*is_rsa_pss=*/false, /*tls12_ok=*/true, /*tls13_ok=*/false,
+     /*client_only=*/false},
 
-    {SSL_SIGN_RSA_PSS_RSAE_SHA256, EVP_PKEY_RSA, NID_undef, &EVP_sha256, true},
-    {SSL_SIGN_RSA_PSS_RSAE_SHA384, EVP_PKEY_RSA, NID_undef, &EVP_sha384, true},
-    {SSL_SIGN_RSA_PSS_RSAE_SHA512, EVP_PKEY_RSA, NID_undef, &EVP_sha512, true},
+    // Legacy PKCS#1 v1.5 code points are only allowed in TLS 1.3 and
+    // client-only. See draft-ietf-tls-tls13-pkcs1-00.
+    {SSL_SIGN_RSA_PKCS1_SHA256_LEGACY, EVP_PKEY_RSA, NID_undef, &EVP_sha256,
+     /*is_rsa_pss=*/false, /*tls12_ok=*/false, /*tls13_ok=*/true,
+     /*client_only=*/true},
 
-    {SSL_SIGN_ECDSA_SHA1, EVP_PKEY_EC, NID_undef, &EVP_sha1, false},
+    {SSL_SIGN_RSA_PSS_RSAE_SHA256, EVP_PKEY_RSA, NID_undef, &EVP_sha256,
+     /*is_rsa_pss=*/true, /*tls12_ok=*/true, /*tls13_ok=*/true,
+     /*client_only=*/false},
+    {SSL_SIGN_RSA_PSS_RSAE_SHA384, EVP_PKEY_RSA, NID_undef, &EVP_sha384,
+     /*is_rsa_pss=*/true, /*tls12_ok=*/true, /*tls13_ok=*/true,
+     /*client_only=*/false},
+    {SSL_SIGN_RSA_PSS_RSAE_SHA512, EVP_PKEY_RSA, NID_undef, &EVP_sha512,
+     /*is_rsa_pss=*/true, /*tls12_ok=*/true, /*tls13_ok=*/true,
+     /*client_only=*/false},
+
+    {SSL_SIGN_ECDSA_SHA1, EVP_PKEY_EC, NID_undef, &EVP_sha1,
+     /*is_rsa_pss=*/false, /*tls12_ok=*/true, /*tls13_ok=*/false,
+     /*client_only=*/false},
     {SSL_SIGN_ECDSA_SECP256R1_SHA256, EVP_PKEY_EC, NID_X9_62_prime256v1,
-     &EVP_sha256, false},
+     &EVP_sha256, /*is_rsa_pss=*/false, /*tls12_ok=*/true, /*tls13_ok=*/true,
+     /*client_only=*/false},
     {SSL_SIGN_ECDSA_SECP384R1_SHA384, EVP_PKEY_EC, NID_secp384r1, &EVP_sha384,
-     false},
+     /*is_rsa_pss=*/false, /*tls12_ok=*/true, /*tls13_ok=*/true,
+     /*client_only=*/false},
     {SSL_SIGN_ECDSA_SECP521R1_SHA512, EVP_PKEY_EC, NID_secp521r1, &EVP_sha512,
-     false},
+     /*is_rsa_pss=*/false, /*tls12_ok=*/true, /*tls13_ok=*/true,
+     /*client_only=*/false},
 
-    {SSL_SIGN_ED25519, EVP_PKEY_ED25519, NID_undef, nullptr, false},
+    {SSL_SIGN_ED25519, EVP_PKEY_ED25519, NID_undef, nullptr,
+     /*is_rsa_pss=*/false, /*tls12_ok=*/true, /*tls13_ok=*/true,
+     /*client_only=*/false},
 };
 
 static const SSL_SIGNATURE_ALGORITHM *get_signature_algorithm(uint16_t sigalg) {
@@ -134,21 +151,21 @@ static const SSL_SIGNATURE_ALGORITHM *get_signature_algorithm(uint16_t sigalg) {
   return NULL;
 }
 
-bool ssl_has_private_key(const SSL_HANDSHAKE *hs) {
-  if (hs->config->cert->privatekey != nullptr ||
-      hs->config->cert->key_method != nullptr ||
-      ssl_signing_with_dc(hs)) {
-    return true;
+bool ssl_pkey_supports_algorithm(const SSL *ssl, EVP_PKEY *pkey,
+                                 uint16_t sigalg, bool is_verify) {
+  const SSL_SIGNATURE_ALGORITHM *alg = get_signature_algorithm(sigalg);
+  if (alg == NULL || EVP_PKEY_id(pkey) != alg->pkey_type) {
+    return false;
   }
 
-  return false;
-}
-
-static bool pkey_supports_algorithm(const SSL *ssl, EVP_PKEY *pkey,
-                                    uint16_t sigalg) {
-  const SSL_SIGNATURE_ALGORITHM *alg = get_signature_algorithm(sigalg);
-  if (alg == NULL ||
-      EVP_PKEY_id(pkey) != alg->pkey_type) {
+  // Ensure the RSA key is large enough for the hash. RSASSA-PSS requires that
+  // emLen be at least hLen + sLen + 2. Both hLen and sLen are the size of the
+  // hash in TLS. Reasonable RSA key sizes are large enough for the largest
+  // defined RSASSA-PSS algorithm, but 1024-bit RSA is slightly too small for
+  // SHA-512. 1024-bit RSA is sometimes used for test credentials, so check the
+  // size so that we can fall back to another algorithm in that case.
+  if (alg->is_rsa_pss &&
+      (size_t)EVP_PKEY_size(pkey) < 2 * EVP_MD_size(alg->digest_func()) + 2) {
     return false;
   }
 
@@ -167,8 +184,12 @@ static bool pkey_supports_algorithm(const SSL *ssl, EVP_PKEY *pkey,
   }
 
   if (ssl_protocol_version(ssl) >= TLS1_3_VERSION) {
-    // RSA keys may only be used with RSA-PSS.
-    if (alg->pkey_type == EVP_PKEY_RSA && !alg->is_rsa_pss) {
+    if (!alg->tls13_ok) {
+      return false;
+    }
+
+    bool is_client_sign = ssl->server == is_verify;
+    if (alg->client_only && !is_client_sign) {
       return false;
     }
 
@@ -179,6 +200,8 @@ static bool pkey_supports_algorithm(const SSL *ssl, EVP_PKEY *pkey,
              EC_KEY_get0_group(EVP_PKEY_get0_EC_KEY(pkey))) != alg->curve)) {
       return false;
     }
+  } else if (!alg->tls12_ok) {
+    return false;
   }
 
   return true;
@@ -186,7 +209,7 @@ static bool pkey_supports_algorithm(const SSL *ssl, EVP_PKEY *pkey,
 
 static bool setup_ctx(SSL *ssl, EVP_MD_CTX *ctx, EVP_PKEY *pkey,
                       uint16_t sigalg, bool is_verify) {
-  if (!pkey_supports_algorithm(ssl, pkey, sigalg)) {
+  if (!ssl_pkey_supports_algorithm(ssl, pkey, sigalg, is_verify)) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_WRONG_SIGNATURE_TYPE);
     return false;
   }
@@ -216,12 +239,13 @@ enum ssl_private_key_result_t ssl_private_key_sign(
     SSL_HANDSHAKE *hs, uint8_t *out, size_t *out_len, size_t max_out,
     uint16_t sigalg, Span<const uint8_t> in) {
   SSL *const ssl = hs->ssl;
+  const SSL_CREDENTIAL *const cred = hs->credential.get();
   SSL_HANDSHAKE_HINTS *const hints = hs->hints.get();
   Array<uint8_t> spki;
   if (hints) {
     ScopedCBB spki_cbb;
     if (!CBB_init(spki_cbb.get(), 64) ||
-        !EVP_marshal_public_key(spki_cbb.get(), hs->local_pubkey.get()) ||
+        !EVP_marshal_public_key(spki_cbb.get(), cred->pubkey.get()) ||
         !CBBFinishArray(spki_cbb.get(), &spki)) {
       ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_INTERNAL_ERROR);
       return ssl_private_key_failure;
@@ -241,13 +265,9 @@ enum ssl_private_key_result_t ssl_private_key_sign(
     return ssl_private_key_success;
   }
 
-  const SSL_PRIVATE_KEY_METHOD *key_method = hs->config->cert->key_method;
-  EVP_PKEY *privatekey = hs->config->cert->privatekey.get();
+  const SSL_PRIVATE_KEY_METHOD *key_method = cred->key_method;
+  EVP_PKEY *privkey = cred->privkey.get();
   assert(!hs->can_release_private_key);
-  if (ssl_signing_with_dc(hs)) {
-    key_method = hs->config->cert->dc_key_method;
-    privatekey = hs->config->cert->dc_privatekey.get();
-  }
 
   if (key_method != NULL) {
     enum ssl_private_key_result_t ret;
@@ -267,7 +287,7 @@ enum ssl_private_key_result_t ssl_private_key_sign(
   } else {
     *out_len = max_out;
     ScopedEVP_MD_CTX ctx;
-    if (!setup_ctx(ssl, ctx.get(), privatekey, sigalg, false /* sign */) ||
+    if (!setup_ctx(ssl, ctx.get(), privkey, sigalg, false /* sign */) ||
         !EVP_DigestSign(ctx.get(), out, out_len, in.data(), in.size())) {
       return ssl_private_key_failure;
     }
@@ -307,14 +327,15 @@ enum ssl_private_key_result_t ssl_private_key_decrypt(SSL_HANDSHAKE *hs,
                                                       size_t max_out,
                                                       Span<const uint8_t> in) {
   SSL *const ssl = hs->ssl;
+  const SSL_CREDENTIAL *const cred = hs->credential.get();
   assert(!hs->can_release_private_key);
-  if (hs->config->cert->key_method != NULL) {
+  if (cred->key_method != NULL) {
     enum ssl_private_key_result_t ret;
     if (hs->pending_private_key_op) {
-      ret = hs->config->cert->key_method->complete(ssl, out, out_len, max_out);
+      ret = cred->key_method->complete(ssl, out, out_len, max_out);
     } else {
-      ret = hs->config->cert->key_method->decrypt(ssl, out, out_len, max_out,
-                                                  in.data(), in.size());
+      ret = cred->key_method->decrypt(ssl, out, out_len, max_out, in.data(),
+                                      in.size());
     }
     if (ret == ssl_private_key_failure) {
       OPENSSL_PUT_ERROR(SSL, SSL_R_PRIVATE_KEY_OPERATION_FAILED);
@@ -323,7 +344,7 @@ enum ssl_private_key_result_t ssl_private_key_decrypt(SSL_HANDSHAKE *hs,
     return ret;
   }
 
-  RSA *rsa = EVP_PKEY_get0_RSA(hs->config->cert->privatekey.get());
+  RSA *rsa = EVP_PKEY_get0_RSA(cred->privkey.get());
   if (rsa == NULL) {
     // Decrypt operations are only supported for RSA keys.
     OPENSSL_PUT_ERROR(SSL, ERR_R_INTERNAL_ERROR);
@@ -337,28 +358,6 @@ enum ssl_private_key_result_t ssl_private_key_decrypt(SSL_HANDSHAKE *hs,
     return ssl_private_key_failure;
   }
   return ssl_private_key_success;
-}
-
-bool ssl_private_key_supports_signature_algorithm(SSL_HANDSHAKE *hs,
-                                                  uint16_t sigalg) {
-  SSL *const ssl = hs->ssl;
-  if (!pkey_supports_algorithm(ssl, hs->local_pubkey.get(), sigalg)) {
-    return false;
-  }
-
-  // Ensure the RSA key is large enough for the hash. RSASSA-PSS requires that
-  // emLen be at least hLen + sLen + 2. Both hLen and sLen are the size of the
-  // hash in TLS. Reasonable RSA key sizes are large enough for the largest
-  // defined RSASSA-PSS algorithm, but 1024-bit RSA is slightly too small for
-  // SHA-512. 1024-bit RSA is sometimes used for test credentials, so check the
-  // size so that we can fall back to another algorithm in that case.
-  const SSL_SIGNATURE_ALGORITHM *alg = get_signature_algorithm(sigalg);
-  if (alg->is_rsa_pss && (size_t)EVP_PKEY_size(hs->local_pubkey.get()) <
-                             2 * EVP_MD_size(alg->digest_func()) + 2) {
-    return false;
-  }
-
-  return true;
 }
 
 BSSL_NAMESPACE_END
@@ -378,7 +377,7 @@ int SSL_use_RSAPrivateKey(SSL *ssl, RSA *rsa) {
     return 0;
   }
 
-  return ssl_set_pkey(ssl->config->cert.get(), pkey.get());
+  return SSL_use_PrivateKey(ssl, pkey.get());
 }
 
 int SSL_use_RSAPrivateKey_ASN1(SSL *ssl, const uint8_t *der, size_t der_len) {
@@ -397,7 +396,8 @@ int SSL_use_PrivateKey(SSL *ssl, EVP_PKEY *pkey) {
     return 0;
   }
 
-  return ssl_set_pkey(ssl->config->cert.get(), pkey);
+  return SSL_CREDENTIAL_set1_private_key(
+      ssl->config->cert->legacy_credential.get(), pkey);
 }
 
 int SSL_use_PrivateKey_ASN1(int type, SSL *ssl, const uint8_t *der,
@@ -430,7 +430,7 @@ int SSL_CTX_use_RSAPrivateKey(SSL_CTX *ctx, RSA *rsa) {
     return 0;
   }
 
-  return ssl_set_pkey(ctx->cert.get(), pkey.get());
+  return SSL_CTX_use_PrivateKey(ctx, pkey.get());
 }
 
 int SSL_CTX_use_RSAPrivateKey_ASN1(SSL_CTX *ctx, const uint8_t *der,
@@ -450,7 +450,8 @@ int SSL_CTX_use_PrivateKey(SSL_CTX *ctx, EVP_PKEY *pkey) {
     return 0;
   }
 
-  return ssl_set_pkey(ctx->cert.get(), pkey);
+  return SSL_CREDENTIAL_set1_private_key(ctx->cert->legacy_credential.get(),
+                                         pkey);
 }
 
 int SSL_CTX_use_PrivateKey_ASN1(int type, SSL_CTX *ctx, const uint8_t *der,
@@ -475,15 +476,17 @@ void SSL_set_private_key_method(SSL *ssl,
   if (!ssl->config) {
     return;
   }
-  ssl->config->cert->key_method = key_method;
+  BSSL_CHECK(SSL_CREDENTIAL_set_private_key_method(
+      ssl->config->cert->legacy_credential.get(), key_method));
 }
 
 void SSL_CTX_set_private_key_method(SSL_CTX *ctx,
                                     const SSL_PRIVATE_KEY_METHOD *key_method) {
-  ctx->cert->key_method = key_method;
+  BSSL_CHECK(SSL_CREDENTIAL_set_private_key_method(
+      ctx->cert->legacy_credential.get(), key_method));
 }
 
-static constexpr size_t kMaxSignatureAlgorithmNameLen = 23;
+static constexpr size_t kMaxSignatureAlgorithmNameLen = 24;
 
 struct SignatureAlgorithmName {
   uint16_t signature_algorithm;
@@ -496,6 +499,7 @@ static const SignatureAlgorithmName kSignatureAlgorithmNames[] = {
     {SSL_SIGN_RSA_PKCS1_MD5_SHA1, "rsa_pkcs1_md5_sha1"},
     {SSL_SIGN_RSA_PKCS1_SHA1, "rsa_pkcs1_sha1"},
     {SSL_SIGN_RSA_PKCS1_SHA256, "rsa_pkcs1_sha256"},
+    {SSL_SIGN_RSA_PKCS1_SHA256_LEGACY, "rsa_pkcs1_sha256_legacy"},
     {SSL_SIGN_RSA_PKCS1_SHA384, "rsa_pkcs1_sha384"},
     {SSL_SIGN_RSA_PKCS1_SHA512, "rsa_pkcs1_sha512"},
     {SSL_SIGN_ECDSA_SHA1, "ecdsa_sha1"},
@@ -632,9 +636,28 @@ static bool set_sigalg_prefs(Array<uint16_t> *out, Span<const uint16_t> prefs) {
   return true;
 }
 
+int SSL_CREDENTIAL_set1_signing_algorithm_prefs(SSL_CREDENTIAL *cred,
+                                                const uint16_t *prefs,
+                                                size_t num_prefs) {
+  if (!cred->UsesPrivateKey()) {
+    OPENSSL_PUT_ERROR(SSL, ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED);
+    return 0;
+  }
+
+  // Delegated credentials are constrained to a single algorithm, so there is no
+  // need to configure this.
+  if (cred->type == SSLCredentialType::kDelegated) {
+    OPENSSL_PUT_ERROR(SSL, ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED);
+    return 0;
+  }
+
+  return set_sigalg_prefs(&cred->sigalgs, MakeConstSpan(prefs, num_prefs));
+}
+
 int SSL_CTX_set_signing_algorithm_prefs(SSL_CTX *ctx, const uint16_t *prefs,
                                         size_t num_prefs) {
-  return set_sigalg_prefs(&ctx->cert->sigalgs, MakeConstSpan(prefs, num_prefs));
+  return SSL_CREDENTIAL_set1_signing_algorithm_prefs(
+      ctx->cert->legacy_credential.get(), prefs, num_prefs);
 }
 
 int SSL_set_signing_algorithm_prefs(SSL *ssl, const uint16_t *prefs,
@@ -642,8 +665,8 @@ int SSL_set_signing_algorithm_prefs(SSL *ssl, const uint16_t *prefs,
   if (!ssl->config) {
     return 0;
   }
-  return set_sigalg_prefs(&ssl->config->cert->sigalgs,
-                          MakeConstSpan(prefs, num_prefs));
+  return SSL_CREDENTIAL_set1_signing_algorithm_prefs(
+      ssl->config->cert->legacy_credential.get(), prefs, num_prefs);
 }
 
 static constexpr struct {

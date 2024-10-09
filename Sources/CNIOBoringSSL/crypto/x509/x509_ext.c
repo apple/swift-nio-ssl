@@ -59,7 +59,6 @@
 #include <CNIOBoringSSL_obj.h>
 #include <CNIOBoringSSL_stack.h>
 #include <CNIOBoringSSL_x509.h>
-#include <CNIOBoringSSL_x509v3.h>
 
 #include "internal.h"
 

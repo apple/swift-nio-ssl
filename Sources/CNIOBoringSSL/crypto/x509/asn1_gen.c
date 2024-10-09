@@ -65,11 +65,9 @@
 #include <CNIOBoringSSL_bytestring.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_obj.h>
-#include <CNIOBoringSSL_x509v3.h>
 
 #include "../conf/internal.h"
 #include "../internal.h"
-#include "../x509v3/internal.h"
 #include "internal.h"
 
 

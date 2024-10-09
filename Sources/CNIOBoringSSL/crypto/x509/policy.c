@@ -19,10 +19,8 @@
 #include <CNIOBoringSSL_mem.h>
 #include <CNIOBoringSSL_obj.h>
 #include <CNIOBoringSSL_stack.h>
-#include <CNIOBoringSSL_x509v3.h>
 
 #include "../internal.h"
-#include "../x509v3/internal.h"
 #include "internal.h"
 
 

@@ -55,7 +55,7 @@
  * [including the GNU Public Licence.] */
 
 #include <CNIOBoringSSL_asn1.h>
-#include <CNIOBoringSSL_time.h>
+#include <CNIOBoringSSL_posix_time.h>
 
 #include <string.h>
 #include <time.h>

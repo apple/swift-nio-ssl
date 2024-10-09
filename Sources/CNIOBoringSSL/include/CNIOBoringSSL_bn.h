@@ -387,9 +387,9 @@ OPENSSL_EXPORT void BN_CTX_end(BN_CTX *ctx);
 // or |b|. It returns one on success and zero on allocation failure.
 OPENSSL_EXPORT int BN_add(BIGNUM *r, const BIGNUM *a, const BIGNUM *b);
 
-// BN_uadd sets |r| = |a| + |b|, where |a| and |b| are non-negative and |r| may
-// be the same pointer as either |a| or |b|. It returns one on success and zero
-// on allocation failure.
+// BN_uadd sets |r| = |a| + |b|, considering only the absolute values of |a| and
+// |b|. |r| may be the same pointer as either |a| or |b|. It returns one on
+// success and zero on allocation failure.
 OPENSSL_EXPORT int BN_uadd(BIGNUM *r, const BIGNUM *a, const BIGNUM *b);
 
 // BN_add_word adds |w| to |a|. It returns one on success and zero otherwise.
@@ -399,9 +399,9 @@ OPENSSL_EXPORT int BN_add_word(BIGNUM *a, BN_ULONG w);
 // or |b|. It returns one on success and zero on allocation failure.
 OPENSSL_EXPORT int BN_sub(BIGNUM *r, const BIGNUM *a, const BIGNUM *b);
 
-// BN_usub sets |r| = |a| - |b|, where |a| and |b| are non-negative integers,
-// |b| < |a| and |r| may be the same pointer as either |a| or |b|. It returns
-// one on success and zero on allocation failure.
+// BN_usub sets |r| = |a| - |b|, considering only the absolute values of |a| and
+// |b|. The result must be non-negative, i.e. |b| <= |a|. |r| may be the same
+// pointer as either |a| or |b|. It returns one on success and zero on error.
 OPENSSL_EXPORT int BN_usub(BIGNUM *r, const BIGNUM *a, const BIGNUM *b);
 
 // BN_sub_word subtracts |w| from |a|. It returns one on success and zero on
@@ -424,9 +424,14 @@ OPENSSL_EXPORT int BN_sqr(BIGNUM *r, const BIGNUM *a, BN_CTX *ctx);
 
 // BN_div divides |numerator| by |divisor| and places the result in |quotient|
 // and the remainder in |rem|. Either of |quotient| or |rem| may be NULL, in
-// which case the respective value is not returned. The result is rounded
-// towards zero; thus if |numerator| is negative, the remainder will be zero or
-// negative. It returns one on success or zero on error.
+// which case the respective value is not returned. It returns one on success or
+// zero on error. It is an error condition if |divisor| is zero.
+//
+// The outputs will be such that |quotient| * |divisor| + |rem| = |numerator|,
+// with the quotient rounded towards zero. Thus, if |numerator| is negative,
+// |rem| will be zero or negative. If |divisor| is negative, the sign of
+// |quotient| will be flipped to compensate but otherwise rounding will be as if
+// |divisor| were its absolute value.
 OPENSSL_EXPORT int BN_div(BIGNUM *quotient, BIGNUM *rem,
                           const BIGNUM *numerator, const BIGNUM *divisor,
                           BN_CTX *ctx);
@@ -666,11 +671,11 @@ OPENSSL_EXPORT int BN_pseudo_rand_range(BIGNUM *rnd, const BIGNUM *range);
 // The callback receives the address of that |BN_GENCB| structure as its last
 // argument and the user is free to put an arbitrary pointer in |arg|. The other
 // arguments are set as follows:
-//   event=BN_GENCB_GENERATED, n=i:   after generating the i'th possible prime
+// - event=BN_GENCB_GENERATED, n=i:   after generating the i'th possible prime
 //                                    number.
-//   event=BN_GENCB_PRIME_TEST, n=-1: when finished trial division primality
+// - event=BN_GENCB_PRIME_TEST, n=-1: when finished trial division primality
 //                                    checks.
-//   event=BN_GENCB_PRIME_TEST, n=i:  when the i'th primality test has finished.
+// - event=BN_GENCB_PRIME_TEST, n=i:  when the i'th primality test has finished.
 //
 // The callback can return zero to abort the generation progress or one to
 // allow it to continue.

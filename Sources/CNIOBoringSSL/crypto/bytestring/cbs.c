@@ -26,11 +26,6 @@
 #include "internal.h"
 
 
-void CBS_init(CBS *cbs, const uint8_t *data, size_t len) {
-  cbs->data = data;
-  cbs->len = len;
-}
-
 static int cbs_get(CBS *cbs, const uint8_t **p, size_t n) {
   if (cbs->len < n) {
     return 0;
@@ -45,14 +40,6 @@ static int cbs_get(CBS *cbs, const uint8_t **p, size_t n) {
 int CBS_skip(CBS *cbs, size_t len) {
   const uint8_t *dummy;
   return cbs_get(cbs, &dummy, len);
-}
-
-const uint8_t *CBS_data(const CBS *cbs) {
-  return cbs->data;
-}
-
-size_t CBS_len(const CBS *cbs) {
-  return cbs->len;
 }
 
 int CBS_stow(const CBS *cbs, uint8_t **out_ptr, size_t *out_len) {
@@ -520,11 +507,9 @@ int CBS_get_asn1_int64(CBS *cbs, int64_t *out) {
     return 0;
   }
   uint8_t sign_extend[sizeof(int64_t)];
-  memset(sign_extend, is_negative ? 0xff : 0, sizeof(sign_extend));
-  for (size_t i = 0; i < len; i++) {
-    sign_extend[i] = data[len - i - 1];
-  }
-  memcpy(out, sign_extend, sizeof(sign_extend));
+  OPENSSL_memset(sign_extend, is_negative ? 0xff : 0, sizeof(sign_extend));
+  OPENSSL_memcpy(sign_extend + sizeof(int64_t) - len, data, len);
+  *out = CRYPTO_load_u64_be(sign_extend);
   return 1;
 }
 

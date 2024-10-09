@@ -46,6 +46,10 @@ bool ssl_protocol_version_from_wire(uint16_t *out, uint16_t version) {
       *out = TLS1_2_VERSION;
       return true;
 
+    case DTLS1_3_EXPERIMENTAL_VERSION:
+      *out = TLS1_3_VERSION;
+      return true;
+
     default:
       return false;
   }
@@ -62,6 +66,7 @@ static const uint16_t kTLSVersions[] = {
 };
 
 static const uint16_t kDTLSVersions[] = {
+    DTLS1_3_EXPERIMENTAL_VERSION,
     DTLS1_2_VERSION,
     DTLS1_VERSION,
 };
@@ -99,6 +104,7 @@ static const VersionInfo kVersionNames[] = {
     {TLS1_VERSION, "TLSv1"},
     {DTLS1_VERSION, "DTLSv1"},
     {DTLS1_2_VERSION, "DTLSv1.2"},
+    {DTLS1_3_EXPERIMENTAL_VERSION, "DTLSv1.3"},
 };
 
 static const char *ssl_version_to_string(uint16_t version) {
@@ -142,7 +148,7 @@ static bool set_min_version(const SSL_PROTOCOL_METHOD *method, uint16_t *out,
                             uint16_t version) {
   // Zero is interpreted as the default minimum version.
   if (version == 0) {
-    *out = method->is_dtls ? DTLS1_VERSION : TLS1_VERSION;
+    *out = method->is_dtls ? DTLS1_2_VERSION : TLS1_2_VERSION;
     return true;
   }
 
@@ -244,18 +250,27 @@ bool ssl_get_version_range(const SSL_HANDSHAKE *hs, uint16_t *out_min_version,
 }
 
 static uint16_t ssl_version(const SSL *ssl) {
-  // In early data, we report the predicted version.
+  // In early data, we report the predicted version. Note it is possible that we
+  // have a predicted version and a *different* true version. This means 0-RTT
+  // has been rejected, but until the reject has reported to the application and
+  // applied with |SSL_reset_early_data_reject|, we continue reporting a
+  // self-consistent connection.
   if (SSL_in_early_data(ssl) && !ssl->server) {
     return ssl->s3->hs->early_session->ssl_version;
   }
-  return ssl->version;
+  if (ssl->s3->version != 0) {
+    return ssl->s3->version;
+  }
+  // The TLS versions has not yet been negotiated. Historically, we would return
+  // (D)TLS 1.2, so preserve that behavior.
+  return SSL_is_dtls(ssl) ? DTLS1_2_VERSION : TLS1_2_VERSION;
 }
 
 uint16_t ssl_protocol_version(const SSL *ssl) {
-  assert(ssl->s3->have_version);
+  assert(ssl->s3->version != 0);
   uint16_t version;
-  if (!ssl_protocol_version_from_wire(&version, ssl->version)) {
-    // |ssl->version| will always be set to a valid version.
+  if (!ssl_protocol_version_from_wire(&version, ssl->s3->version)) {
+    // |ssl->s3->version| will always be set to a valid version.
     assert(0);
     return 0;
   }
