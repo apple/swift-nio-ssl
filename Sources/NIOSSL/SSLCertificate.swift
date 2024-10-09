@@ -186,7 +186,7 @@ public final class NIOSSLCertificate {
     /// Extracts the SHA1 hash of the subject name before it has been truncated.
     ///
     /// - returns: Numeric hash of the subject name.
-    internal func getSubjectNameHash() -> UInt {
+    internal func getSubjectNameHash() -> UInt32 {
         return CNIOBoringSSL_X509_subject_name_hash(self.ref)
     }
 
