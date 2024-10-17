@@ -330,7 +330,13 @@ public final class NIOSSLContext {
         // Cipher suites. We just pass this straight to BoringSSL.
         returnCode = CNIOBoringSSL_SSL_CTX_set_cipher_list(context, configuration.cipherSuites)
         precondition(1 == returnCode)
-        
+
+        // Curves list.
+        if let curves = configuration.curves {
+            returnCode = CNIOBoringSSL_SSL_CTX_set1_curves_list(context, curves)
+            precondition(1 == returnCode)
+        }
+
         // Set the PSK Client Configuration callback.
         if let pskClientConfigurationsCallback = configuration._pskClientIdentityProvider {
             self.pskClientConfigurationCallback = pskClientConfigurationsCallback
