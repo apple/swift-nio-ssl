@@ -132,6 +132,29 @@ public struct NIOTLSCipher: RawRepresentable, Hashable, Sendable {
     }
 }
 
+/// Available curves to use for TLS.
+public struct NIOTLSCurve: RawRepresentable, Hashable, Sendable {
+    /// Construct a ``NIOTLSCurve`` from the RFC code point for that curve.
+    public init(rawValue: UInt16) {
+        self.rawValue = rawValue
+    }
+
+    /// Construct a ``NIOTLSCurve`` from the RFC code point for that curve.
+    public init(_ rawValue: RawValue) {
+        self.rawValue = rawValue
+    }
+
+    /// The RFC code point for the given curve.
+    public var rawValue: UInt16
+    public typealias RawValue = UInt16
+
+    public static let secp256r1 = NIOTLSCurve(rawValue: 0x17)
+    public static let secp384r1 = NIOTLSCurve(rawValue: 0x18)
+    public static let secp521r1 = NIOTLSCurve(rawValue: 0x19)
+    public static let x25519    = NIOTLSCurve(rawValue: 0x1D)
+    public static let x448      = NIOTLSCurve(rawValue: 0x1E)
+}
+
 /// Formats NIOSSL supports for serializing keys and certificates.
 public enum NIOSSLSerializationFormats: Sendable {
     case pem
@@ -253,9 +276,8 @@ public struct TLSConfiguration {
     /// TLS 1.3 cipher suites cannot be configured.
     public var cipherSuites: String = defaultCipherSuites
 
-    /// TLS curves supported by this handler.
-    /// Can be used to override the default supported curves.
-    public var curves: String?
+    /// TLS curves supported by this handler. Passing `nil` means that a built-in set of curves will be used.
+    public var curves: [NIOTLSCurve]?
 
     /// Public property used to set the internal ``cipherSuites`` from ``NIOTLSCipher``.
     public var cipherSuiteValues: [NIOTLSCipher] {

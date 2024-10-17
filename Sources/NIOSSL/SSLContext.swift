@@ -333,8 +333,15 @@ public final class NIOSSLContext {
 
         // Curves list.
         if let curves = configuration.curves {
-            returnCode = CNIOBoringSSL_SSL_CTX_set1_curves_list(context, curves)
-            precondition(1 == returnCode)
+            returnCode = curves
+                .map { $0.rawValue }
+                .withUnsafeBufferPointer { algo in
+                    CNIOBoringSSL_SSL_CTX_set1_group_ids(context, algo.baseAddress, algo.count)
+            }
+            if returnCode != 1 {
+                let errorStack = BoringSSLError.buildErrorStack()
+                throw BoringSSLError.unknownError(errorStack)
+            }
         }
 
         // Set the PSK Client Configuration callback.

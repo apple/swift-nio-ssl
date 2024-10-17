@@ -831,7 +831,7 @@ class TLSConfigurationTest: XCTestCase {
 
     func testCompatibleCurves() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
-        clientConfig.curves = "X25519"
+        clientConfig.curves = [.x25519]
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.certificateVerification = .noHostnameVerification
         clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
@@ -841,7 +841,7 @@ class TLSConfigurationTest: XCTestCase {
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
             privateKey: .privateKey(TLSConfigurationTest.key1)
         )
-        serverConfig.curves = "X25519"
+        serverConfig.curves = [.x25519]
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.certificateVerification = .none
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
@@ -849,7 +849,7 @@ class TLSConfigurationTest: XCTestCase {
 
     func testMultipleCompatibleCurves() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
-        clientConfig.curves = "X25519"
+        clientConfig.curves = [.x25519]
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.certificateVerification = .noHostnameVerification
         clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
@@ -859,7 +859,7 @@ class TLSConfigurationTest: XCTestCase {
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
             privateKey: .privateKey(TLSConfigurationTest.key1)
         )
-        serverConfig.curves = "X25519:prime256v1"
+        serverConfig.curves = [.x25519, .secp256r1]
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.certificateVerification = .none
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
@@ -867,7 +867,7 @@ class TLSConfigurationTest: XCTestCase {
 
     func testNonCompatibleCurves() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
-        clientConfig.curves = "X25519"
+        clientConfig.curves = [.secp256r1]
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.certificateVerification = .noHostnameVerification
         clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
@@ -877,7 +877,7 @@ class TLSConfigurationTest: XCTestCase {
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
             privateKey: .privateKey(TLSConfigurationTest.key1)
         )
-        serverConfig.curves = "prime256v1"
+        serverConfig.curves = [.secp256r1]
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.certificateVerification = .none
         try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_HANDSHAKE_FAILURE")
@@ -1164,7 +1164,7 @@ class TLSConfigurationTest: XCTestCase {
             { $0.minimumTLSVersion = .tlsv13 },
             { $0.maximumTLSVersion = .tlsv12 },
             { $0.cipherSuites = "AES" },
-            { $0.curves = "X25519" },
+            { $0.curves = [.x25519] },
             { $0.cipherSuiteValues = [.TLS_RSA_WITH_AES_256_CBC_SHA] },
             { $0.verifySignatureAlgorithms = [.ed25519] },
             { $0.signingSignatureAlgorithms = [.ed25519] },
