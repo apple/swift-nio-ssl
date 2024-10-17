@@ -1126,7 +1126,7 @@ class TLSConfigurationTest: XCTestCase {
     func testBestEffortEquatableHashableDifferences() {
         // If this assertion fails, DON'T JUST CHANGE THE NUMBER HERE! Make sure you've added any appropriate transforms below
         // so that we're testing these best effort functions.
-        XCTAssertEqual(MemoryLayout<TLSConfiguration>.size, 242, "TLSConfiguration has changed size: you probably need to update this test!")
+        XCTAssertEqual(MemoryLayout<TLSConfiguration>.size, 234, "TLSConfiguration has changed size: you probably need to update this test!")
 
         let first = TLSConfiguration.makeClientConfiguration()
 
