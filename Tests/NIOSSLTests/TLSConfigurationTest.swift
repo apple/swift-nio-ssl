@@ -829,6 +829,60 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertFalse(config.bestEffortEquals(differentConfig))
     }
 
+    func testCompatibleCurves() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.curves = "X25519"
+        clientConfig.maximumTLSVersion = .tlsv12
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+        clientConfig.renegotiationSupport = .none
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.curves = "X25519"
+        serverConfig.maximumTLSVersion = .tlsv12
+        serverConfig.certificateVerification = .none
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    func testMultipleCompatibleCurves() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.curves = "X25519"
+        clientConfig.maximumTLSVersion = .tlsv12
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+        clientConfig.renegotiationSupport = .none
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.curves = "X25519:prime256v1"
+        serverConfig.maximumTLSVersion = .tlsv12
+        serverConfig.certificateVerification = .none
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    func testNonCompatibleCurves() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.curves = "X25519"
+        clientConfig.maximumTLSVersion = .tlsv12
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+        clientConfig.renegotiationSupport = .none
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.curves = "prime256v1"
+        serverConfig.maximumTLSVersion = .tlsv12
+        serverConfig.certificateVerification = .none
+        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_HANDSHAKE_FAILURE")
+    }
+
     func testCompatibleCipherSuite() throws {
         // ECDHE_RSA is used here because the public key in .cert1 is derived from a RSA private key.
         // These could also be RSA based, but cannot be ECDHE_ECDSA.
@@ -1072,7 +1126,7 @@ class TLSConfigurationTest: XCTestCase {
     func testBestEffortEquatableHashableDifferences() {
         // If this assertion fails, DON'T JUST CHANGE THE NUMBER HERE! Make sure you've added any appropriate transforms below
         // so that we're testing these best effort functions.
-        XCTAssertEqual(MemoryLayout<TLSConfiguration>.size, 226, "TLSConfiguration has changed size: you probably need to update this test!")
+        XCTAssertEqual(MemoryLayout<TLSConfiguration>.size, 242, "TLSConfiguration has changed size: you probably need to update this test!")
 
         let first = TLSConfiguration.makeClientConfiguration()
 
@@ -1110,6 +1164,7 @@ class TLSConfigurationTest: XCTestCase {
             { $0.minimumTLSVersion = .tlsv13 },
             { $0.maximumTLSVersion = .tlsv12 },
             { $0.cipherSuites = "AES" },
+            { $0.curves = "X25519" },
             { $0.cipherSuiteValues = [.TLS_RSA_WITH_AES_256_CBC_SHA] },
             { $0.verifySignatureAlgorithms = [.ed25519] },
             { $0.signingSignatureAlgorithms = [.ed25519] },

@@ -132,34 +132,6 @@ public struct NIOTLSCipher: RawRepresentable, Hashable, Sendable {
     }
 }
 
-/// Available curves to use for TLS instead of a string based representation.
-public struct NIOTLSCurve: RawRepresentable, Hashable, Sendable {
-    /// Construct a ``NIOTLSCurve`` from the RFC code point for that cipher.
-    public init(rawValue: UInt16) {
-        self.rawValue = rawValue
-    }
-
-    /// Construct a ``NIOTLSCurve`` from the RFC code point for that curve.
-    public init(_ rawValue: RawValue) {
-        self.rawValue = rawValue
-    }
-
-    /// The RFC code point for the given curve.
-    public var rawValue: UInt16
-    public typealias RawValue = UInt16
-
-    public static let secp256r1 = NIOTLSCurve(rawValue: 0x0017)
-    public static let secp384r1 = NIOTLSCurve(rawValue: 0x0018)
-    public static let secp521r1 = NIOTLSCurve(rawValue: 0x0019)
-    public static let x25519    = NIOTLSCurve(rawValue: 0x001D)
-    public static let x448      = NIOTLSCurve(rawValue: 0x001E)
-
-    var standardName: String {
-        let boringSSLName = CNIOBoringSSL_SSL_get_curve_name(self.rawValue)!
-        return String(cString: boringSSLName)
-    }
-}
-
 /// Formats NIOSSL supports for serializing keys and certificates.
 public enum NIOSSLSerializationFormats: Sendable {
     case pem
@@ -498,6 +470,7 @@ extension TLSConfiguration {
         return self.minimumTLSVersion == comparing.minimumTLSVersion &&
             self.maximumTLSVersion == comparing.maximumTLSVersion &&
             self.cipherSuites == comparing.cipherSuites &&
+            self.curves == comparing.curves &&
             self.verifySignatureAlgorithms == comparing.verifySignatureAlgorithms &&
             self.signingSignatureAlgorithms == comparing.signingSignatureAlgorithms &&
             self.certificateVerification == comparing.certificateVerification &&
@@ -525,6 +498,7 @@ extension TLSConfiguration {
         hasher.combine(minimumTLSVersion)
         hasher.combine(maximumTLSVersion)
         hasher.combine(cipherSuites)
+        hasher.combine(curves)
         hasher.combine(verifySignatureAlgorithms)
         hasher.combine(signingSignatureAlgorithms)
         hasher.combine(certificateVerification)
