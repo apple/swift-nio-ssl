@@ -832,6 +832,7 @@ class TLSConfigurationTest: XCTestCase {
     func testCompatibleCurves() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.curves = [.x25519]
+        clientConfig.cipherSuiteValues = [.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.certificateVerification = .noHostnameVerification
         clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
@@ -841,6 +842,7 @@ class TLSConfigurationTest: XCTestCase {
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
             privateKey: .privateKey(TLSConfigurationTest.key1)
         )
+        serverConfig.cipherSuiteValues = [.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
         serverConfig.curves = [.x25519]
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.certificateVerification = .none
@@ -850,6 +852,7 @@ class TLSConfigurationTest: XCTestCase {
     func testMultipleCompatibleCurves() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.curves = [.x25519]
+        clientConfig.cipherSuiteValues = [.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.certificateVerification = .noHostnameVerification
         clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
@@ -860,6 +863,7 @@ class TLSConfigurationTest: XCTestCase {
             privateKey: .privateKey(TLSConfigurationTest.key1)
         )
         serverConfig.curves = [.x25519, .secp256r1]
+        serverConfig.cipherSuiteValues = [.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.certificateVerification = .none
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
@@ -867,7 +871,8 @@ class TLSConfigurationTest: XCTestCase {
 
     func testNonCompatibleCurves() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
-        clientConfig.curves = [.secp256r1]
+        clientConfig.curves = [.secp521r1]
+        clientConfig.cipherSuiteValues = [.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.certificateVerification = .noHostnameVerification
         clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
@@ -877,7 +882,8 @@ class TLSConfigurationTest: XCTestCase {
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
             privateKey: .privateKey(TLSConfigurationTest.key1)
         )
-        serverConfig.curves = [.secp256r1]
+        serverConfig.curves = [.x25519]
+        serverConfig.cipherSuiteValues = [.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.certificateVerification = .none
         try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_HANDSHAKE_FAILURE")
