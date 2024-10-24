@@ -514,5 +514,30 @@ class SSLPKCS12BundleTest: XCTestCase {
         XCTAssertTrue(set.contains(bundle1_b))
         XCTAssertTrue(set.contains(bundle2))
     }
+
+    func testMakePKCS12() throws {
+        let privateKey = try NIOSSLPrivateKey(bytes: .init(samplePemKey.utf8), format: .pem)
+        let mainCert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
+        let caOne = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
+        let caTwo = try NIOSSLCertificate(bytes: .init(multiCNCert.utf8), format: .pem)
+        let caThree = try NIOSSLCertificate(bytes: .init(noCNCert.utf8), format: .pem)
+        let caFour = try NIOSSLCertificate(bytes: .init(unicodeCNCert.utf8), format: .pem)
+        let certificates = [mainCert, caOne, caTwo, caThree, caFour]
+
+        // Create a PKCS#12...
+        let pkcs12 = try NIOSSLPKCS12Bundle.makePKCS12(
+            certificates: certificates,
+            privateKey: privateKey,
+            passphrase: "thisisagreatpassword".utf8,
+            name: "thisisagreatname".utf8
+        )
+
+        // And then decode it into a NIOSSLPKCS12Bundle
+        let decoded = try NIOSSLPKCS12Bundle(buffer: pkcs12, passphrase: "thisisagreatpassword".utf8)
+
+        // Make sure everything is there
+        XCTAssertEqual(decoded.privateKey, privateKey)
+        XCTAssertEqual(decoded.certificateChain, certificates)
+    }
 }
 
