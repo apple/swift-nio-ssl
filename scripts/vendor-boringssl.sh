@@ -105,9 +105,9 @@ function mangle_symbols {
         )
 
         # Now cross compile for our targets.
-        docker run -t -i --rm --privileged -v$(pwd):/src -w/src --platform linux/arm64 swift:5.9-jammy \
+        docker run -t -i --rm --privileged -v"$(pwd)":/src -w/src --platform linux/arm64 swift:5.9-jammy \
             swift build --product CNIOBoringSSL
-        docker run -t -i --rm --privileged -v$(pwd):/src -w/src --platform linux/amd64 swift:5.9-jammy \
+        docker run -t -i --rm --privileged -v"$(pwd)":/src -w/src --platform linux/amd64 swift:5.9-jammy \
             swift build --product CNIOBoringSSL
 
         # Now we need to generate symbol mangles for Linux. We can do this in
@@ -137,10 +137,10 @@ function mangle_symbols {
     echo "ADDING symbol mangling"
     perl -pi -e '$_ .= qq(\n#define BORINGSSL_PREFIX CNIOBoringSSL\n) if /#define OPENSSL_HEADER_BASE_H/' "$DSTROOT/include/openssl/base.h"
 
-    for assembly_file in $(find "$DSTROOT" -name "*.S")
+    while IFS= read -r -d '' assembly_file
     do
         $sed -i '1 i #define BORINGSSL_PREFIX CNIOBoringSSL' "$assembly_file"
-    done
+    done <   <(find "$DSTROOT" -name "*.S" -print0)
     namespace_inlines "$DSTROOT"
 }
 
@@ -184,6 +184,7 @@ case "$(uname -s)" in
         sed=gsed
         ;;
     *)
+	# shellcheck disable=SC2209
         sed=sed
         ;;
 esac
@@ -258,7 +259,7 @@ echo "COPYING boringssl"
 for pattern in "${PATTERNS[@]}"
 do
   for i in $SRCROOT/$pattern; do
-    path=${i#$SRCROOT}
+    path=${i#"$SRCROOT"}
     dest="$DSTROOT$path"
     dest_dir=$(dirname "$dest")
     mkdir -p "$dest_dir"
@@ -291,6 +292,7 @@ echo "RENAMING header files"
     rm -rf include/pki
 
     # Now change the imports from "<openssl/X> to "<CNIOBoringSSL_X>", apply the same prefix to the 'boringssl_prefix_symbols' headers.
+    # shellcheck disable=SC2038
     find . -name "*.[ch]" -or -name "*.cc" -or -name "*.S" -or -name "*.c.inc" | xargs $sed -i -r -e 's#include <openssl/(([^/>]+/)*)(.+.h)>#include <\1CNIOBoringSSL_\3>#' -e 's+include <boringssl_prefix_symbols+include <CNIOBoringSSL_boringssl_prefix_symbols+' -e 's#include "openssl/(([^/>]+/)*)(.+.h)"#include "\1CNIOBoringSSL_\3"#'
 
     # Okay now we need to rename the headers adding the prefix "CNIOBoringSSL_".
@@ -299,6 +301,7 @@ echo "RENAMING header files"
     for x in **/*.h; do mv -- "$x" "${x%/*}/CNIOBoringSSL_${x##*/}"; done
 
     # Finally, make sure we refer to them by their prefixed names, and change any includes from angle brackets to quotation marks.
+    # shellcheck disable=SC2038
     find . -name "*.h" | xargs $sed -i -r -e 's#include "(([^/"]+/)*)(.+.h)"#include "\1CNIOBoringSSL_\3"#' -e 's/include <CNIOBoringSSL_(.*)>/include "CNIOBoringSSL_\1"/'
     popd
 )
@@ -312,6 +315,7 @@ git apply "${HERE}/scripts/patch-3-more-inttypes.patch"
 echo "PROTECTING against executable stacks"
 (
     cd "$DSTROOT"
+    # shellcheck disable=SC2038
     find . -name "*.S" | xargs $sed -i '$ a #if defined(__linux__) && defined(__ELF__)\n.section .note.GNU-stack,"",%progbits\n#endif\n'
 )
 

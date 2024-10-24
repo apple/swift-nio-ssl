@@ -62,7 +62,9 @@ extension TLS13RecordObserver.Record {
 
 extension ByteBuffer {
     fileprivate mutating func readTLS13Record() -> TLS13RecordObserver.Record? {
-        guard let (contentType, legacyRecordVersion, length) = self.readMultipleIntegers(as: (UInt8, UInt16, UInt16).self) else {
+        guard
+            let (contentType, legacyRecordVersion, length) = self.readMultipleIntegers(as: (UInt8, UInt16, UInt16).self)
+        else {
             return nil
         }
 
@@ -70,6 +72,10 @@ extension ByteBuffer {
             return nil
         }
 
-        return .init(contentType: .init(rawValue: contentType), legacyRecordVersion: legacyRecordVersion, encryptedRecord: encryptedRecord)
+        return .init(
+            contentType: .init(rawValue: contentType),
+            legacyRecordVersion: legacyRecordVersion,
+            encryptedRecord: encryptedRecord
+        )
     }
 }

@@ -13,14 +13,15 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
+
 @testable import NIOSSL
 
 final class CertificateVerificationTests: XCTestCase {
     func testCanFindCAFileOnLinux() {
         // This test only runs on Linux
         #if os(Linux)
-            // A valid Linux system means we can find a CA file.
-            XCTAssertNotNil(rootCAFilePath)
+        // A valid Linux system means we can find a CA file.
+        XCTAssertNotNil(rootCAFilePath)
         #endif
     }
 }

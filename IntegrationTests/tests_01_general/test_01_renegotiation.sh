@@ -13,11 +13,14 @@
 ##
 ##===----------------------------------------------------------------------===##
 
+# shellcheck source=IntegrationTests/tests_01_general/defines.sh
 source defines.sh
 
 swift build
 
 # Generate a self-signed certificate.
+
+# shellcheck disable=SC2154 # Provided by framework
 cat << EOF > "$tmp/openssl.cnf"
 [ req ]
 distinguished_name = subject

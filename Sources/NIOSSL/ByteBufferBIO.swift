@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import NIOCore
 @_implementationOnly import CNIOBoringSSL
+import NIOCore
 
 #if canImport(Darwin)
 import Darwin.C
@@ -27,7 +27,6 @@ import Bionic
 #error("unsupported os")
 #endif
 
-
 /// The BoringSSL entry point to write to the `ByteBufferBIO`. This thunk unwraps the user data
 /// and then passes the call on to the specific BIO reference.
 ///
@@ -36,7 +35,9 @@ import Bionic
 /// function pointer and so needs to be @convention(c).
 internal func boringSSLBIOWriteFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafePointer<CChar>?, len: CInt) -> CInt {
     guard let concreteBIO = bio, let concreteBuf = buf else {
-        preconditionFailure("Invalid pointers in boringSSLBIOWriteFunc: bio: \(String(describing: bio)) buf: \(String(describing: buf))")
+        preconditionFailure(
+            "Invalid pointers in boringSSLBIOWriteFunc: bio: \(String(describing: bio)) buf: \(String(describing: buf))"
+        )
     }
 
     // This unwrap may fail if the user has dropped the ref to the ByteBufferBIO but still has
@@ -64,9 +65,15 @@ internal func boringSSLBIOWriteFunc(bio: UnsafeMutablePointer<BIO>?, buf: Unsafe
 /// This specific type signature is annoying (I'd rather have UnsafeRawPointer, and rather than a separate
 /// len I'd like a buffer pointer), but this interface is required because this is passed to an BoringSSL
 /// function pointer and so needs to be @convention(c).
-internal func boringSSLBIOReadFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafeMutablePointer<CChar>?, len: CInt) -> CInt {
+internal func boringSSLBIOReadFunc(
+    bio: UnsafeMutablePointer<BIO>?,
+    buf: UnsafeMutablePointer<CChar>?,
+    len: CInt
+) -> CInt {
     guard let concreteBIO = bio, let concreteBuf = buf else {
-        preconditionFailure("Invalid pointers in boringSSLBIOReadFunc: bio: \(String(describing: bio)) buf: \(String(describing: buf))")
+        preconditionFailure(
+            "Invalid pointers in boringSSLBIOReadFunc: bio: \(String(describing: bio)) buf: \(String(describing: buf))"
+        )
     }
 
     // This unwrap may fail if the user has dropped the ref to the ByteBufferBIO but still has
@@ -96,7 +103,9 @@ internal func boringSSLBIOReadFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafeM
 /// function pointer and so needs to be @convention(c).
 internal func boringSSLBIOPutsFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafePointer<CChar>?) -> CInt {
     guard let concreteBIO = bio, let concreteBuf = buf else {
-        preconditionFailure("Invalid pointers in boringSSLBIOPutsFunc: bio: \(String(describing: bio)) buf: \(String(describing: buf))")
+        preconditionFailure(
+            "Invalid pointers in boringSSLBIOPutsFunc: bio: \(String(describing: bio)) buf: \(String(describing: buf))"
+        )
     }
     return boringSSLBIOWriteFunc(bio: concreteBIO, buf: concreteBuf, len: CInt(strlen(concreteBuf)))
 }
@@ -107,12 +116,21 @@ internal func boringSSLBIOPutsFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafeP
 /// This specific type signature is annoying (I'd rather have UnsafeRawPointer, and rather than a separate
 /// len I'd like a buffer pointer), but this interface is required because this is passed to an BoringSSL
 /// function pointer and so needs to be @convention(c).
-internal func boringSSLBIOGetsFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafeMutablePointer<CChar>?, len: CInt) -> CInt {
-    return -2
+internal func boringSSLBIOGetsFunc(
+    bio: UnsafeMutablePointer<BIO>?,
+    buf: UnsafeMutablePointer<CChar>?,
+    len: CInt
+) -> CInt {
+    -2
 }
 
 /// The BoringSSL entry point for `BIO_ctrl`. We don't support most of these.
-internal func boringSSLBIOCtrlFunc(bio: UnsafeMutablePointer<BIO>?, cmd: CInt, larg: CLong, parg: UnsafeMutableRawPointer?) -> CLong {
+internal func boringSSLBIOCtrlFunc(
+    bio: UnsafeMutablePointer<BIO>?,
+    cmd: CInt,
+    larg: CLong,
+    parg: UnsafeMutableRawPointer?
+) -> CLong {
     switch cmd {
     case BIO_CTRL_GET_CLOSE:
         return CLong(CNIOBoringSSL_BIO_get_shutdown(bio))
@@ -127,13 +145,12 @@ internal func boringSSLBIOCtrlFunc(bio: UnsafeMutablePointer<BIO>?, cmd: CInt, l
 }
 
 internal func boringSSLBIOCreateFunc(bio: UnsafeMutablePointer<BIO>?) -> CInt {
-    return 1
+    1
 }
 
 internal func boringSSLBIODestroyFunc(bio: UnsafeMutablePointer<BIO>?) -> CInt {
-    return 1
+    1
 }
-
 
 /// An BoringSSL BIO object that wraps `ByteBuffer` objects.
 ///
@@ -223,12 +240,12 @@ final class ByteBufferBIO {
     /// wants to be delayed as long as possible to maximise the possibility that it does not
     /// trigger an allocation.
     private var mustClearOutboundBuffer: Bool {
-        return outboundBuffer.readerIndex == outboundBuffer.writerIndex && outboundBuffer.readerIndex > 0
+        outboundBuffer.readerIndex == outboundBuffer.writerIndex && outboundBuffer.readerIndex > 0
     }
 
     /// A test helper to provide the outbound buffer capacity.
     internal var _testOnly_outboundBufferCapacity: Int {
-        return self.outboundBuffer.capacity
+        self.outboundBuffer.capacity
     }
 
     init(allocator: ByteBufferAllocator, maximumPreservedOutboundBufferCapacity: Int) {
@@ -285,7 +302,6 @@ final class ByteBufferBIO {
         CNIOBoringSSL_BIO_up_ref(self.bioPtr)
         return self.bioPtr
     }
-
 
     /// Called to obtain the outbound ciphertext written by BoringSSL.
     ///
@@ -362,8 +378,14 @@ final class ByteBufferBIO {
 
         let bytesToCopy = min(buffer.count, inboundBuffer.readableBytes)
         _ = inboundBuffer.readWithUnsafeReadableBytes { bytePointer in
-            assert(bytePointer.count >= bytesToCopy, "Copying more bytes (\(bytesToCopy)) than fits in readable bytes \((bytePointer.count))")
-            assert(buffer.count >= bytesToCopy, "Copying more bytes (\(bytesToCopy) than contained in source buffer (\(buffer.count))")
+            assert(
+                bytePointer.count >= bytesToCopy,
+                "Copying more bytes (\(bytesToCopy)) than fits in readable bytes \((bytePointer.count))"
+            )
+            assert(
+                buffer.count >= bytesToCopy,
+                "Copying more bytes (\(bytesToCopy) than contained in source buffer (\(buffer.count))"
+            )
             buffer.baseAddress!.copyMemory(from: bytePointer.baseAddress!, byteCount: bytesToCopy)
             return bytesToCopy
         }
@@ -387,7 +409,9 @@ final class ByteBufferBIO {
         if self.mustClearOutboundBuffer {
             // We just flushed, and this is a new write. Let's clear the buffer now.
             if self.outboundBuffer.capacity > self.maximumPreservedOutboundBufferCapacity {
-                self.outboundBuffer = self.allocator.buffer(capacity: max(buffer.count, self.maximumPreservedOutboundBufferCapacity))
+                self.outboundBuffer = self.allocator.buffer(
+                    capacity: max(buffer.count, self.maximumPreservedOutboundBufferCapacity)
+                )
             } else {
                 self.outboundBuffer.clear()
                 assert(!self.mustClearOutboundBuffer)

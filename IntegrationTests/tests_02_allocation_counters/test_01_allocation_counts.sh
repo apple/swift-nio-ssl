@@ -13,6 +13,7 @@
 ##
 ##===----------------------------------------------------------------------===##
 
+# shellcheck source=IntegrationTests/tests_02_allocation_counters/defines.sh
 source defines.sh
 
 set -eu
@@ -26,6 +27,7 @@ for file in "$here/test_01_resources/"test_*.swift; do
     all_tests+=( "$test_name" )
 done
 
+# shellcheck disable=SC2154 # Provided by framework
 "$here/test_01_resources/run-nio-ssl-alloc-counter-tests.sh" -t "$tmp" > "$tmp/output"
 
 for test in "${all_tests[@]}"; do

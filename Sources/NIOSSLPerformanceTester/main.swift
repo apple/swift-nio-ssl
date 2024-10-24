@@ -12,19 +12,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
 import Dispatch
+import Foundation
 
 // MARK: Test Harness
 
 var warning: String = ""
-assert({
-    print("======================================================")
-    print("= YOU ARE RUNNING NIOPerformanceTester IN DEBUG MODE =")
-    print("======================================================")
-    warning = " <<< DEBUG MODE >>>"
-    return true
-}())
+assert(
+    {
+        print("======================================================")
+        print("= YOU ARE RUNNING NIOPerformanceTester IN DEBUG MODE =")
+        print("======================================================")
+        warning = " <<< DEBUG MODE >>>"
+        return true
+    }()
+)
 
 public func measure(_ fn: () throws -> Int) rethrows -> [TimeInterval] {
     func measureOne(_ fn: () throws -> Int) rethrows -> TimeInterval {
@@ -34,7 +36,7 @@ public func measure(_ fn: () throws -> Int) rethrows -> [TimeInterval] {
         return end.timeIntervalSince(start)
     }
 
-    _ = try measureOne(fn) /* pre-heat and throw away */
+    _ = try measureOne(fn)  // pre-heat and throw away
     var measurements = Array(repeating: 0.0, count: 10)
     for i in 0..<10 {
         measurements[i] = try measureOne(fn)
@@ -45,7 +47,7 @@ public func measure(_ fn: () throws -> Int) rethrows -> [TimeInterval] {
 
 let limitSet = CommandLine.arguments.dropFirst()
 
-public func measureAndPrint(desc: String, fn: () throws -> Int) rethrows -> Void {
+public func measureAndPrint(desc: String, fn: () throws -> Int) rethrows {
     if limitSet.count == 0 || limitSet.contains(desc) {
         print("measuring\(warning): \(desc): ", terminator: "")
         let measurements = try measure(fn)
