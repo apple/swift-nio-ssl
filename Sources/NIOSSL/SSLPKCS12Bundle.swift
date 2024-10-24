@@ -158,6 +158,86 @@ public struct NIOSSLPKCS12Bundle: Hashable {
 
 extension NIOSSLPKCS12Bundle: Sendable {}
 
+extension NIOSSLPKCS12Bundle {
+    /// Create a PKCS#12 file containing the given certificates.
+    ///
+    /// The first certificate of the `certificates` array will be considered the "primary" certificate for
+    /// this PKCS#12, and `privateKey` must be its corresponding private key.
+    /// The other certificates included in `certificates`, if any, will be considered as additional
+    /// certificates in the certificate chain.
+    ///
+    /// - Parameters:
+    ///   - certificates: An array of certificates to include in this PKCS#12. Must contain at least one certificate.
+    ///   - privateKey: The private key associated to the first certificate in `certificates`.
+    ///   - passphrase: The password with which to protect this PKCS#12 file.
+    ///   - name: The name to give this PKCS#12 file.
+    /// - Returns: An array of bytes making up the PKCS#12 file.
+    public static func makePKCS12<Bytes: Collection>(
+        certificates: [NIOSSLCertificate],
+        privateKey: NIOSSLPrivateKey,
+        passphrase: Bytes,
+        name: Bytes
+    ) throws -> [UInt8] where Bytes.Element == UInt8 {
+        guard let mainCertificate = certificates.first else {
+            preconditionFailure("At least one certificate must be provided")
+        }
+
+        let certificateChainStack = CNIOBoringSSL_sk_X509_new(nil)
+        for additionalCertificate in certificates.dropFirst() {
+            let result = additionalCertificate.withUnsafeMutableX509Pointer { certificate in
+                CNIOBoringSSL_sk_X509_push(certificateChainStack, certificate)
+            }
+            if result == 0 {
+                fatalError("Failed to add certificate to chain")
+            }
+        }
+
+        let pkcs12 = try passphrase.withSecureCString { passphrase in
+            try name.withSecureCString { name in
+                privateKey.withUnsafeMutableEVPPKEYPointer { privateKey in
+                    mainCertificate.withUnsafeMutableX509Pointer { certificate in
+                        CNIOBoringSSL_PKCS12_create(
+                            passphrase,
+                            name,
+                            privateKey,
+                            certificate,
+                            certificateChainStack,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0
+                        )
+                    }
+                }
+            }
+        }
+
+        guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_mem()) else {
+            fatalError("Failed to malloc for a BIO handler")
+        }
+
+        defer {
+            CNIOBoringSSL_BIO_free(bio)
+        }
+
+        let rc = CNIOBoringSSL_i2d_PKCS12_bio(bio, pkcs12)
+        guard rc == 1 else {
+            let errorStack = BoringSSLError.buildErrorStack()
+            throw BoringSSLError.unknownError(errorStack)
+        }
+
+        var dataPtr: UnsafeMutablePointer<CChar>? = nil
+        let length = CNIOBoringSSL_BIO_get_mem_data(bio, &dataPtr)
+
+        guard let bytes = dataPtr.map({ UnsafeMutableRawBufferPointer(start: $0, count: length) }) else {
+            fatalError("Failed to get bytes from private key")
+        }
+
+        return Array(bytes)
+    }
+}
+
 extension Collection where Element == UInt8 {
     /// Provides a contiguous copy of the bytes of this collection in a heap-allocated
     /// memory region that is locked into memory (that is, which can never be backed by a file),
