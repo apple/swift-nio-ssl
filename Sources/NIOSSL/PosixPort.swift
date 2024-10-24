@@ -12,6 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import NIOCore
+
 // This file contains a version of the SwiftNIO Posix enum. This is necessary
 // because SwiftNIO's version is internal. Our version exists for the same reason:
 // to ensure errno is captured correctly when doing syscalls, and that no ARC traffic
@@ -31,8 +33,6 @@ import Android
 #else
 #error("unsupported os")
 #endif
-
-import NIOCore
 
 #if os(Android)
 internal typealias FILEPointer = OpaquePointer
@@ -58,9 +58,10 @@ private func isUnacceptableErrno(_ code: CInt) -> Bool {
     }
 }
 
-/* Sorry, we really try hard to not use underscored attributes. In this case however we seem to break the inlining threshold which makes a system call take twice the time, ie. we need this exception. */
+// Sorry, we really try hard to not use underscored attributes. In this case however we seem to break the inlining threshold which makes a system call take twice the time, ie. we need this exception.
 @inline(__always)
-internal func wrapSyscall<T: FixedWidthInteger>(where function: String = #function, _ body: () throws -> T) throws -> T {
+internal func wrapSyscall<T: FixedWidthInteger>(where function: String = #function, _ body: () throws -> T) throws -> T
+{
     while true {
         let res = try body()
         if res == -1 {
@@ -75,9 +76,12 @@ internal func wrapSyscall<T: FixedWidthInteger>(where function: String = #functi
     }
 }
 
-/* Sorry, we really try hard to not use underscored attributes. In this case however we seem to break the inlining threshold which makes a system call take twice the time, ie. we need this exception. */
+// Sorry, we really try hard to not use underscored attributes. In this case however we seem to break the inlining threshold which makes a system call take twice the time, ie. we need this exception.
 @inline(__always)
-internal func wrapErrorIsNullReturnCall<T>(errorReason: @autoclosure () -> String = #function, _ body: () throws -> T?) throws -> T {
+internal func wrapErrorIsNullReturnCall<T>(
+    errorReason: @autoclosure () -> String = #function,
+    _ body: () throws -> T?
+) throws -> T {
     while true {
         guard let res = try body() else {
             let err = errno
@@ -104,14 +108,18 @@ internal enum Posix {
 
     @inline(never)
     internal static func fclose(file: FILEPointer) throws -> CInt {
-        return try wrapSyscall {
+        try wrapSyscall {
             sysFclose(file)
         }
     }
-    
+
     @inline(never)
-    internal static func readlink(path: UnsafePointer<Int8>, buf: UnsafeMutablePointer<Int8>, bufSize: Int) throws -> Int {
-        return try wrapSyscall {
+    internal static func readlink(
+        path: UnsafePointer<Int8>,
+        buf: UnsafeMutablePointer<Int8>,
+        bufSize: Int
+    ) throws -> Int {
+        try wrapSyscall {
             sysReadlink(path, buf, bufSize)
         }
     }
@@ -119,15 +127,15 @@ internal enum Posix {
     @inline(never)
     @discardableResult
     internal static func stat(path: UnsafePointer<CChar>, buf: UnsafeMutablePointer<stat>) throws -> CInt {
-        return try wrapSyscall {
+        try wrapSyscall {
             sysStat(path, buf)
         }
     }
-    
+
     @inline(never)
     @discardableResult
     internal static func lstat(path: UnsafePointer<Int8>, buf: UnsafeMutablePointer<stat>) throws -> Int32 {
-        return try wrapSyscall {
+        try wrapSyscall {
             sysLstat(path, buf)
         }
     }
@@ -135,7 +143,7 @@ internal enum Posix {
     @inline(never)
     @discardableResult
     internal static func mlock(addr: UnsafeRawPointer, len: size_t) throws -> CInt {
-        return try wrapSyscall {
+        try wrapSyscall {
             sysMlock(addr, len)
         }
     }
@@ -143,7 +151,7 @@ internal enum Posix {
     @inline(never)
     @discardableResult
     internal static func munlock(addr: UnsafeRawPointer, len: size_t) throws -> CInt {
-        return try wrapSyscall {
+        try wrapSyscall {
             sysMunlock(addr, len)
         }
     }

@@ -36,12 +36,11 @@ import class Foundation.ProcessInfo
 func generateDependencies() -> [Package.Dependency] {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         return [
-            .package(url: "https://github.com/apple/swift-nio.git", from: "2.54.0"),
-            .package(url: "https://github.com/swiftlang/swift-docc-plugin.git", from: "1.0.0"),
+            .package(url: "https://github.com/apple/swift-nio.git", from: "2.54.0")
         ]
     } else {
         return [
-            .package(path: "../swift-nio"),
+            .package(path: "../swift-nio")
         ]
     }
 }
@@ -55,33 +54,36 @@ let includePrivacyManifest = true
 let includePrivacyManifest = false
 #endif
 
+// swift-format-ignore: NoBlockComments
 let package = Package(
     name: "swift-nio-ssl",
     products: [
         .library(name: "NIOSSL", targets: ["NIOSSL"]),
         .executable(name: "NIOTLSServer", targets: ["NIOTLSServer"]),
         .executable(name: "NIOSSLHTTP1Client", targets: ["NIOSSLHTTP1Client"]),
-/* This target is used only for symbol mangling. It's added and removed automatically because it emits build warnings. MANGLE_START
-        .library(name: "CNIOBoringSSL", type: .static, targets: ["CNIOBoringSSL"]),
-MANGLE_END */
+        /* This target is used only for symbol mangling. It's added and removed automatically because it emits build warnings. MANGLE_START
+                .library(name: "CNIOBoringSSL", type: .static, targets: ["CNIOBoringSSL"]),
+        MANGLE_END */
     ],
     dependencies: generateDependencies(),
     targets: [
         .target(
             name: "CNIOBoringSSL",
             cSettings: [
-              .define("_GNU_SOURCE"),
-              .define("_POSIX_C_SOURCE", to: "200112L"),
-              .define("_DARWIN_C_SOURCE")
-            ]),
+                .define("_GNU_SOURCE"),
+                .define("_POSIX_C_SOURCE", to: "200112L"),
+                .define("_DARWIN_C_SOURCE"),
+            ]
+        ),
         .target(
             name: "CNIOBoringSSLShims",
             dependencies: [
                 "CNIOBoringSSL"
             ],
             cSettings: [
-              .define("_GNU_SOURCE"),
-            ]),
+                .define("_GNU_SOURCE")
+            ]
+        ),
         .target(
             name: "NIOSSL",
             dependencies: [
@@ -105,7 +107,8 @@ MANGLE_END */
             ],
             exclude: [
                 "README.md"
-            ]),
+            ]
+        ),
         .executableTarget(
             name: "NIOSSLHTTP1Client",
             dependencies: [
@@ -117,7 +120,8 @@ MANGLE_END */
             ],
             exclude: [
                 "README.md"
-            ]),
+            ]
+        ),
         .executableTarget(
             name: "NIOSSLPerformanceTester",
             dependencies: [
@@ -125,7 +129,8 @@ MANGLE_END */
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOEmbedded", package: "swift-nio"),
                 .product(name: "NIOTLS", package: "swift-nio"),
-            ]),
+            ]
+        ),
         .testTarget(
             name: "NIOSSLTests",
             dependencies: [
@@ -134,7 +139,8 @@ MANGLE_END */
                 .product(name: "NIOEmbedded", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOTLS", package: "swift-nio"),
-            ]),
+            ]
+        ),
     ],
     cxxLanguageStandard: .cxx14
 )

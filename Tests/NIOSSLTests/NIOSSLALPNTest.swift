@@ -12,13 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
 @_implementationOnly import CNIOBoringSSL
 import NIOCore
 import NIOPosix
-import NIOTLS
 import NIOSSL
-
+import NIOTLS
+import XCTest
 
 class NIOSSLALPNTest: XCTestCase {
     static var cert: NIOSSLCertificate!
@@ -41,9 +40,11 @@ class NIOSSLALPNTest: XCTestCase {
         return try NIOSSLContext(configuration: config)
     }
 
-    private func assertNegotiatedProtocol(protocol: String?,
-                                          serverContext: NIOSSLContext,
-                                          clientContext: NIOSSLContext) throws {
+    private func assertNegotiatedProtocol(
+        protocol: String?,
+        serverContext: NIOSSLContext,
+        clientContext: NIOSSLContext
+    ) throws {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
@@ -52,18 +53,22 @@ class NIOSSLALPNTest: XCTestCase {
         let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
         let serverHandler = EventRecorderHandler<TLSUserEvent>()
 
-        let serverChannel = try serverTLSChannel(context: serverContext,
-                                                 handlers: [serverHandler, PromiseOnReadHandler(promise: completionPromise)],
-                                                 group: group)
+        let serverChannel = try serverTLSChannel(
+            context: serverContext,
+            handlers: [serverHandler, PromiseOnReadHandler(promise: completionPromise)],
+            group: group
+        )
         defer {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
 
-        let clientChannel = try clientTLSChannel(context: clientContext,
-                                                 preHandlers: [],
-                                                 postHandlers: [],
-                                                 group: group,
-                                                 connectingTo: serverChannel.localAddress!)
+        let clientChannel = try clientTLSChannel(
+            context: clientContext,
+            preHandlers: [],
+            postHandlers: [],
+            group: group,
+            connectingTo: serverChannel.localAddress!
+        )
         defer {
             XCTAssertNoThrow(try clientChannel.close().wait())
         }
@@ -78,7 +83,7 @@ class NIOSSLALPNTest: XCTestCase {
             .Active,
             .UserEvent(TLSUserEvent.handshakeCompleted(negotiatedProtocol: `protocol`)),
             .Read,
-            .ReadComplete
+            .ReadComplete,
         ]
         XCTAssertEqual(expectedEvents, serverHandler.events)
     }
@@ -96,7 +101,9 @@ class NIOSSLALPNTest: XCTestCase {
         serverCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"]))
         clientCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: ["http/1.1", "h2"]))
 
-        XCTAssertNoThrow(try assertNegotiatedProtocol(protocol: "h2", serverContext: serverCtx, clientContext: clientCtx))
+        XCTAssertNoThrow(
+            try assertNegotiatedProtocol(protocol: "h2", serverContext: serverCtx, clientContext: clientCtx)
+        )
     }
 
     func testBasicALPNNegotiationNoOverlap() throws {
@@ -104,7 +111,9 @@ class NIOSSLALPNTest: XCTestCase {
         let clientCtx: NIOSSLContext
         serverCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"]))
         clientCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: ["spdy/3", "webrtc"]))
-        XCTAssertNoThrow(try assertNegotiatedProtocol(protocol: nil, serverContext: serverCtx, clientContext: clientCtx))
+        XCTAssertNoThrow(
+            try assertNegotiatedProtocol(protocol: nil, serverContext: serverCtx, clientContext: clientCtx)
+        )
     }
 
     func testBasicALPNNegotiationNotOfferedByClient() throws {
@@ -112,7 +121,9 @@ class NIOSSLALPNTest: XCTestCase {
         let clientCtx: NIOSSLContext
         serverCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"]))
         clientCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: []))
-        XCTAssertNoThrow(try assertNegotiatedProtocol(protocol: nil, serverContext: serverCtx, clientContext: clientCtx))
+        XCTAssertNoThrow(
+            try assertNegotiatedProtocol(protocol: nil, serverContext: serverCtx, clientContext: clientCtx)
+        )
     }
 
     func testBasicALPNNegotiationNotSupportedByServer() throws {
@@ -121,6 +132,8 @@ class NIOSSLALPNTest: XCTestCase {
         serverCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: []))
         clientCtx = try assertNoThrowWithValue(configuredSSLContextWithAlpnProtocols(protocols: ["h2", "http/1.1"]))
 
-        XCTAssertNoThrow(try assertNegotiatedProtocol(protocol: nil, serverContext: serverCtx, clientContext: clientCtx))
+        XCTAssertNoThrow(
+            try assertNegotiatedProtocol(protocol: nil, serverContext: serverCtx, clientContext: clientCtx)
+        )
     }
 }

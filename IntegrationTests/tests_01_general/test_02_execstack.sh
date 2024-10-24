@@ -13,6 +13,7 @@
 ##
 ##===----------------------------------------------------------------------===##
 
+# shellcheck source=IntegrationTests/tests_01_general/defines.sh
 source defines.sh
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -26,7 +27,7 @@ swift build -c release
 DEBUG_SERVER_PATH="$(swift build --show-bin-path)/NIOTLSServer"
 RELEASE_SERVER_PATH="$(swift build --show-bin-path -c release)/NIOTLSServer"
 
-results=$(execstack $DEBUG_SERVER_PATH $RELEASE_SERVER_PATH)
+results=$(execstack "$DEBUG_SERVER_PATH" "$RELEASE_SERVER_PATH")
 count=$(echo "$results" | grep -c '^X' || true)
 if [ "$count" -ne 0 ]; then
     exit 1

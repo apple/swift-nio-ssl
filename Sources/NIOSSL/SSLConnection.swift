@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import NIOCore
 @_implementationOnly import CNIOBoringSSL
+import NIOCore
 
 internal let SSL_MAX_RECORD_SIZE = 16 * 1024
 
@@ -72,7 +72,7 @@ internal final class SSLConnection {
 
         self.setRenegotiationSupport(self.parentContext.configuration.renegotiationSupport)
     }
-    
+
     deinit {
         CNIOBoringSSL_SSL_free(ssl)
     }
@@ -90,7 +90,10 @@ internal final class SSLConnection {
     }
 
     func setAllocator(_ allocator: ByteBufferAllocator, maximumPreservedOutboundBufferCapacity: Int) {
-        self.bio = ByteBufferBIO(allocator: allocator, maximumPreservedOutboundBufferCapacity: maximumPreservedOutboundBufferCapacity)
+        self.bio = ByteBufferBIO(
+            allocator: allocator,
+            maximumPreservedOutboundBufferCapacity: maximumPreservedOutboundBufferCapacity
+        )
 
         // This weird dance where we pass the *exact same* pointer in to both objects is because, weirdly,
         // the BoringSSL docs claim that only one reference count will be consumed here. We therefore need to
@@ -107,7 +110,7 @@ internal final class SSLConnection {
     func setServerName(name: String) throws {
         CNIOBoringSSL_ERR_clear_error()
         let rc = name.withCString {
-            return CNIOBoringSSL_SSL_set_tlsext_host_name(ssl, $0)
+            CNIOBoringSSL_SSL_set_tlsext_host_name(ssl, $0)
         }
         guard rc == 1 else {
             throw BoringSSLError.invalidSNIName(BoringSSLError.buildErrorStack())
@@ -129,7 +132,9 @@ internal final class SSLConnection {
         CNIOBoringSSL_SSL_set_verify(self.ssl, currentMode) { preverify, storeContext in
             // To start out, let's grab the certificate we're operating on.
             guard let certPointer = CNIOBoringSSL_X509_STORE_CTX_get_current_cert(storeContext) else {
-                preconditionFailure("Can only have verification function invoked with actual certificate: bad store \(String(describing: storeContext))")
+                preconditionFailure(
+                    "Can only have verification function invoked with actual certificate: bad store \(String(describing: storeContext))"
+                )
             }
             CNIOBoringSSL_X509_up_ref(certPointer)
             let cert = NIOSSLCertificate.fromUnsafePointer(takingOwnership: certPointer)
@@ -138,7 +143,12 @@ internal final class SSLConnection {
             let verificationResult = NIOSSLVerificationResult(fromBoringSSLPreverify: preverify)
 
             // Now, grab the SSLConnection object.
-            guard let ssl = CNIOBoringSSL_X509_STORE_CTX_get_ex_data(storeContext, CNIOBoringSSL_SSL_get_ex_data_X509_STORE_CTX_idx()) else {
+            guard
+                let ssl = CNIOBoringSSL_X509_STORE_CTX_get_ex_data(
+                    storeContext,
+                    CNIOBoringSSL_SSL_get_ex_data_X509_STORE_CTX_idx()
+                )
+            else {
                 preconditionFailure("Unable to obtain SSL * from X509_STORE_CTX * \(String(describing: storeContext))")
             }
             let connection = SSLConnection.loadConnectionFromSSL(OpaquePointer(ssl))
@@ -163,7 +173,9 @@ internal final class SSLConnection {
         let currentMode = CNIOBoringSSL_SSL_get_verify_mode(self.ssl)
         CNIOBoringSSL_SSL_set_custom_verify(self.ssl, currentMode) { ssl, outAlert in
             guard let unwrappedSSL = ssl else {
-                preconditionFailure("Unexpected null pointer in custom verification callback. ssl: \(String(describing: ssl))")
+                preconditionFailure(
+                    "Unexpected null pointer in custom verification callback. ssl: \(String(describing: ssl))"
+                )
             }
 
             // Ok, this call may be a resumption of a previous negotiation. We need to check if our connection object has a pre-existing verifiation state.
@@ -197,9 +209,13 @@ internal final class SSLConnection {
             throw NIOSSLError.noCertificateToValidate
         }
 
-        guard try validIdentityForService(serverHostname: self.expectedHostname,
-                                          socketAddress: address,
-                                          leafCertificate: peerCert) else {
+        guard
+            try validIdentityForService(
+                serverHostname: self.expectedHostname,
+                socketAddress: address,
+                leafCertificate: peerCert
+            )
+        else {
             throw NIOSSLExtraError.failedToValidateHostname(expectedName: self.expectedHostname ?? "<none>")
         }
     }
@@ -214,19 +230,19 @@ internal final class SSLConnection {
     func doHandshake() -> AsyncOperationResult<CInt> {
         CNIOBoringSSL_ERR_clear_error()
         let rc = CNIOBoringSSL_SSL_do_handshake(ssl)
-        
+
         if rc == 1 {
             return .complete(rc)
         }
 
         let result = CNIOBoringSSL_SSL_get_error(ssl, rc)
         let error = BoringSSLError.fromSSLGetErrorResult(result)!
-        
+
         switch error {
         case .wantRead,
-             .wantWrite,
-             .wantCertificateVerify,
-             .wantX509Lookup:
+            .wantWrite,
+            .wantCertificateVerify,
+            .wantX509Lookup:
             return .incomplete
         default:
             return .failed(error)
@@ -243,7 +259,7 @@ internal final class SSLConnection {
     func doShutdown() -> AsyncOperationResult<CInt> {
         CNIOBoringSSL_ERR_clear_error()
         let rc = CNIOBoringSSL_SSL_shutdown(ssl)
-        
+
         switch rc {
         case 1:
             return .complete(rc)
@@ -252,17 +268,17 @@ internal final class SSLConnection {
         default:
             let result = CNIOBoringSSL_SSL_get_error(ssl, rc)
             let error = BoringSSLError.fromSSLGetErrorResult(result)!
-            
+
             switch error {
             case .wantRead,
-                 .wantWrite:
+                .wantWrite:
                 return .incomplete
             default:
                 return .failed(error)
             }
         }
     }
-    
+
     /// Given some unprocessed data from the remote peer, places it into
     /// BoringSSL's receive buffer ready for handling by BoringSSL.
     ///
@@ -283,7 +299,7 @@ internal final class SSLConnection {
     /// Returns `nil` if there is no data to write. Otherwise, returns all of the pending
     /// data.
     func getDataForNetwork() -> ByteBuffer? {
-        return self.bio!.outboundCiphertext()
+        self.bio!.outboundCiphertext()
     }
 
     /// Attempts to decrypt any application data sent by the remote peer, and fills a buffer
@@ -299,23 +315,24 @@ internal final class SSLConnection {
         //
         // We require that there is space to write at least one TLS record.
         var bytesRead: CInt = 0
-        let rc = outputBuffer.writeWithUnsafeMutableBytes(minimumWritableBytes: SSL_MAX_RECORD_SIZE) { (pointer) -> Int in
+        let rc = outputBuffer.writeWithUnsafeMutableBytes(minimumWritableBytes: SSL_MAX_RECORD_SIZE) {
+            (pointer) -> Int in
             // We ask for the amount of spare space in the buffer, clamping to CInt.max.
             let maxReadSize = Int(CInt.max)
             let readSize = CInt(min(maxReadSize, pointer.count))
             bytesRead = CNIOBoringSSL_SSL_read(self.ssl, pointer.baseAddress, readSize)
             return bytesRead >= 0 ? Int(bytesRead) : 0
         }
-        
+
         if bytesRead > 0 {
             return .complete(rc)
         } else {
             let result = CNIOBoringSSL_SSL_get_error(ssl, CInt(bytesRead))
             let error = BoringSSLError.fromSSLGetErrorResult(result)!
-            
+
             switch error {
             case .wantRead,
-                 .wantWrite:
+                .wantWrite:
                 return .incomplete
             default:
                 return .failed(error)
@@ -335,9 +352,9 @@ internal final class SSLConnection {
         }
 
         let writtenBytes = data.withUnsafeReadableBytes { (pointer) -> CInt in
-            return CNIOBoringSSL_SSL_write(ssl, pointer.baseAddress, CInt(pointer.count))
+            CNIOBoringSSL_SSL_write(ssl, pointer.baseAddress, CInt(pointer.count))
         }
-        
+
         if writtenBytes > 0 {
             // The default behaviour of SSL_write is to only return once *all* of the data has been written,
             // unless the underlying BIO cannot satisfy the need (in which case WANT_WRITE will be returned).
@@ -349,7 +366,7 @@ internal final class SSLConnection {
         } else {
             let result = CNIOBoringSSL_SSL_get_error(ssl, writtenBytes)
             let error = BoringSSLError.fromSSLGetErrorResult(result)!
-            
+
             switch error {
             case .wantRead, .wantWrite:
                 return .incomplete
@@ -411,27 +428,26 @@ internal final class SSLConnection {
     ///
     /// - returns: The unconsumed `ByteBuffer`, if any.
     func extractUnconsumedData() -> ByteBuffer? {
-        return self.bio?.evacuateInboundData()
+        self.bio?.evacuateInboundData()
     }
-    
+
     /// Returns  an optional `TLSVersion` used on a `Channel` through the `NIOSSLHandler` APIs.
     func getTLSVersionForConnection() -> TLSVersion? {
         let uint16Version = CNIOBoringSSL_SSL_version(self.ssl)
         switch uint16Version {
-          case TLS1_3_VERSION:
+        case TLS1_3_VERSION:
             return .tlsv13
-          case TLS1_2_VERSION:
+        case TLS1_2_VERSION:
             return .tlsv12
-          case TLS1_1_VERSION:
+        case TLS1_1_VERSION:
             return .tlsv11
-          case TLS1_VERSION:
+        case TLS1_VERSION:
             return .tlsv1
         default:
             return nil
         }
     }
 }
-
 
 /// MARK: ConnectionRole
 extension SSLConnection {
@@ -440,7 +456,6 @@ extension SSLConnection {
         case client
     }
 }
-
 
 // MARK: Certificate Peer Chain Buffers
 extension SSLConnection {
@@ -460,7 +475,9 @@ extension SSLConnection {
     /// bytes synchronously within the block, or they must copy them to a new buffer that they own.
     ///
     /// If there are no peer certificates, the body will be called with nil.
-    func withPeerCertificateChainBuffers<Result>(_ body: (PeerCertificateChainBuffers?) throws -> Result) rethrows -> Result {
+    func withPeerCertificateChainBuffers<Result>(
+        _ body: (PeerCertificateChainBuffers?) throws -> Result
+    ) rethrows -> Result {
         guard let stackPointer = CNIOBoringSSL_SSL_get0_peer_certificates(self.ssl) else {
             return try body(nil)
         }
@@ -470,7 +487,7 @@ extension SSLConnection {
 
     /// The certificate chain presented by the peer.
     func peerCertificateChain() throws -> [NIOSSLCertificate] {
-        return try self.withPeerCertificateChainBuffers { buffers in
+        try self.withPeerCertificateChainBuffers { buffers in
             guard let buffers = buffers else {
                 return []
             }
@@ -491,32 +508,36 @@ extension SSLConnection.PeerCertificateChainBuffers: RandomAccessCollection {
         }
 
         static func < (lhs: Index, rhs: Index) -> Bool {
-            return lhs.index < rhs.index
+            lhs.index < rhs.index
         }
 
-        func advanced(by n: SSLConnection.PeerCertificateChainBuffers.Index.Stride) -> SSLConnection.PeerCertificateChainBuffers.Index {
+        func advanced(
+            by n: SSLConnection.PeerCertificateChainBuffers.Index.Stride
+        ) -> SSLConnection.PeerCertificateChainBuffers.Index {
             var result = self
             result.index += n
             return result
         }
 
-        func distance(to other: SSLConnection.PeerCertificateChainBuffers.Index) -> SSLConnection.PeerCertificateChainBuffers.Index.Stride {
-            return other.index - self.index
+        func distance(
+            to other: SSLConnection.PeerCertificateChainBuffers.Index
+        ) -> SSLConnection.PeerCertificateChainBuffers.Index.Stride {
+            other.index - self.index
         }
     }
 
     typealias Element = UnsafeRawBufferPointer
 
     var startIndex: Index {
-        return Index(0)
+        Index(0)
     }
 
     var endIndex: Index {
-        return Index(self.count)
+        Index(self.count)
     }
 
     var count: Int {
-        return CNIOBoringSSL_sk_CRYPTO_BUFFER_num(self.basePointer)
+        CNIOBoringSSL_sk_CRYPTO_BUFFER_num(self.basePointer)
     }
 
     subscript(_ index: Index) -> UnsafeRawBufferPointer {

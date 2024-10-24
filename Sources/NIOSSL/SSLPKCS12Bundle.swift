@@ -14,7 +14,6 @@
 
 @_implementationOnly import CNIOBoringSSL
 
-
 /// A container for a single PKCS#12 bundle.
 ///
 /// PKCS#12 is a specification that defines an archive format for storing multiple
@@ -46,8 +45,8 @@ public struct NIOSSLPKCS12Bundle: Hashable {
     public let privateKey: NIOSSLPrivateKey
 
     private init<Bytes: Collection>(ref: OpaquePointer, passphrase: Bytes?) throws where Bytes.Element == UInt8 {
-        var pkey: OpaquePointer?/*<EVP_PKEY>*/ = nil
-        var cert: OpaquePointer?/*<X509>*/ = nil
+        var pkey: OpaquePointer? = nil  // <EVP_PKEY>
+        var cert: OpaquePointer? = nil  // <X509>
         var caCerts: OpaquePointer? = nil
 
         let rc = try passphrase.withSecureCString { passphrase in
@@ -88,7 +87,7 @@ public struct NIOSSLPKCS12Bundle: Hashable {
     ///     - passphrase: The passphrase used for the bundle, as a sequence of UTF-8 bytes.
     public init<Bytes: Collection>(buffer: [UInt8], passphrase: Bytes?) throws where Bytes.Element == UInt8 {
         guard boringSSLIsInitialized else { fatalError("Failed to initialize BoringSSL") }
-        
+
         let p12 = buffer.withUnsafeBytes { pointer -> OpaquePointer? in
             let bio = CNIOBoringSSL_BIO_new_mem_buf(pointer.baseAddress, pointer.count)!
             defer {
@@ -202,8 +201,7 @@ extension Collection where Element == UInt8 {
     }
 }
 
-
-internal extension Optional where Wrapped: Collection, Wrapped.Element == UInt8 {
+extension Optional where Wrapped: Collection, Wrapped.Element == UInt8 {
     func withSecureCString<T>(_ block: (UnsafePointer<Int8>?) throws -> T) throws -> T {
         if let `self` = self {
             return try self.withSecureCString({ try block($0) })

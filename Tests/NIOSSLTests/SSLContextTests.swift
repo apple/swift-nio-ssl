@@ -12,11 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
 import NIOCore
+import NIOEmbedded
 import NIOPosix
 import NIOTLS
-import NIOEmbedded
+import XCTest
+
 @testable import NIOSSL
 
 final class SSLContextTest: XCTestCase {
@@ -97,22 +98,31 @@ final class SSLContextTest: XCTestCase {
         let serverContext = try configuredServerSSLContext(eventLoop: group.next())
 
         let sniPromise: EventLoopPromise<SNIResult> = group.next().makePromise()
-        let sniHandler = ByteToMessageHandler(SNIHandler {
-            sniPromise.succeed($0)
-            return group.next().makeSucceededFuture(())
-        })
+        let sniHandler = ByteToMessageHandler(
+            SNIHandler {
+                sniPromise.succeed($0)
+                return group.next().makeSucceededFuture(())
+            }
+        )
 
-        let serverChannel = try serverTLSChannel(context: serverContext, preHandlers: [sniHandler], postHandlers: [], group: group)
+        let serverChannel = try serverTLSChannel(
+            context: serverContext,
+            preHandlers: [sniHandler],
+            postHandlers: [],
+            group: group
+        )
         defer {
             _ = try? serverChannel.close().wait()
         }
 
-        let clientChannel = try clientTLSChannel(context: clientContext,
-                                                 preHandlers: [],
-                                                 postHandlers: [handshakeWatcher],
-                                                 group: group,
-                                                 connectingTo: serverChannel.localAddress!,
-                                                 serverHostname: sniField)
+        let clientChannel = try clientTLSChannel(
+            context: clientContext,
+            preHandlers: [],
+            postHandlers: [handshakeWatcher],
+            group: group,
+            connectingTo: serverChannel.localAddress!,
+            serverHostname: sniField
+        )
         defer {
             _ = try? clientChannel.close().wait()
         }
@@ -143,27 +153,33 @@ final class SSLContextTest: XCTestCase {
         let serverContext = try configuredServerSSLContext(eventLoop: group.next(), throwing: expectedError)
 
         let sniPromise: EventLoopPromise<SNIResult> = group.next().makePromise()
-        let sniHandler = ByteToMessageHandler(SNIHandler {
-            sniPromise.succeed($0)
-            return group.next().makeSucceededFuture(())
-        })
+        let sniHandler = ByteToMessageHandler(
+            SNIHandler {
+                sniPromise.succeed($0)
+                return group.next().makeSucceededFuture(())
+            }
+        )
 
         let eventHandler = ErrorCatcher<any Error>()
 
-        let serverChannel = try serverTLSChannel(context: serverContext,
-                                                 preHandlers: [sniHandler],
-                                                 postHandlers: [eventHandler],
-                                                 group: group)
+        let serverChannel = try serverTLSChannel(
+            context: serverContext,
+            preHandlers: [sniHandler],
+            postHandlers: [eventHandler],
+            group: group
+        )
         defer {
             _ = try? serverChannel.close().wait()
         }
 
-        let clientChannel = try clientTLSChannel(context: clientContext,
-                                                 preHandlers: [],
-                                                 postHandlers: [handshakeWatcher],
-                                                 group: group,
-                                                 connectingTo: serverChannel.localAddress!,
-                                                 serverHostname: sniField)
+        let clientChannel = try clientTLSChannel(
+            context: clientContext,
+            preHandlers: [],
+            postHandlers: [handshakeWatcher],
+            group: group,
+            connectingTo: serverChannel.localAddress!,
+            serverHostname: sniField
+        )
         defer {
             _ = try? clientChannel.close().wait()
         }

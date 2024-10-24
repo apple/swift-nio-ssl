@@ -24,13 +24,12 @@
 /// use. We guarantee that after the ``NIOSSLPassphraseSetter`` closure has been invoked the `Collection`
 /// you have passed in will no longer be needed by BoringSSL, and so you can safely destroy any memory it
 /// may be using if you need to.
-public typealias NIOSSLPassphraseCallback<Bytes: Collection> = (NIOSSLPassphraseSetter<Bytes>) throws -> Void where Bytes.Element == UInt8
-
+public typealias NIOSSLPassphraseCallback<Bytes: Collection> = (NIOSSLPassphraseSetter<Bytes>) throws -> Void
+where Bytes.Element == UInt8
 
 /// An ``NIOSSLPassphraseSetter`` is a closure that you must invoke to provide a passphrase to BoringSSL.
 /// It will be provided to you when your ``NIOSSLPassphraseCallback`` is invoked.
 public typealias NIOSSLPassphraseSetter<Bytes: Collection> = (Bytes) -> Void where Bytes.Element == UInt8
-
 
 /// An internal protocol that exists to let us avoid problems with generic types.
 ///
@@ -51,13 +50,13 @@ internal protocol CallbackManagerProtocol: AnyObject {
     func invoke(buffer: UnsafeMutableBufferPointer<CChar>) -> CInt
 }
 
-
 /// This class exists primarily to work around the fact that Swift does not let us stuff
 /// a closure into an `Unmanaged`. Instead, we use this object to keep hold of it.
-final class BoringSSLPassphraseCallbackManager<Bytes: Collection>: CallbackManagerProtocol where Bytes.Element == UInt8 {
+final class BoringSSLPassphraseCallbackManager<Bytes: Collection>: CallbackManagerProtocol
+where Bytes.Element == UInt8 {
     private let userCallback: NIOSSLPassphraseCallback<Bytes>
 
-    init(userCallback: @escaping NIOSSLPassphraseCallback<Bytes>){
+    init(userCallback: @escaping NIOSSLPassphraseCallback<Bytes>) {
         // We have to type-erase this.
         self.userCallback = userCallback
     }
@@ -84,23 +83,26 @@ final class BoringSSLPassphraseCallbackManager<Bytes: Collection>: CallbackManag
     }
 }
 
-
 /// Our global static BoringSSL passphrase callback. This is used as a thunk to dispatch out to
 /// the user-provided callback.
-func globalBoringSSLPassphraseCallback(buf: UnsafeMutablePointer<CChar>?,
-                                       size: CInt,
-                                       rwflag: CInt,
-                                       u: UnsafeMutableRawPointer?) -> CInt {
+func globalBoringSSLPassphraseCallback(
+    buf: UnsafeMutablePointer<CChar>?,
+    size: CInt,
+    rwflag: CInt,
+    u: UnsafeMutableRawPointer?
+) -> CInt {
     guard let buffer = buf, let userData = u else {
-        preconditionFailure("Invalid pointers passed to passphrase callback, buf: \(String(describing: buf)) u: \(String(describing: u))")
+        preconditionFailure(
+            "Invalid pointers passed to passphrase callback, buf: \(String(describing: buf)) u: \(String(describing: u))"
+        )
     }
     let bufferPointer = UnsafeMutableBufferPointer(start: buffer, count: Int(size))
-    guard let cbManager = Unmanaged<AnyObject>.fromOpaque(userData).takeUnretainedValue() as? CallbackManagerProtocol else {
+    guard let cbManager = Unmanaged<AnyObject>.fromOpaque(userData).takeUnretainedValue() as? CallbackManagerProtocol
+    else {
         preconditionFailure("Failed to pass object that can handle callback")
     }
     return cbManager.invoke(buffer: bufferPointer)
 }
-
 
 /// A reference to an BoringSSL private key object in the form of an `EVP_PKEY *`.
 ///
@@ -114,14 +116,16 @@ func globalBoringSSLPassphraseCallback(buf: UnsafeMutablePointer<CChar>?,
 public final class NIOSSLPrivateKey {
     @usableFromInline
     internal enum Representation {
-        case native(OpaquePointer /*<EVP_PKEY*/)
+        case native(OpaquePointer)  // <EVP_PKEY>
         case custom(AnyNIOSSLCustomPrivateKey)
     }
 
     @usableFromInline
     internal let representation: Representation
 
-    internal func withUnsafeMutableEVPPKEYPointer<ReturnType>(_ body: (OpaquePointer) throws -> ReturnType) rethrows -> ReturnType {
+    internal func withUnsafeMutableEVPPKEYPointer<ReturnType>(
+        _ body: (OpaquePointer) throws -> ReturnType
+    ) rethrows -> ReturnType {
         guard case .native(let pointer) = self.representation else {
             preconditionFailure()
         }
@@ -134,7 +138,11 @@ public final class NIOSSLPrivateKey {
     }
 
     /// A delegating initializer for `init(file:format:passphraseCallback)` and `init(file:format:)`.
-    private convenience init(file: String, format: NIOSSLSerializationFormats, callbackManager: CallbackManagerProtocol?) throws {
+    private convenience init(
+        file: String,
+        format: NIOSSLSerializationFormats,
+        callbackManager: CallbackManagerProtocol?
+    ) throws {
         let fileObject = try Posix.fopen(file: file, mode: "rb")
         defer {
             // If fclose fails there is nothing we can do about it.
@@ -154,7 +162,12 @@ public final class NIOSSLPrivateKey {
                 // This annoying conditional binding is used to work around the fact that I cannot pass
                 // a variable to a function pointer argument.
                 if let callbackManager = callbackManager {
-                    return CNIOBoringSSL_PEM_read_PrivateKey(fileObject, nil, { globalBoringSSLPassphraseCallback(buf: $0, size: $1, rwflag: $2, u: $3) }, Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
+                    return CNIOBoringSSL_PEM_read_PrivateKey(
+                        fileObject,
+                        nil,
+                        { globalBoringSSLPassphraseCallback(buf: $0, size: $1, rwflag: $2, u: $3) },
+                        Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque()
+                    )
                 } else {
                     return CNIOBoringSSL_PEM_read_PrivateKey(fileObject, nil, nil, nil)
                 }
@@ -171,7 +184,11 @@ public final class NIOSSLPrivateKey {
     }
 
     /// A delegating initializer for `init(buffer:format:passphraseCallback)` and `init(buffer:format:)`.
-    private convenience init(bytes: [UInt8], format: NIOSSLSerializationFormats, callbackManager: CallbackManagerProtocol?) throws {
+    private convenience init(
+        bytes: [UInt8],
+        format: NIOSSLSerializationFormats,
+        callbackManager: CallbackManagerProtocol?
+    ) throws {
         let ref = bytes.withUnsafeBytes { (ptr) -> OpaquePointer? in
             let bio = CNIOBoringSSL_BIO_new_mem_buf(ptr.baseAddress!, ptr.count)!
             defer {
@@ -184,7 +201,12 @@ public final class NIOSSLPrivateKey {
                     if let callbackManager = callbackManager {
                         // This annoying conditional binding is used to work around the fact that I cannot pass
                         // a variable to a function pointer argument.
-                        return CNIOBoringSSL_PEM_read_bio_PrivateKey(bio, nil, { globalBoringSSLPassphraseCallback(buf: $0, size: $1, rwflag: $2, u: $3) }, Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque())
+                        return CNIOBoringSSL_PEM_read_bio_PrivateKey(
+                            bio,
+                            nil,
+                            { globalBoringSSLPassphraseCallback(buf: $0, size: $1, rwflag: $2, u: $3) },
+                            Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque()
+                        )
                     } else {
                         return CNIOBoringSSL_PEM_read_bio_PrivateKey(bio, nil, nil, nil)
                     }
@@ -219,7 +241,11 @@ public final class NIOSSLPrivateKey {
     ///     - format: The format of the key to load, either DER or PEM.
     ///     - passphraseCallback: A callback to invoke to obtain the passphrase for
     ///         encrypted keys.
-    public convenience init<T: Collection>(file: String, format: NIOSSLSerializationFormats, passphraseCallback: @escaping NIOSSLPassphraseCallback<T>) throws where T.Element == UInt8 {
+    public convenience init<T: Collection>(
+        file: String,
+        format: NIOSSLSerializationFormats,
+        passphraseCallback: @escaping NIOSSLPassphraseCallback<T>
+    ) throws where T.Element == UInt8 {
         let manager = BoringSSLPassphraseCallbackManager(userCallback: passphraseCallback)
         try self.init(file: file, format: format, callbackManager: manager)
     }
@@ -258,7 +284,11 @@ public final class NIOSSLPrivateKey {
     ///         stdin.
     /// - SeeAlso: `NIOSSLPrivateKey.init(bytes:format:passphraseCallback:)`
     @available(*, deprecated, renamed: "NIOSSLPrivateKey.init(bytes:format:passphraseCallback:)")
-    public convenience init<T: Collection>(buffer: [Int8], format: NIOSSLSerializationFormats, passphraseCallback: @escaping NIOSSLPassphraseCallback<T>) throws where T.Element == UInt8  {
+    public convenience init<T: Collection>(
+        buffer: [Int8],
+        format: NIOSSLSerializationFormats,
+        passphraseCallback: @escaping NIOSSLPassphraseCallback<T>
+    ) throws where T.Element == UInt8 {
         try self.init(bytes: buffer.map(UInt8.init), format: format, passphraseCallback: passphraseCallback)
     }
 
@@ -272,7 +302,11 @@ public final class NIOSSLPrivateKey {
     ///         encrypted keys. If not provided, or set to `nil`, the default BoringSSL
     ///         behaviour will be used, which prints a prompt and requests the passphrase from
     ///         stdin.
-    public convenience init<T: Collection>(bytes: [UInt8], format: NIOSSLSerializationFormats, passphraseCallback: @escaping NIOSSLPassphraseCallback<T>) throws where T.Element == UInt8  {
+    public convenience init<T: Collection>(
+        bytes: [UInt8],
+        format: NIOSSLSerializationFormats,
+        passphraseCallback: @escaping NIOSSLPassphraseCallback<T>
+    ) throws where T.Element == UInt8 {
         let manager = BoringSSLPassphraseCallbackManager(userCallback: passphraseCallback)
         try self.init(bytes: bytes, format: format, callbackManager: manager)
     }
@@ -300,7 +334,7 @@ public final class NIOSSLPrivateKey {
     /// In general, however, this function should be avoided in favour of one of the convenience
     /// initializers, which ensure that the lifetime of the EVP_PKEY object is better-managed.
     static internal func fromUnsafePointer(takingOwnership pointer: OpaquePointer) -> NIOSSLPrivateKey {
-        return NIOSSLPrivateKey(withReference: pointer)
+        NIOSSLPrivateKey(withReference: pointer)
     }
 
     deinit {
@@ -318,7 +352,6 @@ public final class NIOSSLPrivateKey {
 // It is therefore Sendable.
 extension NIOSSLPrivateKey: @unchecked Sendable {}
 
-
 // MARK:- Utilities
 extension NIOSSLPrivateKey {
     /// Calls the given body function with a temporary buffer containing the DER-encoded bytes of this
@@ -328,7 +361,10 @@ extension NIOSSLPrivateKey {
     /// The pointer provided to the closure is not valid beyond the lifetime of this method call.
     ///
     /// This method is only safe to call on native private keys.
-    private static func withUnsafeDERBuffer<T>(of ref: OpaquePointer, _ body: (UnsafeRawBufferPointer) throws -> T) throws -> T {
+    private static func withUnsafeDERBuffer<T>(
+        of ref: OpaquePointer,
+        _ body: (UnsafeRawBufferPointer) throws -> T
+    ) throws -> T {
         guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_mem()) else {
             fatalError("Failed to malloc for a BIO handler")
         }
@@ -366,9 +402,8 @@ extension NIOSSLPrivateKey {
     }
 }
 
-
 extension NIOSSLPrivateKey: Equatable {
-    public static func ==(lhs: NIOSSLPrivateKey, rhs: NIOSSLPrivateKey) -> Bool {
+    public static func == (lhs: NIOSSLPrivateKey, rhs: NIOSSLPrivateKey) -> Bool {
         switch (lhs.representation, rhs.representation) {
         case (.native, .native):
             // Annoyingly, EVP_PKEY_cmp does not have a traditional return value pattern. 1 means equal, 0 means non-equal,
@@ -388,7 +423,6 @@ extension NIOSSLPrivateKey: Equatable {
         }
     }
 }
-
 
 extension NIOSSLPrivateKey: Hashable {
     public func hash(into hasher: inout Hasher) {

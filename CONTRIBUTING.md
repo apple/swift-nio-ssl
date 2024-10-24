@@ -67,6 +67,11 @@ We require that your commit messages match our template. The easiest way to do t
 
 SwiftNIO uses XCTest to run tests on both macOS and Linux. While the macOS version of XCTest is able to use the Objective-C runtime to discover tests at execution time, the Linux version is not. For this reason, whenever you add new tests you will want to run a script that generates the hooks needed to run those tests on Linux, or our CI will complain that the tests are not all present on Linux. To do this, merely execute `ruby generate_linux_tests.rb` at the root of the package and check the changes it made.
 
+### Run CI checks locally
+
+You can run the Github Actions workflows locally using [act](https://github.com/nektos/act). For detailed steps on how to do this please see [https://github.com/swiftlang/github-workflows?tab=readme-ov-file#running-workflows-locally](https://github.com/swiftlang/github-workflows?tab=readme-ov-file#running-workflows-locally).
+
+
 ## How to contribute your work
 
 Please open a pull request at https://github.com/apple/swift-nio. Make sure the CI passes, and then wait for code review.

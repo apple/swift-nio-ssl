@@ -12,12 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
 import NIOCore
-import NIOPosix
 import NIOFoundationCompat
 import NIOHTTP1
+import NIOPosix
 import NIOSSL
-import Foundation
 
 private final class HTTPResponseHandler: ChannelInboundHandler {
 
@@ -35,7 +35,9 @@ private final class HTTPResponseHandler: ChannelInboundHandler {
         let httpResponsePart = unwrapInboundIn(data)
         switch httpResponsePart {
         case .head(let httpResponseHeader):
-            print("\(httpResponseHeader.version) \(httpResponseHeader.status.code) \(httpResponseHeader.status.reasonPhrase)")
+            print(
+                "\(httpResponseHeader.version) \(httpResponseHeader.status.code) \(httpResponseHeader.status.reasonPhrase)"
+            )
             for (name, value) in httpResponseHeader.headers {
                 print("\(name): \(value)")
             }
@@ -104,28 +106,32 @@ tlsConfiguration.renegotiationSupport = .once
 let sslContext = try! NIOSSLContext(configuration: tlsConfiguration)
 
 let bootstrap = ClientBootstrap(group: eventLoopGroup)
-        .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-        .channelInitializer { channel in
-            let openSslHandler = try! NIOSSLClientHandler(context: sslContext, serverHostname: url.host)
-            return channel.pipeline.addHandler(openSslHandler).flatMap {
-                channel.pipeline.addHTTPClientHandlers()
-            }.flatMap {
-                channel.pipeline.addHandler(HTTPResponseHandler(promise))
-            }
+    .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+    .channelInitializer { channel in
+        let openSslHandler = try! NIOSSLClientHandler(context: sslContext, serverHostname: url.host)
+        return channel.pipeline.addHandler(openSslHandler).flatMap {
+            channel.pipeline.addHTTPClientHandlers()
+        }.flatMap {
+            channel.pipeline.addHandler(HTTPResponseHandler(promise))
         }
+    }
 
 func sendRequest(_ channel: Channel) -> EventLoopFuture<Void> {
-    var request = HTTPRequestHead(version: HTTPVersion(major: 1, minor: 1), method: HTTPMethod.GET, uri: url.absoluteString)
+    var request = HTTPRequestHead(
+        version: HTTPVersion(major: 1, minor: 1),
+        method: HTTPMethod.GET,
+        uri: url.absoluteString
+    )
     request.headers = HTTPHeaders([
         ("Host", url.host!),
         ("User-Agent", "swift-nio"),
         ("Accept", "application/json"),
-        ("Connection", "close")
+        ("Connection", "close"),
     ])
     channel.write(HTTPClientRequestPart.head(request), promise: nil)
     return channel.writeAndFlush(HTTPClientRequestPart.end(nil))
 }
 
 bootstrap.connect(host: url.host!, port: url.port ?? 443)
-        .flatMap { sendRequest($0) }
-        .cascadeFailure(to: promise)
+    .flatMap { sendRequest($0) }
+    .cascadeFailure(to: promise)

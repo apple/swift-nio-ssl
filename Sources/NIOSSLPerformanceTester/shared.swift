@@ -21,7 +21,6 @@ class BackToBackEmbeddedChannel {
     private(set) var server: EmbeddedChannel
     private var loop: EmbeddedEventLoop
 
-
     init() {
         self.loop = EmbeddedEventLoop()
         self.client = EmbeddedChannel(loop: self.loop)
@@ -55,39 +54,39 @@ class BackToBackEmbeddedChannel {
     }
 }
 
-
 extension NIOSSLCertificate {
     static func forTesting() throws -> NIOSSLCertificate {
-        return try .init(bytes: certificatePemBytes, format: .pem)
+        try .init(bytes: certificatePemBytes, format: .pem)
     }
 }
-
 
 extension NIOSSLPrivateKey {
     static func forTesting() throws -> NIOSSLPrivateKey {
-        return try .init(bytes: keyPemBytes, format: .pem)
+        try .init(bytes: keyPemBytes, format: .pem)
     }
 }
 
+private let certificatePemBytes = Array(
+    """
+    -----BEGIN CERTIFICATE-----
+    MIIBTzCB9qADAgECAhQkvv72Je/v+B/cgJ53f84O82z6WTAKBggqhkjOPQQDAjAU
+    MRIwEAYDVQQDDAlsb2NhbGhvc3QwHhcNMTkxMTI3MTAxMjMwWhcNMjkxMTI0MTAx
+    MjMwWjAUMRIwEAYDVQQDDAlsb2NhbGhvc3QwWTATBgcqhkjOPQIBBggqhkjOPQMB
+    BwNCAAShtZ9TRt7I+7Y0o99XUkrgSYmUmpr4K8CB0IkTCX6b1tXp3Xqs1V5BckTd
+    qrls+zsm3AfeiNBb9EDdxiX9DdzuoyYwJDAUBgNVHREEDTALgglsb2NhbGhvc3Qw
+    DAYDVR0TAQH/BAIwADAKBggqhkjOPQQDAgNIADBFAiAKxYON+YTnIHNR0R6SLP8R
+    R7hjsjV5NDs18XLoeRnA1gIhANwyggmE6NQW/r9l59fexj/ZrjaS3jYOTNCfC1Lo
+    5NgJ
+    -----END CERTIFICATE-----
+    """.utf8
+)
 
-fileprivate let certificatePemBytes = Array("""
------BEGIN CERTIFICATE-----
-MIIBTzCB9qADAgECAhQkvv72Je/v+B/cgJ53f84O82z6WTAKBggqhkjOPQQDAjAU
-MRIwEAYDVQQDDAlsb2NhbGhvc3QwHhcNMTkxMTI3MTAxMjMwWhcNMjkxMTI0MTAx
-MjMwWjAUMRIwEAYDVQQDDAlsb2NhbGhvc3QwWTATBgcqhkjOPQIBBggqhkjOPQMB
-BwNCAAShtZ9TRt7I+7Y0o99XUkrgSYmUmpr4K8CB0IkTCX6b1tXp3Xqs1V5BckTd
-qrls+zsm3AfeiNBb9EDdxiX9DdzuoyYwJDAUBgNVHREEDTALgglsb2NhbGhvc3Qw
-DAYDVR0TAQH/BAIwADAKBggqhkjOPQQDAgNIADBFAiAKxYON+YTnIHNR0R6SLP8R
-R7hjsjV5NDs18XLoeRnA1gIhANwyggmE6NQW/r9l59fexj/ZrjaS3jYOTNCfC1Lo
-5NgJ
------END CERTIFICATE-----
-""".utf8)
-
-
-fileprivate let keyPemBytes = Array("""
------BEGIN PRIVATE KEY-----
-MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgCn182hBmYVMAiNPO
-+7w05F40SlAqqxgBEYJZOeK47aihRANCAAShtZ9TRt7I+7Y0o99XUkrgSYmUmpr4
-K8CB0IkTCX6b1tXp3Xqs1V5BckTdqrls+zsm3AfeiNBb9EDdxiX9Ddzu
------END PRIVATE KEY-----
-""".utf8)
+private let keyPemBytes = Array(
+    """
+    -----BEGIN PRIVATE KEY-----
+    MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgCn182hBmYVMAiNPO
+    +7w05F40SlAqqxgBEYJZOeK47aihRANCAAShtZ9TRt7I+7Y0o99XUkrgSYmUmpr4
+    K8CB0IkTCX6b1tXp3Xqs1V5BckTdqrls+zsm3AfeiNBb9EDdxiX9Ddzu
+    -----END PRIVATE KEY-----
+    """.utf8
+)

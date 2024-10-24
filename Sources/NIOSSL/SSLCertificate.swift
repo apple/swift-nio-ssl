@@ -45,16 +45,18 @@ import struct Glibc.time_t
 /// bytes or from a file path.
 public final class NIOSSLCertificate {
     @usableFromInline
-    internal let _ref: OpaquePointer/*<X509>*/
+    internal let _ref: OpaquePointer  //<X509>
 
     @inlinable
-    internal func withUnsafeMutableX509Pointer<ResultType>(_ body: (OpaquePointer) throws -> ResultType) rethrows -> ResultType {
-        return try body(self._ref)
+    internal func withUnsafeMutableX509Pointer<ResultType>(
+        _ body: (OpaquePointer) throws -> ResultType
+    ) rethrows -> ResultType {
+        try body(self._ref)
     }
 
     // Internal to this class we can just access the ref directly.
     private var ref: OpaquePointer {
-        return self._ref
+        self._ref
     }
 
     /// The serial number of this certificate, as raw bytes.
@@ -101,7 +103,7 @@ public final class NIOSSLCertificate {
     ///
     /// - SeeAlso: `NIOSSLCertificate.init(bytes:format:)`
     @available(*, deprecated, renamed: "NIOSSLCertificate.init(bytes:format:)")
-    public convenience init(buffer: [Int8], format: NIOSSLSerializationFormats) throws  {
+    public convenience init(buffer: [Int8], format: NIOSSLSerializationFormats) throws {
         try self.init(bytes: buffer.map(UInt8.init), format: format)
     }
 
@@ -174,7 +176,7 @@ public final class NIOSSLCertificate {
     /// In general, however, this function should be avoided in favour of one of the convenience
     /// initializers, which ensure that the lifetime of the `X509` object is better-managed.
     static func fromUnsafePointer(takingOwnership pointer: OpaquePointer) -> NIOSSLCertificate {
-        return NIOSSLCertificate(withOwnedReference: pointer)
+        NIOSSLCertificate(withOwnedReference: pointer)
     }
 
     /// Get a collection of the alternative names in the certificate.
@@ -182,12 +184,12 @@ public final class NIOSSLCertificate {
         let sanExtension = CNIOBoringSSL_X509_get_ext_d2i(self.ref, NID_subject_alt_name, nil, nil)
         return _SubjectAlternativeNames(nameStack: sanExtension.map(OpaquePointer.init))
     }
-    
+
     /// Extracts the SHA1 hash of the subject name before it has been truncated.
     ///
     /// - returns: Numeric hash of the subject name.
     internal func getSubjectNameHash() -> UInt32 {
-        return CNIOBoringSSL_X509_subject_name_hash(self.ref)
+        CNIOBoringSSL_X509_subject_name_hash(self.ref)
     }
 
     /// Returns the commonName field in the Subject of this certificate.
@@ -216,7 +218,11 @@ public final class NIOSSLCertificate {
         }
 
         // This is very unlikely, but it could happen.
-        guard let nameData = CNIOBoringSSL_X509_NAME_ENTRY_get_data(CNIOBoringSSL_X509_NAME_get_entry(subjectName, lastIndex)) else {
+        guard
+            let nameData = CNIOBoringSSL_X509_NAME_ENTRY_get_data(
+                CNIOBoringSSL_X509_NAME_get_entry(subjectName, lastIndex)
+            )
+        else {
             return nil
         }
 
@@ -266,7 +272,7 @@ extension NIOSSLCertificate {
     /// - returns: The DER-encoded bytes for this certificate.
     /// - throws: If an error occurred while serializing the certificate.
     public func toDERBytes() throws -> [UInt8] {
-        return try self.withUnsafeDERCertificateBuffer { Array($0) }
+        try self.withUnsafeDERCertificateBuffer { Array($0) }
     }
 
     /// Create an array of ``NIOSSLCertificate``s from a buffer of bytes in PEM format.
@@ -276,7 +282,7 @@ extension NIOSSLCertificate {
     /// - SeeAlso: `NIOSSLCertificate.fromPEMBytes(_:)`
     @available(*, deprecated, renamed: "NIOSSLCertificate.fromPEMBytes(_:)")
     public class func fromPEMBuffer(_ buffer: [Int8]) throws -> [NIOSSLCertificate] {
-        return try fromPEMBytes(buffer.map(UInt8.init))
+        try fromPEMBytes(buffer.map(UInt8.init))
     }
 
     /// Create an array of ``NIOSSLCertificate``s from a buffer of bytes in PEM format.
@@ -301,7 +307,7 @@ extension NIOSSLCertificate {
 
     /// Create an array of ``NIOSSLCertificate``s from a file at a given path in PEM format.
     ///
-    /// - Parameter file: The PEM file to read certificates from.
+    /// - Parameter path: The PEM file to read certificates from.
     /// - Throws: If an error is encountered while reading certificates.
     public class func fromPEMFile(_ path: String) throws -> [NIOSSLCertificate] {
         CNIOBoringSSL_ERR_clear_error()
@@ -356,7 +362,9 @@ extension NIOSSLCertificate {
         let err = CNIOBoringSSL_ERR_peek_error()
 
         // If we hit the end of the file then it's not a real error, we just read as much as we could.
-        if CNIOBoringSSLShims_ERR_GET_LIB(err) == ERR_LIB_PEM && CNIOBoringSSLShims_ERR_GET_REASON(err) == PEM_R_NO_START_LINE {
+        if CNIOBoringSSLShims_ERR_GET_LIB(err) == ERR_LIB_PEM
+            && CNIOBoringSSLShims_ERR_GET_REASON(err) == PEM_R_NO_START_LINE
+        {
             CNIOBoringSSL_ERR_clear_error()
         } else {
             throw NIOSSLError.failedToLoadCertificate
@@ -397,11 +405,10 @@ extension NIOSSLCertificate {
 }
 
 extension NIOSSLCertificate: Equatable {
-    public static func ==(lhs: NIOSSLCertificate, rhs: NIOSSLCertificate) -> Bool {
-        return CNIOBoringSSL_X509_cmp(lhs.ref, rhs.ref) == 0
+    public static func == (lhs: NIOSSLCertificate, rhs: NIOSSLCertificate) -> Bool {
+        CNIOBoringSSL_X509_cmp(lhs.ref, rhs.ref) == 0
     }
 }
-
 
 extension NIOSSLCertificate: Hashable {
     public func hash(into hasher: inout Hasher) {
@@ -413,7 +420,7 @@ extension NIOSSLCertificate: Hashable {
 }
 
 extension NIOSSLCertificate: CustomStringConvertible {
-    
+
     public var description: String {
         let serialNumber = self.serialNumber.map { String($0, radix: 16) }.reduce("", +)
         var desc = "<NIOSSLCertificate;serial_number=\(serialNumber)"
@@ -440,7 +447,7 @@ extension NIOSSLCertificate: CustomStringConvertible {
         }
         return desc + ">"
     }
-    
+
 }
 
 extension UnsafePointer where Pointee == ASN1_TIME {

@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import NIOCore
 @_implementationOnly import CNIOBoringSSL
+import NIOCore
 import NIOTLS
 
 /// The base class for all NIOSSL handlers.
@@ -25,7 +25,7 @@ import NIOTLS
 /// of a TLS connection there is no meaningful distinction between a server and a client.
 /// For this reason almost the entirety of the implementation for the channel and server
 /// handlers in NIOSSL is shared, in the form of this parent class.
-public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, RemovableChannelHandler {
+public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, RemovableChannelHandler {
     /// The default maximum write size. We cannot pass writes larger than this size to
     /// BoringSSL.
     ///
@@ -65,7 +65,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     private var configuration: Configuration
 
     internal var channel: Channel? {
-        return self.storedContext?.channel
+        self.storedContext?.channel
     }
 
     internal init(
@@ -77,12 +77,12 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     ) {
         let tlsConfiguration = connection.parentContext.configuration
         precondition(
-            additionalPeerCertificateVerificationCallback == nil ||
-            tlsConfiguration.certificateVerification != .none,
+            additionalPeerCertificateVerificationCallback == nil || tlsConfiguration.certificateVerification != .none,
             "TLSConfiguration.certificateVerification must be either set to .noHostnameVerification or .fullVerification if additionalPeerCertificateVerificationCallback is specified"
         )
         self.connection = connection
-        self.bufferedActions = MarkedCircularBuffer(initialCapacity: 96)  // 96 brings the total size of the buffer to just shy of one page
+        // 96 brings the total size of the buffer to just shy of one page
+        self.bufferedActions = MarkedCircularBuffer(initialCapacity: 96)
         self.shutdownTimeout = shutdownTimeout
         self.additionalPeerCertificateVerificationCallback = additionalPeerCertificateVerificationCallback
         self.maxWriteSize = maxWriteSize
@@ -378,11 +378,13 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             if let additionalPeerCertificateVerificationCallback = self.additionalPeerCertificateVerificationCallback {
                 state = .additionalVerification
                 guard let peerCertificate = connection.getPeerCertificate() else {
-                    preconditionFailure("""
-                        Couldn't get peer certificate after chain verification was successful.
-                        This should be impossible as we have a precondition during creation of this handler that requires certificate verification.
-                        Please file an issue.
-                    """)
+                    preconditionFailure(
+                        """
+                            Couldn't get peer certificate after chain verification was successful.
+                            This should be impossible as we have a precondition during creation of this handler that requires certificate verification.
+                            Please file an issue.
+                        """
+                    )
                 }
                 additionalPeerCertificateVerificationCallback(peerCertificate, context.channel)
                     .hop(to: context.eventLoop)
@@ -451,7 +453,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
             }
         case .unwrapping, .closing, .unwrapped, .closed:
             break
-            // we are already about to close, we can safely ignore this event
+        // we are already about to close, we can safely ignore this event
         }
     }
 
@@ -528,7 +530,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
     /// Creates a scheduled task to perform an unclean shutdown in event of a clean shutdown timing
     /// out. This task should be cancelled if the shutdown does not time out.
     private func scheduleTimedOutShutdown(context: ChannelHandlerContext) -> Scheduled<Void> {
-        return context.eventLoop.scheduleTask(in: self.shutdownTimeout) {
+        context.eventLoop.scheduleTask(in: self.shutdownTimeout) {
             switch self.state {
             case .inputClosed, .outputClosed, .idle, .handshaking, .additionalVerification, .active:
                 preconditionFailure("Cannot schedule timed out shutdown on non-shutting down handler")
@@ -753,7 +755,7 @@ public class NIOSSLHandler : ChannelInboundHandler, ChannelOutboundHandler, Remo
         if let promise = shutdownPromise {
             removalFuture.whenComplete { result in
                 switch (result, error) {
-                case(.success, .none):
+                case (.success, .none):
                     promise.succeed(())
                 case (.success, .some(let error)):
                     promise.fail(error)
@@ -794,14 +796,14 @@ extension NIOSSLHandler {
     /// This variable **is not thread-safe**: you **must** call it from the correct event
     /// loop thread.
     public var tlsVersion: TLSVersion? {
-        return self.connection.getTLSVersionForConnection()
+        self.connection.getTLSVersionForConnection()
     }
 }
 
 extension Channel {
     ///  API to extract the ``TLSVersion`` from off the `Channel`.
     public func nioSSL_tlsVersion() -> EventLoopFuture<TLSVersion?> {
-        return self.pipeline.handler(type: NIOSSLHandler.self).map {
+        self.pipeline.handler(type: NIOSSLHandler.self).map {
             $0.tlsVersion
         }
     }
@@ -874,7 +876,6 @@ extension NIOSSLHandler {
         }
     }
 }
-
 
 // MARK: Code that handles buffering/unbuffering actions.
 extension NIOSSLHandler {
@@ -983,7 +984,9 @@ extension NIOSSLHandler {
             // We spun the outer loop too many times, something isn't right so let's bail out
             // instead of looping any longer.
             if bufferedActionsLoopCount >= 1000 {
-                assertionFailure("\(#function) looped too many times, please file a GitHub issue against swift-nio-ssl.")
+                assertionFailure(
+                    "\(#function) looped too many times, please file a GitHub issue against swift-nio-ssl."
+                )
                 throw NIOSSLExtraError.noForwardProgress
             }
         } catch {
@@ -991,7 +994,7 @@ extension NIOSSLHandler {
             channelClose(context: context, reason: error)
 
             // Fail any writes we've previously encoded but not flushed.
-            promises.forEach { $0.fail(error) }
+            for promise in promises { promise.fail(error) }
 
             // Fail close output promise if present
             let closeOutputPromise = self.closeOutputPromise
@@ -1021,10 +1024,10 @@ extension NIOSSLHandler {
     }
 }
 
-fileprivate extension Array where Element == EventLoopPromise<Void> {
+extension Array where Element == EventLoopPromise<Void> {
     /// Given an array of promises, flattens it out to a single promise.
     /// If the array is empty, returns nil.
-    func flattenPromises(on loop: EventLoop) -> EventLoopPromise<Void>? {
+    fileprivate func flattenPromises(on loop: EventLoop) -> EventLoopPromise<Void>? {
         guard self.count > 0 else {
             return nil
         }
@@ -1037,16 +1040,15 @@ fileprivate extension Array where Element == EventLoopPromise<Void> {
         ourPromise.futureResult.whenComplete { result in
             switch result {
             case .success:
-                self.forEach { $0.succeed(()) }
+                for result in self { result.succeed(()) }
             case .failure(let error):
-                self.forEach { $0.fail(error) }
+                for result in self { result.fail(error) }
             }
         }
 
         return ourPromise
     }
 }
-
 
 // MARK:- Code for handling asynchronous handshake resumption.
 extension NIOSSLHandler {

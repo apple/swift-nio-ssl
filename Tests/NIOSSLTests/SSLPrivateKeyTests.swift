@@ -13,8 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import XCTest
 import NIOCore
+import XCTest
+
 @testable import NIOSSL
 
 class SSLPrivateKeyTest: XCTestCase {
@@ -25,11 +26,15 @@ class SSLPrivateKeyTest: XCTestCase {
     static var dynamicallyGeneratedKey: NIOSSLPrivateKey! = nil
 
     override class func setUp() {
-        SSLPrivateKeyTest.pemKeyFilePath = try! dumpToFile(text: samplePemKey,
-                                                           fileExtension: ".pem")
+        SSLPrivateKeyTest.pemKeyFilePath = try! dumpToFile(
+            text: samplePemKey,
+            fileExtension: ".pem"
+        )
         SSLPrivateKeyTest.derKeyFilePath = try! dumpToFile(data: sampleDerKey)
-        SSLPrivateKeyTest.passwordPemKeyFilePath = try! dumpToFile(text: samplePemRSAEncryptedKey,
-                                                                   fileExtension: ".pem")
+        SSLPrivateKeyTest.passwordPemKeyFilePath = try! dumpToFile(
+            text: samplePemRSAEncryptedKey,
+            fileExtension: ".pem"
+        )
         SSLPrivateKeyTest.passwordPKCS8PemKeyFilePath = try! dumpToFile(text: samplePKCS8PemPrivateKey)
 
         let (_, key) = generateSelfSignedCert()
@@ -146,73 +151,109 @@ class SSLPrivateKeyTest: XCTestCase {
     }
 
     func testLoadingNonexistentFileAsPemWithPassphrase() throws {
-        XCTAssertThrowsError(try NIOSSLPrivateKey(file: "/nonexistent/path", format: .pem) { (_: NIOSSLPassphraseSetter<Array<UInt8>>) in
-            XCTFail("Should not be called")
-        }) { error in
+        XCTAssertThrowsError(
+            try NIOSSLPrivateKey(file: "/nonexistent/path", format: .pem) { (_: NIOSSLPassphraseSetter<[UInt8]>) in
+                XCTFail("Should not be called")
+            }
+        ) { error in
             XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode })
         }
     }
 
     func testLoadingNonexistentFileAsDerWithPassphrase() throws {
-        XCTAssertThrowsError(try NIOSSLPrivateKey(file: "/nonexistent/path", format: .der) { (_: NIOSSLPassphraseSetter<Array<UInt8>>) in
-            XCTFail("Should not be called")
-        }) { error in
+        XCTAssertThrowsError(
+            try NIOSSLPrivateKey(file: "/nonexistent/path", format: .der) { (_: NIOSSLPassphraseSetter<[UInt8]>) in
+                XCTFail("Should not be called")
+            }
+        ) { error in
             XCTAssertEqual(ENOENT, (error as? IOError).map { $0.errnoCode })
         }
     }
 
     func testLoadingEncryptedRSAKeyFromMemory() throws {
-        let key1 = try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) { closure in closure("thisisagreatpassword".utf8) }
-        let key2 = try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) { closure in closure("thisisagreatpassword".utf8) }
+        let key1 = try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) { closure in
+            closure("thisisagreatpassword".utf8)
+        }
+        let key2 = try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) { closure in
+            closure("thisisagreatpassword".utf8)
+        }
 
         XCTAssertEqual(key1, key2)
         XCTAssertEqual(key1.hashValue, key2.hashValue)
     }
 
     func testLoadingEncryptedRSAPKCS8KeyFromMemory() throws {
-        let key1 = try NIOSSLPrivateKey(bytes: .init(samplePKCS8PemPrivateKey.utf8), format: .pem) { closure in closure("thisisagreatpassword".utf8) }
-        let key2 = try NIOSSLPrivateKey(bytes: .init(samplePKCS8PemPrivateKey.utf8), format: .pem) { closure in closure("thisisagreatpassword".utf8) }
+        let key1 = try NIOSSLPrivateKey(bytes: .init(samplePKCS8PemPrivateKey.utf8), format: .pem) { closure in
+            closure("thisisagreatpassword".utf8)
+        }
+        let key2 = try NIOSSLPrivateKey(bytes: .init(samplePKCS8PemPrivateKey.utf8), format: .pem) { closure in
+            closure("thisisagreatpassword".utf8)
+        }
 
         XCTAssertEqual(key1, key2)
         XCTAssertEqual(key1.hashValue, key2.hashValue)
     }
 
     func testLoadingEncryptedRSAKeyFromFile() throws {
-        let key1 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.passwordPemKeyFilePath, format: .pem) { closure in closure("thisisagreatpassword".utf8) }
-        let key2 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.passwordPemKeyFilePath, format: .pem) { closure in closure("thisisagreatpassword".utf8) }
+        let key1 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.passwordPemKeyFilePath, format: .pem) { closure in
+            closure("thisisagreatpassword".utf8)
+        }
+        let key2 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.passwordPemKeyFilePath, format: .pem) { closure in
+            closure("thisisagreatpassword".utf8)
+        }
 
         XCTAssertEqual(key1, key2)
         XCTAssertEqual(key1.hashValue, key2.hashValue)
     }
 
     func testLoadingEncryptedRSAPKCS8KeyFromFile() throws {
-        let key1 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.passwordPKCS8PemKeyFilePath, format: .pem) { closure in closure("thisisagreatpassword".utf8) }
-        let key2 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.passwordPKCS8PemKeyFilePath, format: .pem) { closure in closure("thisisagreatpassword".utf8) }
+        let key1 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.passwordPKCS8PemKeyFilePath, format: .pem) { closure in
+            closure("thisisagreatpassword".utf8)
+        }
+        let key2 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.passwordPKCS8PemKeyFilePath, format: .pem) { closure in
+            closure("thisisagreatpassword".utf8)
+        }
 
         XCTAssertEqual(key1, key2)
         XCTAssertEqual(key1.hashValue, key2.hashValue)
     }
 
     func testWildlyOverlongPassphraseRSAFromMemory() throws {
-        XCTAssertThrowsError(try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }) { error in
+        XCTAssertThrowsError(
+            try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) { closure in
+                closure(Array(repeating: UInt8(8), count: 1 << 16))
+            }
+        ) { error in
             XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }
 
     func testWildlyOverlongPassphrasePKCS8FromMemory() throws {
-        XCTAssertThrowsError(try NIOSSLPrivateKey(bytes: .init(samplePKCS8PemPrivateKey.utf8), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }) { error in
+        XCTAssertThrowsError(
+            try NIOSSLPrivateKey(bytes: .init(samplePKCS8PemPrivateKey.utf8), format: .pem) { closure in
+                closure(Array(repeating: UInt8(8), count: 1 << 16))
+            }
+        ) { error in
             XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }
 
     func testWildlyOverlongPassphraseRSAFromFile() throws {
-        XCTAssertThrowsError(try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }) { error in
+        XCTAssertThrowsError(
+            try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) { closure in
+                closure(Array(repeating: UInt8(8), count: 1 << 16))
+            }
+        ) { error in
             XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }
 
     func testWildlyOverlongPassphrasePKCS8FromFile() throws {
-        XCTAssertThrowsError(try NIOSSLPrivateKey(bytes: .init(samplePKCS8PemPrivateKey.utf8), format: .pem) { closure in closure(Array(repeating: UInt8(8), count: 1 << 16)) }) { error in
+        XCTAssertThrowsError(
+            try NIOSSLPrivateKey(bytes: .init(samplePKCS8PemPrivateKey.utf8), format: .pem) { closure in
+                closure(Array(repeating: UInt8(8), count: 1 << 16))
+            }
+        ) { error in
             XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }
@@ -222,17 +263,22 @@ class SSLPrivateKeyTest: XCTestCase {
             case error
         }
 
-        XCTAssertThrowsError(try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) { (_: NIOSSLPassphraseSetter<Array<UInt8>>) in
-            throw MyError.error
-        }) { error in
+        XCTAssertThrowsError(
+            try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) {
+                (_: NIOSSLPassphraseSetter<[UInt8]>) in
+                throw MyError.error
+            }
+        ) { error in
             XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }
 
     func testWrongPassword() {
-        XCTAssertThrowsError(try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) {
-            closure in closure("incorrect password".utf8)
-        }) { error in
+        XCTAssertThrowsError(
+            try NIOSSLPrivateKey(bytes: .init(samplePemRSAEncryptedKey.utf8), format: .pem) {
+                closure in closure("incorrect password".utf8)
+            }
+        ) { error in
             XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
         }
     }

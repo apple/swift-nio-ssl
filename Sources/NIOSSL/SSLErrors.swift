@@ -49,7 +49,7 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible, Sendab
     }
 
     public var description: String {
-        return "Error: \(errorCode) \(errorMessage ?? "")"
+        "Error: \(errorCode) \(errorMessage ?? "")"
     }
 
     init(errorCode: UInt32, filename: String, line: UInt) {
@@ -62,14 +62,15 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible, Sendab
 
     /// Received EOF during the TLS handshake.
     public static let eofDuringHandshake = Self(syntheticErrorDescription: "EOF during handshake")
-    
+
     /// Received EOF during additional certificate chain verification.
-    public static let eofDuringAdditionalCertficiateChainValidation = Self(syntheticErrorDescription: "EOF during addition certificate chain validation")
+    public static let eofDuringAdditionalCertficiateChainValidation = Self(
+        syntheticErrorDescription: "EOF during addition certificate chain validation"
+    )
 }
 
 /// A representation of BoringSSL's internal error stack: a list of BoringSSL errors.
 public typealias NIOBoringSSLErrorStack = [BoringSSLInternalError]
-
 
 /// Errors that can be raised by NIO's BoringSSL wrapper.
 public enum NIOSSLError: Error {
@@ -113,8 +114,7 @@ public enum BoringSSLError: Error {
 
 extension BoringSSLError: Equatable {}
 
-
-internal extension BoringSSLError {
+extension BoringSSLError {
     static func fromSSLGetErrorResult(_ result: CInt) -> BoringSSLError? {
         switch result {
         case SSL_ERROR_NONE:
@@ -145,10 +145,10 @@ internal extension BoringSSLError {
             return .unknownError(buildErrorStack())
         }
     }
-    
+
     static func buildErrorStack() -> NIOBoringSSLErrorStack {
         var errorStack = NIOBoringSSLErrorStack()
-        
+
         while true {
             var file: UnsafePointer<CChar>? = nil
             var line: CInt = 0
@@ -157,7 +157,7 @@ internal extension BoringSSLError {
             let fileAsString = String(cString: file!)
             errorStack.append(BoringSSLInternalError(errorCode: errorCode, filename: fileAsString, line: UInt(line)))
         }
-        
+
         return errorStack
     }
 }
@@ -178,7 +178,6 @@ public enum NIOTLSUnwrappingError: Error {
     case unflushedWriteOnUnwrap
 }
 
-
 /// This structure contains errors added to NIOSSL after the original ``NIOSSLError`` enum was
 /// shipped. This is an extensible error object that allows us to evolve it going forward.
 public struct NIOSSLExtraError: Error {
@@ -192,7 +191,6 @@ public struct NIOSSLExtraError: Error {
     }
 }
 
-
 extension NIOSSLExtraError {
     private enum BaseError: Equatable {
         case failedToValidateHostname
@@ -204,13 +202,18 @@ extension NIOSSLExtraError {
     }
 }
 
-
 extension NIOSSLExtraError {
     /// NIOSSL was unable to validate the hostname presented by the remote peer.
-    public static let failedToValidateHostname = NIOSSLExtraError(baseError: .failedToValidateHostname, description: nil)
+    public static let failedToValidateHostname = NIOSSLExtraError(
+        baseError: .failedToValidateHostname,
+        description: nil
+    )
 
     /// The server hostname provided by the user cannot match any names in the certificate due to containing invalid characters.
-    public static let serverHostnameImpossibleToMatch = NIOSSLExtraError(baseError: .serverHostnameImpossibleToMatch, description: nil)
+    public static let serverHostnameImpossibleToMatch = NIOSSLExtraError(
+        baseError: .serverHostnameImpossibleToMatch,
+        description: nil
+    )
 
     /// IP addresses may not be used in SNI.
     public static let cannotUseIPAddressInSNI = NIOSSLExtraError(baseError: .cannotUseIPAddressInSNI, description: nil)
@@ -227,7 +230,10 @@ extension NIOSSLExtraError {
     public static let invalidSNIHostname = NIOSSLExtraError(baseError: .invalidSNIHostname, description: nil)
 
     /// The private key file for the TLS configuration has an unknown type.
-    public static let unknownPrivateKeyFileType = NIOSSLExtraError(baseError: .unknownPrivateKeyFileType, description: nil)
+    public static let unknownPrivateKeyFileType = NIOSSLExtraError(
+        baseError: .unknownPrivateKeyFileType,
+        description: nil
+    )
 
     /// No forward progress is being made.
     ///
@@ -260,7 +266,6 @@ extension NIOSSLExtraError {
     }
 }
 
-
 extension NIOSSLExtraError: CustomStringConvertible {
     public var description: String {
         let formattedDescription = self._description.map { ": " + $0 } ?? ""
@@ -269,7 +274,7 @@ extension NIOSSLExtraError: CustomStringConvertible {
 }
 
 extension NIOSSLExtraError: Equatable {
-    public static func ==(lhs: NIOSSLExtraError, rhs: NIOSSLExtraError) -> Bool {
-        return lhs.baseError == rhs.baseError
+    public static func == (lhs: NIOSSLExtraError, rhs: NIOSSLExtraError) -> Bool {
+        lhs.baseError == rhs.baseError
     }
 }

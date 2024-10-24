@@ -9,15 +9,6 @@ services:
         ubuntu_version: "jammy"
         swift_version: "5.10"
 
-  unit-tests:
-    image: swift-nio-ssl:22.04-5.10
-
-  integration-tests:
-    image: swift-nio-ssl:22.04-5.10
-
-  documentation-check:
-    image: swift-nio-ssl:22.04-5.10
-
   test:
     image: swift-nio-ssl:22.04-5.10
     environment:
@@ -26,9 +17,6 @@ services:
       - IMPORT_CHECK_ARG=--explicit-target-dependency-import-check error
 
   performance-test:
-    image: swift-nio-ssl:22.04-5.10
-
-  cxx-interop-build:
     image: swift-nio-ssl:22.04-5.10
 
   shell:

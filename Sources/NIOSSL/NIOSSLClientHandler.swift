@@ -33,8 +33,7 @@ extension String {
         var ipv6Addr = in6_addr()
 
         return self.withCString { ptr in
-            return inet_pton(AF_INET, ptr, &ipv4Addr) == 1 ||
-                   inet_pton(AF_INET6, ptr, &ipv6Addr) == 1
+            inet_pton(AF_INET, ptr, &ipv4Addr) == 1 || inet_pton(AF_INET6, ptr, &ipv6Addr) == 1
         }
     }
 
@@ -48,7 +47,7 @@ extension String {
             throw NIOSSLExtraError.invalidSNIHostname
         }
 
-        guard (1 ... 255).contains(self.utf8.count) else {
+        guard (1...255).contains(self.utf8.count) else {
             throw NIOSSLExtraError.invalidSNIHostname
         }
     }
@@ -65,11 +64,20 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
     ///     - serverHostname: The hostname of the server we're trying to connect to, if known. This will be used in the SNI extension,
     ///         and used to validate the server certificate.
     public convenience init(context: NIOSSLContext, serverHostname: String?) throws {
-        try self.init(context: context, serverHostname: serverHostname, optionalCustomVerificationCallback: nil, optionalAdditionalPeerCertificateVerificationCallback: nil)
+        try self.init(
+            context: context,
+            serverHostname: serverHostname,
+            optionalCustomVerificationCallback: nil,
+            optionalAdditionalPeerCertificateVerificationCallback: nil
+        )
     }
 
     @available(*, deprecated, renamed: "init(context:serverHostname:customVerificationCallback:)")
-    public init(context: NIOSSLContext, serverHostname: String?, verificationCallback: NIOSSLVerificationCallback? = nil) throws {
+    public init(
+        context: NIOSSLContext,
+        serverHostname: String?,
+        verificationCallback: NIOSSLVerificationCallback? = nil
+    ) throws {
         guard let connection = context.createConnection() else {
             fatalError("Failed to create new connection in NIOSSLContext")
         }
@@ -82,7 +90,9 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
             do {
                 try connection.setServerName(name: serverHostname)
             } catch {
-                preconditionFailure("Bug in NIOSSL (please report): \(Array(serverHostname.utf8)) passed NIOSSL's hostname test but failed in BoringSSL.")
+                preconditionFailure(
+                    "Bug in NIOSSL (please report): \(Array(serverHostname.utf8)) passed NIOSSL's hostname test but failed in BoringSSL."
+                )
             }
         }
 
@@ -109,8 +119,17 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
     ///
     ///         If set, this callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed them. The callback will not be used if the
     ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
-    public convenience init(context: NIOSSLContext, serverHostname: String?, customVerificationCallback: @escaping NIOSSLCustomVerificationCallback) throws {
-        try self.init(context: context, serverHostname: serverHostname, optionalCustomVerificationCallback: customVerificationCallback, optionalAdditionalPeerCertificateVerificationCallback: nil)
+    public convenience init(
+        context: NIOSSLContext,
+        serverHostname: String?,
+        customVerificationCallback: @escaping NIOSSLCustomVerificationCallback
+    ) throws {
+        try self.init(
+            context: context,
+            serverHostname: serverHostname,
+            optionalCustomVerificationCallback: customVerificationCallback,
+            optionalAdditionalPeerCertificateVerificationCallback: nil
+        )
     }
 
     /// Construct a new ``NIOSSLClientHandler`` with the given `context` and a specific `serverHostname`.
@@ -124,7 +143,12 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
     ///         If set, this callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed them. The callback will not be used if the
     ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
     ///     - configuration: Configuration for this handler.
-    public convenience init(context: NIOSSLContext, serverHostname: String?, customVerificationCallback: NIOSSLCustomVerificationCallback? = nil, configuration: Configuration) throws {
+    public convenience init(
+        context: NIOSSLContext,
+        serverHostname: String?,
+        customVerificationCallback: NIOSSLCustomVerificationCallback? = nil,
+        configuration: Configuration
+    ) throws {
         try self.init(
             context: context,
             serverHostname: serverHostname,
@@ -140,7 +164,12 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
         serverHostname: String?,
         additionalPeerCertificateVerificationCallback: @escaping _NIOAdditionalPeerCertificateVerificationCallback
     ) throws -> Self {
-        try .init(context: context, serverHostname: serverHostname, optionalCustomVerificationCallback: nil, optionalAdditionalPeerCertificateVerificationCallback: additionalPeerCertificateVerificationCallback)
+        try .init(
+            context: context,
+            serverHostname: serverHostname,
+            optionalCustomVerificationCallback: nil,
+            optionalAdditionalPeerCertificateVerificationCallback: additionalPeerCertificateVerificationCallback
+        )
     }
 
     // This exists to handle the explosion of initializers we got when I tried to deprecate the first one. At least they all pass through one path now.
@@ -164,7 +193,9 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
             do {
                 try connection.setServerName(name: serverHostname)
             } catch {
-                preconditionFailure("Bug in NIOSSL (please report): \(Array(serverHostname.utf8)) passed NIOSSL's hostname test but failed in BoringSSL.")
+                preconditionFailure(
+                    "Bug in NIOSSL (please report): \(Array(serverHostname.utf8)) passed NIOSSL's hostname test but failed in BoringSSL."
+                )
             }
         }
 

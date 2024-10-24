@@ -12,11 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
-import NIOCore
 @_implementationOnly import CNIOBoringSSL
-@testable import NIOSSL
+import NIOCore
+import XCTest
 
+@testable import NIOSSL
 
 final class ByteBufferBIOTest: XCTestCase {
     override func setUp() {
@@ -46,7 +46,11 @@ final class ByteBufferBIOTest: XCTestCase {
         let rc = CNIOBoringSSL_BIO_write(cBIO, &bytesToWrite, 5)
         XCTAssertEqual(rc, 5)
 
-        guard let extractedBytes = swiftBIO.outboundCiphertext().flatMap({ $0.getBytes(at: $0.readerIndex, length: $0.readableBytes) }) else {
+        guard
+            let extractedBytes = swiftBIO.outboundCiphertext().flatMap({
+                $0.getBytes(at: $0.readerIndex, length: $0.readableBytes)
+            })
+        else {
             XCTFail("No received bytes")
             return
         }
@@ -72,7 +76,11 @@ final class ByteBufferBIOTest: XCTestCase {
             expectedBytes.append(contentsOf: bytesToWrite)
         }
 
-        guard let extractedBytes = swiftBIO.outboundCiphertext().flatMap({ $0.getBytes(at: $0.readerIndex, length: $0.readableBytes) }) else {
+        guard
+            let extractedBytes = swiftBIO.outboundCiphertext().flatMap({
+                $0.getBytes(at: $0.readerIndex, length: $0.readableBytes)
+            })
+        else {
             XCTFail("No received bytes")
             return
         }
@@ -284,7 +292,9 @@ final class ByteBufferBIOTest: XCTestCase {
         }
         XCTAssertEqual(rc, 13)
 
-        let extractedString = swiftBIO.outboundCiphertext().flatMap { $0.getString(at: $0.readerIndex, length: $0.readableBytes) }
+        let extractedString = swiftBIO.outboundCiphertext().flatMap {
+            $0.getString(at: $0.readerIndex, length: $0.readableBytes)
+        }
         XCTAssertEqual(extractedString, stringToWrite)
         XCTAssertNil(swiftBIO.outboundCiphertext())
     }
@@ -301,7 +311,7 @@ final class ByteBufferBIOTest: XCTestCase {
         buffer.writeStaticString("Hello, world!")
         swiftBIO.receiveFromNetwork(buffer: buffer)
 
-        var output = Array<CChar>(repeating: 0, count: 1024)
+        var output = [CChar](repeating: 0, count: 1024)
 
         output.withUnsafeMutableBufferPointer { pointer in
             let rc = CNIOBoringSSL_BIO_gets(cBIO, pointer.baseAddress, CInt(pointer.count))
@@ -378,9 +388,8 @@ final class ByteBufferBIOTest: XCTestCase {
     }
 }
 
-
 extension ByteBuffer {
     func baseAddress() -> UInt {
-        return self.withVeryUnsafeBytes { return UInt(bitPattern: $0.baseAddress! )}
+        self.withVeryUnsafeBytes { UInt(bitPattern: $0.baseAddress!) }
     }
 }

@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 import XCTest
+
 @testable import NIOSSL
 
 public enum NIOSSLSecureBytesError: Error {
@@ -34,7 +35,7 @@ final class NIOSSLSecureBytesTests: XCTestCase {
         second.append(Data("wrold".utf8))
         XCTAssertNotEqual(first, second)
     }
-    
+
     func testSimpleCollection() {
         let base = NIOSSLSecureBytes(0..<100)
         XCTAssertEqual(base.count, 100)
@@ -60,7 +61,7 @@ final class NIOSSLSecureBytesTests: XCTestCase {
         XCTAssertEqual(base[aMiddleIndex], 48)
         XCTAssertEqual(base[aDifferentMiddleIndex], 48 + 5)
     }
-    
+
     func testSimpleMutableCollection() {
         var base = NIOSSLSecureBytes(repeating: 0, count: 5)
         let offset = base.index(base.startIndex, offsetBy: 2)
@@ -151,14 +152,14 @@ final class NIOSSLSecureBytesTests: XCTestCase {
     func testScaryInitializer() {
         let base = NIOSSLSecureBytes(unsafeUninitializedCapacity: 5) { (scaryPointer, initializedCapacity) in
             XCTAssertEqual(scaryPointer.count, 5)
-            scaryPointer.storeBytes(of: UInt32(0x01020304).bigEndian, as: UInt32.self)
+            scaryPointer.storeBytes(of: UInt32(0x0102_0304).bigEndian, as: UInt32.self)
             initializedCapacity = 4
         }
 
         XCTAssertGreaterThanOrEqual(base.backing.capacity, 8)
         XCTAssertEqual(Array(base), [1, 2, 3, 4])
 
-        let testThrowingInitialization: () throws -> () = {
+        let testThrowingInitialization: () throws -> Void = {
             _ = try NIOSSLSecureBytes(unsafeUninitializedCapacity: 5) { (_, _) in
                 throw NIOSSLSecureBytesError.incorrectKeySize
             }
@@ -212,27 +213,26 @@ final class NIOSSLSecureBytesTests: XCTestCase {
         XCTAssertEqual(base.count, 22)
         XCTAssertEqual(Array(copy), [0, 1, 2, 3, 4])
     }
-    
+
     func testEquatable() {
         var a = NIOSSLSecureBytes()
         a.append(Data("hello".utf8))
-        
+
         var b = NIOSSLSecureBytes()
         b.append(Data("hello".utf8))
-        XCTAssertTrue(a==b)
-        
+        XCTAssertTrue(a == b)
+
         var c = NIOSSLSecureBytes()
         c.append(Data("world".utf8))
-        XCTAssertFalse(a==c)
+        XCTAssertFalse(a == c)
     }
-    
+
     func testByteCreation() {
         let a = NIOSSLSecureBytes(bytes: [0x01, 0x02, 0x03, 0x04])
         let b = NIOSSLSecureBytes(bytes: [0x01, 0x02, 0x03, 0x04, 0x05])
         let c = NIOSSLSecureBytes(bytes: [0x01, 0x02, 0x03, 0x04])
-        XCTAssertTrue(a==c)
-        XCTAssertFalse(a==b)
+        XCTAssertTrue(a == c)
+        XCTAssertFalse(a == b)
     }
-    
-}
 
+}

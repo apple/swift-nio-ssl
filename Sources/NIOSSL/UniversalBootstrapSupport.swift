@@ -36,15 +36,21 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
     let context: NIOSSLContext
     let serverHostname: String?
     /// See ``NIOSSLCustomVerificationCallback`` for more documentation
-    let customVerificationCallback: (@Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) -> Void)?
+    let customVerificationCallback:
+        (@Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) -> Void)?
     /// See ``_NIOAdditionalPeerCertificateVerificationCallback`` for more documentation
-    let additionalPeerCertificateVerificationCallback: (@Sendable (NIOSSLCertificate, Channel) -> EventLoopFuture<Void>)?
+    let additionalPeerCertificateVerificationCallback:
+        (@Sendable (NIOSSLCertificate, Channel) -> EventLoopFuture<Void>)?
 
     internal init(
         context: NIOSSLContext,
         serverHostname: String?,
-        customVerificationCallback: (@Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) -> Void)? = nil,
-        additionalPeerCertificateVerificationCallback: (@Sendable (NIOSSLCertificate, Channel) -> EventLoopFuture<Void>)? = nil
+        customVerificationCallback: (
+            @Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) -> Void
+        )? = nil,
+        additionalPeerCertificateVerificationCallback: (
+            @Sendable (NIOSSLCertificate, Channel) -> EventLoopFuture<Void>
+        )? = nil
     ) throws {
         try serverHostname.map {
             try $0.validateSNIServerName()
@@ -69,9 +75,16 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
     public init(
         context: NIOSSLContext,
         serverHostname: String?,
-        customVerificationCallback: (@Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) -> Void)? = nil
+        customVerificationCallback: (
+            @Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) -> Void
+        )? = nil
     ) throws {
-        try self.init(context: context, serverHostname: serverHostname, customVerificationCallback: customVerificationCallback, additionalPeerCertificateVerificationCallback: nil)
+        try self.init(
+            context: context,
+            serverHostname: serverHostname,
+            customVerificationCallback: customVerificationCallback,
+            additionalPeerCertificateVerificationCallback: nil
+        )
     }
 
     /// Enable TLS on the bootstrap. This is not a function you will typically call as a user, it is called by
@@ -79,7 +92,7 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
     public func enableTLS(_ bootstrap: Bootstrap) -> Bootstrap {
         // NIOSSLClientHandler.init only throws because of `malloc` error and invalid SNI hostnames. We want to crash
         // on malloc error and we pre-checked the SNI hostname in `init` so that should be impossible here.
-        return bootstrap.protocolHandlers {
+        bootstrap.protocolHandlers {
             [
                 try! NIOSSLClientHandler(
                     context: self.context,

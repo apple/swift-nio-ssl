@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import NIOCore
 @_implementationOnly import CNIOBoringSSL
+import NIOCore
 
 /// ``NIOSSLCustomPrivateKey`` defines the interface of a custom, non-BoringSSL private key.
 ///
@@ -92,19 +92,23 @@ internal struct AnyNIOSSLCustomPrivateKey: NIOSSLCustomPrivateKey, Hashable {
     // This method does not need to be @inlinable for performance, but it needs to be _at least_
     // @usableFromInline as it's a protocol requirement on a @usableFromInline type.
     @inlinable var signatureAlgorithms: [SignatureAlgorithm] {
-        return self._value.signatureAlgorithms
+        self._value.signatureAlgorithms
     }
 
     // This method does not need to be @inlinable for performance, but it needs to be _at least_
     // @usableFromInline as it's a protocol requirement on a @usableFromInline type.
-    @inlinable func sign(channel: Channel, algorithm: SignatureAlgorithm, data: ByteBuffer) -> EventLoopFuture<ByteBuffer> {
-        return self._value.sign(channel: channel, algorithm: algorithm, data: data)
+    @inlinable func sign(
+        channel: Channel,
+        algorithm: SignatureAlgorithm,
+        data: ByteBuffer
+    ) -> EventLoopFuture<ByteBuffer> {
+        self._value.sign(channel: channel, algorithm: algorithm, data: data)
     }
 
     // This method does not need to be @inlinable for performance, but it needs to be _at least_
     // @usableFromInline as it's a protocol requirement on a @usableFromInline type.
     @inlinable func decrypt(channel: Channel, data: ByteBuffer) -> EventLoopFuture<ByteBuffer> {
-        return self._value.decrypt(channel: channel, data: data)
+        self._value.decrypt(channel: channel, data: data)
     }
 
     // This method does not need to be @inlinable for performance, but it needs to be _at least_
@@ -115,15 +119,16 @@ internal struct AnyNIOSSLCustomPrivateKey: NIOSSLCustomPrivateKey, Hashable {
 
     // This method does not need to be @inlinable for performance, but it needs to be _at least_
     // @usableFromInline as it's a protocol requirement on a @usableFromInline type.
-    @inlinable static func ==(lhs: AnyNIOSSLCustomPrivateKey, rhs: AnyNIOSSLCustomPrivateKey) -> Bool {
-        return lhs._equalsFunction(rhs._value)
+    @inlinable static func == (lhs: AnyNIOSSLCustomPrivateKey, rhs: AnyNIOSSLCustomPrivateKey) -> Bool {
+        lhs._equalsFunction(rhs._value)
     }
 }
 
 extension SSLConnection {
     fileprivate var customKey: NIOSSLCustomPrivateKey? {
         guard case .some(.privateKey(let key)) = self.parentContext.configuration.privateKey,
-              case .custom(let customKey) = key.representation else {
+            case .custom(let customKey) = key.representation
+        else {
             return nil
         }
 
@@ -180,7 +185,8 @@ extension SSLConnection {
         return ssl_private_key_retry
     }
 
-    fileprivate func customPrivateKeyComplete(out: inout UnsafeMutableBufferPointer<UInt8>) -> ssl_private_key_result_t {
+    fileprivate func customPrivateKeyComplete(out: inout UnsafeMutableBufferPointer<UInt8>) -> ssl_private_key_result_t
+    {
         switch self.customPrivateKeyResult {
         case .none:
             return ssl_private_key_retry
@@ -218,9 +224,14 @@ internal let customPrivateKeyMethod: UnsafePointer<SSL_PRIVATE_KEY_METHOD> = {
 }()
 
 /// This is our entry point from BoringSSL when we've been asked to do a sign.
-fileprivate func customKeySign(
-    ssl: OpaquePointer?, out: UnsafeMutablePointer<UInt8>?, outLen: UnsafeMutablePointer<Int>?,
-    maxOut: size_t, signatureAlgorithm: UInt16, in: UnsafePointer<UInt8>?, inLen: Int
+private func customKeySign(
+    ssl: OpaquePointer?,
+    out: UnsafeMutablePointer<UInt8>?,
+    outLen: UnsafeMutablePointer<Int>?,
+    maxOut: size_t,
+    signatureAlgorithm: UInt16,
+    in: UnsafePointer<UInt8>?,
+    inLen: Int
 ) -> ssl_private_key_result_t {
     guard let ssl = ssl, out != nil, let outLen = outLen, let `in` = `in` else {
         preconditionFailure()
@@ -236,9 +247,13 @@ fileprivate func customKeySign(
 }
 
 /// This is our entry point from BoringSSL when we've been asked to do a decrypt.
-fileprivate func customKeyDecrypt(
-    ssl: OpaquePointer?, out: UnsafeMutablePointer<UInt8>?, outLen: UnsafeMutablePointer<Int>?,
-    maxOut: Int, in: UnsafePointer<UInt8>?, inLen: Int
+private func customKeyDecrypt(
+    ssl: OpaquePointer?,
+    out: UnsafeMutablePointer<UInt8>?,
+    outLen: UnsafeMutablePointer<Int>?,
+    maxOut: Int,
+    in: UnsafePointer<UInt8>?,
+    inLen: Int
 ) -> ssl_private_key_result_t {
     guard let ssl = ssl, out != nil, let outLen = outLen, let `in` = `in` else {
         preconditionFailure()
@@ -253,10 +268,11 @@ fileprivate func customKeyDecrypt(
     return connection.customPrivateKeyDecrypt(in: inBuffer)
 }
 
-
 /// When BoringSSL is asking if we're done with our key operation, we come here.
-fileprivate func customKeyComplete(
-    ssl: OpaquePointer?, out: UnsafeMutablePointer<UInt8>?, outLen: UnsafeMutablePointer<Int>?,
+private func customKeyComplete(
+    ssl: OpaquePointer?,
+    out: UnsafeMutablePointer<UInt8>?,
+    outLen: UnsafeMutablePointer<Int>?,
     maxOut: Int
 ) -> ssl_private_key_result_t {
     guard let ssl = ssl, let out = out, let outLen = outLen else {

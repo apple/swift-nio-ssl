@@ -12,13 +12,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
 @_implementationOnly import CNIOBoringSSL
 import NIOCore
-import NIOPosix
 import NIOEmbedded
-@testable import NIOSSL
+import NIOPosix
 import NIOTLS
+import XCTest
+
+@testable import NIOSSL
+
 #if compiler(>=5.8)
 @preconcurrency import Dispatch
 #else
@@ -53,7 +55,7 @@ class HandshakeCompletedHandler: ChannelInboundHandler {
 class WaitForHandshakeHandler: ChannelInboundHandler {
     public typealias InboundIn = Any
     public var handshakeResult: EventLoopFuture<Void> {
-        return self.handshakeResultPromise.futureResult
+        self.handshakeResultPromise.futureResult
     }
 
     private var handshakeResultPromise: EventLoopPromise<Void>
@@ -95,25 +97,39 @@ class TLSConfigurationTest: XCTestCase {
         TLSConfigurationTest.key2 = key
     }
 
-    func assertHandshakeError(withClientConfig clientConfig: TLSConfiguration,
-                              andServerConfig serverConfig: TLSConfiguration,
-                              errorTextContains message: String,
-                              file: StaticString = #filePath,
-                              line: UInt = #line) throws {
-        return try assertHandshakeError(withClientConfig: clientConfig,
-                                        andServerConfig: serverConfig,
-                                        errorTextContainsAnyOf: [message],
-                                        file: file,
-                                        line: line)
+    func assertHandshakeError(
+        withClientConfig clientConfig: TLSConfiguration,
+        andServerConfig serverConfig: TLSConfiguration,
+        errorTextContains message: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContainsAnyOf: [message],
+            file: file,
+            line: line
+        )
     }
 
-    func assertHandshakeError(withClientConfig clientConfig: TLSConfiguration,
-                              andServerConfig serverConfig: TLSConfiguration,
-                              errorTextContainsAnyOf messages: [String],
-                              file: StaticString = #filePath,
-                              line: UInt = #line) throws {
-        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig), file: file, line: line)
-        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig), file: file, line: line)
+    func assertHandshakeError(
+        withClientConfig clientConfig: TLSConfiguration,
+        andServerConfig serverConfig: TLSConfiguration,
+        errorTextContainsAnyOf messages: [String],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        let clientContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: clientConfig),
+            file: file,
+            line: line
+        )
+        let serverContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: serverConfig),
+            file: file,
+            line: line
+        )
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
@@ -122,8 +138,22 @@ class TLSConfigurationTest: XCTestCase {
 
         let eventHandler = ErrorCatcher<NIOSSLError>()
         let handshakeHandler = HandshakeCompletedHandler()
-        let serverChannel = try assertNoThrowWithValue(serverTLSChannel(context: serverContext, handlers: [], group: group), file: file, line: line)
-        let clientChannel = try assertNoThrowWithValue(clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!), file: file, line: line)
+        let serverChannel = try assertNoThrowWithValue(
+            serverTLSChannel(context: serverContext, handlers: [], group: group),
+            file: file,
+            line: line
+        )
+        let clientChannel = try assertNoThrowWithValue(
+            clientTLSChannel(
+                context: clientContext,
+                preHandlers: [],
+                postHandlers: [eventHandler, handshakeHandler],
+                group: group,
+                connectingTo: serverChannel.localAddress!
+            ),
+            file: file,
+            line: line
+        )
 
         // We expect the channel to be closed fairly swiftly as the handshake should fail.
         clientChannel.closeFuture.whenComplete { _ in
@@ -142,13 +172,23 @@ class TLSConfigurationTest: XCTestCase {
         try clientChannel.closeFuture.wait()
     }
 
-    func assertPostHandshakeError(withClientConfig clientConfig: TLSConfiguration,
-                                  andServerConfig serverConfig: TLSConfiguration,
-                                  errorTextContainsAnyOf messages: [String],
-                                  file: StaticString = #filePath,
-                                  line: UInt = #line) throws {
-        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig), file: file, line: line)
-        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig), file: file, line: line)
+    func assertPostHandshakeError(
+        withClientConfig clientConfig: TLSConfiguration,
+        andServerConfig serverConfig: TLSConfiguration,
+        errorTextContainsAnyOf messages: [String],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        let clientContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: clientConfig),
+            file: file,
+            line: line
+        )
+        let serverContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: serverConfig),
+            file: file,
+            line: line
+        )
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
@@ -157,8 +197,22 @@ class TLSConfigurationTest: XCTestCase {
 
         let eventHandler = ErrorCatcher<BoringSSLError>()
         let handshakeHandler = HandshakeCompletedHandler()
-        let serverChannel = try assertNoThrowWithValue(serverTLSChannel(context: serverContext, handlers: [], group: group), file: file, line: line)
-        let clientChannel = try assertNoThrowWithValue(clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!), file: file, line: line)
+        let serverChannel = try assertNoThrowWithValue(
+            serverTLSChannel(context: serverContext, handlers: [], group: group),
+            file: file,
+            line: line
+        )
+        let clientChannel = try assertNoThrowWithValue(
+            clientTLSChannel(
+                context: clientContext,
+                preHandlers: [],
+                postHandlers: [eventHandler, handshakeHandler],
+                group: group,
+                connectingTo: serverChannel.localAddress!
+            ),
+            file: file,
+            line: line
+        )
 
         // We expect the channel to be closed fairly swiftly as the handshake should fail.
         clientChannel.closeFuture.whenComplete { _ in
@@ -182,10 +236,12 @@ class TLSConfigurationTest: XCTestCase {
     ///
     /// - NOTE: This function should only be used when you know that there is no custom verification
     /// callback in use, otherwise it will not be thread-safe.
-    func assertHandshakeSucceededInMemory(withClientConfig clientConfig: TLSConfiguration,
-                                          andServerConfig serverConfig: TLSConfiguration,
-                                          file: StaticString = #filePath,
-                                          line: UInt = #line) throws {
+    func assertHandshakeSucceededInMemory(
+        withClientConfig clientConfig: TLSConfiguration,
+        andServerConfig serverConfig: TLSConfiguration,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
 
@@ -198,8 +254,17 @@ class TLSConfigurationTest: XCTestCase {
             _ = try? clientChannel.finish()
         }
 
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext)).wait(), file: (file), line: line)
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil)).wait(), file: (file), line: line)
+        XCTAssertNoThrow(
+            try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext)).wait(),
+            file: (file),
+            line: line
+        )
+        XCTAssertNoThrow(
+            try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil))
+                .wait(),
+            file: (file),
+            line: line
+        )
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait(), file: (file), line: line)
 
@@ -214,12 +279,22 @@ class TLSConfigurationTest: XCTestCase {
     /// Performs a connection using a real event loop and validates that the handshake was successful.
     ///
     /// This function is thread-safe in the presence of custom verification callbacks.
-    func assertHandshakeSucceededEventLoop(withClientConfig clientConfig: TLSConfiguration,
-                                           andServerConfig serverConfig: TLSConfiguration,
-                                           file: StaticString = #filePath,
-                                           line: UInt = #line) throws {
-        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig), file: file, line: line)
-        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig), file: file, line: line)
+    func assertHandshakeSucceededEventLoop(
+        withClientConfig clientConfig: TLSConfiguration,
+        andServerConfig serverConfig: TLSConfiguration,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        let clientContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: clientConfig),
+            file: file,
+            line: line
+        )
+        let serverContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: serverConfig),
+            file: file,
+            line: line
+        )
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
@@ -231,8 +306,22 @@ class TLSConfigurationTest: XCTestCase {
         let handshakeResultPromise = group.next().makePromise(of: Void.self)
         let handshakeWatcher = WaitForHandshakeHandler(handshakeResultPromise: handshakeResultPromise)
 
-        let serverChannel = try assertNoThrowWithValue(serverTLSChannel(context: serverContext, handlers: [], group: group), file: file, line: line)
-        let clientChannel = try assertNoThrowWithValue(clientTLSChannel(context: clientContext, preHandlers:[], postHandlers: [eventHandler, handshakeWatcher, handshakeHandler], group: group, connectingTo: serverChannel.localAddress!), file: file, line: line)
+        let serverChannel = try assertNoThrowWithValue(
+            serverTLSChannel(context: serverContext, handlers: [], group: group),
+            file: file,
+            line: line
+        )
+        let clientChannel = try assertNoThrowWithValue(
+            clientTLSChannel(
+                context: clientContext,
+                preHandlers: [],
+                postHandlers: [eventHandler, handshakeWatcher, handshakeHandler],
+                group: group,
+                connectingTo: serverChannel.localAddress!
+            ),
+            file: file,
+            line: line
+        )
 
         handshakeWatcher.handshakeResult.whenComplete { c in
             _ = clientChannel.close()
@@ -245,26 +334,46 @@ class TLSConfigurationTest: XCTestCase {
         try clientChannel.closeFuture.wait()
     }
 
-    func assertHandshakeSucceeded(withClientConfig clientConfig: TLSConfiguration,
-                                  andServerConfig serverConfig: TLSConfiguration,
-                                  file: StaticString = #filePath,
-                                  line: UInt = #line) throws {
+    func assertHandshakeSucceeded(
+        withClientConfig clientConfig: TLSConfiguration,
+        andServerConfig serverConfig: TLSConfiguration,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
         // The only use of a custom callback is on Darwin...
         #if os(Linux)
-        return try assertHandshakeSucceededInMemory(withClientConfig: clientConfig, andServerConfig: serverConfig, file: file, line: line)
+        return try assertHandshakeSucceededInMemory(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            file: file,
+            line: line
+        )
 
         #else
-        return try assertHandshakeSucceededEventLoop(withClientConfig: clientConfig, andServerConfig: serverConfig, file: file, line: line)
+        return try assertHandshakeSucceededEventLoop(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            file: file,
+            line: line
+        )
         #endif
     }
 
-    func setupTLSLeafandClientIdentitiesFromCustomCARoot() throws -> (leafCert: NIOSSLCertificate, leafKey: NIOSSLPrivateKey ,
-                                                                      clientCert: NIOSSLCertificate, clientKey:  NIOSSLPrivateKey) {
+    func setupTLSLeafandClientIdentitiesFromCustomCARoot() throws -> (
+        leafCert: NIOSSLCertificate, leafKey: NIOSSLPrivateKey,
+        clientCert: NIOSSLCertificate, clientKey: NIOSSLPrivateKey
+    ) {
         let leaf = try NIOSSLCertificate(bytes: .init(leafCertificateForTLSIssuedFromCustomCARoot.utf8), format: .pem)
         let leaf_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForLeafCertificate.utf8), format: .pem)
 
-        let client_cert = try NIOSSLCertificate(bytes: .init(leafCertificateForClientAuthenticationIssuedFromCustomCARoot.utf8), format: .pem)
-        let client_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForClientAuthentication.utf8), format: .pem)
+        let client_cert = try NIOSSLCertificate(
+            bytes: .init(leafCertificateForClientAuthenticationIssuedFromCustomCARoot.utf8),
+            format: .pem
+        )
+        let client_privateKey = try NIOSSLPrivateKey.init(
+            bytes: .init(privateKeyForClientAuthentication.utf8),
+            format: .pem
+        )
         return (leaf, leaf_privateKey, client_cert, client_privateKey)
     }
 
@@ -294,9 +403,11 @@ class TLSConfigurationTest: XCTestCase {
         )
         serverConfig.maximumTLSVersion = .tlsv1
 
-        try assertHandshakeError(withClientConfig: clientConfig,
-                                 andServerConfig: serverConfig,
-                                 errorTextContains: "ALERT_PROTOCOL_VERSION")
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContains: "ALERT_PROTOCOL_VERSION"
+        )
     }
 
     func testNonOverlappingCipherSuitesPreTLS13() throws {
@@ -311,7 +422,11 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.cipherSuiteValues = [.TLS_RSA_WITH_AES_256_CBC_SHA]
         serverConfig.maximumTLSVersion = .tlsv12
 
-        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_HANDSHAKE_FAILURE")
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContains: "ALERT_HANDSHAKE_FAILURE"
+        )
     }
 
     func testCannotVerifySelfSigned() throws {
@@ -321,7 +436,11 @@ class TLSConfigurationTest: XCTestCase {
             privateKey: .privateKey(TLSConfigurationTest.key1)
         )
 
-        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "CERTIFICATE_VERIFY_FAILED")
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContains: "CERTIFICATE_VERIFY_FAILED"
+        )
     }
 
     func testServerCannotValidateClientPreTLS13() throws {
@@ -338,7 +457,11 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.certificateVerification = .noHostnameVerification
 
-        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["ALERT_UNKNOWN_CA", "ALERT_CERTIFICATE_UNKNOWN"])
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContainsAnyOf: ["ALERT_UNKNOWN_CA", "ALERT_CERTIFICATE_UNKNOWN"]
+        )
     }
 
     func testServerCannotValidateClientPostTLS13() throws {
@@ -356,7 +479,11 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.minimumTLSVersion = .tlsv13
         serverConfig.certificateVerification = .noHostnameVerification
 
-        try assertPostHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["ALERT_UNKNOWN_CA", "ALERT_CERTIFICATE_UNKNOWN"])
+        try assertPostHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContainsAnyOf: ["ALERT_UNKNOWN_CA", "ALERT_CERTIFICATE_UNKNOWN"]
+        )
     }
 
     func testMutualValidationRequiresClientCertificatePreTLS13() throws {
@@ -372,7 +499,11 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.certificateVerification = .noHostnameVerification
         serverConfig.trustRoots = .certificates([TLSConfigurationTest.cert2])
 
-        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["ALERT_HANDSHAKE_FAILURE"])
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContainsAnyOf: ["ALERT_HANDSHAKE_FAILURE"]
+        )
     }
 
     func testMutualValidationRequiresClientCertificatePostTLS13() throws {
@@ -388,7 +519,11 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.certificateVerification = .noHostnameVerification
         serverConfig.trustRoots = .certificates([TLSConfigurationTest.cert2])
 
-        try assertPostHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["CERTIFICATE_REQUIRED"])
+        try assertPostHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContainsAnyOf: ["CERTIFICATE_REQUIRED"]
+        )
     }
 
     func testIncompatibleSignatures() throws {
@@ -407,7 +542,11 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.minimumTLSVersion = .tlsv13
         serverConfig.certificateVerification = .none
 
-        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_HANDSHAKE_FAILURE")
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContains: "ALERT_HANDSHAKE_FAILURE"
+        )
     }
 
     func testCompatibleSignatures() throws {
@@ -446,7 +585,6 @@ class TLSConfigurationTest: XCTestCase {
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
 
-
     func testMutualValidationSuccessNoAdditionalTrustRoots() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.certificateVerification = .noHostnameVerification
@@ -455,7 +593,8 @@ class TLSConfigurationTest: XCTestCase {
 
         let serverConfig = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
-            privateKey: .privateKey(TLSConfigurationTest.key1))
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
 
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
@@ -545,7 +684,10 @@ class TLSConfigurationTest: XCTestCase {
         }
 
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil)).wait())
+        XCTAssertNoThrow(
+            try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil))
+                .wait()
+        )
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
@@ -614,7 +756,10 @@ class TLSConfigurationTest: XCTestCase {
         }
 
         XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil)).wait())
+        XCTAssertNoThrow(
+            try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil))
+                .wait()
+        )
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
@@ -636,7 +781,11 @@ class TLSConfigurationTest: XCTestCase {
         let testName = String("\(#function)".dropLast(2))
         // Create 2 PEM based certs
         let rootCAPathOne = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem", customPath: testName)
-        let rootCAPathTwo = try dumpToFile(data: .init(secondaryRootCertificateForClientAuthentication.utf8), fileExtension: ".pem", customPath: testName)
+        let rootCAPathTwo = try dumpToFile(
+            data: .init(secondaryRootCertificateForClientAuthentication.utf8),
+            fileExtension: ".pem",
+            customPath: testName
+        )
 
         // Create a rehash formatted name of both certificate's subject name that was created above.
         // Take these rehash certificate names and format a symlink with them below with createSymbolicLink.
@@ -651,8 +800,18 @@ class TLSConfigurationTest: XCTestCase {
         // Create an in-directory symlink the same way that c_rehash would do this.
         // For example: 7f44456a.0 -> niotestIEOFcMI.pem
         // NOT: 7f44456a.0 -> /var/folders/my/path/niotestIEOFcMI.pem
-        XCTAssertNoThrow(try FileManager.default.createSymbolicLink(atPath: rehashSymlinkNameOne, withDestinationPath: rootCAFilenameOne))
-        XCTAssertNoThrow(try FileManager.default.createSymbolicLink(atPath: rehashSymlinkNameTwo, withDestinationPath: rootCAFilenameTwo))
+        XCTAssertNoThrow(
+            try FileManager.default.createSymbolicLink(
+                atPath: rehashSymlinkNameOne,
+                withDestinationPath: rootCAFilenameOne
+            )
+        )
+        XCTAssertNoThrow(
+            try FileManager.default.createSymbolicLink(
+                atPath: rehashSymlinkNameTwo,
+                withDestinationPath: rootCAFilenameTwo
+            )
+        )
 
         defer {
             // Delete all files that were created for this test.
@@ -662,7 +821,7 @@ class TLSConfigurationTest: XCTestCase {
             XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rehashSymlinkNameTwo)!))
             // Remove the actual directory also.
             let removePath = "\(FileManager.default.temporaryDirectory.path)/\(testName)/"
-            XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://"  + removePath)!))
+            XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + removePath)!))
         }
 
         let tempFileDir = FileManager.default.temporaryDirectory.path + "/\(testName)/"
@@ -674,7 +833,7 @@ class TLSConfigurationTest: XCTestCase {
             privateKey: .privateKey(digitalIdentities.leafKey)
         )
         serverConfig.sendCANameList = true
-        serverConfig.trustRoots = .file(tempFileDir) // Directory path.
+        serverConfig.trustRoots = .file(tempFileDir)  // Directory path.
         serverConfig.certificateVerification = .fullVerification
 
         var serverContext: NIOSSLContext!
@@ -717,7 +876,12 @@ class TLSConfigurationTest: XCTestCase {
         let rootCAURLOne = URL(string: "file://" + rootCAPathOne)!
         let rootCAFilenameOne = rootCAURLOne.lastPathComponent
 
-        XCTAssertNoThrow(try FileManager.default.createSymbolicLink(atPath: rehashSymlinkName, withDestinationPath: rootCAFilenameOne))
+        XCTAssertNoThrow(
+            try FileManager.default.createSymbolicLink(
+                atPath: rehashSymlinkName,
+                withDestinationPath: rootCAFilenameOne
+            )
+        )
 
         defer {
             // Delete all files that were created for this test.
@@ -726,7 +890,7 @@ class TLSConfigurationTest: XCTestCase {
             XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + newPath)!))
             // Remove the actual directory also.
             let removePath = "\(FileManager.default.temporaryDirectory.path)/\(testName)/"
-            XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://"  + removePath)!))
+            XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + removePath)!))
         }
 
         // Test the success case for the symlink
@@ -738,13 +902,16 @@ class TLSConfigurationTest: XCTestCase {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.trustRoots = .file("/thispathbetternotexist/bogus.foo")
 
-        XCTAssertThrowsError(try NIOSSLContext(configuration: clientConfig)) {error in
+        XCTAssertThrowsError(try NIOSSLContext(configuration: clientConfig)) { error in
             XCTAssertEqual(.noSuchFilesystemObject, error as? NIOSSLError)
         }
     }
 
     func testComputedApplicationProtocols() throws {
-        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .privateKey(TLSConfigurationTest.key1))
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
         config.applicationProtocols = ["http/1.1"]
         XCTAssertEqual(config.applicationProtocols, ["http/1.1"])
         XCTAssertEqual(config.encodedApplicationProtocols, [[8, 104, 116, 116, 112, 47, 49, 46, 49]])
@@ -792,7 +959,10 @@ class TLSConfigurationTest: XCTestCase {
     }
 
     func testTheSameHashValue() {
-        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .privateKey(TLSConfigurationTest.key1))
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
         config.applicationProtocols = ["http/1.1"]
         let theSameConfig = config
         var hasher = Hasher()
@@ -804,7 +974,10 @@ class TLSConfigurationTest: XCTestCase {
     }
 
     func testDifferentHashValues() {
-        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .privateKey(TLSConfigurationTest.key1))
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
         config.applicationProtocols = ["http/1.1"]
         var differentConfig = config
         differentConfig.privateKey = .privateKey(TLSConfigurationTest.key2)
@@ -812,7 +985,10 @@ class TLSConfigurationTest: XCTestCase {
     }
 
     func testDifferentCallbacksNotEqual() {
-        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .privateKey(TLSConfigurationTest.key1))
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
         config.applicationProtocols = ["http/1.1"]
         config.keyLogCallback = { _ in }
         var differentConfig = config
@@ -821,7 +997,10 @@ class TLSConfigurationTest: XCTestCase {
     }
 
     func testDifferentSSLContextCallbacksNotEqual() throws {
-        var config = TLSConfiguration.makeServerConfiguration(certificateChain: [], privateKey: .privateKey(TLSConfigurationTest.key1))
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
         config.applicationProtocols = ["http/1.1"]
         config.sslContextCallback = { _, _ in }
         var differentConfig = config
@@ -886,7 +1065,11 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.cipherSuiteValues = [.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384]
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.certificateVerification = .none
-        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_HANDSHAKE_FAILURE")
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContains: "ALERT_HANDSHAKE_FAILURE"
+        )
     }
 
     func testCompatibleCipherSuite() throws {
@@ -925,7 +1108,11 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.cipherSuiteValues = [.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256]
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.certificateVerification = .none
-        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_HANDSHAKE_FAILURE")
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContains: "ALERT_HANDSHAKE_FAILURE"
+        )
     }
 
     func testDefaultWithRSACipherSuite() throws {
@@ -998,7 +1185,7 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.cipherSuiteValues = [
             .TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
             .TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-            .TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+            .TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
         ]
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.certificateVerification = .none
@@ -1022,7 +1209,7 @@ class TLSConfigurationTest: XCTestCase {
             .TLS_RSA_WITH_AES_128_CBC_SHA,
             .TLS_RSA_WITH_AES_256_CBC_SHA,
             .TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-            .TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+            .TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
         ]
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.certificateVerification = .none
@@ -1045,7 +1232,7 @@ class TLSConfigurationTest: XCTestCase {
             .TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
             .TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
             .TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-            .TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+            .TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
         ]
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.certificateVerification = .noHostnameVerification
@@ -1069,7 +1256,7 @@ class TLSConfigurationTest: XCTestCase {
         clientConfig.cipherSuiteValues = [
             .TLS_AES_128_GCM_SHA256,
             .TLS_AES_256_GCM_SHA384,
-            .TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+            .TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
         ]
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.certificateVerification = .noHostnameVerification
@@ -1083,7 +1270,11 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.cipherSuites = "AES256"
         serverConfig.maximumTLSVersion = .tlsv12
 
-        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContains: "ALERT_HANDSHAKE_FAILURE")
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContains: "ALERT_HANDSHAKE_FAILURE"
+        )
     }
 
     func testSettingCiphersWithCipherSuiteValues() {
@@ -1091,14 +1282,17 @@ class TLSConfigurationTest: XCTestCase {
         clientConfig.cipherSuiteValues = [
             .TLS_AES_128_GCM_SHA256,
             .TLS_AES_256_GCM_SHA384,
-            .TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+            .TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,
         ]
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.certificateVerification = .noHostnameVerification
         clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
         clientConfig.renegotiationSupport = .none
 
-        XCTAssertEqual(clientConfig.cipherSuites, "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256")
+        XCTAssertEqual(
+            clientConfig.cipherSuites,
+            "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256"
+        )
     }
 
     func testSettingCiphersWithCipherSuitesString() {
@@ -1111,7 +1305,10 @@ class TLSConfigurationTest: XCTestCase {
         let assignedCiphers = clientConfig.cipherSuiteValues.map { $0.standardName }
         let createdCipherSuiteValuesFromString = assignedCiphers.joined(separator: ":")
         // Note that this includes the PSK values as well.
-        XCTAssertEqual(createdCipherSuiteValuesFromString, "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA:TLS_RSA_WITH_AES_256_GCM_SHA384:TLS_RSA_WITH_AES_256_CBC_SHA:TLS_PSK_WITH_AES_256_CBC_SHA")
+        XCTAssertEqual(
+            createdCipherSuiteValuesFromString,
+            "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA:TLS_RSA_WITH_AES_256_GCM_SHA384:TLS_RSA_WITH_AES_256_CBC_SHA:TLS_PSK_WITH_AES_256_CBC_SHA"
+        )
     }
 
     func testDefaultCipherSuiteValues() {
@@ -1125,14 +1322,25 @@ class TLSConfigurationTest: XCTestCase {
         let assignedCiphers = clientConfig.cipherSuiteValues.map { $0.standardName }
         let defaultCipherSuiteValuesFromString = assignedCiphers.joined(separator: ":")
         // Note that this includes the PSK values as well.
-        XCTAssertEqual(defaultCipherSuiteValuesFromString, "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA:TLS_RSA_WITH_AES_128_GCM_SHA256:TLS_RSA_WITH_AES_256_GCM_SHA384:TLS_RSA_WITH_AES_128_CBC_SHA:TLS_RSA_WITH_AES_256_CBC_SHA")
+        XCTAssertEqual(
+            defaultCipherSuiteValuesFromString,
+            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_PSK_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA:TLS_RSA_WITH_AES_128_GCM_SHA256:TLS_RSA_WITH_AES_256_GCM_SHA384:TLS_RSA_WITH_AES_128_CBC_SHA:TLS_RSA_WITH_AES_256_CBC_SHA"
+        )
     }
 
-    @available(*, deprecated, message: "`TLSConfiguration.pskClientCallback` and `TLSConfiguration.pskClientCallback` are deprecated")
+    @available(
+        *,
+        deprecated,
+        message: "`TLSConfiguration.pskClientCallback` and `TLSConfiguration.pskClientCallback` are deprecated"
+    )
     func testBestEffortEquatableHashableDifferences() {
         // If this assertion fails, DON'T JUST CHANGE THE NUMBER HERE! Make sure you've added any appropriate transforms below
         // so that we're testing these best effort functions.
-        XCTAssertEqual(MemoryLayout<TLSConfiguration>.size, 234, "TLSConfiguration has changed size: you probably need to update this test!")
+        XCTAssertEqual(
+            MemoryLayout<TLSConfiguration>.size,
+            234,
+            "TLSConfiguration has changed size: you probably need to update this test!"
+        )
 
         let first = TLSConfiguration.makeClientConfiguration()
 
@@ -1143,21 +1351,24 @@ class TLSConfigurationTest: XCTestCase {
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
 
-        let pskServerCallback: NIOPSKServerIdentityCallback = { (hint: String, identity: String) -> PSKServerIdentityResponse in
+        let pskServerCallback: NIOPSKServerIdentityCallback = {
+            (hint: String, identity: String) -> PSKServerIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             var psk = NIOSSLSecureBytes()
             psk.append("hello".utf8)
             return PSKServerIdentityResponse(key: psk)
         }
 
-        let pskClientProvider: NIOPSKClientIdentityProvider = { (context: PSKClientContext) -> PSKClientIdentityResponse in
+        let pskClientProvider: NIOPSKClientIdentityProvider = {
+            (context: PSKClientContext) -> PSKClientIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             var psk = NIOSSLSecureBytes()
             psk.append("hello".utf8)
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
 
-        let pskServerProvider: NIOPSKServerIdentityProvider = { (context: PSKServerContext) -> PSKServerIdentityResponse in
+        let pskServerProvider: NIOPSKServerIdentityProvider = {
+            (context: PSKServerContext) -> PSKServerIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             var psk = NIOSSLSecureBytes()
             psk.append("hello".utf8)
@@ -1185,7 +1396,7 @@ class TLSConfigurationTest: XCTestCase {
             { $0.renegotiationSupport = .always },
             { $0.sendCANameList = true },
             { $0.pskClientCallback = pskClientCallback },
-            { $0.pskServerCallback = pskServerCallback},
+            { $0.pskServerCallback = pskServerCallback },
             { $0.sslContextCallback = sslContextCallback },
             { $0.pskServerCallback = pskServerCallback },
             { $0.pskClientProvider = pskClientProvider },
@@ -1196,8 +1407,16 @@ class TLSConfigurationTest: XCTestCase {
         for (index, transform) in transforms.enumerated() {
             var transformed = first
             transform(&transformed)
-            XCTAssertNotEqual(Wrapper(config: first), Wrapper(config: transformed), "Should have compared not equal in index \(index)")
-            XCTAssertEqual(Set([Wrapper(config: first), Wrapper(config: transformed)]).count, 2, "Should have hashed non-equal in index \(index)")
+            XCTAssertNotEqual(
+                Wrapper(config: first),
+                Wrapper(config: transformed),
+                "Should have compared not equal in index \(index)"
+            )
+            XCTAssertEqual(
+                Set([Wrapper(config: first), Wrapper(config: transformed)]).count,
+                2,
+                "Should have hashed non-equal in index \(index)"
+            )
         }
     }
 
@@ -1220,7 +1439,10 @@ class TLSConfigurationTest: XCTestCase {
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
         XCTAssertNoThrow(
             try b2b.client.pipeline.syncOperations.addHandlers(
-                [try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"), HandshakeCompletedHandler()]
+                [
+                    try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"),
+                    HandshakeCompletedHandler(),
+                ]
             )
         )
         XCTAssertNoThrow(
@@ -1242,7 +1464,11 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertEqual(channelTLSVersion!, .tlsv11)
     }
 
-    @available(*, deprecated, message: "`TLSConfiguration.pskClientCallback` and `TLSConfiguration.pskClientCallback` are deprecated")
+    @available(
+        *,
+        deprecated,
+        message: "`TLSConfiguration.pskClientCallback` and `TLSConfiguration.pskClientCallback` are deprecated"
+    )
     func testTLSPSKWithTLS13Deprecated() throws {
         // The idea here is that adding PSKs with certificates in TLS 1.3 should NOT cause a failure.
         // Also note that the usage here of PSKs with TLS 1.3 is not supported by BoringSSL at this point.
@@ -1254,7 +1480,8 @@ class TLSConfigurationTest: XCTestCase {
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
 
-        let pskServerCallback: NIOPSKServerIdentityCallback = { (hint: String, identity: String) -> PSKServerIdentityResponse in
+        let pskServerCallback: NIOPSKServerIdentityCallback = {
+            (hint: String, identity: String) -> PSKServerIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             XCTAssertEqual(hint, "serverPskHint")
             XCTAssertEqual(identity, "world")
@@ -1283,7 +1510,11 @@ class TLSConfigurationTest: XCTestCase {
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
 
-    @available(*, deprecated, message: "`TLSConfiguration.pskClientCallback` and `TLSConfiguration.pskClientCallback` are deprecated")
+    @available(
+        *,
+        deprecated,
+        message: "`TLSConfiguration.pskClientCallback` and `TLSConfiguration.pskClientCallback` are deprecated"
+    )
     func testTLSPSKWithTLS12Deprecated() throws {
         // This test ensures that PSK-TLS is supported for TLS 1.2.
         let pskClientCallback: NIOPSKClientIdentityCallback = { (hint: String) -> PSKClientIdentityResponse in
@@ -1294,7 +1525,8 @@ class TLSConfigurationTest: XCTestCase {
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
 
-        let pskServerCallback: NIOPSKServerIdentityCallback = { (hint: String, identity: String) -> PSKServerIdentityResponse in
+        let pskServerCallback: NIOPSKServerIdentityCallback = {
+            (hint: String, identity: String) -> PSKServerIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             XCTAssertEqual(hint, "serverPskHint")
             XCTAssertEqual(identity, "world")
@@ -1318,7 +1550,11 @@ class TLSConfigurationTest: XCTestCase {
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
 
-    @available(*, deprecated, message: "`TLSConfiguration.pskClientCallback` and `TLSConfiguration.pskClientCallback` are deprecated")
+    @available(
+        *,
+        deprecated,
+        message: "`TLSConfiguration.pskClientCallback` and `TLSConfiguration.pskClientCallback` are deprecated"
+    )
     func testTLSPSKWithPinnedCiphersDeprecated() throws {
         // This test ensures that PSK-TLS is supported with pinned ciphers.
         let pskClientCallback: NIOPSKClientIdentityCallback = { (hint: String) -> PSKClientIdentityResponse in
@@ -1329,7 +1565,8 @@ class TLSConfigurationTest: XCTestCase {
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
 
-        let pskServerCallback: NIOPSKServerIdentityCallback = { (hint: String, identity: String) -> PSKServerIdentityResponse in
+        let pskServerCallback: NIOPSKServerIdentityCallback = {
+            (hint: String, identity: String) -> PSKServerIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             XCTAssertEqual(hint, "serverPskHint")
             XCTAssertEqual(identity, "world")
@@ -1344,24 +1581,32 @@ class TLSConfigurationTest: XCTestCase {
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.pskClientCallback = pskClientCallback
         clientConfig.pskHint = "clientPskHint"
-        clientConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
-                                          .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
-                                          .TLS_PSK_WITH_AES_128_CBC_SHA,
-                                          .TLS_PSK_WITH_AES_256_CBC_SHA]
+        clientConfig.cipherSuiteValues = [
+            .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+            .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+            .TLS_PSK_WITH_AES_128_CBC_SHA,
+            .TLS_PSK_WITH_AES_256_CBC_SHA,
+        ]
 
         var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
         serverConfig.minimumTLSVersion = .tlsv1
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.pskServerCallback = pskServerCallback
         serverConfig.pskHint = "serverPskHint"
-        serverConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
-                                          .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
-                                          .TLS_PSK_WITH_AES_128_CBC_SHA,
-                                          .TLS_PSK_WITH_AES_256_CBC_SHA]
+        serverConfig.cipherSuiteValues = [
+            .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+            .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+            .TLS_PSK_WITH_AES_128_CBC_SHA,
+            .TLS_PSK_WITH_AES_256_CBC_SHA,
+        ]
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
 
-    @available(*, deprecated, message: "`TLSConfiguration.pskClientCallback` and `TLSConfiguration.pskClientCallback` are deprecated")
+    @available(
+        *,
+        deprecated,
+        message: "`TLSConfiguration.pskClientCallback` and `TLSConfiguration.pskClientCallback` are deprecated"
+    )
     func testTLSPSKFailureDeprecated() throws {
         // This test ensures that different PSKs used on the client and server fail when passed in.
         let pskClientCallback: NIOPSKClientIdentityCallback = { (hint: String) -> PSKClientIdentityResponse in
@@ -1372,12 +1617,13 @@ class TLSConfigurationTest: XCTestCase {
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
 
-        let pskServerCallback: NIOPSKServerIdentityCallback = { (hint: String, identity: String) -> PSKServerIdentityResponse in
+        let pskServerCallback: NIOPSKServerIdentityCallback = {
+            (hint: String, identity: String) -> PSKServerIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             XCTAssertEqual(hint, "serverPskHint")
             XCTAssertEqual(identity, "world")
             var psk = NIOSSLSecureBytes()
-            psk.append("server".utf8) // Failure
+            psk.append("server".utf8)  // Failure
             return PSKServerIdentityResponse(key: psk)
         }
 
@@ -1393,7 +1639,11 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.pskServerCallback = pskServerCallback
         serverConfig.pskHint = "serverPskHint"
-        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["SSLV3_ALERT_BAD_RECORD_MAC"])
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContainsAnyOf: ["SSLV3_ALERT_BAD_RECORD_MAC"]
+        )
     }
 
     @available(*, deprecated, message: "`.file` NIOSSLPrivateKeySource option deprecated")
@@ -1413,7 +1663,8 @@ class TLSConfigurationTest: XCTestCase {
     func testTLSPSKWithTLS13() throws {
         // The idea here is that adding PSKs with certificates in TLS 1.3 should NOT cause a failure.
         // Also note that the usage here of PSKs with TLS 1.3 is not supported by BoringSSL at this point.
-        let pskClientProvider: NIOPSKClientIdentityProvider = { (context: PSKClientContext) -> PSKClientIdentityResponse in
+        let pskClientProvider: NIOPSKClientIdentityProvider = {
+            (context: PSKClientContext) -> PSKClientIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             XCTAssertEqual(context.hint, "serverPskHint")
             var psk = NIOSSLSecureBytes()
@@ -1421,7 +1672,8 @@ class TLSConfigurationTest: XCTestCase {
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
 
-        let pskServerProvider: NIOPSKServerIdentityProvider = { (context: PSKServerContext) -> PSKServerIdentityResponse in
+        let pskServerProvider: NIOPSKServerIdentityProvider = {
+            (context: PSKServerContext) -> PSKServerIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             XCTAssertEqual(context.hint, "serverPskHint")
             XCTAssertEqual(context.clientIdentity, "world")
@@ -1452,7 +1704,8 @@ class TLSConfigurationTest: XCTestCase {
 
     func testTLSPSKWithTLS12() throws {
         // This test ensures that PSK-TLS is supported for TLS 1.2.
-        let pskClientProvider: NIOPSKClientIdentityProvider = { (context: PSKClientContext) -> PSKClientIdentityResponse in
+        let pskClientProvider: NIOPSKClientIdentityProvider = {
+            (context: PSKClientContext) -> PSKClientIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             XCTAssertEqual(context.hint, "serverPskHint")
             var psk = NIOSSLSecureBytes()
@@ -1460,7 +1713,8 @@ class TLSConfigurationTest: XCTestCase {
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
 
-        let pskServerProvider: NIOPSKServerIdentityProvider = { (context: PSKServerContext) -> PSKServerIdentityResponse in
+        let pskServerProvider: NIOPSKServerIdentityProvider = {
+            (context: PSKServerContext) -> PSKServerIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             XCTAssertEqual(context.hint, "serverPskHint")
             XCTAssertEqual(context.clientIdentity, "world")
@@ -1486,7 +1740,8 @@ class TLSConfigurationTest: XCTestCase {
 
     func testTLSPSKWithPinnedCiphers() throws {
         // This test ensures that PSK-TLS is supported with pinned ciphers.
-        let pskClientProvider: NIOPSKClientIdentityProvider = { (context: PSKClientContext) -> PSKClientIdentityResponse in
+        let pskClientProvider: NIOPSKClientIdentityProvider = {
+            (context: PSKClientContext) -> PSKClientIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             XCTAssertEqual(context.hint, "serverPskHint")
             var psk = NIOSSLSecureBytes()
@@ -1494,7 +1749,8 @@ class TLSConfigurationTest: XCTestCase {
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
 
-        let pskServerProvider: NIOPSKServerIdentityProvider = { (context: PSKServerContext) -> PSKServerIdentityResponse in
+        let pskServerProvider: NIOPSKServerIdentityProvider = {
+            (context: PSKServerContext) -> PSKServerIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             XCTAssertEqual(context.hint, "serverPskHint")
             XCTAssertEqual(context.clientIdentity, "world")
@@ -1509,26 +1765,31 @@ class TLSConfigurationTest: XCTestCase {
         clientConfig.maximumTLSVersion = .tlsv12
         clientConfig.pskClientProvider = pskClientProvider
         clientConfig.pskHint = "clientPskHint"
-        clientConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
-                                          .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
-                                          .TLS_PSK_WITH_AES_128_CBC_SHA,
-                                          .TLS_PSK_WITH_AES_256_CBC_SHA]
+        clientConfig.cipherSuiteValues = [
+            .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+            .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+            .TLS_PSK_WITH_AES_128_CBC_SHA,
+            .TLS_PSK_WITH_AES_256_CBC_SHA,
+        ]
 
         var serverConfig = TLSConfiguration.makePreSharedKeyConfiguration()
         serverConfig.minimumTLSVersion = .tlsv1
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.pskServerProvider = pskServerProvider
         serverConfig.pskHint = "serverPskHint"
-        serverConfig.cipherSuiteValues = [.TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
-                                          .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
-                                          .TLS_PSK_WITH_AES_128_CBC_SHA,
-                                          .TLS_PSK_WITH_AES_256_CBC_SHA]
+        serverConfig.cipherSuiteValues = [
+            .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+            .TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+            .TLS_PSK_WITH_AES_128_CBC_SHA,
+            .TLS_PSK_WITH_AES_256_CBC_SHA,
+        ]
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
 
     func testTLSPSKFailure() throws {
         // This test ensures that different PSKs used on the client and server fail when passed in.
-        let pskClientProvider: NIOPSKClientIdentityProvider = { (context: PSKClientContext) -> PSKClientIdentityResponse in
+        let pskClientProvider: NIOPSKClientIdentityProvider = {
+            (context: PSKClientContext) -> PSKClientIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             XCTAssertEqual(context.hint, "serverPskHint")
             var psk = NIOSSLSecureBytes()
@@ -1536,12 +1797,13 @@ class TLSConfigurationTest: XCTestCase {
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
 
-        let pskServerProvider: NIOPSKServerIdentityProvider = { (context: PSKServerContext) -> PSKServerIdentityResponse in
+        let pskServerProvider: NIOPSKServerIdentityProvider = {
+            (context: PSKServerContext) -> PSKServerIdentityResponse in
             // Evaluate hint and clientIdentity to send back proper PSK.
             XCTAssertEqual(context.hint, "serverPskHint")
             XCTAssertEqual(context.clientIdentity, "world")
             var psk = NIOSSLSecureBytes()
-            psk.append("server".utf8) // Failure
+            psk.append("server".utf8)  // Failure
             return PSKServerIdentityResponse(key: psk)
         }
 
@@ -1557,13 +1819,18 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.maximumTLSVersion = .tlsv12
         serverConfig.pskServerProvider = pskServerProvider
         serverConfig.pskHint = "serverPskHint"
-        try assertHandshakeError(withClientConfig: clientConfig, andServerConfig: serverConfig, errorTextContainsAnyOf: ["SSLV3_ALERT_BAD_RECORD_MAC"])
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContainsAnyOf: ["SSLV3_ALERT_BAD_RECORD_MAC"]
+        )
     }
 
     func testTLSPSKNoServerHint() throws {
         let expectation = expectation(description: "pskClientProvider is called")
         // This test ensures that different PSKs used on the client and server fail when passed in.
-        let pskClientProvider: NIOPSKClientIdentityProvider = { (context: PSKClientContext) -> PSKClientIdentityResponse in
+        let pskClientProvider: NIOPSKClientIdentityProvider = {
+            (context: PSKClientContext) -> PSKClientIdentityResponse in
             expectation.fulfill()
             // Ensure server hint is nil
             XCTAssertEqual(context.hint, nil)
@@ -1573,13 +1840,14 @@ class TLSConfigurationTest: XCTestCase {
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
 
-        let pskServerProvider: NIOPSKServerIdentityProvider = { (context: PSKServerContext) -> PSKServerIdentityResponse in
+        let pskServerProvider: NIOPSKServerIdentityProvider = {
+            (context: PSKServerContext) -> PSKServerIdentityResponse in
             // Ensure server hint is nil
             XCTAssertEqual(context.hint, nil)
             XCTAssertEqual(context.clientIdentity, "world")
             // Evaluate hint and clientIdentity to send back proper PSK.
             var psk = NIOSSLSecureBytes()
-            psk.append("hello".utf8) // Failure
+            psk.append("hello".utf8)  // Failure
             return PSKServerIdentityResponse(key: psk)
         }
 
@@ -1602,7 +1870,8 @@ class TLSConfigurationTest: XCTestCase {
     func testTLSPSKNoClientHint() throws {
         let expectation = expectation(description: "pskClientProvider is called")
         // This test ensures that different PSKs used on the client and server fail when passed in.
-        let pskClientProvider: NIOPSKClientIdentityProvider = { (context: PSKClientContext) -> PSKClientIdentityResponse in
+        let pskClientProvider: NIOPSKClientIdentityProvider = {
+            (context: PSKClientContext) -> PSKClientIdentityResponse in
             expectation.fulfill()
             // Ensure server hint is nil
             XCTAssertEqual(context.hint, nil)
@@ -1612,13 +1881,14 @@ class TLSConfigurationTest: XCTestCase {
             return PSKClientIdentityResponse(key: psk, identity: "world")
         }
 
-        let pskServerProvider: NIOPSKServerIdentityProvider = { (context: PSKServerContext) -> PSKServerIdentityResponse in
+        let pskServerProvider: NIOPSKServerIdentityProvider = {
+            (context: PSKServerContext) -> PSKServerIdentityResponse in
             // Ensure server hint is nil
             XCTAssertEqual(context.hint, nil)
             XCTAssertEqual(context.clientIdentity, "world")
             // Evaluate hint and clientIdentity to send back proper PSK.
             var psk = NIOSSLSecureBytes()
-            psk.append("hello".utf8) // Failure
+            psk.append("hello".utf8)  // Failure
             return PSKServerIdentityResponse(key: psk)
         }
 
@@ -1649,8 +1919,8 @@ extension EmbeddedChannel {
 struct Wrapper: Hashable {
     var config: TLSConfiguration
 
-    static func ==(lhs: Wrapper, rhs: Wrapper) -> Bool {
-        return lhs.config.bestEffortEquals(rhs.config)
+    static func == (lhs: Wrapper, rhs: Wrapper) -> Bool {
+        lhs.config.bestEffortEquals(rhs.config)
     }
 
     func hash(into hasher: inout Hasher) {

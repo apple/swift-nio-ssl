@@ -17,10 +17,12 @@ import NIOEmbedded
 import NIOSSL
 
 func run(identifier: String) {
-    let serverContext = try! NIOSSLContext(configuration: .makeServerConfiguration(
-        certificateChain: [.certificate(.forTesting())],
-        privateKey: .privateKey(.forTesting())
-    ))
+    let serverContext = try! NIOSSLContext(
+        configuration: .makeServerConfiguration(
+            certificateChain: [.certificate(.forTesting())],
+            privateKey: .privateKey(.forTesting())
+        )
+    )
 
     var clientConfig = TLSConfiguration.makeClientConfiguration()
     clientConfig.trustRoots = try! .certificates([.forTesting()])

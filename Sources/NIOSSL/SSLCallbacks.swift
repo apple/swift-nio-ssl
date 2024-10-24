@@ -72,7 +72,6 @@ public enum NIOSSLVerificationResult: Sendable {
 ///    and also supports asynchronous certificate verification.
 public typealias NIOSSLVerificationCallback = (NIOSSLVerificationResult, NIOSSLCertificate) -> NIOSSLVerificationResult
 
-
 /// A custom verification callback that allows completely overriding the certificate verification logic of BoringSSL.
 ///
 /// This verification callback is called no more than once per connection attempt. It is invoked with two arguments:
@@ -91,7 +90,8 @@ public typealias NIOSSLVerificationCallback = (NIOSSLVerificationResult, NIOSSLC
 /// as this will not be re-entrant.
 ///
 /// Note that setting this callback will override _all_ verification logic that BoringSSL provides.
-public typealias NIOSSLCustomVerificationCallback = ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) -> Void
+public typealias NIOSSLCustomVerificationCallback = ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) ->
+    Void
 
 /// A custom verification callback that allows additional peer certificate verification logic after the logic of BoringSSL has completed successfully.
 ///
@@ -102,8 +102,9 @@ public typealias NIOSSLCustomVerificationCallback = ([NIOSSLCertificate], EventL
 /// The handshake will only succeed if the returned promise completes successfully.
 ///
 /// - warning: This API is not guaranteed to be stable and is likely to be changed without further notice, hence the underscore prefix.
-public typealias _NIOAdditionalPeerCertificateVerificationCallback = (NIOSSLCertificate, Channel) -> EventLoopFuture<Void>
-
+public typealias _NIOAdditionalPeerCertificateVerificationCallback = (NIOSSLCertificate, Channel) -> EventLoopFuture<
+    Void
+>
 
 /// A callback that can be used to implement `SSLKEYLOGFILE` support.
 ///
@@ -119,7 +120,6 @@ public typealias _NIOAdditionalPeerCertificateVerificationCallback = (NIOSSLCert
 ///     extract those secrets unnecessarily.
 ///
 public typealias NIOSSLKeyLogCallback = @Sendable (ByteBuffer) -> Void
-
 
 /// An object that provides helpers for working with a NIOSSLKeyLogCallback
 internal struct KeyLogCallbackManager {
@@ -262,7 +262,9 @@ extension NIOSSLContextConfigurationOverride {
 /// Within this callback, the user can create and return a new `NIOSSLContextConfigurationOverride` for the given host,
 /// and the delta will be applied to the current handshake configuration.
 ///
-public typealias NIOSSLContextCallback = @Sendable (NIOSSLClientExtensionValues, EventLoopPromise<NIOSSLContextConfigurationOverride>) -> Void
+public typealias NIOSSLContextCallback = @Sendable (
+    NIOSSLClientExtensionValues, EventLoopPromise<NIOSSLContextConfigurationOverride>
+) -> Void
 
 /// A struct that provides helpers for working with a NIOSSLContextCallback.
 internal struct CustomContextManager: Sendable {
@@ -311,10 +313,12 @@ extension CustomContextManager {
             let connection = SSLConnection.loadConnectionFromSSL(ssl)
 
             guard let eventLoop = connection.eventLoop else {
-                preconditionFailure("""
-                    SSL_CTX_set_cert_cb was executed without an event loop assigned to the connection.
-                    This should not be possible, please file an issue.
-                """)
+                preconditionFailure(
+                    """
+                        SSL_CTX_set_cert_cb was executed without an event loop assigned to the connection.
+                        This should not be possible, please file an issue.
+                    """
+                )
             }
 
             // Construct extension values to be passed to callback
@@ -403,7 +407,6 @@ internal struct CustomVerifyManager {
     }
 }
 
-
 extension CustomVerifyManager {
     private enum PendingResult: Hashable {
         case notStarted
@@ -413,7 +416,6 @@ extension CustomVerifyManager {
         case complete(NIOSSLVerificationResult)
     }
 }
-
 
 extension CustomVerifyManager {
     mutating func process(on connection: SSLConnection) -> ssl_verify_result_t {
@@ -450,7 +452,10 @@ extension CustomVerifyManager {
             eventLoop.execute {
                 // Note that we don't close over self here: that's to deal with the fact that this is a struct, and we don't want to
                 // escape the mutable ownership of self.
-                precondition(connection.customVerificationManager == nil || connection.customVerificationManager?.result == .some(.pendingResult))
+                precondition(
+                    connection.customVerificationManager == nil
+                        || connection.customVerificationManager?.result == .some(.pendingResult)
+                )
                 connection.customVerificationManager?.result = .complete(NIOSSLVerificationResult(result))
                 connection.parentHandler?.resumeHandshake()
             }
@@ -461,7 +466,6 @@ extension CustomVerifyManager {
         return ssl_verify_retry
     }
 }
-
 
 extension CustomVerifyManager {
     private enum CallbackType {
@@ -488,7 +492,6 @@ extension CustomVerifyManager {
 
     internal typealias InternalCallback = (EventLoopPromise<NIOSSLVerificationResult>) -> Void
 }
-
 
 extension NIOSSLVerificationResult {
     init(_ result: Result<NIOSSLVerificationResult, Error>) {

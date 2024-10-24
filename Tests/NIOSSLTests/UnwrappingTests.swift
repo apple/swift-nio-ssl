@@ -12,9 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
 import NIOCore
 import NIOEmbedded
+import XCTest
+
 @testable import NIOSSL
 
 func connectInMemory(client: EmbeddedChannel, server: EmbeddedChannel) throws {
@@ -542,9 +543,9 @@ final class UnwrappingTests: XCTestCase {
         var buffer = clientChannel.allocator.buffer(capacity: 1024)
         buffer.writeStaticString("GET / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n")
 
-        XCTAssertThrowsError(try clientChannel.writeInbound(buffer)) {error in
+        XCTAssertThrowsError(try clientChannel.writeInbound(buffer)) { error in
             switch error as? NIOSSLError {
-            case .some(.shutdownFailed) :
+            case .some(.shutdownFailed):
                 // Expected
                 break
             default:

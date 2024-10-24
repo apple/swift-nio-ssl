@@ -17,10 +17,12 @@ import NIOEmbedded
 import NIOSSL
 
 func run(identifier: String) {
-    let serverContext = try! NIOSSLContext(configuration: .makeServerConfiguration(
-        certificateChain: [.certificate(.forTesting())],
-        privateKey: .privateKey(.forTesting())
-    ))
+    let serverContext = try! NIOSSLContext(
+        configuration: .makeServerConfiguration(
+            certificateChain: [.certificate(.forTesting())],
+            privateKey: .privateKey(.forTesting())
+        )
+    )
 
     var clientConfig = TLSConfiguration.makeClientConfiguration()
     clientConfig.trustRoots = try! .certificates([.forTesting()])
@@ -54,7 +56,7 @@ func run(identifier: String) {
             try! backToBack.interactInMemory()
 
             // Pull any data out of the server to avoid ballooning in memory.
-            while let _ = try! backToBack.server.readInbound(as: ByteBuffer.self) { }
+            while let _ = try! backToBack.server.readInbound(as: ByteBuffer.self) {}
         }
 
         return 1000
