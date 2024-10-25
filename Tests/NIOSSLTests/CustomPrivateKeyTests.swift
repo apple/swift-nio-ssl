@@ -12,19 +12,21 @@
 //
 //===----------------------------------------------------------------------===//
 
+import NIOConcurrencyHelpers
+import NIOCore
+import NIOEmbedded
 import XCTest
+
+@testable import NIOSSL
+
 #if compiler(>=5.1)
 @_implementationOnly import CNIOBoringSSL
 #else
 import CNIOBoringSSL
 #endif
-import NIOCore
-import NIOEmbedded
-import NIOConcurrencyHelpers
-@testable import NIOSSL
 
 // This is a helper that lets us work with an EVP_PKEY.
-fileprivate final class CustomPKEY {
+private final class CustomPKEY {
     private let ref: OpaquePointer
 
     init(from key: NIOSSLPrivateKey) {
@@ -57,7 +59,11 @@ fileprivate final class CustomPKEY {
         CNIOBoringSSL_EVP_MD_CTX_init(hashContext)
         CNIOBoringSSL_EVP_DigestInit_ex(hashContext, algorithm.md, nil)
         var rc = data.withUnsafeReadableBytes { bytesPtr in
-            CNIOBoringSSL_EVP_DigestUpdate(hashContext, bytesPtr.baseAddress?.assumingMemoryBound(to: UInt8.self), bytesPtr.count)
+            CNIOBoringSSL_EVP_DigestUpdate(
+                hashContext,
+                bytesPtr.baseAddress?.assumingMemoryBound(to: UInt8.self),
+                bytesPtr.count
+            )
         }
         precondition(rc == 1)
 
@@ -66,7 +72,11 @@ fileprivate final class CustomPKEY {
         var digestBuffer = ByteBuffer()
         digestBuffer.writeWithUnsafeMutableBytes(minimumWritableBytes: signatureSize) { outputPtr in
             var actualSize = CUnsignedInt(outputPtr.count)
-            CNIOBoringSSL_EVP_DigestFinal_ex(hashContext, outputPtr.baseAddress?.assumingMemoryBound(to: UInt8.self), &actualSize)
+            CNIOBoringSSL_EVP_DigestFinal_ex(
+                hashContext,
+                outputPtr.baseAddress?.assumingMemoryBound(to: UInt8.self),
+                &actualSize
+            )
             return Int(actualSize)
         }
 
@@ -88,7 +98,13 @@ fileprivate final class CustomPKEY {
         // Now we find out the length we need.
         var signatureLength: Int = 0
         rc = digestBuffer.withUnsafeReadableBytes { bytesPtr in
-            CNIOBoringSSL_EVP_PKEY_sign(ctx, nil, &signatureLength, bytesPtr.baseAddress?.assumingMemoryBound(to: UInt8.self), bytesPtr.count)
+            CNIOBoringSSL_EVP_PKEY_sign(
+                ctx,
+                nil,
+                &signatureLength,
+                bytesPtr.baseAddress?.assumingMemoryBound(to: UInt8.self),
+                bytesPtr.count
+            )
         }
 
         precondition(rc == 1)
@@ -98,7 +114,13 @@ fileprivate final class CustomPKEY {
         outputBuffer.writeWithUnsafeMutableBytes(minimumWritableBytes: signatureLength) { outputPtr in
             precondition(signatureLength <= outputPtr.count)
             let rc = digestBuffer.withUnsafeReadableBytes { bytesPtr in
-                CNIOBoringSSL_EVP_PKEY_sign(ctx, outputPtr.baseAddress?.assumingMemoryBound(to: UInt8.self), &signatureLength, bytesPtr.baseAddress?.assumingMemoryBound(to: UInt8.self), bytesPtr.count)
+                CNIOBoringSSL_EVP_PKEY_sign(
+                    ctx,
+                    outputPtr.baseAddress?.assumingMemoryBound(to: UInt8.self),
+                    &signatureLength,
+                    bytesPtr.baseAddress?.assumingMemoryBound(to: UInt8.self),
+                    bytesPtr.count
+                )
             }
             precondition(rc == 1)
             return signatureLength
@@ -129,12 +151,12 @@ fileprivate final class CustomPKEY {
             precondition(rc == 1)
             return written
         }
-        
+
         return output
     }
 }
 
-fileprivate final class CustomKeyImmediateResult: NIOSSLCustomPrivateKey, Hashable {
+private final class CustomKeyImmediateResult: NIOSSLCustomPrivateKey, Hashable {
     let backing: CustomPKEY
     let signatureAlgorithms: [SignatureAlgorithm]
     let expectedChannel: Channel
@@ -162,8 +184,8 @@ fileprivate final class CustomKeyImmediateResult: NIOSSLCustomPrivateKey, Hashab
         return channel.eventLoop.makeSucceededFuture(self.backing.decrypt(data: data))
     }
 
-    static func ==(lhs: CustomKeyImmediateResult, rhs: CustomKeyImmediateResult) -> Bool {
-        return lhs.backing === rhs.backing && lhs.signatureAlgorithms == rhs.signatureAlgorithms
+    static func == (lhs: CustomKeyImmediateResult, rhs: CustomKeyImmediateResult) -> Bool {
+        lhs.backing === rhs.backing && lhs.signatureAlgorithms == rhs.signatureAlgorithms
     }
 
     func hash(into hasher: inout Hasher) {
@@ -172,7 +194,7 @@ fileprivate final class CustomKeyImmediateResult: NIOSSLCustomPrivateKey, Hashab
     }
 }
 
-fileprivate final class CustomKeyDelayedCompletion: NIOSSLCustomPrivateKey, Hashable {
+private final class CustomKeyDelayedCompletion: NIOSSLCustomPrivateKey, Hashable {
     let backing: CustomPKEY
     let signatureAlgorithms: [SignatureAlgorithm]
     let expectedChannel: Channel
@@ -208,8 +230,8 @@ fileprivate final class CustomKeyDelayedCompletion: NIOSSLCustomPrivateKey, Hash
         }
     }
 
-    static func ==(lhs: CustomKeyDelayedCompletion, rhs: CustomKeyDelayedCompletion) -> Bool {
-        return lhs.backing === rhs.backing && lhs.signatureAlgorithms == rhs.signatureAlgorithms
+    static func == (lhs: CustomKeyDelayedCompletion, rhs: CustomKeyDelayedCompletion) -> Bool {
+        lhs.backing === rhs.backing && lhs.signatureAlgorithms == rhs.signatureAlgorithms
     }
 
     func hash(into hasher: inout Hasher) {
@@ -220,7 +242,9 @@ fileprivate final class CustomKeyDelayedCompletion: NIOSSLCustomPrivateKey, Hash
 
 final class CustomPrivateKeyTests: XCTestCase {
     fileprivate static let customECDSACertAndKey: (certificate: NIOSSLCertificate, key: CustomPKEY) = {
-        let (cert, originalKey) = generateSelfSignedCert(keygenFunction: { generateECPrivateKey(curveNID: NID_X9_62_prime256v1) })
+        let (cert, originalKey) = generateSelfSignedCert(keygenFunction: {
+            generateECPrivateKey(curveNID: NID_X9_62_prime256v1)
+        })
         let derivedKey = CustomPKEY(from: originalKey)
         return (certificate: cert, key: derivedKey)
     }()
@@ -245,9 +269,11 @@ final class CustomPrivateKeyTests: XCTestCase {
         return try! NIOSSLContext(configuration: config)
     }
 
-    private func configuredServerContext(certificate: NIOSSLCertificate, privateKey: NIOSSLPrivateKey) -> NIOSSLContext {
+    private func configuredServerContext(certificate: NIOSSLCertificate, privateKey: NIOSSLPrivateKey) -> NIOSSLContext
+    {
         let config = TLSConfiguration.makeServerConfiguration(
-            certificateChain: [.certificate(certificate)], privateKey: .privateKey(privateKey)
+            certificateChain: [.certificate(certificate)],
+            privateKey: .privateKey(privateKey)
         )
         return try! NIOSSLContext(configuration: config)
     }
@@ -260,14 +286,19 @@ final class CustomPrivateKeyTests: XCTestCase {
             expectedChannel: b2b.server
         )
 
-        let clientContext = self.configuredClientContext(trustRoot: CustomPrivateKeyTests.customECDSACertAndKey.certificate)
+        let clientContext = self.configuredClientContext(
+            trustRoot: CustomPrivateKeyTests.customECDSACertAndKey.certificate
+        )
         let serverContext = self.configuredServerContext(
             certificate: CustomPrivateKeyTests.customECDSACertAndKey.certificate,
             privateKey: NIOSSLPrivateKey(customPrivateKey: happyPathKey)
         )
         XCTAssertNoThrow(
             try b2b.client.pipeline.syncOperations.addHandlers(
-                [try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"), HandshakeCompletedHandler()]
+                [
+                    try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"),
+                    HandshakeCompletedHandler(),
+                ]
             )
         )
         XCTAssertNoThrow(
@@ -291,14 +322,19 @@ final class CustomPrivateKeyTests: XCTestCase {
             expectedChannel: b2b.server
         )
 
-        let clientContext = self.configuredClientContext(trustRoot: CustomPrivateKeyTests.customRSACertAndKey.certificate)
+        let clientContext = self.configuredClientContext(
+            trustRoot: CustomPrivateKeyTests.customRSACertAndKey.certificate
+        )
         let serverContext = self.configuredServerContext(
             certificate: CustomPrivateKeyTests.customRSACertAndKey.certificate,
             privateKey: NIOSSLPrivateKey(customPrivateKey: happyPathKey)
         )
         XCTAssertNoThrow(
             try b2b.client.pipeline.syncOperations.addHandlers(
-                [try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"), HandshakeCompletedHandler()]
+                [
+                    try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"),
+                    HandshakeCompletedHandler(),
+                ]
             )
         )
         XCTAssertNoThrow(
@@ -336,7 +372,10 @@ final class CustomPrivateKeyTests: XCTestCase {
         )
         XCTAssertNoThrow(
             try b2b.client.pipeline.syncOperations.addHandlers(
-                [try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"), HandshakeCompletedHandler()]
+                [
+                    try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"),
+                    HandshakeCompletedHandler(),
+                ]
             )
         )
         XCTAssertNoThrow(
@@ -360,14 +399,19 @@ final class CustomPrivateKeyTests: XCTestCase {
             expectedChannel: b2b.server
         )
 
-        let clientContext = self.configuredClientContext(trustRoot: CustomPrivateKeyTests.customECDSACertAndKey.certificate)
+        let clientContext = self.configuredClientContext(
+            trustRoot: CustomPrivateKeyTests.customECDSACertAndKey.certificate
+        )
         let serverContext = self.configuredServerContext(
             certificate: CustomPrivateKeyTests.customECDSACertAndKey.certificate,
             privateKey: NIOSSLPrivateKey(customPrivateKey: happyPathKey)
         )
         XCTAssertNoThrow(
             try b2b.client.pipeline.syncOperations.addHandlers(
-                [try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"), HandshakeCompletedHandler()]
+                [
+                    try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"),
+                    HandshakeCompletedHandler(),
+                ]
             )
         )
         XCTAssertNoThrow(
@@ -402,14 +446,19 @@ final class CustomPrivateKeyTests: XCTestCase {
             expectedChannel: b2b.server
         )
 
-        let clientContext = self.configuredClientContext(trustRoot: CustomPrivateKeyTests.customRSACertAndKey.certificate)
+        let clientContext = self.configuredClientContext(
+            trustRoot: CustomPrivateKeyTests.customRSACertAndKey.certificate
+        )
         let serverContext = self.configuredServerContext(
             certificate: CustomPrivateKeyTests.customRSACertAndKey.certificate,
             privateKey: NIOSSLPrivateKey(customPrivateKey: happyPathKey)
         )
         XCTAssertNoThrow(
             try b2b.client.pipeline.syncOperations.addHandlers(
-                [try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"), HandshakeCompletedHandler()]
+                [
+                    try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"),
+                    HandshakeCompletedHandler(),
+                ]
             )
         )
         XCTAssertNoThrow(
@@ -458,7 +507,10 @@ final class CustomPrivateKeyTests: XCTestCase {
         )
         XCTAssertNoThrow(
             try b2b.client.pipeline.syncOperations.addHandlers(
-                [try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"), HandshakeCompletedHandler()]
+                [
+                    try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"),
+                    HandshakeCompletedHandler(),
+                ]
             )
         )
         XCTAssertNoThrow(
@@ -495,7 +547,9 @@ final class CustomPrivateKeyTests: XCTestCase {
             expectedChannel: b2b.server
         )
 
-        let clientContext = self.configuredClientContext(trustRoot: CustomPrivateKeyTests.customECDSACertAndKey.certificate)
+        let clientContext = self.configuredClientContext(
+            trustRoot: CustomPrivateKeyTests.customECDSACertAndKey.certificate
+        )
         let serverContext = self.configuredServerContext(
             certificate: CustomPrivateKeyTests.customECDSACertAndKey.certificate,
             privateKey: NIOSSLPrivateKey(customPrivateKey: happyPathKey)
@@ -515,7 +569,7 @@ final class CustomPrivateKeyTests: XCTestCase {
     }
 
     func testThrowingCustomErrorsSigning() throws {
-        struct CustomError: Error { }
+        struct CustomError: Error {}
 
         let b2b = BackToBackEmbeddedChannel()
         let happyPathKey = CustomKeyDelayedCompletion(
@@ -524,7 +578,9 @@ final class CustomPrivateKeyTests: XCTestCase {
             expectedChannel: b2b.server
         )
 
-        let clientContext = self.configuredClientContext(trustRoot: CustomPrivateKeyTests.customECDSACertAndKey.certificate)
+        let clientContext = self.configuredClientContext(
+            trustRoot: CustomPrivateKeyTests.customECDSACertAndKey.certificate
+        )
         let serverContext = self.configuredServerContext(
             certificate: CustomPrivateKeyTests.customECDSACertAndKey.certificate,
             privateKey: NIOSSLPrivateKey(customPrivateKey: happyPathKey)
@@ -607,11 +663,13 @@ final class CustomPrivateKeyTests: XCTestCase {
         XCTAssertEqual(Set([firstKey, secondKey]), Set([firstKey, secondKey, thirdKey]))
         XCTAssertEqual(
             Set([NIOSSLPrivateKey(customPrivateKey: firstKey), NIOSSLPrivateKey(customPrivateKey: secondKey)]),
-            Set([NIOSSLPrivateKey(customPrivateKey: firstKey), NIOSSLPrivateKey(customPrivateKey: secondKey), NIOSSLPrivateKey(customPrivateKey: thirdKey)])
+            Set([
+                NIOSSLPrivateKey(customPrivateKey: firstKey), NIOSSLPrivateKey(customPrivateKey: secondKey),
+                NIOSSLPrivateKey(customPrivateKey: thirdKey),
+            ])
         )
     }
 }
-
 
 extension SignatureAlgorithm {
     var md: OpaquePointer {

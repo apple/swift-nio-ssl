@@ -22,31 +22,31 @@ extension NIOSSLCertificate {
                 /// `reference` is optional because `CNIOBoringSSL_X509_get0_extensions` can return`nil` if no extensions are present.
                 /// We therefore need to handle the `nil` case as if this collection is empty.
                 let reference: OpaquePointer?
-                
+
                 init(takeOwnershipOf reference: OpaquePointer?) {
                     self.reference = reference
                 }
-                
+
                 deinit {
                     if let reference = self.reference {
                         CNIOBoringSSL_sk_X509_EXTENSION_free(reference)
                     }
                 }
             }
-            
+
             case owned(Deallocator)
             /// `reference` is optional because `CNIOBoringSSL_X509_get0_extensions` can return`nil` if no extensions are present.
             /// We therefore need to handle the `nil` case as if this collection is empty.
             case borrowed(reference: OpaquePointer?, owner: AnyObject)
-            
+
             init(takeOwnershipOf reference: OpaquePointer?) {
                 self = .owned(.init(takeOwnershipOf: reference))
             }
-            
+
             init(borrowing reference: OpaquePointer?, owner: AnyObject) {
                 self = .borrowed(reference: reference, owner: owner)
             }
-            
+
             /// The owner of the memory to which the reference points
             var owner: AnyObject {
                 switch self {
@@ -56,7 +56,7 @@ extension NIOSSLCertificate {
                     return owner
                 }
             }
-            
+
             /// All operations accessing `reference` need to be implemented while guaranteeing that we still have a reference to the memory owner.
             /// Otherwise `reference` could already be freed. This would result in undefined behaviour as we access a dangling pointer.
             /// This method guarantees that `reference` is valid during execution of `body`.
@@ -73,10 +73,10 @@ extension NIOSSLCertificate {
                 }
             }
         }
-        
+
         @usableFromInline internal let stackSize: Int
         private let storage: Storage
-        
+
         internal init(takeOwnershipOf reference: OpaquePointer?) {
             self.storage = .init(takeOwnershipOf: reference)
             if let reference = reference {
@@ -85,7 +85,7 @@ extension NIOSSLCertificate {
                 self.stackSize = 0
             }
         }
-        
+
         internal init(borrowing reference: OpaquePointer?, owner: AnyObject) {
             self.storage = .init(borrowing: reference, owner: owner)
             if let reference = reference {
@@ -114,7 +114,7 @@ extension NIOSSLCertificate._Extensions: RandomAccessCollection {
             return .init(borrowing: value, owner: self.storage.owner)
         }
     }
-    
+
     @inlinable public var startIndex: Int { 0 }
     @inlinable public var endIndex: Int { self.stackSize }
 }
@@ -125,13 +125,13 @@ extension NIOSSLCertificate {
             self.owner = owner
             self._reference = reference
         }
-        
+
         /// lifetime automatically managed by `owner`
         private let _reference: OpaquePointer
-        
+
         /// only part of this type to keep a strong reference to the underlying storage of `reference`
         private let owner: AnyObject
-        
+
         /// All operations accessing `reference` need to be implemented while guaranteeing that we still have a reference to the memory `owner`.
         /// Otherwise `reference` could already be freed. This would result in undefined behaviour as we access a dangling pointer.
         /// This method guarantees that `reference` is valid during execution of `body`.
@@ -142,19 +142,19 @@ extension NIOSSLCertificate {
                 try body(self._reference)
             }
         }
-        
+
         public var objectIdentifier: NIOSSLObjectIdentifier {
             withReference {
                 .init(borrowing: CNIOBoringSSL_X509_EXTENSION_get_object($0), owner: self.owner)
             }
         }
-        
+
         public var isCritical: Bool {
             withReference {
                 CNIOBoringSSL_X509_EXTENSION_get_critical($0) == 1
             }
         }
-        
+
         public var data: Data {
             withReference {
                 let data = CNIOBoringSSL_X509_EXTENSION_get_data($0)
@@ -177,12 +177,12 @@ extension NIOSSLCertificate._Extension {
         private let owner: AnyObject
         // lifetime automatically managed by `owner`
         @usableFromInline internal let buffer: UnsafeBufferPointer<UInt8>
-        
+
         internal init(buffer: UnsafeBufferPointer<UInt8>, owner: AnyObject) {
             self.buffer = buffer
             self.owner = owner
         }
-        
+
         @inlinable public func withUnsafeBufferPointer<Result>(
             _ body: (UnsafeBufferPointer<UInt8>) throws -> Result
         ) rethrows -> Result {
@@ -206,12 +206,12 @@ extension NIOSSLCertificate._Extension.Data: @unchecked Sendable {}
 extension NIOSSLCertificate._Extension.Data: RandomAccessCollection {
     @inlinable public var startIndex: Int { self.buffer.startIndex }
     @inlinable public var endIndex: Int { self.buffer.endIndex }
-    
+
     @inlinable public subscript(position: Int) -> UInt8 {
         precondition(self.indices.contains(position), "index \(position) out of bounds")
         return withUnsafeBufferPointer { $0[position] }
     }
-    
+
     @inlinable public func withContiguousStorageIfAvailable<Result>(
         _ body: (UnsafeBufferPointer<UInt8>) throws -> Result
     ) rethrows -> Result? {

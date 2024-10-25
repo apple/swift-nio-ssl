@@ -14,7 +14,8 @@
 
 /// A straightforward constant-time comparison function for any two collections of bytes.
 @inlinable
-internal func constantTimeCompare<LHS: Collection, RHS: Collection>(_ lhs: LHS, _ rhs: RHS) -> Bool where LHS.Element == UInt8, RHS.Element == UInt8 {
+internal func constantTimeCompare<LHS: Collection, RHS: Collection>(_ lhs: LHS, _ rhs: RHS) -> Bool
+where LHS.Element == UInt8, RHS.Element == UInt8 {
     guard lhs.count == rhs.count else {
         return false
     }

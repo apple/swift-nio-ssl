@@ -21,7 +21,7 @@
 /// ``NIOSSLCertificate`` objects to be serialized, so that they can be passed to
 /// general-purpose cryptography libraries.
 public final class NIOSSLPublicKey {
-    private let ref: OpaquePointer /*<EVP_PKEY>*/
+    private let ref: OpaquePointer  // <EVP_PKEY>
 
     fileprivate init(withOwnedReference ref: OpaquePointer) {
         self.ref = ref
@@ -46,7 +46,7 @@ extension NIOSSLPublicKey {
     ///    - pointer: A pointer to an `EVP_PKEY` structure containing the public key.
     /// - returns: An `NIOSSLPublicKey` wrapping the pointer.
     internal static func fromInternalPointer(takingOwnership pointer: OpaquePointer) -> NIOSSLPublicKey {
-        return NIOSSLPublicKey(withOwnedReference: pointer)
+        NIOSSLPublicKey(withOwnedReference: pointer)
     }
 }
 

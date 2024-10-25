@@ -27,10 +27,12 @@ final class BenchManyWrites: Benchmark {
     init(loopCount: Int, writeSizeInBytes writeSize: Int) throws {
         self.loopCount = loopCount
         self.writeSize = writeSize
-        self.serverContext = try NIOSSLContext(configuration: .makeServerConfiguration(
-            certificateChain: [.certificate(.forTesting())],
-            privateKey: .privateKey(.forTesting())
-        ))
+        self.serverContext = try NIOSSLContext(
+            configuration: .makeServerConfiguration(
+                certificateChain: [.certificate(.forTesting())],
+                privateKey: .privateKey(.forTesting())
+            )
+        )
 
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.trustRoots = try .certificates([.forTesting()])
@@ -56,7 +58,7 @@ final class BenchManyWrites: Benchmark {
 
     }
 
-    func tearDown() { }
+    func tearDown() {}
 
     func run() throws -> Int {
         guard let buffer = self.buffer else {
@@ -73,7 +75,7 @@ final class BenchManyWrites: Benchmark {
             try self.backToBack.interactInMemory()
 
             // Pull any data out of the server to avoid ballooning in memory.
-            while let _ = try self.backToBack.server.readInbound(as: ByteBuffer.self) { }
+            while let _ = try self.backToBack.server.readInbound(as: ByteBuffer.self) {}
         }
 
         return self.loopCount

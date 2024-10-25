@@ -20,27 +20,27 @@ public struct NIOSSLObjectIdentifier {
     private enum Storage {
         final class Deallocator {
             var reference: OpaquePointer!
-            
+
             init(takeOwnershipOf reference: OpaquePointer!) {
                 self.reference = reference
             }
-            
+
             deinit {
                 CNIOBoringSSL_ASN1_OBJECT_free(self.reference)
             }
         }
-        
+
         case owned(Deallocator)
         case borrowed(reference: OpaquePointer!, owner: AnyObject)
-        
+
         init(takeOwnershipOf reference: OpaquePointer!) {
             self = .owned(.init(takeOwnershipOf: reference))
         }
-        
+
         init(borrowing reference: OpaquePointer!, owner: AnyObject) {
             self = .borrowed(reference: reference, owner: owner)
         }
-        
+
         /// All operations accessing `reference` need to be implemented while guaranteeing that we still have a reference to the memory owner.
         /// Otherwise `reference` could already be freed. This would result in undefined behaviour as we access a dangling pointer.
         /// This method guarantees that `reference` is valid during execution of `body`.
@@ -57,9 +57,9 @@ public struct NIOSSLObjectIdentifier {
             }
         }
     }
-    
+
     private let storage: Storage
-    
+
     /// Creates a Object Identifier (OID) from its textual dotted representation (e.g. `1.2.3`)
     ///
     /// - Parameter string: textual dotted representation of an OID
@@ -76,15 +76,15 @@ public struct NIOSSLObjectIdentifier {
         }
         self.storage = .init(takeOwnershipOf: reference)
     }
-    
+
     /// Creates an Object Identifier (OID) from an OpenSSL reference.
-    /// 
+    ///
     /// - Note: initialising an ``NIOSSLObjectIdentifier`` takes ownership of the reference and will free it after the reference count drops to zero
     /// - Parameter reference: reference to a valid OpenSSL OID aka OBJ
     internal init(takingOwnershipOf reference: OpaquePointer!) {
         self.storage = .init(takeOwnershipOf: reference)
     }
-    
+
     /// Creates an Object Identifier (OID) from an OpenSSL reference.
     /// - Note: initialising an ``NIOSSLObjectIdentifier`` with *this* constructor does **not** take ownership of the memory. Instead ``NIOSSLObjectIdentifier`` keeps a reference to the owning object which it will retain for the lifetime of itself.
     /// - Parameters
@@ -93,7 +93,7 @@ public struct NIOSSLObjectIdentifier {
     internal init(borrowing reference: OpaquePointer!, owner: AnyObject) {
         self.storage = .init(borrowing: reference, owner: owner)
     }
-    
+
     /// Creates a copy of an Object Identifier (OID) from an OpenSSL reference
     /// - Parameter reference: reference to a valid OpenSSL OID aka OBJ
     internal init(copyOf reference: OpaquePointer!) {

@@ -12,10 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.URL
 import NIOCore
 import NIOPosix
 import NIOSSL
+
+import struct Foundation.URL
 
 private final class EchoHandler: ChannelInboundHandler {
     public typealias InboundIn = ByteBuffer
@@ -31,11 +32,12 @@ private final class EchoHandler: ChannelInboundHandler {
 
 let certificateChain = try NIOSSLCertificate.fromPEMFile("cert.pem")
 let privateKey = try! NIOSSLPrivateKey(file: "key.pem", format: .pem)
-let sslContext = try! NIOSSLContext(configuration: TLSConfiguration.makeServerConfiguration(
-    certificateChain: certificateChain.map { .certificate($0) },
-    privateKey: .privateKey(privateKey))
+let sslContext = try! NIOSSLContext(
+    configuration: TLSConfiguration.makeServerConfiguration(
+        certificateChain: certificateChain.map { .certificate($0) },
+        privateKey: .privateKey(privateKey)
+    )
 )
-
 
 let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
 let bootstrap = ServerBootstrap(group: group)
@@ -45,7 +47,7 @@ let bootstrap = ServerBootstrap(group: group)
 
     // Set the handlers that are applied to the accepted channels.
     .childChannelInitializer { channel in
-        return channel.pipeline.addHandler(NIOSSLServerHandler(context: sslContext)).flatMap {
+        channel.pipeline.addHandler(NIOSSLServerHandler(context: sslContext)).flatMap {
             channel.pipeline.addHandler(EchoHandler())
         }
     }
@@ -66,12 +68,12 @@ let arg2 = arguments.dropFirst().dropFirst().first
 var host: String = "::1"
 var port: Int = 4433
 switch (arg1, arg1.flatMap { Int($0) }, arg2.flatMap { Int($0) }) {
-case (.some(let h), _ , .some(let p)):
-    /* we got two arguments, let's interpret that as host and port */
+case (.some(let h), _, .some(let p)):
+    // we got two arguments, let's interpret that as host and port
     host = h
     port = p
 case (_, .some(let p), _):
-    /* only one argument --> port */
+    // only one argument --> port
     port = p
 default:
     ()

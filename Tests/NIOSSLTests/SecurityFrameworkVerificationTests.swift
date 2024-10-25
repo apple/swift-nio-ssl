@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import XCTest
+
 @testable import NIOSSL
 
 // We can only use Security.framework to validate TLS certificates on Apple platforms.
@@ -133,7 +134,10 @@ final class SecurityFrameworkVerificationTests: XCTestCase {
         let connection = context.createConnection()!
         connection.setConnectState()
 
-        let certificate = SecCertificateCreateWithData(nil, Data(try! Self.anotherSelfSignedCert.toDERBytes()) as CFData)!
+        let certificate = SecCertificateCreateWithData(
+            nil,
+            Data(try! Self.anotherSelfSignedCert.toDERBytes()) as CFData
+        )!
 
         connection.performSecurityFrameworkValidation(promise: p, peerCertificates: [certificate])
         let result = try p.futureResult.wait()

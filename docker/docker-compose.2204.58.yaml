@@ -9,15 +9,6 @@ services:
         ubuntu_version: "jammy"
         swift_version: "5.8"
 
-  unit-tests:
-    image: swift-nio-ssl:22.04-5.8
-
-  integration-tests:
-    image: swift-nio-ssl:22.04-5.8
-
-  documentation-check:
-    image: swift-nio-ssl:22.04-5.8
-
   test:
     image: swift-nio-ssl:22.04-5.8
     environment:

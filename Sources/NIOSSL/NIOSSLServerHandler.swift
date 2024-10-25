@@ -23,7 +23,11 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
     /// - parameters:
     ///     - context: The ``NIOSSLContext`` to use on this connection.
     public convenience init(context: NIOSSLContext) {
-        self.init(context: context, optionalCustomVerificationCallback: nil, optionalAdditionalPeerCertificateVerificationCallback: nil)
+        self.init(
+            context: context,
+            optionalCustomVerificationCallback: nil,
+            optionalAdditionalPeerCertificateVerificationCallback: nil
+        )
     }
 
     @available(*, deprecated, renamed: "init(context:customVerificationCallback:)")
@@ -55,8 +59,15 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
     ///
     ///         If set, this callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed them. The callback will not be used if the
     ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
-    public convenience init(context: NIOSSLContext, customVerificationCallback: @escaping NIOSSLCustomVerificationCallback) {
-        self.init(context: context, optionalCustomVerificationCallback: customVerificationCallback, optionalAdditionalPeerCertificateVerificationCallback: nil)
+    public convenience init(
+        context: NIOSSLContext,
+        customVerificationCallback: @escaping NIOSSLCustomVerificationCallback
+    ) {
+        self.init(
+            context: context,
+            optionalCustomVerificationCallback: customVerificationCallback,
+            optionalAdditionalPeerCertificateVerificationCallback: nil
+        )
     }
 
     /// Construct a new ``NIOSSLClientHandler`` with the given `context` and a specific `serverHostname`.
@@ -68,7 +79,11 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
     ///         If set, this callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed them. The callback will not be used if the
     ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
     ///     - configuration: Configuration for this handler.
-    public convenience init(context: NIOSSLContext, customVerificationCallback: NIOSSLCustomVerificationCallback? = nil, configuration: Configuration) {
+    public convenience init(
+        context: NIOSSLContext,
+        customVerificationCallback: NIOSSLCustomVerificationCallback? = nil,
+        configuration: Configuration
+    ) {
         self.init(
             context: context,
             optionalCustomVerificationCallback: customVerificationCallback,
@@ -82,7 +97,11 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
         context: NIOSSLContext,
         additionalPeerCertificateVerificationCallback: @escaping _NIOAdditionalPeerCertificateVerificationCallback
     ) -> Self {
-        .init(context: context, optionalCustomVerificationCallback: nil, optionalAdditionalPeerCertificateVerificationCallback: additionalPeerCertificateVerificationCallback)
+        .init(
+            context: context,
+            optionalCustomVerificationCallback: nil,
+            optionalAdditionalPeerCertificateVerificationCallback: additionalPeerCertificateVerificationCallback
+        )
     }
 
     /// This exists to handle the explosion of initializers I got when I deprecated the first one.

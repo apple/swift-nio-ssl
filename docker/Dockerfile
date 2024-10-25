@@ -18,9 +18,6 @@ RUN apt-get update && apt-get install -y lsof dnsutils netcat-openbsd net-tools 
 RUN apt-get update && apt-get install -y libssl-dev
 RUN apt-get update && apt-get install -y execstack
 
-# ruby for soundness
-RUN apt-get update && apt-get install -y ruby ruby-dev libsqlite3-dev build-essential
-
 # tools
 RUN mkdir -p $HOME/.tools
 RUN echo 'export PATH="$HOME/.tools:$PATH"' >> $HOME/.profile
