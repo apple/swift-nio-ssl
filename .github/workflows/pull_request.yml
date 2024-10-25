@@ -25,7 +25,13 @@ jobs:
         uses: apple/swift-nio/.github/workflows/swift_matrix.yml@main
         with:
             name: "Integration test"
-            matrix_linux_command: "apt-get update -yq && apt-get install -yq execstack lsof dnsutils netcat-openbsd net-tools expect curl jq && ./scripts/integration_tests.sh -f test_01_renegotiation"
+            matrix_linux_command: "apt-get update -yq && apt-get install -yq execstack lsof dnsutils netcat-openbsd net-tools expect curl jq && ./scripts/integration_tests.sh"
+
+    benchmarks:
+        name: Benchmarks
+        uses: apple/swift-nio/.github/workflows/benchmarks.yml@main
+        with:
+            benchmark_package_path: "Benchmarks"
 
     cxx-interop:
         name: Cxx interop
