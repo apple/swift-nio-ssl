@@ -525,12 +525,11 @@ class SSLPKCS12BundleTest: XCTestCase {
         let certificates = [mainCert, caOne, caTwo, caThree, caFour]
 
         // Create a PKCS#12...
-        let pkcs12 = try NIOSSLPKCS12Bundle.makePKCS12(
-            certificates: certificates,
-            privateKey: privateKey,
-            passphrase: "thisisagreatpassword".utf8,
-            name: "thisisagreatname".utf8
+        let bundle = NIOSSLPKCS12Bundle(
+            certificateChain: certificates,
+            privateKey: privateKey
         )
+        let pkcs12 = try bundle.serialize(passphrase: "thisisagreatpassword".utf8)
 
         // And then decode it into a NIOSSLPKCS12Bundle
         let decoded = try NIOSSLPKCS12Bundle(buffer: pkcs12, passphrase: "thisisagreatpassword".utf8)

@@ -159,58 +159,74 @@ public struct NIOSSLPKCS12Bundle: Hashable {
 extension NIOSSLPKCS12Bundle: Sendable {}
 
 extension NIOSSLPKCS12Bundle {
-    /// Create a PKCS#12 file containing the given certificates.
+    /// Create a ``NIOSSLPKCS12Bundle`` from the given certificate chain and private key.
+    /// This constructor is particularly useful to create a new PKCS#12 file:
+    /// call ``serialize(passphrase:)`` to get the bytes making up the file.
     ///
-    /// The first certificate of the `certificates` array will be considered the "primary" certificate for
-    /// this PKCS#12, and `privateKey` must be its corresponding private key.
+    /// - parameters:
+    ///  - certificateChain: The chain of ``NIOSSLCertificate`` objects in the PKCS#12 bundle.
+    ///  - privateKey: The ``NIOSSLPrivateKey`` object for the leaf certificate in the PKCS#12 bundle.
+    public init(
+        certificateChain: [NIOSSLCertificate],
+        privateKey: NIOSSLPrivateKey
+    ) {
+        self.certificateChain = certificateChain
+        self.privateKey = privateKey
+    }
+
+    /// Serialize this bundle into a PKCS#12 file.
+    ///
+    /// The first certificate of the `certificateChain` array will be considered the "primary" certificate for
+    /// this PKCS#12, and the bundle's`privateKey` must be its corresponding private key.
     /// The other certificates included in `certificates`, if any, will be considered as additional
     /// certificates in the certificate chain.
     ///
     /// - Parameters:
-    ///   - certificates: An array of certificates to include in this PKCS#12. Must contain at least one certificate.
-    ///   - privateKey: The private key associated to the first certificate in `certificates`.
     ///   - passphrase: The password with which to protect this PKCS#12 file.
-    ///   - name: The name to give this PKCS#12 file.
     /// - Returns: An array of bytes making up the PKCS#12 file.
-    public static func makePKCS12<Bytes: Collection>(
-        certificates: [NIOSSLCertificate],
-        privateKey: NIOSSLPrivateKey,
-        passphrase: Bytes,
-        name: Bytes
+    public func serialize<Bytes: Collection>(
+        passphrase: Bytes
     ) throws -> [UInt8] where Bytes.Element == UInt8 {
-        guard let mainCertificate = certificates.first else {
+        guard let mainCertificate = self.certificateChain.first else {
             preconditionFailure("At least one certificate must be provided")
         }
 
         let certificateChainStack = CNIOBoringSSL_sk_X509_new(nil)
-        for additionalCertificate in certificates.dropFirst() {
+        for additionalCertificate in self.certificateChain.dropFirst() {
             let result = additionalCertificate.withUnsafeMutableX509Pointer { certificate in
-                CNIOBoringSSL_sk_X509_push(certificateChainStack, certificate)
+                CNIOBoringSSL_X509_up_ref(certificate)
+                return CNIOBoringSSL_sk_X509_push(certificateChainStack, certificate)
             }
             if result == 0 {
                 fatalError("Failed to add certificate to chain")
             }
         }
 
+        defer {
+            CNIOBoringSSL_sk_X509_pop_free(certificateChainStack, CNIOBoringSSL_X509_free)
+        }
+
         let pkcs12 = try passphrase.withSecureCString { passphrase in
-            try name.withSecureCString { name in
-                privateKey.withUnsafeMutableEVPPKEYPointer { privateKey in
-                    mainCertificate.withUnsafeMutableX509Pointer { certificate in
-                        CNIOBoringSSL_PKCS12_create(
-                            passphrase,
-                            name,
-                            privateKey,
-                            certificate,
-                            certificateChainStack,
-                            0,
-                            0,
-                            0,
-                            0,
-                            0
-                        )
-                    }
+            privateKey.withUnsafeMutableEVPPKEYPointer { privateKey in
+                mainCertificate.withUnsafeMutableX509Pointer { certificate in
+                    CNIOBoringSSL_PKCS12_create(
+                        passphrase,
+                        nil,
+                        privateKey,
+                        certificate,
+                        certificateChainStack,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                    )
                 }
             }
+        }
+
+        defer {
+            CNIOBoringSSL_PKCS12_free(pkcs12)
         }
 
         guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_mem()) else {
@@ -229,7 +245,6 @@ extension NIOSSLPKCS12Bundle {
 
         var dataPtr: UnsafeMutablePointer<CChar>? = nil
         let length = CNIOBoringSSL_BIO_get_mem_data(bio, &dataPtr)
-
         guard let bytes = dataPtr.map({ UnsafeMutableRawBufferPointer(start: $0, count: length) }) else {
             fatalError("Failed to get bytes from private key")
         }
