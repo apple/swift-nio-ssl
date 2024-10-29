@@ -551,4 +551,24 @@ class SSLPKCS12BundleTest: XCTestCase {
         XCTAssertEqual(decoded.privateKey, privateKey)
         XCTAssertEqual(decoded.certificateChain, certificates)
     }
+
+    func testMakePKCS12_IncorrectPassphrase() throws {
+        let privateKey = try NIOSSLPrivateKey(bytes: .init(samplePemKey.utf8), format: .pem)
+        let mainCert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
+
+        // Create a PKCS#12...
+        let bundle = NIOSSLPKCS12Bundle(
+            certificateChain: [mainCert],
+            privateKey: privateKey
+        )
+        let pkcs12 = try bundle.serialize(passphrase: "thisisagreatpassword".utf8)
+
+        // And then try decoding it into a NIOSSLPKCS12Bundle, but with the wrong passphrase
+        XCTAssertThrowsError(try NIOSSLPKCS12Bundle(
+            buffer: pkcs12,
+            passphrase: "thisisagreatpasswordbutnottherightone".utf8
+        )) { error in
+            XCTAssertNotNil(error as? BoringSSLError)
+        }
+    }
 }
