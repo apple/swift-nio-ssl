@@ -27,7 +27,7 @@ extension String {
             try self.init(backportUnsafeUninitializedCapacity: capacity, initializingUTF8With: initializer)
         }
     }
-    
+
     private init(
         backportUnsafeUninitializedCapacity capacity: Int,
         initializingUTF8With initializer: (_ buffer: UnsafeMutableBufferPointer<UInt8>) throws -> Int
@@ -37,10 +37,12 @@ extension String {
             buffer.deallocate()
         }
 
-
         let initializedCount = try initializer(buffer)
         precondition(initializedCount <= capacity, "Overran buffer in initializer!")
 
-        self = String(decoding: UnsafeMutableBufferPointer(start: buffer.baseAddress!, count: initializedCount), as: UTF8.self)
+        self = String(
+            decoding: UnsafeMutableBufferPointer(start: buffer.baseAddress!, count: initializedCount),
+            as: UTF8.self
+        )
     }
 }

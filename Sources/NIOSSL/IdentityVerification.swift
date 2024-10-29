@@ -26,7 +26,6 @@ import Android
 #error("unsupported os")
 #endif
 
-
 private let asciiIDNAIdentifier: ArraySlice<UInt8> = Array("xn--".utf8)[...]
 private let asciiCapitals: ClosedRange<UInt8> = (UInt8(ascii: "A")...UInt8(ascii: "Z"))
 private let asciiLowercase: ClosedRange<UInt8> = (UInt8(ascii: "a")...UInt8(ascii: "z"))
@@ -34,7 +33,6 @@ private let asciiNumbers: ClosedRange<UInt8> = (UInt8(ascii: "0")...UInt8(ascii:
 private let asciiHyphen: UInt8 = UInt8(ascii: "-")
 private let asciiPeriod: UInt8 = UInt8(ascii: ".")
 private let asciiAsterisk: UInt8 = UInt8(ascii: "*")
-
 
 extension String {
     /// Calls `fn` with an `Array<UInt8>` pointing to a
@@ -45,7 +43,7 @@ extension String {
     /// In a naive implementation we'd loop at least three times: once to lowercase
     /// the string, once to get a buffer pointer to a contiguous buffer, and once
     /// to confirm the string is ASCII. Here we can do that all in one loop.
-    fileprivate func withLowercaseASCIIBuffer<T>(_ fn: (Array<UInt8>) throws -> T) throws -> T {
+    fileprivate func withLowercaseASCIIBuffer<T>(_ fn: ([UInt8]) throws -> T) throws -> T {
         let buffer: [UInt8] = try self.utf8.map { codeUnit in
             guard codeUnit.isValidDNSCharacter else {
                 throw NIOSSLExtraError.serverHostnameImpossibleToMatch(hostname: self)
@@ -58,7 +56,6 @@ extension String {
         return try fn(buffer)
     }
 }
-
 
 extension Collection {
     /// Splits a collection in two around a given index. This index may be nil, in which case the split
@@ -96,7 +93,6 @@ extension UInt8 {
     }
 }
 
-
 /// Validates that a given leaf certificate is valid for a service.
 ///
 /// This function implements the logic for service validation as specified by
@@ -106,25 +102,33 @@ extension UInt8 {
 ///
 /// The algorithm we're implementing is specified in RFC 6125 Section 6 if you want to
 /// follow along at home.
-internal func validIdentityForService(serverHostname: String?,
-                                      socketAddress: SocketAddress,
-                                      leafCertificate: NIOSSLCertificate) throws -> Bool {
+internal func validIdentityForService(
+    serverHostname: String?,
+    socketAddress: SocketAddress,
+    leafCertificate: NIOSSLCertificate
+) throws -> Bool {
     if let serverHostname = serverHostname {
         return try serverHostname.withLowercaseASCIIBuffer {
-            try validIdentityForService(serverHostname: $0,
-                                        socketAddress: socketAddress,
-                                        leafCertificate: leafCertificate)
+            try validIdentityForService(
+                serverHostname: $0,
+                socketAddress: socketAddress,
+                leafCertificate: leafCertificate
+            )
         }
     } else {
-        return try validIdentityForService(serverHostname: nil as Array<UInt8>?,
-                                           socketAddress: socketAddress,
-                                           leafCertificate: leafCertificate)
+        return try validIdentityForService(
+            serverHostname: nil as [UInt8]?,
+            socketAddress: socketAddress,
+            leafCertificate: leafCertificate
+        )
     }
 }
 
-private func validIdentityForService(serverHostname: Array<UInt8>?,
-                                     socketAddress: SocketAddress,
-                                     leafCertificate: NIOSSLCertificate) throws -> Bool {
+private func validIdentityForService(
+    serverHostname: [UInt8]?,
+    socketAddress: SocketAddress,
+    leafCertificate: NIOSSLCertificate
+) throws -> Bool {
     // Before we begin, we want to locate the first period in our own domain name. We need to do
     // this because we may need to match a wildcard label.
     var serverHostnameSlice: ArraySlice<UInt8>? = nil
@@ -132,7 +136,6 @@ private func validIdentityForService(serverHostname: Array<UInt8>?,
 
     if let serverHostname = serverHostname {
         var tempServerHostnameSlice = serverHostname[...]
-
 
         // Strip trailing period
         if tempServerHostnameSlice.last == .some(asciiPeriod) {
@@ -159,7 +162,7 @@ private func validIdentityForService(serverHostname: Array<UInt8>?,
             }
         case .ipAddress:
             if let ip = _SubjectAlternativeName.IPAddress(name),
-               matchIpAddress(socketAddress: socketAddress, certificateIP: ip)
+                matchIpAddress(socketAddress: socketAddress, certificateIP: ip)
             {
                 return true
             }
@@ -186,8 +189,11 @@ private func validIdentityForService(serverHostname: Array<UInt8>?,
     return matchHostname(ourHostname: serverHostnameSlice, firstPeriodIndex: firstPeriodIndex, dnsName: commonName)
 }
 
-
-private func matchHostname(ourHostname: ArraySlice<UInt8>?, firstPeriodIndex: ArraySlice<UInt8>.Index?, dnsName: Array<UInt8>) -> Bool {
+private func matchHostname(
+    ourHostname: ArraySlice<UInt8>?,
+    firstPeriodIndex: ArraySlice<UInt8>.Index?,
+    dnsName: [UInt8]
+) -> Bool {
     guard let ourHostname = ourHostname else {
         // No server hostname was provided, so we cannot match.
         return false
@@ -201,7 +207,6 @@ private func matchHostname(ourHostname: ArraySlice<UInt8>?, firstPeriodIndex: Ar
     }
     return validatedHostname.validMatchForName(ourHostname, firstPeriodIndexForName: firstPeriodIndex)
 }
-
 
 private func matchIpAddress(socketAddress: SocketAddress, certificateIP: _SubjectAlternativeName.IPAddress) -> Bool {
     // These match if the two underlying IP address structures match.
@@ -218,7 +223,6 @@ private func matchIpAddress(socketAddress: SocketAddress, certificateIP: _Subjec
     }
 }
 
-
 /// This structure contains a certificate hostname that has been analysed and prepared for matching.
 ///
 /// A certificate hostname that is valid for matching meets the following criteria:
@@ -232,7 +236,7 @@ private func matchIpAddress(socketAddress: SocketAddress, certificateIP: _Subjec
 /// ideal: it'd be better to do a single search that both validates the domain name meets the criteria
 /// and that also records information needed to validate that the name matches the one we're searching for.
 /// That's what this structure does.
-fileprivate struct AnalysedCertificateHostname {
+private struct AnalysedCertificateHostname {
     /// The type we use to store the base name. The other types on this object are chosen relative to that.
     fileprivate typealias BaseNameType = ArraySlice<UInt8>
 
@@ -246,8 +250,8 @@ fileprivate struct AnalysedCertificateHostname {
 
         // Ok, start looping.
         var index = baseName.startIndex
-        var firstPeriodIndex: Optional<BaseNameType.Index> = nil
-        var asteriskIndex: Optional<BaseNameType.Index> = nil
+        var firstPeriodIndex: BaseNameType.Index? = nil
+        var asteriskIndex: BaseNameType.Index? = nil
 
         while index < baseName.endIndex {
             switch baseName[index] {
@@ -296,7 +300,7 @@ fileprivate struct AnalysedCertificateHostname {
             // For non-wildcard names, we just do a straightforward string comparison.
             return baseName.caseInsensitiveElementsEqual(target)
 
-        case .wildcard(let baseName, asteriskIndex: let asteriskIndex, firstPeriodIndex: let firstPeriodIndex):
+        case .wildcard(let baseName, let asteriskIndex, let firstPeriodIndex):
             // The wildcard can appear more-or-less anywhere in the first label. The wildcard
             // character itself can match any number of characters, though it must match at least
             // one.
@@ -332,11 +336,9 @@ fileprivate struct AnalysedCertificateHostname {
     }
 }
 
-
 extension AnalysedCertificateHostname {
     private enum NameType {
-        case wildcard(BaseNameType, asteriskIndex: BaseNameType.Index, firstPeriodIndex: Optional<BaseNameType.Index>)
+        case wildcard(BaseNameType, asteriskIndex: BaseNameType.Index, firstPeriodIndex: BaseNameType.Index?)
         case singleName(BaseNameType)
     }
 }
-

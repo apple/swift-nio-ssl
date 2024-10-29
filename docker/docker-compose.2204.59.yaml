@@ -9,26 +9,7 @@ services:
         ubuntu_version: "jammy"
         swift_version: "5.9"
 
-  unit-tests:
-    image: swift-nio-ssl:22.04-5.9
-
-  integration-tests:
-    image: swift-nio-ssl:22.04-5.9
-
-  documentation-check:
-    image: swift-nio-ssl:22.04-5.9
-
-  test:
-    image: swift-nio-ssl:22.04-5.9
-    environment:
-      - MAX_ALLOCS_ALLOWED_simple_handshake=743000
-      - MAX_ALLOCS_ALLOWED_many_writes=201000
-      - IMPORT_CHECK_ARG=--explicit-target-dependency-import-check error
-
   performance-test:
-    image: swift-nio-ssl:22.04-5.9
-
-  cxx-interop-build:
     image: swift-nio-ssl:22.04-5.9
 
   shell:

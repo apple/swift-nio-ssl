@@ -12,12 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
 import NIOCore
 import NIOPosix
-import NIOTLS
 import NIOSSL
-
+import NIOTLS
+import XCTest
 
 class ClientSNITests: XCTestCase {
     static var cert: NIOSSLCertificate!
@@ -49,21 +48,30 @@ class ClientSNITests: XCTestCase {
         }
 
         let sniPromise: EventLoopPromise<SNIResult> = group.next().makePromise()
-        let sniHandler = ByteToMessageHandler(SNIHandler {
-            sniPromise.succeed($0)
-            return group.next().makeSucceededFuture(())
-        })
-        let serverChannel = try serverTLSChannel(context: context, preHandlers: [sniHandler], postHandlers: [], group: group)
+        let sniHandler = ByteToMessageHandler(
+            SNIHandler {
+                sniPromise.succeed($0)
+                return group.next().makeSucceededFuture(())
+            }
+        )
+        let serverChannel = try serverTLSChannel(
+            context: context,
+            preHandlers: [sniHandler],
+            postHandlers: [],
+            group: group
+        )
         defer {
             _ = try? serverChannel.close().wait()
         }
 
-        let clientChannel = try clientTLSChannel(context: context,
-                                                 preHandlers: [],
-                                                 postHandlers: [],
-                                                 group: group,
-                                                 connectingTo: serverChannel.localAddress!,
-                                                 serverHostname: sniField)
+        let clientChannel = try clientTLSChannel(
+            context: context,
+            preHandlers: [],
+            postHandlers: [],
+            group: group,
+            connectingTo: serverChannel.localAddress!,
+            serverHostname: sniField
+        )
         defer {
             _ = try? clientChannel.close().wait()
         }
@@ -84,22 +92,24 @@ class ClientSNITests: XCTestCase {
         let context = try configuredSSLContext()
 
         let testString = "192.168.0.1"
-        XCTAssertThrowsError(try NIOSSLClientTLSProvider<ClientBootstrap>(context: context, serverHostname: testString)) { error in
+        XCTAssertThrowsError(try NIOSSLClientTLSProvider<ClientBootstrap>(context: context, serverHostname: testString))
+        { error in
             XCTAssertEqual(.cannotUseIPAddressInSNI, error as? NIOSSLExtraError)
         }
-        XCTAssertThrowsError(try NIOSSLClientHandler(context: context, serverHostname: testString)){ error in
+        XCTAssertThrowsError(try NIOSSLClientHandler(context: context, serverHostname: testString)) { error in
             XCTAssertEqual(.cannotUseIPAddressInSNI, error as? NIOSSLExtraError)
         }
     }
 
     func testSNIIsRejectedForIPv6Addresses() throws {
         let context = try configuredSSLContext()
-        
+
         let testString = "fe80::200:f8ff:fe21:67cf"
-        XCTAssertThrowsError(try NIOSSLClientTLSProvider<ClientBootstrap>(context: context, serverHostname: testString)) { error in
+        XCTAssertThrowsError(try NIOSSLClientTLSProvider<ClientBootstrap>(context: context, serverHostname: testString))
+        { error in
             XCTAssertEqual(.cannotUseIPAddressInSNI, error as? NIOSSLExtraError)
         }
-        XCTAssertThrowsError(try NIOSSLClientHandler(context: context, serverHostname: testString)){ error in
+        XCTAssertThrowsError(try NIOSSLClientHandler(context: context, serverHostname: testString)) { error in
             XCTAssertEqual(.cannotUseIPAddressInSNI, error as? NIOSSLExtraError)
         }
 
@@ -109,10 +119,11 @@ class ClientSNITests: XCTestCase {
         let context = try configuredSSLContext()
 
         let testString = ""
-        XCTAssertThrowsError(try NIOSSLClientTLSProvider<ClientBootstrap>(context: context, serverHostname: testString)) { error in
+        XCTAssertThrowsError(try NIOSSLClientTLSProvider<ClientBootstrap>(context: context, serverHostname: testString))
+        { error in
             XCTAssertEqual(.invalidSNIHostname, error as? NIOSSLExtraError)
         }
-        XCTAssertThrowsError(try NIOSSLClientHandler(context: context, serverHostname: testString)){ error in
+        XCTAssertThrowsError(try NIOSSLClientHandler(context: context, serverHostname: testString)) { error in
             XCTAssertEqual(.invalidSNIHostname, error as? NIOSSLExtraError)
         }
     }
@@ -121,10 +132,11 @@ class ClientSNITests: XCTestCase {
         let context = try configuredSSLContext()
 
         let testString = String(repeating: "x", count: 256)
-        XCTAssertThrowsError(try NIOSSLClientTLSProvider<ClientBootstrap>(context: context, serverHostname: testString)) { error in
+        XCTAssertThrowsError(try NIOSSLClientTLSProvider<ClientBootstrap>(context: context, serverHostname: testString))
+        { error in
             XCTAssertEqual(.invalidSNIHostname, error as? NIOSSLExtraError)
         }
-        XCTAssertThrowsError(try NIOSSLClientHandler(context: context, serverHostname: testString)){ error in
+        XCTAssertThrowsError(try NIOSSLClientHandler(context: context, serverHostname: testString)) { error in
             XCTAssertEqual(.invalidSNIHostname, error as? NIOSSLExtraError)
         }
     }
@@ -133,7 +145,8 @@ class ClientSNITests: XCTestCase {
         let context = try configuredSSLContext()
 
         let testString = String(UnicodeScalar(0)!)
-        XCTAssertThrowsError(try NIOSSLClientTLSProvider<ClientBootstrap>(context: context, serverHostname: testString)) { error in
+        XCTAssertThrowsError(try NIOSSLClientTLSProvider<ClientBootstrap>(context: context, serverHostname: testString))
+        { error in
             XCTAssertEqual(.invalidSNIHostname, error as? NIOSSLExtraError)
         }
         XCTAssertThrowsError(try NIOSSLClientHandler(context: context, serverHostname: testString)) { error in
@@ -144,7 +157,7 @@ class ClientSNITests: XCTestCase {
     func testSNIIsNotRejectedForAnyOfTheFirst1000CodeUnits() throws {
         let context = try configuredSSLContext()
 
-        for testString in (1...Int(1000)).compactMap({ UnicodeScalar($0).map({ String($0) })}) {
+        for testString in (1...Int(1000)).compactMap({ UnicodeScalar($0).map({ String($0) }) }) {
             XCTAssertNoThrow(try NIOSSLClientHandler(context: context, serverHostname: testString))
             XCTAssertNoThrow(try NIOSSLClientTLSProvider<ClientBootstrap>(context: context, serverHostname: testString))
         }
@@ -154,7 +167,7 @@ class ClientSNITests: XCTestCase {
         let context = try configuredSSLContext()
 
         let testString = "😎🥶💥🏴󠁧󠁢󠁥󠁮󠁧󠁿👩‍💻"
-        XCTAssertLessThanOrEqual(testString.utf8.count, 255) // just to check we didn't make this too large.
+        XCTAssertLessThanOrEqual(testString.utf8.count, 255)  // just to check we didn't make this too large.
         XCTAssertNoThrow(try NIOSSLClientHandler(context: context, serverHostname: testString))
         XCTAssertNoThrow(try NIOSSLClientTLSProvider<ClientBootstrap>(context: context, serverHostname: testString))
     }

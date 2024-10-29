@@ -31,6 +31,6 @@ private let rootCADirectorySearchPaths = [
 ]
 
 private func locateRootCADirectory() -> String? {
-    return rootCADirectorySearchPaths.first(where: { FileSystemObject.pathType(path: $0) == .directory })
+    rootCADirectorySearchPaths.first(where: { FileSystemObject.pathType(path: $0) == .directory })
 }
 #endif

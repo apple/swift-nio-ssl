@@ -22,33 +22,13 @@ services:
       - CAP_NET_RAW
       - CAP_NET_BIND_SERVICE
 
-  soundness:
-    <<: *common
-    command: /bin/bash -xcl "./scripts/soundness.sh"
-
-  unit-tests:
-    <<: *common
-    command: /bin/bash -xcl "swift test -Xswiftc -warnings-as-errors --enable-test-discovery"
-
-  integration-tests:
-    <<: *common
-    command: /bin/bash -xcl "./scripts/integration_tests.sh"
-
-  documentation-check:
-    <<: *common
-    command: /bin/bash -xcl "./scripts/check-docs.sh"
-
   test:
     <<: *common
-    command: /bin/bash -xcl "swift test -Xswiftc -warnings-as-errors --enable-test-discovery $${SANITIZER_ARG-} $${IMPORT_CHECK_ARG-} && ./scripts/integration_tests.sh"
+    command: /bin/bash -xcl "./scripts/integration_tests.sh"
 
   performance-test:
     <<: *common
     command: /bin/bash -xcl "swift build -c release && ./.build/release/NIOSSLPerformanceTester"
-    
-  cxx-interop-build:
-    <<: *common
-    command: /bin/bash -xcl "./scripts/cxx-interop-compatibility.sh"
 
   # util
 

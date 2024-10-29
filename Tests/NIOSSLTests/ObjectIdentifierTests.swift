@@ -12,9 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
-@testable import NIOSSL
 @_implementationOnly import CNIOBoringSSL
+import XCTest
+
+@testable import NIOSSL
 
 private final class OIDMemoryOwner {
     var reference: OpaquePointer!
@@ -40,61 +41,70 @@ final class ObjectIdentifierTests: XCTestCase {
         )
         XCTAssertEqual(NIOSSLObjectIdentifier("1.2"), NIOSSLObjectIdentifier("1.2"))
         XCTAssertEqual(NIOSSLObjectIdentifier("1.2.3"), NIOSSLObjectIdentifier("1.2.3"))
-        
+
         XCTAssertNotEqual(NIOSSLObjectIdentifier("1"), NIOSSLObjectIdentifier("1.2"))
         XCTAssertNotEqual(NIOSSLObjectIdentifier("1.2"), NIOSSLObjectIdentifier("1.2.3"))
     }
-    
+
     func testHashable() {
-        XCTAssertEqual(Set([
-            NIOSSLObjectIdentifier("1.1"),
-        ]), Set([
-            NIOSSLObjectIdentifier("1.1"),
-        ]))
-        XCTAssertEqual(Set([
-            NIOSSLObjectIdentifier("1.1"),
-            NIOSSLObjectIdentifier("1.2"),
-        ]), Set([
-            NIOSSLObjectIdentifier("1.2"),
-            NIOSSLObjectIdentifier("1.1"),
-        ]))
+        XCTAssertEqual(
+            Set([
+                NIOSSLObjectIdentifier("1.1")
+            ]),
+            Set([
+                NIOSSLObjectIdentifier("1.1")
+            ])
+        )
+        XCTAssertEqual(
+            Set([
+                NIOSSLObjectIdentifier("1.1"),
+                NIOSSLObjectIdentifier("1.2"),
+            ]),
+            Set([
+                NIOSSLObjectIdentifier("1.2"),
+                NIOSSLObjectIdentifier("1.1"),
+            ])
+        )
     }
-    
+
     func testCustomStringConvertible() {
         XCTAssertEqual(NIOSSLObjectIdentifier("1.1")?.description, "1.1")
         XCTAssertEqual(NIOSSLObjectIdentifier("1.2")?.description, "1.2")
         XCTAssertEqual(NIOSSLObjectIdentifier("1.2.3")?.description, "1.2.3")
         XCTAssertEqual(NIOSSLObjectIdentifier("1.2.3.4")?.description, "1.2.3.4")
     }
-    
+
     func testUnowned() {
         var owner: Optional = OIDMemoryOwner("1.2.3")!
         weak var weakReferenceToOwner = owner
-        
+
         var oid: Optional = NIOSSLObjectIdentifier(borrowing: owner!.reference, owner: owner!)
         XCTAssertEqual(oid?.description, "1.2.3")
-        
+
         owner = nil
         XCTAssertNotNil(weakReferenceToOwner, "OID should still have a strong reference to the owner")
-        
+
         XCTAssertEqual(oid?.description, "1.2.3")
-        
+
         oid = nil
-        XCTAssertNil(weakReferenceToOwner, "OID is released and therefore no one should still have a strong reference to the owner")
+        XCTAssertNil(
+            weakReferenceToOwner,
+            "OID is released and therefore no one should still have a strong reference to the owner"
+        )
     }
-    
+
     func testCopy() {
         var owner: Optional = OIDMemoryOwner("1.2.3")!
         weak var weakReferenceToOwner = owner
-        
+
         let oid: Optional = withExtendedLifetime(owner) {
             NIOSSLObjectIdentifier(copyOf: $0?.reference)
         }
-        
+
         XCTAssertEqual(oid?.description, "1.2.3")
         owner = nil
         XCTAssertNil(weakReferenceToOwner, "OID should no longer have a strong reference to the owner")
-        
+
         XCTAssertEqual(oid?.description, "1.2.3", "copy should still work after the original owner is deallocated")
     }
 }
