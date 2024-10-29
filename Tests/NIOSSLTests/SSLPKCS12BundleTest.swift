@@ -564,10 +564,12 @@ class SSLPKCS12BundleTest: XCTestCase {
         let pkcs12 = try bundle.serialize(passphrase: "thisisagreatpassword".utf8)
 
         // And then try decoding it into a NIOSSLPKCS12Bundle, but with the wrong passphrase
-        XCTAssertThrowsError(try NIOSSLPKCS12Bundle(
-            buffer: pkcs12,
-            passphrase: "thisisagreatpasswordbutnottherightone".utf8
-        )) { error in
+        XCTAssertThrowsError(
+            try NIOSSLPKCS12Bundle(
+                buffer: pkcs12,
+                passphrase: "thisisagreatpasswordbutnottherightone".utf8
+            )
+        ) { error in
             XCTAssertNotNil(error as? BoringSSLError)
         }
     }
