@@ -192,6 +192,11 @@ extension NIOSSLPKCS12Bundle {
         }
 
         let certificateChainStack = CNIOBoringSSL_sk_X509_new(nil)
+
+        defer {
+            CNIOBoringSSL_sk_X509_pop_free(certificateChainStack, CNIOBoringSSL_X509_free)
+        }
+
         for additionalCertificate in self.certificateChain.dropFirst() {
             let result = additionalCertificate.withUnsafeMutableX509Pointer { certificate in
                 CNIOBoringSSL_X509_up_ref(certificate)
@@ -200,10 +205,6 @@ extension NIOSSLPKCS12Bundle {
             if result == 0 {
                 fatalError("Failed to add certificate to chain")
             }
-        }
-
-        defer {
-            CNIOBoringSSL_sk_X509_pop_free(certificateChainStack, CNIOBoringSSL_X509_free)
         }
 
         let pkcs12 = try passphrase.withSecureCString { passphrase in
