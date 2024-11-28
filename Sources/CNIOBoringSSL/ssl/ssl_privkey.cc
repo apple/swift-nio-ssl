@@ -68,8 +68,8 @@
 #include <CNIOBoringSSL_mem.h>
 #include <CNIOBoringSSL_span.h>
 
-#include "internal.h"
 #include "../crypto/internal.h"
+#include "internal.h"
 
 
 BSSL_NAMESPACE_BEGIN
@@ -371,7 +371,7 @@ int SSL_use_RSAPrivateKey(SSL *ssl, RSA *rsa) {
   }
 
   UniquePtr<EVP_PKEY> pkey(EVP_PKEY_new());
-  if (!pkey ||
+  if (!pkey ||  //
       !EVP_PKEY_set1_RSA(pkey.get(), rsa)) {
     OPENSSL_PUT_ERROR(SSL, ERR_R_EVP_LIB);
     return 0;
@@ -424,8 +424,7 @@ int SSL_CTX_use_RSAPrivateKey(SSL_CTX *ctx, RSA *rsa) {
   }
 
   UniquePtr<EVP_PKEY> pkey(EVP_PKEY_new());
-  if (!pkey ||
-      !EVP_PKEY_set1_RSA(pkey.get(), rsa)) {
+  if (!pkey || !EVP_PKEY_set1_RSA(pkey.get(), rsa)) {
     OPENSSL_PUT_ERROR(SSL, ERR_R_EVP_LIB);
     return 0;
   }
@@ -603,7 +602,7 @@ static bool set_sigalg_prefs(Array<uint16_t> *out, Span<const uint16_t> prefs) {
 
   // Check for invalid algorithms, and filter out |SSL_SIGN_RSA_PKCS1_MD5_SHA1|.
   Array<uint16_t> filtered;
-  if (!filtered.Init(prefs.size())) {
+  if (!filtered.InitForOverwrite(prefs.size())) {
     return false;
   }
   size_t added = 0;
@@ -695,13 +694,13 @@ static bool parse_sigalg_pairs(Array<uint16_t> *out, const int *values,
   }
 
   const size_t num_pairs = num_values / 2;
-  if (!out->Init(num_pairs)) {
+  if (!out->InitForOverwrite(num_pairs)) {
     return false;
   }
 
   for (size_t i = 0; i < num_values; i += 2) {
     const int hash_nid = values[i];
-    const int pkey_type = values[i+1];
+    const int pkey_type = values[i + 1];
 
     bool found = false;
     for (const auto &candidate : kSignatureAlgorithmsMapping) {
@@ -771,7 +770,7 @@ static bool parse_sigalgs_list(Array<uint16_t> *out, const char *str) {
     }
   }
 
-  if (!out->Init(num_elements)) {
+  if (!out->InitForOverwrite(num_elements)) {
     return false;
   }
   size_t out_i = 0;
@@ -789,7 +788,7 @@ static bool parse_sigalgs_list(Array<uint16_t> *out, const char *str) {
   int pkey_type = 0, hash_nid = 0;
 
   // Note that the loop runs to len+1, i.e. it'll process the terminating NUL.
-  for (size_t offset = 0; offset < len+1; offset++) {
+  for (size_t offset = 0; offset < len + 1; offset++) {
     const unsigned char c = str[offset];
 
     switch (c) {
@@ -808,7 +807,7 @@ static bool parse_sigalgs_list(Array<uint16_t> *out, const char *str) {
 
         if (strcmp(buf, "RSA") == 0) {
           pkey_type = EVP_PKEY_RSA;
-        } else if (strcmp(buf, "RSA-PSS") == 0 ||
+        } else if (strcmp(buf, "RSA-PSS") == 0 ||  //
                    strcmp(buf, "PSS") == 0) {
           pkey_type = EVP_PKEY_RSA_PSS;
         } else if (strcmp(buf, "ECDSA") == 0) {

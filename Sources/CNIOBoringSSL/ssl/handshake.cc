@@ -126,6 +126,8 @@ BSSL_NAMESPACE_BEGIN
 
 SSL_HANDSHAKE::SSL_HANDSHAKE(SSL *ssl_arg)
     : ssl(ssl_arg),
+      transcript(SSL_is_dtls(ssl_arg)),
+      inner_transcript(SSL_is_dtls(ssl_arg)),
       ech_is_inner(false),
       ech_authenticated_reject(false),
       scts_requested(false),
@@ -140,6 +142,7 @@ SSL_HANDSHAKE::SSL_HANDSHAKE(SSL *ssl_arg)
       early_data_offered(false),
       can_early_read(false),
       can_early_write(false),
+      is_early_version(false),
       next_proto_neg_seen(false),
       ticket_expected(false),
       extended_master_secret(false),
@@ -162,13 +165,6 @@ SSL_HANDSHAKE::SSL_HANDSHAKE(SSL *ssl_arg)
 
 SSL_HANDSHAKE::~SSL_HANDSHAKE() {
   ssl->ctx->x509_method->hs_flush_cached_ca_names(this);
-}
-
-void SSL_HANDSHAKE::ResizeSecrets(size_t hash_len) {
-  if (hash_len > SSL_MAX_MD_SIZE) {
-    abort();
-  }
-  hash_len_ = hash_len;
 }
 
 bool SSL_HANDSHAKE::GetClientHello(SSLMessage *out_msg,
@@ -603,8 +599,10 @@ int ssl_run_handshake(SSL_HANDSHAKE *hs, bool *out_early_return) {
         ERR_restore_state(hs->error.get());
         return -1;
 
+      case ssl_hs_flush_post_handshake:
       case ssl_hs_flush: {
-        int ret = ssl->method->flush_flight(ssl);
+        bool post_handshake = hs->wait == ssl_hs_flush_post_handshake;
+        int ret = ssl->method->flush_flight(ssl, post_handshake);
         if (ret <= 0) {
           return ret;
         }
@@ -682,7 +680,7 @@ int ssl_run_handshake(SSL_HANDSHAKE *hs, bool *out_early_return) {
         return -1;
 
       case ssl_hs_handback: {
-        int ret = ssl->method->flush_flight(ssl);
+        int ret = ssl->method->flush_flight(ssl, /*post_handshake=*/false);
         if (ret <= 0) {
           return ret;
         }
@@ -734,6 +732,15 @@ int ssl_run_handshake(SSL_HANDSHAKE *hs, bool *out_early_return) {
       case ssl_hs_hints_ready:
         ssl->s3->rwstate = SSL_ERROR_HANDSHAKE_HINTS_READY;
         return -1;
+
+      case ssl_hs_ack:
+        if (ssl->method->send_ack != nullptr) {
+          int ret = ssl->method->send_ack(ssl);
+          if (ret <= 0) {
+            return ret;
+          }
+        }
+        break;
 
       case ssl_hs_ok:
         break;

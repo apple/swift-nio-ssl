@@ -115,8 +115,8 @@
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_mem.h>
 
-#include "internal.h"
 #include "../crypto/internal.h"
+#include "internal.h"
 
 
 BSSL_NAMESPACE_BEGIN
@@ -204,8 +204,8 @@ ssl_open_record_t tls_open_record(SSL *ssl, uint8_t *out_type,
   // Decode the record header.
   uint8_t type;
   uint16_t version, ciphertext_len;
-  if (!CBS_get_u8(&cbs, &type) ||
-      !CBS_get_u16(&cbs, &version) ||
+  if (!CBS_get_u8(&cbs, &type) ||      //
+      !CBS_get_u16(&cbs, &version) ||  //
       !CBS_get_u16(&cbs, &ciphertext_len)) {
     *out_consumed = SSL3_RT_HEADER_LENGTH;
     return ssl_open_record_partial;
@@ -246,8 +246,9 @@ ssl_open_record_t tls_open_record(SSL *ssl, uint8_t *out_type,
   *out_consumed = in.size() - CBS_len(&cbs);
 
   // In TLS 1.3, during the handshake, skip ChangeCipherSpec records.
-  if (ssl->s3->version != 0 && ssl_protocol_version(ssl) >= TLS1_3_VERSION &&
-      SSL_in_init(ssl) && type == SSL3_RT_CHANGE_CIPHER_SPEC &&
+  if (ssl_has_final_version(ssl) &&
+      ssl_protocol_version(ssl) >= TLS1_3_VERSION && SSL_in_init(ssl) &&
+      type == SSL3_RT_CHANGE_CIPHER_SPEC &&
       Span<const uint8_t>(body) == Span<const uint8_t>({SSL3_MT_CCS})) {
     ssl->s3->empty_record_count++;
     if (ssl->s3->empty_record_count > kMaxEmptyRecords) {
@@ -260,8 +261,8 @@ ssl_open_record_t tls_open_record(SSL *ssl, uint8_t *out_type,
 
   // Skip early data received when expecting a second ClientHello if we rejected
   // 0RTT.
-  if (ssl->s3->skip_early_data &&
-      ssl->s3->aead_read_ctx->is_null_cipher() &&
+  if (ssl->s3->skip_early_data &&                  //
+      ssl->s3->aead_read_ctx->is_null_cipher() &&  //
       type == SSL3_RT_APPLICATION_DATA) {
     return skip_early_data(ssl, out_alert, *out_consumed);
   }
@@ -342,7 +343,7 @@ ssl_open_record_t tls_open_record(SSL *ssl, uint8_t *out_type,
   }
 
   // Handshake messages may not interleave with any other record type.
-  if (type != SSL3_RT_HANDSHAKE &&
+  if (type != SSL3_RT_HANDSHAKE &&  //
       tls_has_unprocessed_handshake_data(ssl)) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_UNEXPECTED_RECORD);
     *out_alert = SSL_AD_UNEXPECTED_MESSAGE;
@@ -442,7 +443,8 @@ static bool tls_seal_scatter_suffix_len(const SSL *ssl, size_t *out_suffix_len,
     in_len -= 1;
   }
   // clang-format on
-  return ssl->s3->aead_write_ctx->SuffixLen(out_suffix_len, in_len, extra_in_len);
+  return ssl->s3->aead_write_ctx->SuffixLen(out_suffix_len, in_len,
+                                            extra_in_len);
 }
 
 // tls_seal_scatter_record seals a new record of type |type| and body |in| and
@@ -559,7 +561,8 @@ enum ssl_open_record_t ssl_process_alert(SSL *ssl, uint8_t *out_alert,
     // without specifying how to handle it. JDK11 misuses it to signal
     // full-duplex connection close after the handshake. As a workaround, skip
     // user_canceled as in TLS 1.2. This matches NSS and OpenSSL.
-    if (ssl->s3->version != 0 && ssl_protocol_version(ssl) >= TLS1_3_VERSION &&
+    if (ssl_has_final_version(ssl) &&
+        ssl_protocol_version(ssl) >= TLS1_3_VERSION &&
         alert_descr != SSL_AD_USER_CANCELLED) {
       *out_alert = SSL_AD_DECODE_ERROR;
       OPENSSL_PUT_ERROR(SSL, SSL_R_BAD_ALERT);
@@ -593,7 +596,8 @@ using namespace bssl;
 
 size_t SSL_max_seal_overhead(const SSL *ssl) {
   if (SSL_is_dtls(ssl)) {
-    return dtls_max_seal_overhead(ssl, ssl->d1->w_epoch);
+    // TODO(crbug.com/42290594): Use the 0-RTT epoch if writing 0-RTT.
+    return dtls_max_seal_overhead(ssl, ssl->d1->write_epoch.epoch());
   }
 
   size_t ret = SSL3_RT_HEADER_LENGTH;

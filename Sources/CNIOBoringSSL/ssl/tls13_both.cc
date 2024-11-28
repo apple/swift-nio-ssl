@@ -169,9 +169,9 @@ bool tls13_process_certificate(SSL_HANDSHAKE *hs, const SSLMessage &msg,
   }
 
   CBS context, certificate_list;
-  if (!CBS_get_u8_length_prefixed(&body, &context) ||
-      CBS_len(&context) != 0 ||
-      !CBS_get_u24_length_prefixed(&body, &certificate_list) ||
+  if (!CBS_get_u8_length_prefixed(&body, &context) ||            //
+      CBS_len(&context) != 0 ||                                  //
+      !CBS_get_u24_length_prefixed(&body, &certificate_list) ||  //
       CBS_len(&body) != 0) {
     ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_DECODE_ERROR);
     OPENSSL_PUT_ERROR(SSL, SSL_R_DECODE_ERROR);
@@ -221,7 +221,7 @@ bool tls13_process_certificate(SSL_HANDSHAKE *hs, const SSLMessage &msg,
 
     UniquePtr<CRYPTO_BUFFER> buf(
         CRYPTO_BUFFER_new_from_CBS(&certificate, ssl->ctx->pool));
-    if (!buf ||
+    if (!buf ||  //
         !PushToStack(certs.get(), std::move(buf))) {
       ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_INTERNAL_ERROR);
       return false;
@@ -249,8 +249,7 @@ bool tls13_process_certificate(SSL_HANDSHAKE *hs, const SSLMessage &msg,
       if (!CBS_get_u8(&status_request.data, &status_type) ||
           status_type != TLSEXT_STATUSTYPE_ocsp ||
           !CBS_get_u24_length_prefixed(&status_request.data, &ocsp_response) ||
-          CBS_len(&ocsp_response) == 0 ||
-          CBS_len(&status_request.data) != 0) {
+          CBS_len(&ocsp_response) == 0 || CBS_len(&status_request.data) != 0) {
         ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_DECODE_ERROR);
         return false;
       }
@@ -317,7 +316,8 @@ bool tls13_process_certificate(SSL_HANDSHAKE *hs, const SSLMessage &msg,
   return true;
 }
 
-bool tls13_process_certificate_verify(SSL_HANDSHAKE *hs, const SSLMessage &msg) {
+bool tls13_process_certificate_verify(SSL_HANDSHAKE *hs,
+                                      const SSLMessage &msg) {
   SSL *const ssl = hs->ssl;
   if (hs->peer_pubkey == NULL) {
     OPENSSL_PUT_ERROR(SSL, ERR_R_INTERNAL_ERROR);
@@ -326,8 +326,8 @@ bool tls13_process_certificate_verify(SSL_HANDSHAKE *hs, const SSLMessage &msg) 
 
   CBS body = msg.body, signature;
   uint16_t signature_algorithm;
-  if (!CBS_get_u16(&body, &signature_algorithm) ||
-      !CBS_get_u16_length_prefixed(&body, &signature) ||
+  if (!CBS_get_u16(&body, &signature_algorithm) ||        //
+      !CBS_get_u16_length_prefixed(&body, &signature) ||  //
       CBS_len(&body) != 0) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_DECODE_ERROR);
     ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_DECODE_ERROR);
@@ -367,7 +367,7 @@ bool tls13_process_finished(SSL_HANDSHAKE *hs, const SSLMessage &msg,
   Span<const uint8_t> verify_data;
   if (use_saved_value) {
     assert(ssl->server);
-    verify_data = hs->expected_client_finished();
+    verify_data = hs->expected_client_finished;
   } else {
     size_t len;
     if (!tls13_finished_mac(hs, verify_data_buf, &len, !ssl->server)) {
@@ -409,7 +409,7 @@ bool tls13_add_certificate(SSL_HANDSHAKE *hs) {
     }
   }
 
-  if (// The request context is always empty in the handshake.
+  if (  // The request context is always empty in the handshake.
       !CBB_add_u8(body, 0) ||
       !CBB_add_u24_length_prefixed(body, &certificate_list)) {
     OPENSSL_PUT_ERROR(SSL, ERR_R_INTERNAL_ERROR);
@@ -588,7 +588,7 @@ enum ssl_private_key_result_t tls13_add_certificate_verify(SSL_HANDSHAKE *hs) {
     return sign_result;
   }
 
-  if (!CBB_did_write(&child, sig_len) ||
+  if (!CBB_did_write(&child, sig_len) ||  //
       !ssl_add_message_cbb(ssl, cbb.get())) {
     return ssl_private_key_failure;
   }
@@ -640,9 +640,9 @@ bool tls13_add_key_update(SSL *ssl, int update_requested) {
 static bool tls13_receive_key_update(SSL *ssl, const SSLMessage &msg) {
   CBS body = msg.body;
   uint8_t key_update_request;
-  if (!CBS_get_u8(&body, &key_update_request) ||
-      CBS_len(&body) != 0 ||
-      (key_update_request != SSL_KEY_UPDATE_NOT_REQUESTED &&
+  if (!CBS_get_u8(&body, &key_update_request) ||              //
+      CBS_len(&body) != 0 ||                                  //
+      (key_update_request != SSL_KEY_UPDATE_NOT_REQUESTED &&  //
        key_update_request != SSL_KEY_UPDATE_REQUESTED)) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_DECODE_ERROR);
     ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_DECODE_ERROR);
@@ -664,7 +664,15 @@ static bool tls13_receive_key_update(SSL *ssl, const SSLMessage &msg) {
 }
 
 bool tls13_post_handshake(SSL *ssl, const SSLMessage &msg) {
+  if (msg.type == SSL3_MT_NEW_SESSION_TICKET && !ssl->server) {
+    return tls13_process_new_session_ticket(ssl, msg);
+  }
+
   if (msg.type == SSL3_MT_KEY_UPDATE) {
+    if (SSL_is_dtls(ssl)) {
+      // TODO(crbug.com/42290594): Process post-handshake messages in DTLS 1.3.
+      return true;
+    }
     ssl->s3->key_update_count++;
     if (ssl->quic_method != nullptr ||
         ssl->s3->key_update_count > kMaxKeyUpdates) {
@@ -677,10 +685,6 @@ bool tls13_post_handshake(SSL *ssl, const SSLMessage &msg) {
   }
 
   ssl->s3->key_update_count = 0;
-
-  if (msg.type == SSL3_MT_NEW_SESSION_TICKET && !ssl->server) {
-    return tls13_process_new_session_ticket(ssl, msg);
-  }
 
   ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_UNEXPECTED_MESSAGE);
   OPENSSL_PUT_ERROR(SSL, SSL_R_UNEXPECTED_MESSAGE);

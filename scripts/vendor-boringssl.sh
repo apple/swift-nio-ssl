@@ -168,7 +168,7 @@ function mangle_cpp_structures {
         # (as those were put there by the Swift runtime, not us). This gives us a list of symbols. The following cut command
         # grabs the type name from each of those (the bit preceding the '::'). Then, we sort and uniqify that list.
         # Finally, we remove any symbol that ends in std. This gives us all the structures that need to be renamed.
-        structures=$(nm -gUj "$(swift build --show-bin-path)/libCNIOBoringSSL.a" | c++filt | grep "::" | grep -v -e "CNIOBoringSSL" -e "swift" | cut -d : -f1 | sort | uniq | grep -v "std$")
+        structures=$(nm -gUj "$(swift build --show-bin-path)/libCNIOBoringSSL.a" | c++filt | grep "::" | grep -v -e "CNIOBoringSSL" -e "swift" | cut -d : -f1 | grep -v "std$" | $sed -E -e 's/([^<>]*)(<[^<>]*>)?/\1/' | sort | uniq)
 
         for struct in ${structures}; do
             echo "#define ${struct} BORINGSSL_ADD_PREFIX(BORINGSSL_PREFIX, ${struct})" >> "${DSTROOT}/include/CNIOBoringSSL_boringssl_prefix_symbols.h"
@@ -201,7 +201,7 @@ rm -rf $DSTROOT/include
 rm -rf $DSTROOT/ssl
 rm -rf $DSTROOT/crypto
 rm -rf $DSTROOT/third_party
-rm -rf $DSTROOT/err_data.c
+rm -rf $DSTROOT/gen
 
 echo "CLONING boringssl"
 mkdir -p "$SRCROOT"
@@ -231,16 +231,15 @@ PATTERNS=(
 'ssl/*.h'
 'ssl/*.cc'
 'crypto/*.h'
-'crypto/*.c'
+'crypto/*.cc'
 'crypto/*/*.h'
-'crypto/*/*.c'
 'crypto/*/*.cc'
 'crypto/*/*.S'
 'crypto/*/*/*.h'
-'crypto/*/*/*.c.inc'
+'crypto/*/*/*.cc.inc'
 'crypto/*/*/*.S'
-'crypto/*/*/*/*.c.inc'
-'gen/crypto/*.c'
+'crypto/*/*/*/*.cc.inc'
+'gen/crypto/*.cc'
 'gen/crypto/*.S'
 'gen/bcm/*.S'
 'third_party/fiat/*.h'
@@ -252,7 +251,7 @@ EXCLUDES=(
 '*_test.*'
 'test_*.*'
 'test'
-'example_*.c'
+'example_*.cc'
 )
 
 echo "COPYING boringssl"
@@ -293,7 +292,7 @@ echo "RENAMING header files"
 
     # Now change the imports from "<openssl/X> to "<CNIOBoringSSL_X>", apply the same prefix to the 'boringssl_prefix_symbols' headers.
     # shellcheck disable=SC2038
-    find . -name "*.[ch]" -or -name "*.cc" -or -name "*.S" -or -name "*.c.inc" | xargs $sed -i -r -e 's#include <openssl/(([^/>]+/)*)(.+.h)>#include <\1CNIOBoringSSL_\3>#' -e 's+include <boringssl_prefix_symbols+include <CNIOBoringSSL_boringssl_prefix_symbols+' -e 's#include "openssl/(([^/>]+/)*)(.+.h)"#include "\1CNIOBoringSSL_\3"#'
+    find . -name "*.[ch]" -or -name "*.cc" -or -name "*.S" -or -name "*.cc.inc" | xargs $sed -i -r -e 's#include <openssl/(([^/>]+/)*)(.+.h)>#include <\1CNIOBoringSSL_\3>#' -e 's+include <boringssl_prefix_symbols+include <CNIOBoringSSL_boringssl_prefix_symbols+' -e 's#include "openssl/(([^/>]+/)*)(.+.h)"#include "\1CNIOBoringSSL_\3"#'
 
     # Okay now we need to rename the headers adding the prefix "CNIOBoringSSL_".
     pushd include

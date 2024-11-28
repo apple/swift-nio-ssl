@@ -111,7 +111,7 @@ extern "C" {
 // A consumer may use this symbol in the preprocessor to temporarily build
 // against multiple revisions of BoringSSL at the same time. It is not
 // recommended to do so for longer than is necessary.
-#define BORINGSSL_API_VERSION 32
+#define BORINGSSL_API_VERSION 33
 
 #if defined(BORINGSSL_SHARED_LIBRARY)
 
@@ -173,8 +173,8 @@ extern "C" {
 // https://sourceforge.net/p/mingw-w64/wiki2/gnu%20printf/.
 #if defined(__MINGW_PRINTF_FORMAT)
 #define OPENSSL_PRINTF_FORMAT_FUNC(string_index, first_to_check) \
-  __attribute__(                                                 \
-      (__format__(__MINGW_PRINTF_FORMAT, string_index, first_to_check)))
+  __attribute__((                                                \
+      __format__(__MINGW_PRINTF_FORMAT, string_index, first_to_check)))
 #else
 #define OPENSSL_PRINTF_FORMAT_FUNC(string_index, first_to_check) \
   __attribute__((__format__(__printf__, string_index, first_to_check)))
@@ -199,6 +199,13 @@ extern "C" {
 
 #if defined(__GNUC__) || defined(__clang__)
 #define OPENSSL_UNUSED __attribute__((unused))
+#elif defined(_MSC_VER)
+// __pragma wants to be on a separate line. The following is what it takes to
+// stop clang-format from messing with that.
+// clang-format off
+#define OPENSSL_UNUSED __pragma(warning(suppress : 4505)) \
+/* */
+// clang-format on
 #else
 #define OPENSSL_UNUSED
 #endif
@@ -440,7 +447,7 @@ extern "C++" {
 #define BORINGSSL_NO_CXX
 #endif
 
-}  // extern C++
+}       // extern C++
 #endif  // !BORINGSSL_NO_CXX
 
 #if defined(BORINGSSL_NO_CXX)
@@ -484,7 +491,7 @@ class StackAllocated {
   ~StackAllocated() { cleanup(&ctx_); }
 
   StackAllocated(const StackAllocated &) = delete;
-  StackAllocated& operator=(const StackAllocated &) = delete;
+  StackAllocated &operator=(const StackAllocated &) = delete;
 
   T *get() { return &ctx_; }
   const T *get() const { return &ctx_; }

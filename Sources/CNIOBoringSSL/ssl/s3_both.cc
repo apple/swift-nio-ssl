@@ -122,8 +122,8 @@
 #include <CNIOBoringSSL_bytestring.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_evp.h>
-#include <CNIOBoringSSL_mem.h>
 #include <CNIOBoringSSL_md5.h>
+#include <CNIOBoringSSL_mem.h>
 #include <CNIOBoringSSL_nid.h>
 #include <CNIOBoringSSL_rand.h>
 #include <CNIOBoringSSL_sha.h>
@@ -170,8 +170,8 @@ static bool add_record_to_flight(SSL *ssl, uint8_t type,
 
 bool tls_init_message(const SSL *ssl, CBB *cbb, CBB *body, uint8_t type) {
   // Pick a modest size hint to save most of the |realloc| calls.
-  if (!CBB_init(cbb, 64) ||
-      !CBB_add_u8(cbb, type) ||
+  if (!CBB_init(cbb, 64) ||      //
+      !CBB_add_u8(cbb, type) ||  //
       !CBB_add_u24_length_prefixed(cbb, body)) {
     OPENSSL_PUT_ERROR(SSL, ERR_R_INTERNAL_ERROR);
     CBB_cleanup(cbb);
@@ -192,7 +192,7 @@ bool tls_add_message(SSL *ssl, Array<uint8_t> msg) {
   // cipher. The benefit is smaller and there is a risk of breaking buggy
   // implementations.
   //
-  // TODO(davidben): See if we can do this uniformly.
+  // TODO(crbug.com/374991962): See if we can do this uniformly.
   Span<const uint8_t> rest = msg;
   if (ssl->quic_method == nullptr &&
       ssl->s3->aead_write_ctx->is_null_cipher()) {
@@ -234,7 +234,7 @@ bool tls_add_message(SSL *ssl, Array<uint8_t> msg) {
   ssl_do_msg_callback(ssl, 1 /* write */, SSL3_RT_HANDSHAKE, msg);
   // TODO(svaldez): Move this up a layer to fix abstraction for SSLTranscript on
   // hs.
-  if (ssl->s3->hs != NULL &&
+  if (ssl->s3->hs != NULL &&  //
       !ssl->s3->hs->transcript.Update(msg)) {
     return false;
   }
@@ -252,7 +252,7 @@ bool tls_flush_pending_hs_data(SSL *ssl) {
                     pending_hs_data->length);
   if (ssl->quic_method) {
     if ((ssl->s3->hs == nullptr || !ssl->s3->hs->hints_requested) &&
-        !ssl->quic_method->add_handshake_data(ssl, ssl->s3->write_level,
+        !ssl->quic_method->add_handshake_data(ssl, ssl->s3->quic_write_level,
                                               data.data(), data.size())) {
       OPENSSL_PUT_ERROR(SSL, SSL_R_QUIC_INTERNAL_ERROR);
       return false;
@@ -281,7 +281,7 @@ bool tls_add_change_cipher_spec(SSL *ssl) {
   return true;
 }
 
-int tls_flush_flight(SSL *ssl) {
+int tls_flush_flight(SSL *ssl, bool post_handshake) {
   if (!tls_flush_pending_hs_data(ssl)) {
     return -1;
   }
@@ -299,6 +299,15 @@ int tls_flush_flight(SSL *ssl) {
   }
 
   if (ssl->s3->pending_flight == nullptr) {
+    return 1;
+  }
+
+  if (post_handshake) {
+    // Don't flush post-handshake messages like NewSessionTicket until the
+    // server performs a write, to prevent a non-reading client from causing the
+    // server to hang in the case of a small server write buffer. Consumers
+    // which don't write data to the client will need to do a zero-byte write if
+    // they wish to flush the tickets.
     return 1;
   }
 
@@ -376,7 +385,7 @@ static ssl_open_record_t read_v2_client_hello(SSL *ssl, size_t *out_consumed,
     return ssl_open_record_partial;
   }
 
-  CBS v2_client_hello = CBS(ssl->s3->read_buffer.span().subspan(2, msg_length));
+  CBS v2_client_hello = CBS(in.subspan(2, msg_length));
   // The V2ClientHello without the length is incorporated into the handshake
   // hash. This is only ever called at the start of the handshake, so hs is
   // guaranteed to be non-NULL.
@@ -461,8 +470,8 @@ static ssl_open_record_t read_v2_client_hello(SSL *ssl, size_t *out_consumed,
   }
 
   // Add the null compression scheme and finish.
-  if (!CBB_add_u8(&hello_body, 1) ||
-      !CBB_add_u8(&hello_body, 0) ||
+  if (!CBB_add_u8(&hello_body, 1) ||  //
+      !CBB_add_u8(&hello_body, 0) ||  //
       !CBB_finish(client_hello.get(), NULL, &ssl->s3->hs_buf->length)) {
     OPENSSL_PUT_ERROR(SSL, ERR_R_INTERNAL_ERROR);
     return ssl_open_record_error;
@@ -484,7 +493,7 @@ static bool parse_message(const SSL *ssl, SSLMessage *out,
   uint32_t len;
   CBS_init(&cbs, reinterpret_cast<const uint8_t *>(ssl->s3->hs_buf->data),
            ssl->s3->hs_buf->length);
-  if (!CBS_get_u8(&cbs, &out->type) ||
+  if (!CBS_get_u8(&cbs, &out->type) ||  //
       !CBS_get_u24(&cbs, &len)) {
     *out_bytes_needed = 4;
     return false;
@@ -573,10 +582,10 @@ ssl_open_record_t tls_open_handshake(SSL *ssl, size_t *out_consumed,
     // Some dedicated error codes for protocol mixups should the application
     // wish to interpret them differently. (These do not overlap with
     // ClientHello or V2ClientHello.)
-    const char *str = reinterpret_cast<const char*>(in.data());
-    if (strncmp("GET ", str, 4) == 0 ||
-        strncmp("POST ", str, 5) == 0 ||
-        strncmp("HEAD ", str, 5) == 0 ||
+    const char *str = reinterpret_cast<const char *>(in.data());
+    if (strncmp("GET ", str, 4) == 0 ||   //
+        strncmp("POST ", str, 5) == 0 ||  //
+        strncmp("HEAD ", str, 5) == 0 ||  //
         strncmp("PUT ", str, 4) == 0) {
       OPENSSL_PUT_ERROR(SSL, SSL_R_HTTP_REQUEST);
       *out_alert = 0;
@@ -610,17 +619,6 @@ ssl_open_record_t tls_open_handshake(SSL *ssl, size_t *out_consumed,
     return ret;
   }
 
-  // WatchGuard's TLS 1.3 interference bug is very distinctive: they drop the
-  // ServerHello and send the remaining encrypted application data records
-  // as-is. This manifests as an application data record when we expect
-  // handshake. Report a dedicated error code for this case.
-  if (!ssl->server && type == SSL3_RT_APPLICATION_DATA &&
-      ssl->s3->aead_read_ctx->is_null_cipher()) {
-    OPENSSL_PUT_ERROR(SSL, SSL_R_APPLICATION_DATA_INSTEAD_OF_HANDSHAKE);
-    *out_alert = SSL_AD_UNEXPECTED_MESSAGE;
-    return ssl_open_record_error;
-  }
-
   if (type != SSL3_RT_HANDSHAKE) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_UNEXPECTED_RECORD);
     *out_alert = SSL_AD_UNEXPECTED_MESSAGE;
@@ -638,8 +636,8 @@ ssl_open_record_t tls_open_handshake(SSL *ssl, size_t *out_consumed,
 
 void tls_next_message(SSL *ssl) {
   SSLMessage msg;
-  if (!tls_get_message(ssl, &msg) ||
-      !ssl->s3->hs_buf ||
+  if (!tls_get_message(ssl, &msg) ||  //
+      !ssl->s3->hs_buf ||             //
       ssl->s3->hs_buf->length < CBS_len(&msg.raw)) {
     assert(0);
     return;
@@ -706,7 +704,7 @@ class CNsaCipherScorer : public CipherScorer {
   }
 };
 
-}
+}  // namespace
 
 bool ssl_tls13_cipher_meets_policy(uint16_t cipher_id,
                                    enum ssl_compliance_policy_t policy) {
@@ -754,9 +752,10 @@ const SSL_CIPHER *ssl_choose_tls13_cipher(CBS cipher_suites, bool has_aes_hw,
   const SSL_CIPHER *best = nullptr;
   AesHwCipherScorer aes_hw_scorer(has_aes_hw);
   CNsaCipherScorer cnsa_scorer;
-  CipherScorer *const scorer = (policy == ssl_compliance_policy_cnsa_202407)
-                                   ? static_cast<CipherScorer*>(&cnsa_scorer)
-                                   : static_cast<CipherScorer*>(&aes_hw_scorer);
+  CipherScorer *const scorer =
+      (policy == ssl_compliance_policy_cnsa_202407)
+          ? static_cast<CipherScorer *>(&cnsa_scorer)
+          : static_cast<CipherScorer *>(&aes_hw_scorer);
   CipherScorer::Score best_score = CipherScorer::kMinScore;
 
   while (CBS_len(&cipher_suites) > 0) {
