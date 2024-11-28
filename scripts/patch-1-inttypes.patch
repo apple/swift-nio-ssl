@@ -1,7 +1,7 @@
-diff --git a/Sources/CNIOBoringSSL/crypto/hrss/hrss.c b/Sources/CNIOBoringSSL/crypto/hrss/hrss.c
+diff --git a/Sources/CNIOBoringSSL/crypto/hrss/hrss.cc b/Sources/CNIOBoringSSL/crypto/hrss/hrss.cc
 index 93a214e..eee4e58 100644
---- a/Sources/CNIOBoringSSL/crypto/hrss/hrss.c
-+++ b/Sources/CNIOBoringSSL/crypto/hrss/hrss.c
+--- a/Sources/CNIOBoringSSL/crypto/hrss/hrss.cc
++++ b/Sources/CNIOBoringSSL/crypto/hrss/hrss.cc
 @@ -13,6 +13,7 @@
   * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
  

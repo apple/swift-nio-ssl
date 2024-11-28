@@ -1,7 +1,7 @@
-diff --git a/Sources/CNIOBoringSSL/crypto/x509/t_x509.c b/Sources/CNIOBoringSSL/crypto/x509/t_x509.c
+diff --git a/Sources/CNIOBoringSSL/crypto/x509/t_x509.cc b/Sources/CNIOBoringSSL/crypto/x509/t_x509.cc
 index 7a3acc8..c0bc1c5 100644
---- a/Sources/CNIOBoringSSL/crypto/x509/t_x509.c
-+++ b/Sources/CNIOBoringSSL/crypto/x509/t_x509.c
+--- a/Sources/CNIOBoringSSL/crypto/x509/t_x509.cc
++++ b/Sources/CNIOBoringSSL/crypto/x509/t_x509.cc
 @@ -55,6 +55,7 @@
   * [including the GNU Public Licence.] */
  
