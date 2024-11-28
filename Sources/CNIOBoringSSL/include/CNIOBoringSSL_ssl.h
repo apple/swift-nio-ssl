@@ -244,10 +244,8 @@ OPENSSL_EXPORT int SSL_is_dtls(const SSL *ssl);
 
 // SSL_set_bio configures |ssl| to read from |rbio| and write to |wbio|. |ssl|
 // takes ownership of the two |BIO|s. If |rbio| and |wbio| are the same, |ssl|
-// only takes ownership of one reference.
-//
-// In DTLS, |rbio| must be non-blocking to properly handle timeouts and
-// retransmits.
+// only takes ownership of one reference. See |SSL_set0_rbio| and
+// |SSL_set0_wbio| for requirements on |rbio| and |wbio|, respectively.
 //
 // If |rbio| is the same as the currently configured |BIO| for reading, that
 // side is left untouched and is not freed.
@@ -263,14 +261,19 @@ OPENSSL_EXPORT int SSL_is_dtls(const SSL *ssl);
 OPENSSL_EXPORT void SSL_set_bio(SSL *ssl, BIO *rbio, BIO *wbio);
 
 // SSL_set0_rbio configures |ssl| to read from |rbio|. It takes ownership of
-// |rbio|.
+// |rbio|. |rbio| may be a custom |BIO|, in which case it must implement
+// |BIO_read| with |BIO_meth_set_read|. In DTLS, |rbio| must be non-blocking to
+// properly handle timeouts and retransmits.
 //
 // Note that, although this function and |SSL_set0_wbio| may be called on the
 // same |BIO|, each call takes a reference. Use |BIO_up_ref| to balance this.
 OPENSSL_EXPORT void SSL_set0_rbio(SSL *ssl, BIO *rbio);
 
 // SSL_set0_wbio configures |ssl| to write to |wbio|. It takes ownership of
-// |wbio|.
+// |wbio|. |wbio| may be a custom |BIO|, in which case it must implement
+// |BIO_write| with |BIO_meth_set_write|. It must additionally implement
+// |BIO_flush| with |BIO_meth_set_ctrl| and |BIO_CTRL_FLUSH|. If flushing is
+// unnecessary with |wbio|, |BIO_flush| should return one and do nothing.
 //
 // Note that, although this function and |SSL_set0_rbio| may be called on the
 // same |BIO|, each call takes a reference. Use |BIO_up_ref| to balance this.
@@ -329,11 +332,19 @@ OPENSSL_EXPORT int SSL_set_wfd(SSL *ssl, int fd);
 // returns <= 0. The caller should pass the value into |SSL_get_error| to
 // determine how to proceed.
 //
-// In DTLS, the caller must drive retransmissions. Whenever |SSL_get_error|
-// signals |SSL_ERROR_WANT_READ|, use |DTLSv1_get_timeout| to determine the
-// current timeout. If it expires before the next retry, call
-// |DTLSv1_handle_timeout|. Note that DTLS handshake retransmissions use fresh
-// sequence numbers, so it is not sufficient to replay packets at the transport.
+// In DTLS, the caller must drive retransmissions and timeouts. After calling
+// this function, the caller must use |DTLSv1_get_timeout| to determine the
+// current timeout, if any. If it expires before the application next calls into
+// |ssl|, call |DTLSv1_handle_timeout|. Note that DTLS handshake retransmissions
+// use fresh sequence numbers, so it is not sufficient to replay packets at the
+// transport.
+//
+// After the DTLS handshake, some retransmissions may remain. If |ssl| wrote
+// last in the handshake, it may need to retransmit the final flight in case of
+// packet loss. Additionally, in DTLS 1.3, it may need to retransmit
+// post-handshake messages. To handle these, the caller must always be prepared
+// to receive packets and process them with |SSL_read|, even when the
+// application protocol would otherwise not read from the connection.
 //
 // TODO(davidben): Ensure 0 is only returned on transport EOF.
 // https://crbug.com/466303.
@@ -351,6 +362,12 @@ OPENSSL_EXPORT int SSL_accept(SSL *ssl);
 // any pending handshakes, including renegotiations when enabled. On success, it
 // returns the number of bytes read. Otherwise, it returns <= 0. The caller
 // should pass the value into |SSL_get_error| to determine how to proceed.
+//
+// In DTLS 1.3, the caller must also drive timeouts from retransmitting the
+// final flight of the handshake, as well as post-handshake messages. After
+// calling this function, the caller must use |DTLSv1_get_timeout| to determine
+// the current timeout, if any. If it expires before the application next calls
+// into |ssl|, call |DTLSv1_handle_timeout|.
 //
 // TODO(davidben): Ensure 0 is only returned on transport EOF.
 // https://crbug.com/466303.
@@ -484,10 +501,6 @@ OPENSSL_EXPORT int SSL_get_error(const SSL *ssl, int ret_code);
 // SSL_ERROR_WANT_READ indicates the operation failed attempting to read from
 // the transport. The caller may retry the operation when the transport is ready
 // for reading.
-//
-// If signaled by a DTLS handshake, the caller must also call
-// |DTLSv1_get_timeout| and |DTLSv1_handle_timeout| as appropriate. See
-// |SSL_do_handshake|.
 #define SSL_ERROR_WANT_READ 2
 
 // SSL_ERROR_WANT_WRITE indicates the operation failed attempting to write to
@@ -600,28 +613,26 @@ OPENSSL_EXPORT int SSL_set_mtu(SSL *ssl, unsigned mtu);
 // DTLSv1_set_initial_timeout_duration sets the initial duration for a DTLS
 // handshake timeout.
 //
-// This duration overrides the default of 1 second, which is the strong
-// recommendation of RFC 6347 (see section 4.2.4.1). However, there may exist
-// situations where a shorter timeout would be beneficial, such as for
-// time-sensitive applications.
+// This duration overrides the default of 400 milliseconds, which is
+// recommendation of RFC 9147 for real-time protocols.
 OPENSSL_EXPORT void DTLSv1_set_initial_timeout_duration(SSL *ssl,
-                                                        unsigned duration_ms);
+                                                        uint32_t duration_ms);
 
-// DTLSv1_get_timeout queries the next DTLS handshake timeout. If there is a
-// timeout in progress, it sets |*out| to the time remaining and returns one.
-// Otherwise, it returns zero.
+// DTLSv1_get_timeout queries the running DTLS timers. If there are any in
+// progress, it sets |*out| to the time remaining until the first timer expires
+// and returns one. Otherwise, it returns zero.
 //
 // When the timeout expires, call |DTLSv1_handle_timeout| to handle the
 // retransmit behavior.
 //
-// NOTE: This function must be queried again whenever the handshake state
-// machine changes, including when |DTLSv1_handle_timeout| is called.
+// NOTE: This function must be queried again whenever the state machine changes,
+// including when |DTLSv1_handle_timeout| is called.
 OPENSSL_EXPORT int DTLSv1_get_timeout(const SSL *ssl, struct timeval *out);
 
-// DTLSv1_handle_timeout is called when a DTLS handshake timeout expires. If no
-// timeout had expired, it returns 0. Otherwise, it retransmits the previous
-// flight of handshake messages and returns 1. If too many timeouts had expired
-// without progress or an error occurs, it returns -1.
+// DTLSv1_handle_timeout is called when a DTLS timeout expires. If no timeout
+// had expired, it returns 0. Otherwise, it retransmits the previous flight of
+// handshake messages, or post-handshake messages, and returns 1. If too many
+// timeouts had expired without progress or an error occurs, it returns -1.
 //
 // The caller's external timer should be compatible with the one |ssl| queries
 // within some fudge factor. Otherwise, the call will be a no-op, but
@@ -1504,6 +1515,25 @@ OPENSSL_EXPORT void SSL_CTX_set_private_key_method(
 // credential-specific state, such as a handle to the private key.
 OPENSSL_EXPORT int SSL_CREDENTIAL_set_private_key_method(
     SSL_CREDENTIAL *cred, const SSL_PRIVATE_KEY_METHOD *key_method);
+
+// SSL_CREDENTIAL_set_must_match_issuer sets the flag that this credential
+// should be considered only when it matches a peer request for a particular
+// issuer via a negotiation mechanism (such as the certificate_authorities
+// extension).
+OPENSSL_EXPORT void SSL_CREDENTIAL_set_must_match_issuer(SSL_CREDENTIAL *cred);
+
+// SSL_CREDENTIAL_clear_must_match_issuer clears the flag requiring issuer
+// matching, indicating this credential should be considered regardless of peer
+// issuer matching requests. (This is the default).
+OPENSSL_EXPORT void SSL_CREDENTIAL_clear_must_match_issuer(
+    SSL_CREDENTIAL *cred);
+
+// SSL_CREDENTIAL_must_match_issuer returns the value of the flag indicating
+// that this credential should be considered only when it matches a peer request
+// for a particular issuer via a negotiation mechanism (such as the
+// certificate_authorities extension).
+OPENSSL_EXPORT int SSL_CREDENTIAL_must_match_issuer(
+    const SSL_CREDENTIAL *cred);
 
 // SSL_can_release_private_key returns one if |ssl| will no longer call into the
 // private key and zero otherwise. If the function returns one, the caller can
@@ -2435,14 +2465,15 @@ OPENSSL_EXPORT int SSL_CTX_set_tlsext_ticket_keys(SSL_CTX *ctx, const void *in,
 // When encrypting a new ticket, |encrypt| will be one. It writes a public
 // 16-byte key name to |key_name| and a fresh IV to |iv|. The output IV length
 // must match |EVP_CIPHER_CTX_iv_length| of the cipher selected. In this mode,
-// |callback| returns 1 on success and -1 on error.
+// |callback| returns 1 on success, 0 to decline sending a ticket, and -1 on
+// error.
 //
 // When decrypting a ticket, |encrypt| will be zero. |key_name| will point to a
 // 16-byte key name and |iv| points to an IV. The length of the IV consumed must
 // match |EVP_CIPHER_CTX_iv_length| of the cipher selected. In this mode,
-// |callback| returns -1 to abort the handshake, 0 if decrypting the ticket
-// failed, and 1 or 2 on success. If it returns 2, the ticket will be renewed.
-// This may be used to re-key the ticket.
+// |callback| returns -1 to abort the handshake, 0 if the ticket key was
+// unrecognized, and 1 or 2 on success. If it returns 2, the ticket will be
+// renewed. This may be used to re-key the ticket.
 //
 // WARNING: |callback| wildly breaks the usual return value convention and is
 // called in two different modes.
@@ -2479,7 +2510,8 @@ struct ssl_ticket_aead_method_st {
   // seal encrypts and authenticates |in_len| bytes from |in|, writes, at most,
   // |max_out_len| bytes to |out|, and puts the number of bytes written in
   // |*out_len|. The |in| and |out| buffers may be equal but will not otherwise
-  // alias. It returns one on success or zero on error.
+  // alias. It returns one on success or zero on error. If the function returns
+  // but |*out_len| is zero, BoringSSL will skip sending a ticket.
   int (*seal)(SSL *ssl, uint8_t *out, size_t *out_len, size_t max_out_len,
               const uint8_t *in, size_t in_len);
 
@@ -2979,6 +3011,12 @@ OPENSSL_EXPORT void SSL_CTX_set_client_CA_list(SSL_CTX *ctx,
 // which should contain DER-encoded distinguished names (RFC 5280). It takes
 // ownership of |name_list|.
 OPENSSL_EXPORT void SSL_set0_client_CAs(SSL *ssl,
+                                        STACK_OF(CRYPTO_BUFFER) *name_list);
+
+// SSL_set0_CA_names sets |ssl|'s CA name list for the certificate authorities
+// extension to |name_list|, which should contain DER-encoded distinguished names
+// (RFC 5280). It takes ownership of |name_list|.
+OPENSSL_EXPORT void SSL_set0_CA_names(SSL *ssl,
                                         STACK_OF(CRYPTO_BUFFER) *name_list);
 
 // SSL_CTX_set0_client_CAs sets |ctx|'s client certificate CA list to
@@ -4395,18 +4433,18 @@ OPENSSL_EXPORT int SSL_set_handshake_hints(SSL *ssl, const uint8_t *hints,
 
 // SSL_CTX_set_msg_callback installs |cb| as the message callback for |ctx|.
 // This callback will be called when sending or receiving low-level record
-// headers, complete handshake messages, ChangeCipherSpec, and alerts.
-// |write_p| is one for outgoing messages and zero for incoming messages.
+// headers, complete handshake messages, ChangeCipherSpec, alerts, and DTLS
+// ACKs. |write_p| is one for outgoing messages and zero for incoming messages.
 //
 // For each record header, |cb| is called with |version| = 0 and |content_type|
 // = |SSL3_RT_HEADER|. The |len| bytes from |buf| contain the header. Note that
 // this does not include the record body. If the record is sealed, the length
 // in the header is the length of the ciphertext.
 //
-// For each handshake message, ChangeCipherSpec, and alert, |version| is the
-// protocol version and |content_type| is the corresponding record type. The
-// |len| bytes from |buf| contain the handshake message, one-byte
-// ChangeCipherSpec body, and two-byte alert, respectively.
+// For each handshake message, ChangeCipherSpec, alert, and DTLS ACK, |version|
+// is the protocol version and |content_type| is the corresponding record type.
+// The |len| bytes from |buf| contain the handshake message, one-byte
+// ChangeCipherSpec body, two-byte alert, and ACK respectively.
 //
 // In connections that enable ECH, |cb| is additionally called with
 // |content_type| = |SSL3_RT_CLIENT_HELLO_INNER| for each ClientHelloInner that
@@ -6106,7 +6144,6 @@ BSSL_NAMESPACE_END
 #define SSL_R_WRONG_VERSION_ON_EARLY_DATA 278
 #define SSL_R_UNEXPECTED_EXTENSION_ON_EARLY_DATA 279
 #define SSL_R_NO_SUPPORTED_VERSIONS_ENABLED 280
-#define SSL_R_APPLICATION_DATA_INSTEAD_OF_HANDSHAKE 281
 #define SSL_R_EMPTY_HELLO_RETRY_REQUEST 282
 #define SSL_R_EARLY_DATA_NOT_IN_USE 283
 #define SSL_R_HANDSHAKE_NOT_COMPLETE 284

@@ -155,7 +155,6 @@
 #include <utility>
 
 #include <CNIOBoringSSL_aead.h>
-#include <CNIOBoringSSL_aes.h>
 #include <CNIOBoringSSL_curve25519.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_hpke.h>
@@ -242,7 +241,7 @@ ForwardIt cxx17_destroy_n(ForwardIt first, size_t n) {
 //
 // Note: unlike |new|, this does not support non-public constructors.
 template <typename T, typename... Args>
-T *New(Args &&... args) {
+T *New(Args &&...args) {
   void *t = OPENSSL_malloc(sizeof(T));
   if (t == nullptr) {
     return nullptr;
@@ -273,7 +272,7 @@ struct DeleterImpl<T, std::enable_if_t<T::kAllowUniquePtr>> {
 // MakeUnique behaves like |std::make_unique| but returns nullptr on allocation
 // error.
 template <typename T, typename... Args>
-UniquePtr<T> MakeUnique(Args &&... args) {
+UniquePtr<T> MakeUnique(Args &&...args) {
   return UniquePtr<T>(New<T>(std::forward<Args>(args)...));
 }
 
@@ -335,11 +334,21 @@ class Array {
   }
 
   // Init replaces the array with a newly-allocated array of |new_size|
-  // default-constructed copies of |T|. It returns true on success and false on
-  // error.
-  //
-  // Note that if |T| is a primitive type like |uint8_t|, it is uninitialized.
+  // value-constructed copies of |T|. It returns true on success and false on
+  // error. If |T| is a primitive type like |uint8_t|, value-construction means
+  // it will be zero-initialized.
   bool Init(size_t new_size) {
+    if (!InitUninitialized(new_size)) {
+      return false;
+    }
+    cxx17_uninitialized_value_construct_n(data_, size_);
+    return true;
+  }
+
+  // InitForOverwrite behaves like |Init| but it default-constructs each element
+  // instead. This means that, if |T| is a primitive type, the array will be
+  // uninitialized and thus must be filled in by the caller.
+  bool InitForOverwrite(size_t new_size) {
     if (!InitUninitialized(new_size)) {
       return false;
     }
@@ -559,39 +568,45 @@ class InplaceVector {
   T *end() { return data() + size_; }
   const T *end() const { return data() + size_; }
 
-  void clear() {
-    cxx17_destroy_n(data(), size_);
-    size_ = 0;
+  void clear() { Shrink(0); }
+
+  // Shrink resizes the vector to |new_size|, which must not be larger than the
+  // current size. Unlike |Resize|, this can be called when |T| is not
+  // default-constructible.
+  void Shrink(size_t new_size) {
+    BSSL_CHECK(new_size <= size_);
+    cxx17_destroy_n(data() + new_size, size_ - new_size);
+    size_ = static_cast<PackedSize<N>>(new_size);
   }
 
   // TryResize resizes the vector to |new_size| and returns true, or returns
   // false if |new_size| is too large. Any newly-added elements are
   // value-initialized.
   bool TryResize(size_t new_size) {
+    if (new_size <= size_) {
+      Shrink(new_size);
+      return true;
+    }
     if (new_size > capacity()) {
       return false;
     }
-    if (new_size < size_) {
-      cxx17_destroy_n(data() + new_size, size_ - new_size);
-    } else {
-      cxx17_uninitialized_value_construct_n(data() + size_, new_size - size_);
-    }
+    cxx17_uninitialized_value_construct_n(data() + size_, new_size - size_);
     size_ = static_cast<PackedSize<N>>(new_size);
     return true;
   }
 
-  // TryResizeMaybeUninit behaves like |TryResize|, but newly-added elements are
-  // default-initialized, so POD types may contain uninitialized values that the
-  // caller is responsible for filling in.
-  bool TryResizeMaybeUninit(size_t new_size) {
+  // TryResizeForOverwrite behaves like |TryResize|, but newly-added elements
+  // are default-initialized, so POD types may contain uninitialized values that
+  // the caller is responsible for filling in.
+  bool TryResizeForOverwrite(size_t new_size) {
+    if (new_size <= size_) {
+      Shrink(new_size);
+      return true;
+    }
     if (new_size > capacity()) {
       return false;
     }
-    if (new_size < size_) {
-      cxx17_destroy_n(data() + new_size, size_ - new_size);
-    } else {
-      cxx17_uninitialized_default_construct_n(data() + size_, new_size - size_);
-    }
+    cxx17_uninitialized_default_construct_n(data() + size_, new_size - size_);
     size_ = static_cast<PackedSize<N>>(new_size);
     return true;
   }
@@ -623,8 +638,8 @@ class InplaceVector {
   // The following methods behave like their |Try*| counterparts, but abort the
   // program on failure.
   void Resize(size_t size) { BSSL_CHECK(TryResize(size)); }
-  void ResizeMaybeUninit(size_t size) {
-    BSSL_CHECK(TryResizeMaybeUninit(size));
+  void ResizeForOverwrite(size_t size) {
+    BSSL_CHECK(TryResizeForOverwrite(size));
   }
   void CopyFrom(Span<const T> in) { BSSL_CHECK(TryCopyFrom(in)); }
   T &PushBack(T val) {
@@ -633,9 +648,75 @@ class InplaceVector {
     return *ret;
   }
 
+  template <typename Pred>
+  void EraseIf(Pred pred) {
+    // See if anything needs to be erased at all. This avoids a self-move.
+    auto iter = std::find_if(begin(), end(), pred);
+    if (iter == end()) {
+      return;
+    }
+
+    // Elements before the first to be erased may be left as-is.
+    size_t new_size = iter - begin();
+    // Swap all subsequent elements in if they are to be kept.
+    for (size_t i = new_size + 1; i < size(); i++) {
+      if (!pred((*this)[i])) {
+        (*this)[new_size] = std::move((*this)[i]);
+        new_size++;
+      }
+    }
+
+    Shrink(new_size);
+  }
+
  private:
   alignas(T) char storage_[sizeof(T[N])];
   PackedSize<N> size_ = 0;
+};
+
+// An MRUQueue maintains a queue of up to |N| objects of type |T|. If the queue
+// is at capacity, adding to the queue pops the least recently added element.
+template <typename T, size_t N>
+class MRUQueue {
+ public:
+  static constexpr bool kAllowUniquePtr = true;
+
+  MRUQueue() = default;
+
+  // If we ever need to make this type movable, we could. (The defaults almost
+  // work except we need |start_| to be reset when moved-from.)
+  MRUQueue(const MRUQueue &other) = delete;
+  MRUQueue &operator=(const MRUQueue &other) = delete;
+
+  bool empty() const { return size() == 0; }
+  size_t size() const { return storage_.size(); }
+
+  T &operator[](size_t i) {
+    BSSL_CHECK(i < size());
+    return storage_[(start_ + i) % N];
+  }
+  const T &operator[](size_t i) const {
+    return (*const_cast<MRUQueue *>(this))[i];
+  }
+
+  void Clear() {
+    storage_.clear();
+    start_ = 0;
+  }
+
+  void PushBack(T t) {
+    if (storage_.size() < N) {
+      assert(start_ == 0);
+      storage_.PushBack(std::move(t));
+    } else {
+      (*this)[0] = std::move(t);
+      start_ = (start_ + 1) % N;
+    }
+  }
+
+ private:
+  InplaceVector<T, N> storage_;
+  PackedSize<N> start_ = 0;
 };
 
 // CBBFinishArray behaves like |CBB_finish| but stores the result in an Array.
@@ -751,6 +832,11 @@ bool ssl_add_supported_versions(const SSL_HANDSHAKE *hs, CBB *cbb,
 // and sets |*out_alert| to an alert to send.
 bool ssl_negotiate_version(SSL_HANDSHAKE *hs, uint8_t *out_alert,
                            uint16_t *out_version, const CBS *peer_versions);
+
+// ssl_has_final_version returns whether |ssl| has determined the final version.
+// This may be used to distinguish the predictive 0-RTT version from the final
+// one.
+bool ssl_has_final_version(const SSL *ssl);
 
 // ssl_protocol_version returns |ssl|'s protocol version. It is an error to
 // call this function before the version is determined.
@@ -937,7 +1023,7 @@ OPENSSL_EXPORT bool ssl_cipher_is_deprecated(const SSL_CIPHER *cipher);
 // buffer and running hash.
 class SSLTranscript {
  public:
-  SSLTranscript();
+  explicit SSLTranscript(bool is_dtls);
   ~SSLTranscript();
 
   SSLTranscript(SSLTranscript &&other) = default;
@@ -1000,10 +1086,23 @@ class SSLTranscript {
                       bool from_server) const;
 
  private:
+  // HashBuffer initializes |ctx| to use |digest| and writes the contents of
+  // |buffer_| to |ctx|. If this SSLTranscript is for DTLS 1.3, the appropriate
+  // bytes in |buffer_| will be skipped when hashing the buffer.
+  bool HashBuffer(EVP_MD_CTX *ctx, const EVP_MD *digest) const;
+
+  // AddToBufferOrHash directly adds the contents of |in| to |buffer_| and/or
+  // |hash_|.
+  bool AddToBufferOrHash(Span<const uint8_t> in);
+
   // buffer_, if non-null, contains the handshake transcript.
   UniquePtr<BUF_MEM> buffer_;
   // hash, if initialized with an |EVP_MD|, maintains the handshake hash.
   ScopedEVP_MD_CTX hash_;
+  // is_dtls_ indicates whether this is a transcript for a DTLS connection.
+  bool is_dtls_ : 1;
+  // version_ contains the version for the connection (if known).
+  uint16_t version_ = 0;
 };
 
 // tls1_prf computes the PRF function for |ssl|. It fills |out|, using |secret|
@@ -1015,17 +1114,6 @@ bool tls1_prf(const EVP_MD *digest, Span<uint8_t> out,
 
 
 // Encryption layer.
-
-class RecordNumberEncrypter {
- public:
-  virtual ~RecordNumberEncrypter() = default;
-  static constexpr bool kAllowUniquePtr = true;
-  static constexpr size_t kMaxKeySize = 32;
-
-  virtual size_t KeySize() = 0;
-  virtual bool SetKey(Span<const uint8_t> key) = 0;
-  virtual bool GenerateMask(Span<uint8_t> out, Span<const uint8_t> sample) = 0;
-};
 
 // SSLAEADContext contains information about an AEAD that is being used to
 // encrypt an SSL connection.
@@ -1067,6 +1155,10 @@ class SSLAEADContext {
 
   // MaxOverhead returns the maximum overhead of calling |Seal|.
   size_t MaxOverhead() const;
+
+  // MaxSealInputLen returns the maximum length for |Seal| that can fit in
+  // |max_out| output bytes, or zero if no input may fit.
+  size_t MaxSealInputLen(size_t max_out) const;
 
   // SuffixLen calculates the suffix length written by |SealScatter| and writes
   // it to |*out_suffix_len|. It returns true on success and false on error.
@@ -1117,17 +1209,6 @@ class SSLAEADContext {
 
   bool GetIV(const uint8_t **out_iv, size_t *out_iv_len) const;
 
-  RecordNumberEncrypter *GetRecordNumberEncrypter() {
-    return rn_encrypter_.get();
-  }
-
-  // GenerateRecordNumberMask computes the mask used for DTLS 1.3 record number
-  // encryption (RFC 9147 section 4.2.3), writing it to |out|. The |out| buffer
-  // must be sized to AES_BLOCK_SIZE. The |sample| buffer must be at least 16
-  // bytes, as required by the AES and ChaCha20 cipher suites in RFC 9147. Extra
-  // bytes in |sample| will be ignored.
-  bool GenerateRecordNumberMask(Span<uint8_t> out, Span<const uint8_t> sample);
-
  private:
   // GetAdditionalData returns the additional data, writing into |storage| if
   // necessary.
@@ -1136,15 +1217,12 @@ class SSLAEADContext {
                                         uint64_t seqnum, size_t plaintext_len,
                                         Span<const uint8_t> header);
 
-  void CreateRecordNumberEncrypter();
-
   const SSL_CIPHER *cipher_;
   ScopedEVP_AEAD_CTX ctx_;
   // fixed_nonce_ contains any bytes of the nonce that are fixed for all
   // records.
   InplaceVector<uint8_t, 12> fixed_nonce_;
   uint8_t variable_nonce_len_ = 0;
-  UniquePtr<RecordNumberEncrypter> rn_encrypter_;
   // variable_nonce_included_in_record_ is true if the variable nonce
   // for a record is included as a prefix before the ciphertext.
   bool variable_nonce_included_in_record_ : 1;
@@ -1162,57 +1240,31 @@ class SSLAEADContext {
   bool ad_is_header_ : 1;
 };
 
-class AESRecordNumberEncrypter : public RecordNumberEncrypter {
- public:
-  bool SetKey(Span<const uint8_t> key) override;
-  bool GenerateMask(Span<uint8_t> out, Span<const uint8_t> sample) override;
-
- private:
-  AES_KEY key_;
-};
-
-class AES128RecordNumberEncrypter : public AESRecordNumberEncrypter {
- public:
-  size_t KeySize() override;
-};
-
-class AES256RecordNumberEncrypter : public AESRecordNumberEncrypter {
- public:
-  size_t KeySize() override;
-};
-
-class ChaChaRecordNumberEncrypter : public RecordNumberEncrypter {
- public:
-  size_t KeySize() override;
-  bool SetKey(Span<const uint8_t> key) override;
-  bool GenerateMask(Span<uint8_t> out, Span<const uint8_t> sample) override;
-
- private:
-  static const size_t kKeySize = 32;
-  uint8_t key_[kKeySize];
-};
-
-#if defined(BORINGSSL_UNSAFE_FUZZER_MODE)
-class NullRecordNumberEncrypter : public RecordNumberEncrypter {
- public:
-  size_t KeySize() override;
-  bool SetKey(Span<const uint8_t> key) override;
-  bool GenerateMask(Span<uint8_t> out, Span<const uint8_t> sample) override;
-};
-#endif  // BORINGSSL_UNSAFE_FUZZER_MODE
-
 
 // DTLS replay bitmap.
 
-// DTLS1_BITMAP maintains a sliding window of 64 sequence numbers to detect
-// replayed packets. It should be initialized by zeroing every field.
-struct DTLS1_BITMAP {
+// DTLSReplayBitmap maintains a sliding window of sequence numbers to detect
+// replayed packets.
+class DTLSReplayBitmap {
+ public:
+  // ShouldDiscard returns true if |seq_num| has been seen in
+  // |bitmap| or is stale. Otherwise it returns false.
+  bool ShouldDiscard(uint64_t seqnum) const;
+
+  // Record updates the bitmap to record receipt of sequence number
+  // |seq_num|. It slides the window forward if needed. It is an error to call
+  // this function on a stale sequence number.
+  void Record(uint64_t seqnum);
+
+  uint64_t max_seq_num() const { return max_seq_num_; }
+
+ private:
   // map is a bitset of sequence numbers that have been seen. Bit i corresponds
-  // to |max_seq_num - i|.
-  std::bitset<256> map;
-  // max_seq_num is the largest sequence number seen so far as a 64-bit
+  // to |max_seq_num_ - i|.
+  std::bitset<256> map_;
+  // max_seq_num_ is the largest sequence number seen so far as a 64-bit
   // integer.
-  uint64_t max_seq_num = 0;
+  uint64_t max_seq_num_ = 0;
 };
 
 // reconstruct_seqnum takes the low order bits of a record sequence number from
@@ -1224,10 +1276,88 @@ struct DTLS1_BITMAP {
 // successfully deprotected in this epoch. This function returns the sequence
 // number that is numerically closest to one plus |max_valid_seqnum| that when
 // bitwise and-ed with |seq_mask| equals |wire_seq|.
+//
+// |max_valid_seqnum| must be most 2^48-1, in which case the output will also be
+// at most 2^48-1.
 OPENSSL_EXPORT uint64_t reconstruct_seqnum(uint16_t wire_seq, uint64_t seq_mask,
                                            uint64_t max_valid_seqnum);
 
+
 // Record layer.
+
+class DTLSRecordNumber {
+ public:
+  static constexpr uint64_t kMaxSequence = (uint64_t{1} << 48) - 1;
+
+  DTLSRecordNumber() = default;
+  DTLSRecordNumber(uint16_t epoch, uint64_t sequence) {
+    BSSL_CHECK(sequence <= kMaxSequence);
+    combined_ = (uint64_t{epoch} << 48) | sequence;
+  }
+
+  static DTLSRecordNumber FromCombined(uint64_t combined) {
+    return DTLSRecordNumber(combined);
+  }
+
+  bool operator==(DTLSRecordNumber r) const {
+    return combined() == r.combined();
+  }
+  bool operator!=(DTLSRecordNumber r) const { return !((*this) == r); }
+  bool operator<(DTLSRecordNumber r) const { return combined() < r.combined(); }
+
+  uint64_t combined() const { return combined_; }
+  uint16_t epoch() const { return combined_ >> 48; }
+  uint64_t sequence() const { return combined_ & kMaxSequence; }
+
+  bool HasNext() const { return sequence() < kMaxSequence; }
+  DTLSRecordNumber Next() const {
+    BSSL_CHECK(HasNext());
+    // This will not overflow into the epoch.
+    return DTLSRecordNumber::FromCombined(combined_ + 1);
+  }
+
+ private:
+  explicit DTLSRecordNumber(uint64_t combined) : combined_(combined) {}
+
+  uint64_t combined_ = 0;
+};
+
+class RecordNumberEncrypter {
+ public:
+  static constexpr bool kAllowUniquePtr = true;
+  static constexpr size_t kMaxKeySize = 32;
+
+  // Create returns a DTLS 1.3 record number encrypter for |traffic_secret|, or
+  // nullptr on error.
+  static UniquePtr<RecordNumberEncrypter> Create(
+      const SSL_CIPHER *cipher, Span<const uint8_t> traffic_secret);
+
+  virtual ~RecordNumberEncrypter() = default;
+  virtual size_t KeySize() = 0;
+  virtual bool SetKey(Span<const uint8_t> key) = 0;
+  virtual bool GenerateMask(Span<uint8_t> out, Span<const uint8_t> sample) = 0;
+};
+
+struct DTLSReadEpoch {
+  static constexpr bool kAllowUniquePtr = true;
+
+  // TODO(davidben): This could be made slightly more compact if |bitmap| stored
+  // a DTLSRecordNumber.
+  uint16_t epoch = 0;
+  UniquePtr<SSLAEADContext> aead;
+  UniquePtr<RecordNumberEncrypter> rn_encrypter;
+  DTLSReplayBitmap bitmap;
+};
+
+struct DTLSWriteEpoch {
+  static constexpr bool kAllowUniquePtr = true;
+
+  uint16_t epoch() const { return next_record.epoch(); }
+
+  DTLSRecordNumber next_record;
+  UniquePtr<SSLAEADContext> aead;
+  UniquePtr<RecordNumberEncrypter> rn_encrypter;
+};
 
 // ssl_record_prefix_len returns the length of the prefix before the ciphertext
 // of a record for |ssl|.
@@ -1273,8 +1403,10 @@ enum ssl_open_record_t tls_open_record(SSL *ssl, uint8_t *out_type,
 
 // dtls_open_record implements |tls_open_record| for DTLS. It only returns
 // |ssl_open_record_partial| if |in| was empty and sets |*out_consumed| to
-// zero. The caller should read one packet and try again.
+// zero. The caller should read one packet and try again. On success,
+// |*out_number| is set to the record number of the record.
 enum ssl_open_record_t dtls_open_record(SSL *ssl, uint8_t *out_type,
+                                        DTLSRecordNumber *out_number,
                                         Span<uint8_t> *out,
                                         size_t *out_consumed,
                                         uint8_t *out_alert, Span<uint8_t> in);
@@ -1309,13 +1441,18 @@ size_t dtls_max_seal_overhead(const SSL *ssl, uint16_t epoch);
 // front of the plaintext when sealing a record in-place.
 size_t dtls_seal_prefix_len(const SSL *ssl, uint16_t epoch);
 
+// dtls_seal_max_input_len returns the maximum number of input bytes that can
+// fit in a record of up to |max_out| bytes, or zero if none may fit.
+size_t dtls_seal_max_input_len(const SSL *ssl, uint16_t epoch, size_t max_out);
+
 // dtls_seal_record implements |tls_seal_record| for DTLS. |epoch| selects which
 // epoch's cipher state to use. Unlike |tls_seal_record|, |in| and |out| may
 // alias but, if they do, |in| must be exactly |dtls_seal_prefix_len| bytes
-// ahead of |out|.
-bool dtls_seal_record(SSL *ssl, uint8_t *out, size_t *out_len, size_t max_out,
-                      uint8_t type, const uint8_t *in, size_t in_len,
-                      uint16_t epoch);
+// ahead of |out|. On success, |*out_number| is set to the record number of the
+// record.
+bool dtls_seal_record(SSL *ssl, DTLSRecordNumber *out_number, uint8_t *out,
+                      size_t *out_len, size_t max_out, uint8_t type,
+                      const uint8_t *in, size_t in_len, uint16_t epoch);
 
 // ssl_process_alert processes |in| as an alert and updates |ssl|'s shutdown
 // state. It returns one of |ssl_open_record_discard|, |ssl_open_record_error|,
@@ -1387,8 +1524,7 @@ class SSLKeyShare {
   // |out_ciphertext|, and sets |*out_secret| to the shared secret. On failure,
   // it returns false and sets |*out_alert| to an alert to send to the peer.
   virtual bool Encap(CBB *out_ciphertext, Array<uint8_t> *out_secret,
-                     uint8_t *out_alert,
-                     Span<const uint8_t> peer_key) = 0;
+                     uint8_t *out_alert, Span<const uint8_t> peer_key) = 0;
 
   // Decap decapsulates the symmetric secret in |ciphertext|. On success, it
   // returns true and sets |*out_secret| to the shared secret. On failure, it
@@ -1474,14 +1610,12 @@ bool dtls_has_unprocessed_handshake_data(const SSL *ssl);
 // tls_flush_pending_hs_data flushes any handshake plaintext data.
 bool tls_flush_pending_hs_data(SSL *ssl);
 
-struct DTLS_OUTGOING_MESSAGE {
-  Array<uint8_t> data;
-  uint16_t epoch = 0;
-  bool is_ccs = false;
-};
-
 // dtls_clear_outgoing_messages releases all buffered outgoing messages.
 void dtls_clear_outgoing_messages(SSL *ssl);
+
+// dtls_clear_unused_write_epochs releases any write epochs that are no longer
+// needed.
+void dtls_clear_unused_write_epochs(SSL *ssl);
 
 
 // Callbacks.
@@ -1605,32 +1739,51 @@ enum ssl_key_usage_t {
 OPENSSL_EXPORT bool ssl_cert_check_key_usage(const CBS *in,
                                              enum ssl_key_usage_t bit);
 
+// ssl_cert_extract_issuer parses the DER-encoded, X.509 certificate in |in|
+// and extracts the issuer. On success it returns true and the DER encoded
+// issuer is in |out_dn|, otherwise it returns false.
+OPENSSL_EXPORT bool ssl_cert_extract_issuer(const CBS *in, CBS *out_dn);
+
+// ssl_cert_matches_issuer parses the DER-encoded, X.509 certificate in |in|
+// and returns true if its issuer is an exact match for the DER encoded
+// distinguished name in |dn|
+bool ssl_cert_matches_issuer(const CBS *in, const CBS *dn);
+
 // ssl_cert_parse_pubkey extracts the public key from the DER-encoded, X.509
 // certificate in |in|. It returns an allocated |EVP_PKEY| or else returns
 // nullptr and pushes to the error queue.
 UniquePtr<EVP_PKEY> ssl_cert_parse_pubkey(const CBS *in);
 
-// ssl_parse_client_CA_list parses a CA list from |cbs| in the format used by a
-// TLS CertificateRequest message. On success, it returns a newly-allocated
-// |CRYPTO_BUFFER| list and advances |cbs|. Otherwise, it returns nullptr and
-// sets |*out_alert| to an alert to send to the peer.
-UniquePtr<STACK_OF(CRYPTO_BUFFER)> ssl_parse_client_CA_list(SSL *ssl,
-                                                            uint8_t *out_alert,
-                                                            CBS *cbs);
+// SSL_parse_CA_list parses a CA list from |cbs| in the format used by a TLS
+// CertificateRequest message and Certificate Authorities extension. On success,
+// it returns a newly-allocated |CRYPTO_BUFFER| list and advances
+// |cbs|. Otherwise, it returns nullptr and sets |*out_alert| to an alert to
+// send to the peer.
+UniquePtr<STACK_OF(CRYPTO_BUFFER)> SSL_parse_CA_list(SSL *ssl,
+                                                     uint8_t *out_alert,
+                                                     CBS *cbs);
 
-// ssl_has_client_CAs returns there are configured CAs.
+// ssl_has_client_CAs returns whether there are configured CAs.
 bool ssl_has_client_CAs(const SSL_CONFIG *cfg);
 
 // ssl_add_client_CA_list adds the configured CA list to |cbb| in the format
 // used by a TLS CertificateRequest message. It returns true on success and
 // false on error.
-bool ssl_add_client_CA_list(SSL_HANDSHAKE *hs, CBB *cbb);
+bool ssl_add_client_CA_list(const SSL_HANDSHAKE *hs, CBB *cbb);
+
+// ssl_has_CA_names returns whether there are configured CA names.
+bool ssl_has_CA_names(const SSL_CONFIG *cfg);
+
+// ssl_add_CA_names adds the configured CA_names list to |cbb| in the format
+// used by a TLS Certificate Authorities extension. It returns true on success
+// and false on error.
+bool ssl_add_CA_names(const SSL_HANDSHAKE *hs, CBB *cbb);
 
 // ssl_check_leaf_certificate returns one if |pkey| and |leaf| are suitable as
 // a server's leaf certificate for |hs|. Otherwise, it returns zero and pushes
 // an error on the error queue.
 bool ssl_check_leaf_certificate(SSL_HANDSHAKE *hs, EVP_PKEY *pkey,
-                               const CRYPTO_BUFFER *leaf);
+                                const CRYPTO_BUFFER *leaf);
 
 
 // TLS 1.3 key derivation.
@@ -1891,6 +2044,10 @@ struct ssl_credential_st : public bssl::RefCounted<ssl_credential_st> {
   // returns one on success and zero on error.
   bool AppendIntermediateCert(bssl::UniquePtr<CRYPTO_BUFFER> cert);
 
+  // ChainContainsIssuer returns true if |dn| is a byte for byte match with the
+  // issuer of any certificate in |chain|, false otherwise.
+  bool ChainContainsIssuer(bssl::Span<const uint8_t> dn) const;
+
   // type is the credential type and determines which other fields apply.
   bssl::SSLCredentialType type;
 
@@ -1938,6 +2095,11 @@ struct ssl_credential_st : public bssl::RefCounted<ssl_credential_st> {
 
   CRYPTO_EX_DATA ex_data;
 
+  // must_match_issuer is a flag indicating that this credential should be
+  // considered only when it matches a peer request for a particular issuer via
+  // a negotiation mechanism (such as the certificate_authorities extension).
+  bool must_match_issuer = false;
+
  private:
   friend RefCounted;
   ~ssl_credential_st();
@@ -1953,6 +2115,10 @@ BSSL_NAMESPACE_BEGIN
 // The pointers in the result are only valid until |hs| is next mutated.
 bool ssl_get_credential_list(SSL_HANDSHAKE *hs, Array<SSL_CREDENTIAL *> *out);
 
+// ssl_credential_matches_requested_issuers returns true if |cred| is a
+// usable match for any requested issuers in |hs|.
+bool ssl_credential_matches_requested_issuers(SSL_HANDSHAKE *hs,
+                                              const SSL_CREDENTIAL *cred);
 
 // Handshake functions.
 
@@ -1962,6 +2128,7 @@ enum ssl_hs_wait_t {
   ssl_hs_read_server_hello,
   ssl_hs_read_message,
   ssl_hs_flush,
+  ssl_hs_flush_post_handshake,
   ssl_hs_certificate_selection_pending,
   ssl_hs_handoff,
   ssl_hs_handback,
@@ -1975,6 +2142,7 @@ enum ssl_hs_wait_t {
   ssl_hs_read_change_cipher_spec,
   ssl_hs_certificate_verify,
   ssl_hs_hints_ready,
+  ssl_hs_ack,
 };
 
 enum ssl_grease_index_t {
@@ -2107,18 +2275,13 @@ struct SSL_HANDSHAKE {
   // |SSL_OP_NO_*| and |SSL_CTX_set_max_proto_version| APIs.
   uint16_t max_version = 0;
 
- private:
-  size_t hash_len_ = 0;
-  uint8_t secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t early_traffic_secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t client_handshake_secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t server_handshake_secret_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t client_traffic_secret_0_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t server_traffic_secret_0_[SSL_MAX_MD_SIZE] = {0};
-  uint8_t expected_client_finished_[SSL_MAX_MD_SIZE] = {0};
-
- public:
-  void ResizeSecrets(size_t hash_len);
+  InplaceVector<uint8_t, SSL_MAX_MD_SIZE> secret;
+  InplaceVector<uint8_t, SSL_MAX_MD_SIZE> early_traffic_secret;
+  InplaceVector<uint8_t, SSL_MAX_MD_SIZE> client_handshake_secret;
+  InplaceVector<uint8_t, SSL_MAX_MD_SIZE> server_handshake_secret;
+  InplaceVector<uint8_t, SSL_MAX_MD_SIZE> client_traffic_secret_0;
+  InplaceVector<uint8_t, SSL_MAX_MD_SIZE> server_traffic_secret_0;
+  InplaceVector<uint8_t, SSL_MAX_MD_SIZE> expected_client_finished;
 
   // GetClientHello, on the server, returns either the normal ClientHello
   // message or the ClientHelloInner if it has been serialized to
@@ -2130,29 +2293,6 @@ struct SSL_HANDSHAKE {
   // into a handshake-owned buffer, so their lifetimes should not exceed this
   // SSL_HANDSHAKE.
   bool GetClientHello(SSLMessage *out_msg, SSL_CLIENT_HELLO *out_client_hello);
-
-  Span<uint8_t> secret() { return MakeSpan(secret_, hash_len_); }
-  Span<const uint8_t> secret() const {
-    return MakeConstSpan(secret_, hash_len_);
-  }
-  Span<uint8_t> early_traffic_secret() {
-    return MakeSpan(early_traffic_secret_, hash_len_);
-  }
-  Span<uint8_t> client_handshake_secret() {
-    return MakeSpan(client_handshake_secret_, hash_len_);
-  }
-  Span<uint8_t> server_handshake_secret() {
-    return MakeSpan(server_handshake_secret_, hash_len_);
-  }
-  Span<uint8_t> client_traffic_secret_0() {
-    return MakeSpan(client_traffic_secret_0_, hash_len_);
-  }
-  Span<uint8_t> server_traffic_secret_0() {
-    return MakeSpan(server_traffic_secret_0_, hash_len_);
-  }
-  Span<uint8_t> expected_client_finished() {
-    return MakeSpan(expected_client_finished_, hash_len_);
-  }
 
   union {
     // sent is a bitset where the bits correspond to elements of kExtensions
@@ -2259,8 +2399,8 @@ struct SSL_HANDSHAKE {
   // server when using a TLS 1.2 PSK key exchange.
   UniquePtr<char> peer_psk_identity_hint;
 
-  // ca_names, on the client, contains the list of CAs received in a
-  // CertificateRequest message.
+  // ca_names contains the list of CAs received via the Certificate Authorities
+  // extension in our peer's CertificateRequest or ClientHello message
   UniquePtr<STACK_OF(CRYPTO_BUFFER)> ca_names;
 
   // cached_x509_ca_names contains a cache of parsed versions of the elements of
@@ -2361,6 +2501,10 @@ struct SSL_HANDSHAKE {
   // can_early_write is true if application data may be written at this point in
   // the handshake.
   bool can_early_write : 1;
+
+  // is_early_version is true if the protocol version configured is not
+  // necessarily the final version and is just the predicted 0-RTT version.
+  bool is_early_version : 1;
 
   // next_proto_neg_seen is one of NPN was negotiated.
   bool next_proto_neg_seen : 1;
@@ -2822,24 +2966,34 @@ struct SSL_PROTOCOL_METHOD {
   // flight. It returns true on success and false on error.
   bool (*add_change_cipher_spec)(SSL *ssl);
   // flush_flight flushes the pending flight to the transport. It returns one on
-  // success and <= 0 on error.
-  int (*flush_flight)(SSL *ssl);
+  // success and <= 0 on error. If |post_handshake| is true, the flight is a
+  // post-handshake flight.
+  int (*flush_flight)(SSL *ssl, bool post_handshake);
+  // send_ack, if not NULL, sends a DTLS ACK record to the peer. It returns one
+  // on success and <= 0 on error.
+  int (*send_ack)(SSL *ssl);
   // on_handshake_complete is called when the handshake is complete.
   void (*on_handshake_complete)(SSL *ssl);
   // set_read_state sets |ssl|'s read cipher state and level to |aead_ctx| and
-  // |level|. In QUIC, |aead_ctx| is a placeholder object and |secret_for_quic|
-  // is the original secret. This function returns true on success and false on
-  // error.
+  // |level|. In QUIC, |aead_ctx| is a placeholder object. In TLS 1.3,
+  // |traffic_secret| is the original traffic secret. This function returns true
+  // on success and false on error.
+  //
+  // TODO(crbug.com/371998381): Take the traffic secrets as input and let the
+  // function create the SSLAEADContext.
   bool (*set_read_state)(SSL *ssl, ssl_encryption_level_t level,
                          UniquePtr<SSLAEADContext> aead_ctx,
-                         Span<const uint8_t> secret_for_quic);
+                         Span<const uint8_t> traffic_secret);
   // set_write_state sets |ssl|'s write cipher state and level to |aead_ctx| and
-  // |level|. In QUIC, |aead_ctx| is a placeholder object and |secret_for_quic|
-  // is the original secret. This function returns true on success and false on
-  // error.
+  // |level|. In QUIC, |aead_ctx| is a placeholder object In TLS 1.3,
+  // |traffic_secret| is the original traffic secret. This function returns true
+  // on success and false on error.
+  //
+  // TODO(crbug.com/371998381): Take the traffic secrets as input and let the
+  // function create the SSLAEADContext.
   bool (*set_write_state)(SSL *ssl, ssl_encryption_level_t level,
                           UniquePtr<SSLAEADContext> aead_ctx,
-                          Span<const uint8_t> secret_for_quic);
+                          Span<const uint8_t> traffic_secret);
 };
 
 // The following wrappers call |open_*| but handle |read_shutdown| correctly.
@@ -2865,10 +3019,10 @@ ssl_open_record_t ssl_open_app_data(SSL *ssl, Span<uint8_t> *out,
                                     Span<uint8_t> in);
 
 struct SSL_X509_METHOD {
-  // check_client_CA_list returns one if |names| is a good list of X.509
-  // distinguished names and zero otherwise. This is used to ensure that we can
-  // reject unparsable values at handshake time when using crypto/x509.
-  bool (*check_client_CA_list)(STACK_OF(CRYPTO_BUFFER) *names);
+  // check_CA_list returns one if |names| is a good list of X.509 distinguished
+  // names and zero otherwise. This is used to ensure that we can reject
+  // unparsable values at handshake time when using crypto/x509.
+  bool (*check_CA_list)(STACK_OF(CRYPTO_BUFFER) *names);
 
   // cert_clear frees and NULLs all X509 certificate-related state.
   void (*cert_clear)(CERT *cert);
@@ -3029,12 +3183,13 @@ struct SSL3_STATE {
   // needs re-doing when in SSL_accept or SSL_connect
   int rwstate = SSL_ERROR_NONE;
 
-  enum ssl_encryption_level_t read_level = ssl_encryption_initial;
-  enum ssl_encryption_level_t write_level = ssl_encryption_initial;
+  enum ssl_encryption_level_t quic_read_level = ssl_encryption_initial;
+  enum ssl_encryption_level_t quic_write_level = ssl_encryption_initial;
 
   // version is the protocol version, or zero if the version has not yet been
   // set. In clients offering 0-RTT, this version will initially be set to the
-  // early version, then switched to the final version.
+  // early version, then switched to the final version. To distinguish these
+  // cases, use |ssl_has_final_version|.
   uint16_t version = 0;
 
   // early_data_skipped is the amount of early data that has been skipped by the
@@ -3210,9 +3365,47 @@ static_assert(DTLS1_RT_MAX_HEADER_LENGTH >= DTLS1_3_RECORD_HEADER_WRITE_LENGTH,
 
 #define DTLS1_HM_HEADER_LENGTH 12
 
-#define DTLS1_CCS_HEADER_LENGTH 1
+// A DTLSMessageBitmap maintains a list of bits which may be marked to indicate
+// a portion of a message was received or ACKed.
+class DTLSMessageBitmap {
+ public:
+  // A Range represents a range of bits from |start|, inclusive, to |end|,
+  // exclusive.
+  struct Range {
+    size_t start = 0;
+    size_t end = 0;
 
-#define DTLS1_AL_HEADER_LENGTH 2
+    bool empty() const { return start == end; }
+    size_t size() const { return end - start; }
+    bool operator==(const Range &r) const {
+      return start == r.start && end == r.end;
+    }
+    bool operator!=(const Range &r) const { return !(*this == r); }
+  };
+
+  // Init initializes the structure with |num_bits| unmarked bits, from zero
+  // to |num_bits - 1|.
+  bool Init(size_t num_bits);
+
+  // MarkRange marks the bits from |start|, inclusive, to |end|, exclusive.
+  void MarkRange(size_t start, size_t end);
+
+  // NextUnmarkedRange returns the next range of unmarked bits, starting from
+  // |start|, inclusive. If all bits after |start| are marked, it returns an
+  // empty range.
+  Range NextUnmarkedRange(size_t start) const;
+
+  // IsComplete returns whether every bit in the bitmask has been marked.
+  bool IsComplete() const { return bytes_.empty(); }
+
+ private:
+  // bytes_ contains the unmarked bits. We maintain an invariant: if |bytes_| is
+  // not empty, some bit is unset.
+  Array<uint8_t> bytes_;
+  // first_unmarked_byte_ is the index of first byte in |bytes_| that is not
+  // 0xff. This is maintained to amortize checking if the message is complete.
+  size_t first_unmarked_byte_ = 0;
+};
 
 struct hm_header_st {
   uint8_t type;
@@ -3222,28 +3415,47 @@ struct hm_header_st {
   uint32_t frag_len;
 };
 
-// An hm_fragment is an incoming DTLS message, possibly not yet assembled.
-struct hm_fragment {
+// An DTLSIncomingMessage is an incoming DTLS message, possibly not yet
+// assembled.
+struct DTLSIncomingMessage {
   static constexpr bool kAllowUniquePtr = true;
 
-  hm_fragment() {}
-  hm_fragment(const hm_fragment &) = delete;
-  hm_fragment &operator=(const hm_fragment &) = delete;
-
-  ~hm_fragment();
+  Span<uint8_t> msg() { return MakeSpan(data).subspan(DTLS1_HM_HEADER_LENGTH); }
+  Span<const uint8_t> msg() const {
+    return MakeSpan(data).subspan(DTLS1_HM_HEADER_LENGTH);
+  }
+  size_t msg_len() const { return msg().size(); }
 
   // type is the type of the message.
   uint8_t type = 0;
   // seq is the sequence number of this message.
   uint16_t seq = 0;
-  // msg_len is the length of the message body.
-  uint32_t msg_len = 0;
-  // data is a pointer to the message, including message header. It has length
-  // |DTLS1_HM_HEADER_LENGTH| + |msg_len|.
-  uint8_t *data = nullptr;
-  // reassembly is a bitmask of |msg_len| bits corresponding to which parts of
-  // the message have been received. It is NULL if the message is complete.
-  uint8_t *reassembly = nullptr;
+  // data contains the message, including the message header of length
+  // |DTLS1_HM_HEADER_LENGTH|.
+  Array<uint8_t> data;
+  // reassembly tracks which parts of the message have been received.
+  DTLSMessageBitmap reassembly;
+};
+
+struct DTLSOutgoingMessage {
+  size_t msg_len() const {
+    assert(!is_ccs);
+    assert(data.size() >= DTLS1_HM_HEADER_LENGTH);
+    return data.size() - DTLS1_HM_HEADER_LENGTH;
+  }
+
+  bool IsFullyAcked() const {
+    // ACKs only exist in DTLS 1.3, which does not send ChangeCipherSpec.
+    return !is_ccs && acked.IsComplete();
+  }
+
+  Array<uint8_t> data;
+  uint16_t epoch = 0;
+  bool is_ccs = false;
+  // acked tracks which bits of the message have been ACKed by the peer. If
+  // |msg_len| is zero, it tracks one bit for whether the header has been
+  // received.
+  DTLSMessageBitmap acked;
 };
 
 struct OPENSSL_timeval {
@@ -3251,12 +3463,74 @@ struct OPENSSL_timeval {
   uint32_t tv_usec;
 };
 
-// A DTLSEpochState object contains state about a DTLS epoch.
-struct DTLSEpochState {
-  static constexpr bool kAllowUniquePtr = true;
+struct DTLSTimer {
+ public:
+  static constexpr uint64_t kNever = UINT64_MAX;
 
-  UniquePtr<SSLAEADContext> aead_write_ctx;
-  uint64_t write_sequence = 0;
+  // StartMicroseconds schedules the timer to expire the specified number of
+  // microseconds from |now|.
+  void StartMicroseconds(OPENSSL_timeval now, uint64_t microseconds);
+
+  // Stop disables the timer.
+  void Stop();
+
+  // IsExpired returns true if the timer was set and is expired at time |now|.
+  bool IsExpired(OPENSSL_timeval now) const;
+
+  // IsSet returns true if the timer is scheduled or expired, and false if it is
+  // stopped.
+  bool IsSet() const;
+
+  // MicrosecondsRemaining returns the time remaining, in microseconds, at
+  // |now|, or |kNever| if the timer is unset.
+  uint64_t MicrosecondsRemaining(OPENSSL_timeval now) const;
+
+ private:
+  // expire_time_ is the time when the timer expires, or zero if the timer is
+  // unset.
+  //
+  // TODO(crbug.com/366284846): This is an extremely inconvenient time
+  // representation. Switch libssl to something like a 64-bit count of
+  // microseconds. While it's decidedly past 1970 now, zero is a less obviously
+  // sound distinguished value for the monotonic clock, so maybe we should use a
+  // different distinguished time, like |INT64_MAX| in the microseconds
+  // representation.
+  OPENSSL_timeval expire_time_ = {0, 0};
+};
+
+// DTLS_MAX_EXTRA_WRITE_EPOCHS is the maximum number of additional write epochs
+// that DTLS may need to retain.
+//
+// The maximum is, as a DTLS 1.3 server, immediately after sending Finished. At
+// this point, the current epoch is the application write keys (epoch 3), but we
+// may have ServerHello (epoch 0) and EncryptedExtensions (epoch 1) to
+// retransmit. KeyUpdate does not increase this count. If the server were to
+// initiate KeyUpdate from this state, it would not apply the new epoch until
+// the client's ACKs have caught up. At that point, epochs 0 and 1 can be
+// discarded.
+#define DTLS_MAX_EXTRA_WRITE_EPOCHS 2
+
+// DTLS_MAX_ACK_BUFFER is the maximum number of records worth of data we'll keep
+// track of with DTLS 1.3 ACKs. When we exceed this value, information about
+// stale records will be dropped. This will not break the connection but may
+// cause ACKs to perform worse and retransmit unnecessary information.
+#define DTLS_MAX_ACK_BUFFER 32
+
+// A DTLSSentRecord records information about a record we sent. Each record
+// covers all bytes from |first_msg_start| (inclusive) of |first_msg| to
+// |last_msg_end| (exclusive) of |last_msg|. Messages are referenced by index
+// into |outgoing_messages|. |last_msg_end| may be |outgoing_messages.size()| if
+// |last_msg_end| is zero.
+//
+// When the message is empty, |first_msg_start| and |last_msg_end| are
+// maintained as if there is a single bit in the message representing the
+// header. See |acked| in DTLSOutgoingMessage.
+struct DTLSSentRecord {
+  DTLSRecordNumber number;
+  PackedSize<SSL_MAX_HANDSHAKE_FLIGHT> first_msg = 0;
+  PackedSize<SSL_MAX_HANDSHAKE_FLIGHT> last_msg = 0;
+  uint32_t first_msg_start = 0;
+  uint32_t last_msg_end = 0;
 };
 
 struct DTLS1_STATE {
@@ -3264,6 +3538,8 @@ struct DTLS1_STATE {
 
   DTLS1_STATE();
   ~DTLS1_STATE();
+
+  bool Init();
 
   // has_change_cipher_spec is true if we have received a ChangeCipherSpec from
   // the peer in this epoch.
@@ -3279,34 +3555,46 @@ struct DTLS1_STATE {
   // peer sent the final flight.
   bool flight_has_reply : 1;
 
-  // The current data and handshake epoch.  This is initially undefined, and
-  // starts at zero once the initial handshake is completed.
-  uint16_t r_epoch = 0;
-  uint16_t w_epoch = 0;
-
-  // records being received in the current epoch
-  DTLS1_BITMAP bitmap;
-
   uint16_t handshake_write_seq = 0;
   uint16_t handshake_read_seq = 0;
 
-  // state from the last epoch
-  DTLSEpochState last_epoch_state;
+  // read_epoch is the current DTLS read epoch.
+  DTLSReadEpoch read_epoch;
 
-  // In DTLS 1.3, this contains the write AEAD for the initial encryption level.
-  // TODO(crbug.com/boringssl/715): Drop this when it is no longer needed.
-  UniquePtr<DTLSEpochState> initial_epoch_state;
+  // next_read_epoch is the next DTLS read epoch in DTLS 1.3. It will become
+  // current once a record is received from it.
+  UniquePtr<DTLSReadEpoch> next_read_epoch;
+
+  // write_epoch is the current DTLS write epoch. Non-retransmit records will
+  // generally use this epoch.
+  // TODO(crbug.com/42290594): 0-RTT will be the exception, when implemented.
+  DTLSWriteEpoch write_epoch;
+
+  // extra_write_epochs is the collection available write epochs.
+  InplaceVector<UniquePtr<DTLSWriteEpoch>, DTLS_MAX_EXTRA_WRITE_EPOCHS>
+      extra_write_epochs;
 
   // incoming_messages is a ring buffer of incoming handshake messages that have
   // yet to be processed. The front of the ring buffer is message number
   // |handshake_read_seq|, at position |handshake_read_seq| %
   // |SSL_MAX_HANDSHAKE_FLIGHT|.
-  UniquePtr<hm_fragment> incoming_messages[SSL_MAX_HANDSHAKE_FLIGHT];
+  UniquePtr<DTLSIncomingMessage> incoming_messages[SSL_MAX_HANDSHAKE_FLIGHT];
 
   // outgoing_messages is the queue of outgoing messages from the last handshake
   // flight.
-  InplaceVector<DTLS_OUTGOING_MESSAGE, SSL_MAX_HANDSHAKE_FLIGHT>
+  InplaceVector<DTLSOutgoingMessage, SSL_MAX_HANDSHAKE_FLIGHT>
       outgoing_messages;
+
+  // sent_records is a queue of records we sent, for processing ACKs. To save
+  // memory in the steady state, the structure is stored on the heap and dropped
+  // when empty.
+  UniquePtr<MRUQueue<DTLSSentRecord, DTLS_MAX_ACK_BUFFER>> sent_records;
+
+  // records_to_ack is a queue of received records that we should ACK. This is
+  // not stored on the heap because, in the steady state, DTLS 1.3 does not
+  // necessarily empty this list. (We probably could drop records from here once
+  // they are sufficiently old.)
+  MRUQueue<DTLSRecordNumber, DTLS_MAX_ACK_BUFFER> records_to_ack;
 
   // outgoing_written is the number of outgoing messages that have been
   // written.
@@ -3321,12 +3609,15 @@ struct DTLS1_STATE {
   // the last time it was reset.
   unsigned num_timeouts = 0;
 
-  // Indicates when the last handshake msg or heartbeat sent will
-  // timeout.
-  struct OPENSSL_timeval next_timeout = {0, 0};
+  // retransmit_timer tracks when to schedule the next DTLS retransmit if we do
+  // not hear from the peer.
+  DTLSTimer retransmit_timer;
+
+  // ack_timer tracks when to send an ACK.
+  DTLSTimer ack_timer;
 
   // timeout_duration_ms is the timeout duration in milliseconds.
-  unsigned timeout_duration_ms = 0;
+  uint32_t timeout_duration_ms = 0;
 };
 
 // An ALPSConfig is a pair of ALPN protocol and settings value to use with ALPS.
@@ -3391,6 +3682,13 @@ struct SSL_CONFIG {
   // cached_x509_client_CA is a cache of parsed versions of the elements of
   // |client_CA|.
   STACK_OF(X509_NAME) *cached_x509_client_CA = nullptr;
+
+  // For client side, keep the list of CA distinguished names we can use
+  // for the Certificate Authorities extension.
+  // TODO(bbe) having this separate from the client side (above) is mildly
+  // silly, but OpenSSL has *_client_CA API's for this exposed, and for the
+  // moment we are not crossing those streams.
+  UniquePtr<STACK_OF(CRYPTO_BUFFER)> CA_names;
 
   Array<uint16_t> supported_group_list;  // our list
 
@@ -3515,10 +3813,15 @@ bool ssl_is_key_type_supported(int key_type);
 // counterpart to |privkey|. Otherwise it returns false and pushes a helpful
 // message on the error queue.
 bool ssl_compare_public_and_private_key(const EVP_PKEY *pubkey,
-                                       const EVP_PKEY *privkey);
+                                        const EVP_PKEY *privkey);
 bool ssl_get_new_session(SSL_HANDSHAKE *hs);
+
+// ssl_encrypt_ticket encrypt a ticket for |session| and writes the result to
+// |out|. It returns true on success and false on error. If, on success, nothing
+// was written to |out|, the caller should skip sending a ticket.
 bool ssl_encrypt_ticket(SSL_HANDSHAKE *hs, CBB *out,
                         const SSL_SESSION *session);
+
 bool ssl_ctx_rotate_ticket_encryption_key(SSL_CTX *ctx);
 
 // ssl_session_new returns a newly-allocated blank |SSL_SESSION| or nullptr on
@@ -3538,6 +3841,20 @@ OPENSSL_EXPORT UniquePtr<SSL_SESSION> SSL_SESSION_parse(
 // session for Session-ID resumption. It returns true on success and false on
 // error.
 OPENSSL_EXPORT bool ssl_session_serialize(const SSL_SESSION *in, CBB *cbb);
+
+enum class SSLSessionType {
+  // The session is not resumable.
+  kNotResumable,
+  // The session uses a TLS 1.2 session ID.
+  kID,
+  // The session uses a TLS 1.2 ticket.
+  kTicket,
+  // The session uses a TLS 1.3 pre-shared key.
+  kPreSharedKey,
+};
+
+// ssl_session_get_type returns the type of |session|.
+SSLSessionType ssl_session_get_type(const SSL_SESSION *session);
 
 // ssl_session_is_context_valid returns whether |session|'s session ID context
 // matches the one set on |hs|.
@@ -3623,13 +3940,14 @@ bool tls_init_message(const SSL *ssl, CBB *cbb, CBB *body, uint8_t type);
 bool tls_finish_message(const SSL *ssl, CBB *cbb, Array<uint8_t> *out_msg);
 bool tls_add_message(SSL *ssl, Array<uint8_t> msg);
 bool tls_add_change_cipher_spec(SSL *ssl);
-int tls_flush_flight(SSL *ssl);
+int tls_flush_flight(SSL *ssl, bool post_handshake);
 
 bool dtls1_init_message(const SSL *ssl, CBB *cbb, CBB *body, uint8_t type);
 bool dtls1_finish_message(const SSL *ssl, CBB *cbb, Array<uint8_t> *out_msg);
 bool dtls1_add_message(SSL *ssl, Array<uint8_t> msg);
 bool dtls1_add_change_cipher_spec(SSL *ssl);
-int dtls1_flush_flight(SSL *ssl);
+int dtls1_flush_flight(SSL *ssl, bool post_handshake);
+int dtls1_send_ack(SSL *ssl);
 
 // ssl_add_message_cbb finishes the handshake message in |cbb| and adds it to
 // the pending flight. It returns true on success and false on error.
@@ -3639,6 +3957,9 @@ bool ssl_add_message_cbb(SSL *ssl, CBB *cbb);
 // on success and false on allocation failure.
 bool ssl_hash_message(SSL_HANDSHAKE *hs, const SSLMessage &msg);
 
+ssl_open_record_t dtls1_process_ack(SSL *ssl, uint8_t *out_alert,
+                                    DTLSRecordNumber ack_record_number,
+                                    Span<const uint8_t> data);
 ssl_open_record_t dtls1_open_app_data(SSL *ssl, Span<uint8_t> *out,
                                       size_t *out_consumed, uint8_t *out_alert,
                                       Span<uint8_t> in);
@@ -3661,12 +3982,14 @@ bool dtls1_check_timeout_num(SSL *ssl);
 
 void dtls1_start_timer(SSL *ssl);
 void dtls1_stop_timer(SSL *ssl);
-bool dtls1_is_timer_expired(SSL *ssl);
 unsigned int dtls1_min_mtu(void);
 
 bool dtls1_new(SSL *ssl);
 void dtls1_free(SSL *ssl);
 
+bool dtls1_process_handshake_fragments(SSL *ssl, uint8_t *out_alert,
+                                       DTLSRecordNumber record_number,
+                                       Span<const uint8_t> record);
 bool dtls1_get_message(const SSL *ssl, SSLMessage *out);
 ssl_open_record_t dtls1_open_handshake(SSL *ssl, size_t *out_consumed,
                                        uint8_t *out_alert, Span<uint8_t> in);
@@ -3768,9 +4091,7 @@ bool ssl_can_write(const SSL *ssl);
 // ssl_can_read returns wheter |ssl| is allowed to read.
 bool ssl_can_read(const SSL *ssl);
 
-void ssl_get_current_time(const SSL *ssl, struct OPENSSL_timeval *out_clock);
-void ssl_ctx_get_current_time(const SSL_CTX *ctx,
-                              struct OPENSSL_timeval *out_clock);
+OPENSSL_timeval ssl_ctx_get_current_time(const SSL_CTX *ctx);
 
 // ssl_reset_error_state resets state for |SSL_get_error|.
 void ssl_reset_error_state(SSL *ssl);
@@ -3901,6 +4222,8 @@ struct ssl_ctx_st : public bssl::RefCounted<ssl_ctx_st> {
   // |client_CA|.
   STACK_OF(X509_NAME) *cached_x509_client_CA = nullptr;
 
+  // What we put in client hello in the CA extension.
+  bssl::UniquePtr<STACK_OF(CRYPTO_BUFFER)> CA_names;
 
   // Default values to use in SSL structures follow (these are copied by
   // SSL_new)
@@ -4152,11 +4475,9 @@ struct ssl_st {
   // session info
 
   // initial_timeout_duration_ms is the default DTLS timeout duration in
-  // milliseconds. It's used to initialize the timer any time it's restarted.
-  //
-  // RFC 6347 states that implementations SHOULD use an initial timer value of 1
-  // second.
-  unsigned initial_timeout_duration_ms = 1000;
+  // milliseconds. It's used to initialize the timer any time it's restarted. We
+  // default to RFC 9147's recommendation for real-time applications, 400ms.
+  uint32_t initial_timeout_duration_ms = 400;
 
   // session is the configured session to be offered by the client. This session
   // is immutable.

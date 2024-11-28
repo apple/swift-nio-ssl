@@ -22,8 +22,8 @@
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_span.h>
 
-#include "internal.h"
 #include "../crypto/internal.h"
+#include "internal.h"
 
 
 BSSL_NAMESPACE_BEGIN
@@ -90,7 +90,7 @@ bool ssl_method_supports_version(const SSL_PROTOCOL_METHOD *method,
 // The following functions map between API versions and wire versions. The
 // public API works on wire versions.
 
-static const char* kUnknownVersion = "unknown";
+static const char *kUnknownVersion = "unknown";
 
 struct VersionInfo {
   uint16_t version;
@@ -116,9 +116,7 @@ static const char *ssl_version_to_string(uint16_t version) {
   return kUnknownVersion;
 }
 
-static uint16_t wire_version_to_api(uint16_t version) {
-  return version;
-}
+static uint16_t wire_version_to_api(uint16_t version) { return version; }
 
 // api_version_to_wire maps |version| to some representative wire version.
 static bool api_version_to_wire(uint16_t *out, uint16_t version) {
@@ -234,7 +232,7 @@ bool ssl_get_version_range(const SSL_HANDSHAKE *hs, uint16_t *out_min_version,
     // If there is a disabled version after the first enabled one, all versions
     // after it are implicitly disabled.
     if (any_enabled) {
-      max_version = kProtocolVersions[i-1].version;
+      max_version = kProtocolVersions[i - 1].version;
       break;
     }
   }
@@ -264,6 +262,11 @@ static uint16_t ssl_version(const SSL *ssl) {
   // The TLS versions has not yet been negotiated. Historically, we would return
   // (D)TLS 1.2, so preserve that behavior.
   return SSL_is_dtls(ssl) ? DTLS1_2_VERSION : TLS1_2_VERSION;
+}
+
+bool ssl_has_final_version(const SSL *ssl) {
+  return ssl->s3->version != 0 &&
+         (ssl->s3->hs == nullptr || !ssl->s3->hs->is_early_version);
 }
 
 uint16_t ssl_protocol_version(const SSL *ssl) {
