@@ -73,8 +73,6 @@
 #include "CNIOBoringSSL_type_check.h"
 #include "CNIOBoringSSL_x509_vfy.h"
 #include "CNIOBoringSSL_x509v3.h"
-#include "experimental/CNIOBoringSSL_dilithium.h"
 #include "experimental/CNIOBoringSSL_kyber.h"
-#include "experimental/CNIOBoringSSL_spx.h"
 
 #endif  // C_NIO_BORINGSSL_H

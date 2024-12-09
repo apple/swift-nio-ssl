@@ -222,6 +222,26 @@ ssl_open_record_t dtls1_process_ack(SSL *ssl, uint8_t *out_alert,
                   [](const auto &msg) { return msg.IsFullyAcked(); })) {
     dtls1_stop_timer(ssl);
     dtls_clear_outgoing_messages(ssl);
+
+    // DTLS 1.3 defers the key update to when the message is ACKed.
+    if (ssl->s3->key_update_pending) {
+      if (!tls13_rotate_traffic_key(ssl, evp_aead_seal)) {
+        return ssl_open_record_error;
+      }
+      ssl->s3->key_update_pending = false;
+    }
+
+    // Check for deferred messages.
+    if (ssl->d1->queued_key_update != QueuedKeyUpdate::kNone) {
+      int request_type =
+          ssl->d1->queued_key_update == QueuedKeyUpdate::kUpdateRequested
+              ? SSL_KEY_UPDATE_REQUESTED
+              : SSL_KEY_UPDATE_NOT_REQUESTED;
+      ssl->d1->queued_key_update = QueuedKeyUpdate::kNone;
+      if (!tls13_add_key_update(ssl, request_type)) {
+        return ssl_open_record_error;
+      }
+    }
   } else {
     // We may still be able to drop unused write epochs.
     dtls_clear_unused_write_epochs(ssl);
@@ -261,6 +281,10 @@ ssl_open_record_t dtls1_open_app_data(SSL *ssl, Span<uint8_t> *out,
     // Parse the first fragment header to determine if this is a pre-CCS or
     // post-CCS handshake record. DTLS resets handshake message numbers on each
     // handshake, so renegotiations and retransmissions are ambiguous.
+    //
+    // TODO(crbug.com/42290594): Move this logic into
+    // |dtls1_process_handshake_fragments| and integrate it into DTLS 1.3
+    // retransmit conditions.
     CBS cbs, body;
     struct hm_header_st msg_hdr;
     CBS_init(&cbs, record.data(), record.size());
@@ -272,16 +296,15 @@ ssl_open_record_t dtls1_open_app_data(SSL *ssl, Span<uint8_t> *out,
 
     if (msg_hdr.type == SSL3_MT_FINISHED &&
         msg_hdr.seq == ssl->d1->handshake_read_seq - 1) {
-      if (msg_hdr.frag_off == 0) {
+      if (!ssl->d1->sending_flight && msg_hdr.frag_off == 0) {
         // Retransmit our last flight of messages. If the peer sends the second
         // Finished, they may not have received ours. Only do this for the
         // first fragment, in case the Finished was fragmented.
-        if (!dtls1_check_timeout_num(ssl)) {
-          *out_alert = 0;  // TODO(davidben): Send an alert?
-          return ssl_open_record_error;
-        }
-
-        dtls1_retransmit_outgoing_messages(ssl);
+        //
+        // This is not really a timeout, but increment the timeout count so we
+        // eventually give up.
+        ssl->d1->num_timeouts++;
+        ssl->d1->sending_flight = true;
       }
       return ssl_open_record_discard;
     }
@@ -329,7 +352,7 @@ int dtls1_write_app_data(SSL *ssl, bool *out_needs_handshake,
     return 1;
   }
 
-  // TODO(crbug.com/42290594): Use the 0-RTT epoch if writing 0-RTT.
+  // TODO(crbug.com/381113363): Use the 0-RTT epoch if writing 0-RTT.
   int ret = dtls1_write_record(ssl, SSL3_RT_APPLICATION_DATA, in,
                                ssl->d1->write_epoch.epoch());
   if (ret <= 0) {

@@ -780,16 +780,6 @@
 %xdefine _DH_size _ %+ BORINGSSL_PREFIX %+ _DH_size
 %xdefine _DH_up_ref _ %+ BORINGSSL_PREFIX %+ _DH_up_ref
 %xdefine _DHparams_dup _ %+ BORINGSSL_PREFIX %+ _DHparams_dup
-%xdefine _DILITHIUM_generate_key _ %+ BORINGSSL_PREFIX %+ _DILITHIUM_generate_key
-%xdefine _DILITHIUM_generate_key_external_entropy _ %+ BORINGSSL_PREFIX %+ _DILITHIUM_generate_key_external_entropy
-%xdefine _DILITHIUM_marshal_private_key _ %+ BORINGSSL_PREFIX %+ _DILITHIUM_marshal_private_key
-%xdefine _DILITHIUM_marshal_public_key _ %+ BORINGSSL_PREFIX %+ _DILITHIUM_marshal_public_key
-%xdefine _DILITHIUM_parse_private_key _ %+ BORINGSSL_PREFIX %+ _DILITHIUM_parse_private_key
-%xdefine _DILITHIUM_parse_public_key _ %+ BORINGSSL_PREFIX %+ _DILITHIUM_parse_public_key
-%xdefine _DILITHIUM_public_from_private _ %+ BORINGSSL_PREFIX %+ _DILITHIUM_public_from_private
-%xdefine _DILITHIUM_sign _ %+ BORINGSSL_PREFIX %+ _DILITHIUM_sign
-%xdefine _DILITHIUM_sign_deterministic _ %+ BORINGSSL_PREFIX %+ _DILITHIUM_sign_deterministic
-%xdefine _DILITHIUM_verify _ %+ BORINGSSL_PREFIX %+ _DILITHIUM_verify
 %xdefine _DIRECTORYSTRING_free _ %+ BORINGSSL_PREFIX %+ _DIRECTORYSTRING_free
 %xdefine _DIRECTORYSTRING_it _ %+ BORINGSSL_PREFIX %+ _DIRECTORYSTRING_it
 %xdefine _DIRECTORYSTRING_new _ %+ BORINGSSL_PREFIX %+ _DIRECTORYSTRING_new
@@ -1150,6 +1140,7 @@
 %xdefine _EVP_MD_CTX_create _ %+ BORINGSSL_PREFIX %+ _EVP_MD_CTX_create
 %xdefine _EVP_MD_CTX_destroy _ %+ BORINGSSL_PREFIX %+ _EVP_MD_CTX_destroy
 %xdefine _EVP_MD_CTX_free _ %+ BORINGSSL_PREFIX %+ _EVP_MD_CTX_free
+%xdefine _EVP_MD_CTX_get0_md _ %+ BORINGSSL_PREFIX %+ _EVP_MD_CTX_get0_md
 %xdefine _EVP_MD_CTX_init _ %+ BORINGSSL_PREFIX %+ _EVP_MD_CTX_init
 %xdefine _EVP_MD_CTX_md _ %+ BORINGSSL_PREFIX %+ _EVP_MD_CTX_md
 %xdefine _EVP_MD_CTX_move _ %+ BORINGSSL_PREFIX %+ _EVP_MD_CTX_move
@@ -1873,10 +1864,6 @@
 %xdefine _SPAKE2_CTX_new _ %+ BORINGSSL_PREFIX %+ _SPAKE2_CTX_new
 %xdefine _SPAKE2_generate_msg _ %+ BORINGSSL_PREFIX %+ _SPAKE2_generate_msg
 %xdefine _SPAKE2_process_msg _ %+ BORINGSSL_PREFIX %+ _SPAKE2_process_msg
-%xdefine _SPX_generate_key _ %+ BORINGSSL_PREFIX %+ _SPX_generate_key
-%xdefine _SPX_generate_key_from_seed _ %+ BORINGSSL_PREFIX %+ _SPX_generate_key_from_seed
-%xdefine _SPX_sign _ %+ BORINGSSL_PREFIX %+ _SPX_sign
-%xdefine _SPX_verify _ %+ BORINGSSL_PREFIX %+ _SPX_verify
 %xdefine _SSL_CIPHER_description _ %+ BORINGSSL_PREFIX %+ _SSL_CIPHER_description
 %xdefine _SSL_CIPHER_get_auth_nid _ %+ BORINGSSL_PREFIX %+ _SSL_CIPHER_get_auth_nid
 %xdefine _SSL_CIPHER_get_bits _ %+ BORINGSSL_PREFIX %+ _SSL_CIPHER_get_bits
@@ -2273,6 +2260,7 @@
 %xdefine _SSL_in_init _ %+ BORINGSSL_PREFIX %+ _SSL_in_init
 %xdefine _SSL_is_dtls _ %+ BORINGSSL_PREFIX %+ _SSL_is_dtls
 %xdefine _SSL_is_init_finished _ %+ BORINGSSL_PREFIX %+ _SSL_is_init_finished
+%xdefine _SSL_is_quic _ %+ BORINGSSL_PREFIX %+ _SSL_is_quic
 %xdefine _SSL_is_server _ %+ BORINGSSL_PREFIX %+ _SSL_is_server
 %xdefine _SSL_is_signature_algorithm_rsa_pss _ %+ BORINGSSL_PREFIX %+ _SSL_is_signature_algorithm_rsa_pss
 %xdefine _SSL_key_update _ %+ BORINGSSL_PREFIX %+ _SSL_key_update
@@ -3868,38 +3856,6 @@
 %xdefine _slhdsa_wots_sign _ %+ BORINGSSL_PREFIX %+ _slhdsa_wots_sign
 %xdefine _slhdsa_xmss_pk_from_sig _ %+ BORINGSSL_PREFIX %+ _slhdsa_xmss_pk_from_sig
 %xdefine _slhdsa_xmss_sign _ %+ BORINGSSL_PREFIX %+ _slhdsa_xmss_sign
-%xdefine _spx_base_b _ %+ BORINGSSL_PREFIX %+ _spx_base_b
-%xdefine _spx_copy_keypair_addr _ %+ BORINGSSL_PREFIX %+ _spx_copy_keypair_addr
-%xdefine _spx_fors_pk_from_sig _ %+ BORINGSSL_PREFIX %+ _spx_fors_pk_from_sig
-%xdefine _spx_fors_sign _ %+ BORINGSSL_PREFIX %+ _spx_fors_sign
-%xdefine _spx_fors_sk_gen _ %+ BORINGSSL_PREFIX %+ _spx_fors_sk_gen
-%xdefine _spx_fors_treehash _ %+ BORINGSSL_PREFIX %+ _spx_fors_treehash
-%xdefine _spx_get_tree_index _ %+ BORINGSSL_PREFIX %+ _spx_get_tree_index
-%xdefine _spx_ht_sign _ %+ BORINGSSL_PREFIX %+ _spx_ht_sign
-%xdefine _spx_ht_verify _ %+ BORINGSSL_PREFIX %+ _spx_ht_verify
-%xdefine _spx_set_chain_addr _ %+ BORINGSSL_PREFIX %+ _spx_set_chain_addr
-%xdefine _spx_set_hash_addr _ %+ BORINGSSL_PREFIX %+ _spx_set_hash_addr
-%xdefine _spx_set_keypair_addr _ %+ BORINGSSL_PREFIX %+ _spx_set_keypair_addr
-%xdefine _spx_set_layer_addr _ %+ BORINGSSL_PREFIX %+ _spx_set_layer_addr
-%xdefine _spx_set_tree_addr _ %+ BORINGSSL_PREFIX %+ _spx_set_tree_addr
-%xdefine _spx_set_tree_height _ %+ BORINGSSL_PREFIX %+ _spx_set_tree_height
-%xdefine _spx_set_tree_index _ %+ BORINGSSL_PREFIX %+ _spx_set_tree_index
-%xdefine _spx_set_type _ %+ BORINGSSL_PREFIX %+ _spx_set_type
-%xdefine _spx_thash_f _ %+ BORINGSSL_PREFIX %+ _spx_thash_f
-%xdefine _spx_thash_h _ %+ BORINGSSL_PREFIX %+ _spx_thash_h
-%xdefine _spx_thash_hmsg _ %+ BORINGSSL_PREFIX %+ _spx_thash_hmsg
-%xdefine _spx_thash_prf _ %+ BORINGSSL_PREFIX %+ _spx_thash_prf
-%xdefine _spx_thash_prfmsg _ %+ BORINGSSL_PREFIX %+ _spx_thash_prfmsg
-%xdefine _spx_thash_tk _ %+ BORINGSSL_PREFIX %+ _spx_thash_tk
-%xdefine _spx_thash_tl _ %+ BORINGSSL_PREFIX %+ _spx_thash_tl
-%xdefine _spx_to_uint64 _ %+ BORINGSSL_PREFIX %+ _spx_to_uint64
-%xdefine _spx_treehash _ %+ BORINGSSL_PREFIX %+ _spx_treehash
-%xdefine _spx_uint64_to_len_bytes _ %+ BORINGSSL_PREFIX %+ _spx_uint64_to_len_bytes
-%xdefine _spx_wots_pk_from_sig _ %+ BORINGSSL_PREFIX %+ _spx_wots_pk_from_sig
-%xdefine _spx_wots_pk_gen _ %+ BORINGSSL_PREFIX %+ _spx_wots_pk_gen
-%xdefine _spx_wots_sign _ %+ BORINGSSL_PREFIX %+ _spx_wots_sign
-%xdefine _spx_xmss_pk_from_sig _ %+ BORINGSSL_PREFIX %+ _spx_xmss_pk_from_sig
-%xdefine _spx_xmss_sign _ %+ BORINGSSL_PREFIX %+ _spx_xmss_sign
 %xdefine _v2i_GENERAL_NAME _ %+ BORINGSSL_PREFIX %+ _v2i_GENERAL_NAME
 %xdefine _v2i_GENERAL_NAMES _ %+ BORINGSSL_PREFIX %+ _v2i_GENERAL_NAMES
 %xdefine _v2i_GENERAL_NAME_ex _ %+ BORINGSSL_PREFIX %+ _v2i_GENERAL_NAME_ex
@@ -4747,16 +4703,6 @@
 %xdefine DH_size BORINGSSL_PREFIX %+ _DH_size
 %xdefine DH_up_ref BORINGSSL_PREFIX %+ _DH_up_ref
 %xdefine DHparams_dup BORINGSSL_PREFIX %+ _DHparams_dup
-%xdefine DILITHIUM_generate_key BORINGSSL_PREFIX %+ _DILITHIUM_generate_key
-%xdefine DILITHIUM_generate_key_external_entropy BORINGSSL_PREFIX %+ _DILITHIUM_generate_key_external_entropy
-%xdefine DILITHIUM_marshal_private_key BORINGSSL_PREFIX %+ _DILITHIUM_marshal_private_key
-%xdefine DILITHIUM_marshal_public_key BORINGSSL_PREFIX %+ _DILITHIUM_marshal_public_key
-%xdefine DILITHIUM_parse_private_key BORINGSSL_PREFIX %+ _DILITHIUM_parse_private_key
-%xdefine DILITHIUM_parse_public_key BORINGSSL_PREFIX %+ _DILITHIUM_parse_public_key
-%xdefine DILITHIUM_public_from_private BORINGSSL_PREFIX %+ _DILITHIUM_public_from_private
-%xdefine DILITHIUM_sign BORINGSSL_PREFIX %+ _DILITHIUM_sign
-%xdefine DILITHIUM_sign_deterministic BORINGSSL_PREFIX %+ _DILITHIUM_sign_deterministic
-%xdefine DILITHIUM_verify BORINGSSL_PREFIX %+ _DILITHIUM_verify
 %xdefine DIRECTORYSTRING_free BORINGSSL_PREFIX %+ _DIRECTORYSTRING_free
 %xdefine DIRECTORYSTRING_it BORINGSSL_PREFIX %+ _DIRECTORYSTRING_it
 %xdefine DIRECTORYSTRING_new BORINGSSL_PREFIX %+ _DIRECTORYSTRING_new
@@ -5117,6 +5063,7 @@
 %xdefine EVP_MD_CTX_create BORINGSSL_PREFIX %+ _EVP_MD_CTX_create
 %xdefine EVP_MD_CTX_destroy BORINGSSL_PREFIX %+ _EVP_MD_CTX_destroy
 %xdefine EVP_MD_CTX_free BORINGSSL_PREFIX %+ _EVP_MD_CTX_free
+%xdefine EVP_MD_CTX_get0_md BORINGSSL_PREFIX %+ _EVP_MD_CTX_get0_md
 %xdefine EVP_MD_CTX_init BORINGSSL_PREFIX %+ _EVP_MD_CTX_init
 %xdefine EVP_MD_CTX_md BORINGSSL_PREFIX %+ _EVP_MD_CTX_md
 %xdefine EVP_MD_CTX_move BORINGSSL_PREFIX %+ _EVP_MD_CTX_move
@@ -5840,10 +5787,6 @@
 %xdefine SPAKE2_CTX_new BORINGSSL_PREFIX %+ _SPAKE2_CTX_new
 %xdefine SPAKE2_generate_msg BORINGSSL_PREFIX %+ _SPAKE2_generate_msg
 %xdefine SPAKE2_process_msg BORINGSSL_PREFIX %+ _SPAKE2_process_msg
-%xdefine SPX_generate_key BORINGSSL_PREFIX %+ _SPX_generate_key
-%xdefine SPX_generate_key_from_seed BORINGSSL_PREFIX %+ _SPX_generate_key_from_seed
-%xdefine SPX_sign BORINGSSL_PREFIX %+ _SPX_sign
-%xdefine SPX_verify BORINGSSL_PREFIX %+ _SPX_verify
 %xdefine SSL_CIPHER_description BORINGSSL_PREFIX %+ _SSL_CIPHER_description
 %xdefine SSL_CIPHER_get_auth_nid BORINGSSL_PREFIX %+ _SSL_CIPHER_get_auth_nid
 %xdefine SSL_CIPHER_get_bits BORINGSSL_PREFIX %+ _SSL_CIPHER_get_bits
@@ -6240,6 +6183,7 @@
 %xdefine SSL_in_init BORINGSSL_PREFIX %+ _SSL_in_init
 %xdefine SSL_is_dtls BORINGSSL_PREFIX %+ _SSL_is_dtls
 %xdefine SSL_is_init_finished BORINGSSL_PREFIX %+ _SSL_is_init_finished
+%xdefine SSL_is_quic BORINGSSL_PREFIX %+ _SSL_is_quic
 %xdefine SSL_is_server BORINGSSL_PREFIX %+ _SSL_is_server
 %xdefine SSL_is_signature_algorithm_rsa_pss BORINGSSL_PREFIX %+ _SSL_is_signature_algorithm_rsa_pss
 %xdefine SSL_key_update BORINGSSL_PREFIX %+ _SSL_key_update
@@ -7835,38 +7779,6 @@
 %xdefine slhdsa_wots_sign BORINGSSL_PREFIX %+ _slhdsa_wots_sign
 %xdefine slhdsa_xmss_pk_from_sig BORINGSSL_PREFIX %+ _slhdsa_xmss_pk_from_sig
 %xdefine slhdsa_xmss_sign BORINGSSL_PREFIX %+ _slhdsa_xmss_sign
-%xdefine spx_base_b BORINGSSL_PREFIX %+ _spx_base_b
-%xdefine spx_copy_keypair_addr BORINGSSL_PREFIX %+ _spx_copy_keypair_addr
-%xdefine spx_fors_pk_from_sig BORINGSSL_PREFIX %+ _spx_fors_pk_from_sig
-%xdefine spx_fors_sign BORINGSSL_PREFIX %+ _spx_fors_sign
-%xdefine spx_fors_sk_gen BORINGSSL_PREFIX %+ _spx_fors_sk_gen
-%xdefine spx_fors_treehash BORINGSSL_PREFIX %+ _spx_fors_treehash
-%xdefine spx_get_tree_index BORINGSSL_PREFIX %+ _spx_get_tree_index
-%xdefine spx_ht_sign BORINGSSL_PREFIX %+ _spx_ht_sign
-%xdefine spx_ht_verify BORINGSSL_PREFIX %+ _spx_ht_verify
-%xdefine spx_set_chain_addr BORINGSSL_PREFIX %+ _spx_set_chain_addr
-%xdefine spx_set_hash_addr BORINGSSL_PREFIX %+ _spx_set_hash_addr
-%xdefine spx_set_keypair_addr BORINGSSL_PREFIX %+ _spx_set_keypair_addr
-%xdefine spx_set_layer_addr BORINGSSL_PREFIX %+ _spx_set_layer_addr
-%xdefine spx_set_tree_addr BORINGSSL_PREFIX %+ _spx_set_tree_addr
-%xdefine spx_set_tree_height BORINGSSL_PREFIX %+ _spx_set_tree_height
-%xdefine spx_set_tree_index BORINGSSL_PREFIX %+ _spx_set_tree_index
-%xdefine spx_set_type BORINGSSL_PREFIX %+ _spx_set_type
-%xdefine spx_thash_f BORINGSSL_PREFIX %+ _spx_thash_f
-%xdefine spx_thash_h BORINGSSL_PREFIX %+ _spx_thash_h
-%xdefine spx_thash_hmsg BORINGSSL_PREFIX %+ _spx_thash_hmsg
-%xdefine spx_thash_prf BORINGSSL_PREFIX %+ _spx_thash_prf
-%xdefine spx_thash_prfmsg BORINGSSL_PREFIX %+ _spx_thash_prfmsg
-%xdefine spx_thash_tk BORINGSSL_PREFIX %+ _spx_thash_tk
-%xdefine spx_thash_tl BORINGSSL_PREFIX %+ _spx_thash_tl
-%xdefine spx_to_uint64 BORINGSSL_PREFIX %+ _spx_to_uint64
-%xdefine spx_treehash BORINGSSL_PREFIX %+ _spx_treehash
-%xdefine spx_uint64_to_len_bytes BORINGSSL_PREFIX %+ _spx_uint64_to_len_bytes
-%xdefine spx_wots_pk_from_sig BORINGSSL_PREFIX %+ _spx_wots_pk_from_sig
-%xdefine spx_wots_pk_gen BORINGSSL_PREFIX %+ _spx_wots_pk_gen
-%xdefine spx_wots_sign BORINGSSL_PREFIX %+ _spx_wots_sign
-%xdefine spx_xmss_pk_from_sig BORINGSSL_PREFIX %+ _spx_xmss_pk_from_sig
-%xdefine spx_xmss_sign BORINGSSL_PREFIX %+ _spx_xmss_sign
 %xdefine v2i_GENERAL_NAME BORINGSSL_PREFIX %+ _v2i_GENERAL_NAME
 %xdefine v2i_GENERAL_NAMES BORINGSSL_PREFIX %+ _v2i_GENERAL_NAMES
 %xdefine v2i_GENERAL_NAME_ex BORINGSSL_PREFIX %+ _v2i_GENERAL_NAME_ex

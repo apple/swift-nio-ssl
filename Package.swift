@@ -26,7 +26,7 @@ import class Foundation.ProcessInfo
 // Sources/CNIOBoringSSL directory. The source repository is at
 // https://boringssl.googlesource.com/boringssl.
 //
-// BoringSSL Commit: 059585c8dadc7c8170c788f8c89843ee1c5b8f11
+// BoringSSL Commit: 9559c4566a6d12194c42db5f3dbbcb5de35cfec2
 
 /// This function generates the dependencies we want to express.
 ///
