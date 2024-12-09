@@ -430,7 +430,7 @@ static ssl_early_data_reason_t should_offer_early_data(
     // We discard inapplicable sessions, so this is redundant with the session
     // checks below, but reporting that TLS 1.3 was disabled is more useful.
     //
-    // TODO(crbug.com/42290594): Support early data in DTLS 1.3.
+    // TODO(crbug.com/381113363): Support early data in DTLS 1.3.
     return ssl_early_data_protocol_version;
   }
 
@@ -518,7 +518,7 @@ static enum ssl_hs_wait_t do_start_connect(SSL_HANDSHAKE *hs) {
         (session_type == SSLSessionType::kTicket &&
          (SSL_get_options(ssl) & SSL_OP_NO_TICKET)) ||
         !ssl_session_is_time_valid(ssl, ssl->session.get()) ||
-        (ssl->quic_method != nullptr) != ssl->session->is_quic ||
+        SSL_is_quic(ssl) != int{ssl->session->is_quic} ||
         ssl->s3->initial_handshake_complete) {
       ssl_set_session(ssl, nullptr);
       session_type = SSLSessionType::kNotResumable;
@@ -536,8 +536,7 @@ static enum ssl_hs_wait_t do_start_connect(SSL_HANDSHAKE *hs) {
   // Compatibility mode sends a random session ID. Compatibility mode is
   // enabled for TLS 1.3, but not when it's run over QUIC or DTLS.
   const bool enable_compatibility_mode = hs->max_version >= TLS1_3_VERSION &&
-                                         ssl->quic_method == nullptr &&
-                                         !SSL_is_dtls(hs->ssl);
+                                         !SSL_is_quic(ssl) && !SSL_is_dtls(ssl);
   if (session_type == SSLSessionType::kID) {
     hs->session_id = ssl->session->session_id;
   } else if (session_type == SSLSessionType::kTicket ||
@@ -760,7 +759,7 @@ static enum ssl_hs_wait_t do_read_server_hello(SSL_HANDSHAKE *hs) {
     // TODO(davidben): Should all handshake errors do this? What about record
     // decryption failures?
     //
-    // TODO(crbug.com/42290594): Although missing from the spec, a DTLS 1.2
+    // TODO(crbug.com/381113363): Although missing from the spec, a DTLS 1.2
     // server will already naturally skip 0-RTT data. If we implement DTLS 1.3
     // 0-RTT, we may want a clean reject.
     assert(!SSL_is_dtls(ssl));
@@ -797,7 +796,7 @@ static enum ssl_hs_wait_t do_read_server_hello(SSL_HANDSHAKE *hs) {
 
   // Enforce the TLS 1.3 anti-downgrade feature.
   if (!ssl->s3->initial_handshake_complete &&
-      ssl_supports_version(hs, TLS1_3_VERSION)) {
+      hs->max_version >= TLS1_3_VERSION) {
     static_assert(
         sizeof(kTLS12DowngradeRandom) == sizeof(kTLS13DowngradeRandom),
         "downgrade signals have different size");
