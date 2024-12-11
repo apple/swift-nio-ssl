@@ -14,6 +14,10 @@
 
 import NIOCore
 
+#if os(Linux) || os(FreeBSD) || os(Android)
+import CNIOLinux
+#endif
+
 #if canImport(Darwin)
 import Darwin.C
 #elseif canImport(Musl)
