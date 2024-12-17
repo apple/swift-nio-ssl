@@ -12,11 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import NIOCore
-
-#if os(Linux) || os(FreeBSD) || os(Android)
 import CNIOLinux
-#endif
+import NIOCore
 
 #if canImport(Darwin)
 import Darwin.C
