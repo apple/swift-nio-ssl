@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import CNIOLinux
 import NIOCore
 
 #if canImport(Darwin)
