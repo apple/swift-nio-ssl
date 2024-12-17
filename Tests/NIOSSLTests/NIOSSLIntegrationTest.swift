@@ -44,6 +44,8 @@ internal func interactInMemory(clientChannel: EmbeddedChannel, serverChannel: Em
     var workToDo = true
     while workToDo {
         workToDo = false
+        clientChannel.embeddedEventLoop.run()
+        serverChannel.embeddedEventLoop.run()
         let clientDatum = try clientChannel.readOutbound(as: IOData.self)
         let serverDatum = try serverChannel.readOutbound(as: IOData.self)
 
