@@ -262,14 +262,8 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
     case .success(let changes):
         do {
             // Attempt to load the new certificate chain and abort on failure
-            if let chain = changes.certificateChain {
-                try NIOSSLContext.useCertificateChain(chain, context: parentSwiftContext.sslContext)
-            }
-
-            // Attempt to load the new private key and abort on failure
-            if let pkey = changes.privateKey {
-                try NIOSSLContext.usePrivateKeySource(pkey, context: parentSwiftContext.sslContext)
-            }
+            let ssl = SSLConnection.loadConnectionFromSSL(ssl)
+            try ssl.applyOverride(changes)
 
             // We must return 1 to signal a successful load of the new context
             return 1
@@ -450,10 +444,11 @@ public final class NIOSSLContext {
             )
         }
 
-        try NIOSSLContext.useCertificateChain(configuration.certificateChain, context: context)
+        let handle = UnsafeKeyAndChainTarget.sslContext(context)
+        try handle.useCertificateChain(configuration.certificateChain)
 
         if let pkey = configuration.privateKey {
-            try NIOSSLContext.usePrivateKeySource(pkey, context: context)
+            try handle.usePrivateKeySource(pkey)
         }
 
         if configuration.encodedApplicationProtocols.count > 0 {
@@ -579,101 +574,6 @@ extension NIOSSLContext {
 }
 
 extension NIOSSLContext {
-    fileprivate static func useCertificateChain(
-        _ certificateChain: [NIOSSLCertificateSource],
-        context: OpaquePointer
-    ) throws {
-        var leaf = true
-        for source in certificateChain {
-            switch source {
-            case .file(let p):
-                NIOSSLContext.useCertificateChainFile(p, context: context)
-                leaf = false
-            case .certificate(let cert):
-                if leaf {
-                    try NIOSSLContext.setLeafCertificate(cert, context: context)
-                    leaf = false
-                } else {
-                    try NIOSSLContext.addAdditionalChainCertificate(cert, context: context)
-                }
-            }
-        }
-    }
-
-    private static func useCertificateChainFile(_ path: String, context: OpaquePointer) {
-        // TODO(cory): This shouldn't be an assert but should instead be actual error handling.
-        // assert(path.isFileURL)
-        let result = path.withCString { (pointer) -> CInt in
-            CNIOBoringSSL_SSL_CTX_use_certificate_chain_file(context, pointer)
-        }
-
-        // TODO(cory): again, some error handling would be good.
-        precondition(result == 1)
-    }
-
-    private static func setLeafCertificate(_ cert: NIOSSLCertificate, context: OpaquePointer) throws {
-        let rc = cert.withUnsafeMutableX509Pointer { ref in
-            CNIOBoringSSL_SSL_CTX_use_certificate(context, ref)
-        }
-        guard rc == 1 else {
-            throw NIOSSLError.failedToLoadCertificate
-        }
-    }
-
-    private static func addAdditionalChainCertificate(_ cert: NIOSSLCertificate, context: OpaquePointer) throws {
-        let rc = cert.withUnsafeMutableX509Pointer { ref in
-            CNIOBoringSSL_SSL_CTX_add1_chain_cert(context, ref)
-        }
-        guard rc == 1 else {
-            throw NIOSSLError.failedToLoadCertificate
-        }
-    }
-
-    fileprivate static func usePrivateKeySource(_ privateKey: NIOSSLPrivateKeySource, context: OpaquePointer) throws {
-        switch privateKey {
-        case .file(let p):
-            try NIOSSLContext.usePrivateKeyFile(p, context: context)
-        case .privateKey(let key):
-            try NIOSSLContext.setPrivateKey(key, context: context)
-        }
-    }
-
-    private static func setPrivateKey(_ key: NIOSSLPrivateKey, context: OpaquePointer) throws {
-        switch key.representation {
-        case .native:
-            let rc = key.withUnsafeMutableEVPPKEYPointer { ref in
-                CNIOBoringSSL_SSL_CTX_use_PrivateKey(context, ref)
-            }
-            guard 1 == rc else {
-                throw NIOSSLError.failedToLoadPrivateKey
-            }
-        case .custom:
-            CNIOBoringSSL_SSL_CTX_set_private_key_method(context, customPrivateKeyMethod)
-        }
-    }
-
-    private static func usePrivateKeyFile(_ path: String, context: OpaquePointer) throws {
-        let pathExtension = path.split(separator: ".").last
-        let fileType: CInt
-
-        switch pathExtension?.lowercased() {
-        case .some("pem"):
-            fileType = SSL_FILETYPE_PEM
-        case .some("der"), .some("key"):
-            fileType = SSL_FILETYPE_ASN1
-        default:
-            throw NIOSSLExtraError.unknownPrivateKeyFileType(path: path)
-        }
-
-        let result = path.withCString { (pointer) -> CInt in
-            CNIOBoringSSL_SSL_CTX_use_PrivateKey_file(context, pointer, fileType)
-        }
-
-        guard result == 1 else {
-            throw NIOSSLError.failedToLoadPrivateKey
-        }
-    }
-
     private static func setAlpnProtocols(_ protocols: [[UInt8]], context: OpaquePointer) throws {
         // This copy should be done infrequently, so we don't worry too much about it.
         let protoBuf = protocols.reduce([UInt8](), +)

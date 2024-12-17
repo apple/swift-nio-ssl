@@ -1907,6 +1907,107 @@ class TLSConfigurationTest: XCTestCase {
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
         waitForExpectations(timeout: 1)
     }
+
+    func testClientSideCertSelection() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+        clientConfig.sslContextCallback = { _, promise in
+            var `override` = NIOSSLContextConfigurationOverride()
+            override.certificateChain = [.certificate(TLSConfigurationTest.cert2)]
+            override.privateKey = .privateKey(TLSConfigurationTest.key2)
+            promise.succeed(override)
+        }
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.certificateVerification = .noHostnameVerification
+        serverConfig.trustRoots = .certificates([TLSConfigurationTest.cert2])
+
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    func testServerSideCertSelection() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert2)],
+            privateKey: .privateKey(TLSConfigurationTest.key2)
+        )
+        serverConfig.sslContextCallback = { _, promise in
+            var `override` = NIOSSLContextConfigurationOverride()
+            override.certificateChain = [.certificate(TLSConfigurationTest.cert1)]
+            override.privateKey = .privateKey(TLSConfigurationTest.key1)
+            promise.succeed(override)
+        }
+
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    func testOverrideWithNothingIsFine() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.sslContextCallback = { _, promise in
+            let `override` = NIOSSLContextConfigurationOverride()
+            promise.succeed(override)
+        }
+
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    func testOverrideToInvalidCertFailsHandshake() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert2)],
+            privateKey: .privateKey(TLSConfigurationTest.key2)
+        )
+        serverConfig.sslContextCallback = { _, promise in
+            var `override` = NIOSSLContextConfigurationOverride()
+            override.certificateChain = [.certificate(TLSConfigurationTest.cert1)]
+            promise.succeed(override)
+        }
+
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContains: "TLSV1_ALERT_INTERNAL_ERROR"
+        )
+    }
+
+    func testOverrideToInvalidKeyFailsHandshake() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.sslContextCallback = { _, promise in
+            var `override` = NIOSSLContextConfigurationOverride()
+            override.privateKey = .privateKey(TLSConfigurationTest.key2)
+            promise.succeed(override)
+        }
+
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContains: "TLSV1_ALERT_INTERNAL_ERROR"
+        )
+    }
 }
 
 extension EmbeddedChannel {
