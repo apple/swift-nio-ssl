@@ -44,7 +44,7 @@ private let sysFopen = fopen
 private let sysMlock = mlock
 private let sysMunlock = munlock
 private let sysFclose = fclose
-private let sysStat = stat
+private let sysStat = { stat($0, $1) }
 private let sysLstat = lstat
 private let sysReadlink = readlink
 
