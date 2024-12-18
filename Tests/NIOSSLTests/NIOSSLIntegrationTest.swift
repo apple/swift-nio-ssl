@@ -40,7 +40,11 @@ public func assertNoThrowWithValue<T>(
     }
 }
 
-internal func interactInMemory(clientChannel: EmbeddedChannel, serverChannel: EmbeddedChannel, runLoops: Bool = true) throws {
+internal func interactInMemory(
+    clientChannel: EmbeddedChannel,
+    serverChannel: EmbeddedChannel,
+    runLoops: Bool = true
+) throws {
     var workToDo = true
     while workToDo {
         workToDo = false
