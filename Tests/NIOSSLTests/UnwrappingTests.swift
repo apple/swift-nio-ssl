@@ -242,7 +242,9 @@ final class UnwrappingTests: XCTestCase {
         XCTAssertFalse(clientClosed)
         XCTAssertFalse(clientUnwrapped)
 
-        XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
+        XCTAssertNoThrow(
+            try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel, runLoops: false)
+        )
         clientChannel.pipeline.assertContains(handler: clientHandler)
 
         (serverChannel.eventLoop as! EmbeddedEventLoop).run()
@@ -856,7 +858,9 @@ final class UnwrappingTests: XCTestCase {
         XCTAssertFalse(unwrapped)
 
         // Now interact in memory.
-        XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
+        XCTAssertNoThrow(
+            try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel, runLoops: false)
+        )
 
         XCTAssertFalse(clientClosed)
         XCTAssertFalse(serverClosed)

@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import NIOCore
+import NIOEmbedded
 import NIOSSL
 
 final class BenchRepeatedHandshakes: Benchmark {

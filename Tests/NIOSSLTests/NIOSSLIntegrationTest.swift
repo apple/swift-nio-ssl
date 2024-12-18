@@ -40,10 +40,20 @@ public func assertNoThrowWithValue<T>(
     }
 }
 
-internal func interactInMemory(clientChannel: EmbeddedChannel, serverChannel: EmbeddedChannel) throws {
+internal func interactInMemory(
+    clientChannel: EmbeddedChannel,
+    serverChannel: EmbeddedChannel,
+    runLoops: Bool = true
+) throws {
     var workToDo = true
     while workToDo {
         workToDo = false
+
+        if runLoops {
+            clientChannel.embeddedEventLoop.run()
+            serverChannel.embeddedEventLoop.run()
+        }
+
         let clientDatum = try clientChannel.readOutbound(as: IOData.self)
         let serverDatum = try serverChannel.readOutbound(as: IOData.self)
 

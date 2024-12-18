@@ -495,6 +495,18 @@ extension SSLConnection {
             return try buffers.map { try NIOSSLCertificate(bytes: $0, format: .der) }
         }
     }
+
+    func applyOverride(_ changes: NIOSSLContextConfigurationOverride) throws {
+        let connection = UnsafeKeyAndChainTarget.ssl(self.ssl)
+        if let chain = changes.certificateChain {
+            try connection.useCertificateChain(chain)
+        }
+
+        // Attempt to load the new private key and abort on failure
+        if let pkey = changes.privateKey {
+            try connection.usePrivateKeySource(pkey)
+        }
+    }
 }
 
 extension SSLConnection.PeerCertificateChainBuffers: RandomAccessCollection {
