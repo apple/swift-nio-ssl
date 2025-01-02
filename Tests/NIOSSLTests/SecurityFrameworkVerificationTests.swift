@@ -73,6 +73,68 @@ final class SecurityFrameworkVerificationTests: XCTestCase {
         #endif
     }
 
+    func testDefaultVerificationCanValidateHostname() throws {
+        #if canImport(Darwin)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            try! group.syncShutdownGracefully()
+        }
+
+        let p = group.next().makePromise(of: NIOSSLVerificationResult.self)
+        let context = try NIOSSLContext(configuration: .makeClientConfiguration())
+        let connection = context.createConnection()!
+        connection.setConnectState()
+        connection.expectedHostname = "www.apple.com"
+
+        connection.performSecurityFrameworkValidation(promise: p, peerCertificates: Self.appleComCertChain)
+        let result = try p.futureResult.wait()
+
+        XCTAssertEqual(result, .certificateVerified)
+        #endif
+    }
+
+    func testDefaultVerificationFailsOnInvalidHostname() throws {
+        #if canImport(Darwin)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            try! group.syncShutdownGracefully()
+        }
+
+        let p = group.next().makePromise(of: NIOSSLVerificationResult.self)
+        let context = try NIOSSLContext(configuration: .makeClientConfiguration())
+        let connection = context.createConnection()!
+        connection.setConnectState()
+        connection.expectedHostname = "www.swift-nio.io"
+
+        connection.performSecurityFrameworkValidation(promise: p, peerCertificates: Self.appleComCertChain)
+        let result = try p.futureResult.wait()
+
+        XCTAssertEqual(result, .failed)
+        #endif
+    }
+
+    func testDefaultVerificationIgnoresHostnamesWhenConfiguredTo() throws {
+        #if canImport(Darwin)
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            try! group.syncShutdownGracefully()
+        }
+
+        let p = group.next().makePromise(of: NIOSSLVerificationResult.self)
+        var configuration = TLSConfiguration.makeClientConfiguration()
+        configuration.certificateVerification = .noHostnameVerification
+        let context = try NIOSSLContext(configuration: configuration)
+        let connection = context.createConnection()!
+        connection.setConnectState()
+        connection.expectedHostname = "www.swift-nio.io"
+
+        connection.performSecurityFrameworkValidation(promise: p, peerCertificates: Self.appleComCertChain)
+        let result = try p.futureResult.wait()
+
+        XCTAssertEqual(result, .certificateVerified)
+        #endif
+    }
+
     func testDefaultVerificationPlusAdditionalCanUseAdditionalRoot() throws {
         #if canImport(Darwin)
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
