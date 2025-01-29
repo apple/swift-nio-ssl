@@ -1,142 +1,13 @@
-/* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
- * All rights reserved.
- *
- * This package is an SSL implementation written
- * by Eric Young (eay@cryptsoft.com).
- * The implementation was written so as to conform with Netscapes SSL.
- *
- * This library is free for commercial and non-commercial use as long as
- * the following conditions are aheared to.  The following conditions
- * apply to all code found in this distribution, be it the RC4, RSA,
- * lhash, DES, etc., code; not just the SSL code.  The SSL documentation
- * included with this distribution is covered by the same copyright terms
- * except that the holder is Tim Hudson (tjh@cryptsoft.com).
- *
- * Copyright remains Eric Young's, and as such any Copyright notices in
- * the code are not to be removed.
- * If this package is used in a product, Eric Young should be given attribution
- * as the author of the parts of the library used.
- * This can be in the form of a textual message at program startup or
- * in documentation (online or textual) provided with the package.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *    "This product includes cryptographic software written by
- *     Eric Young (eay@cryptsoft.com)"
- *    The word 'cryptographic' can be left out if the rouines from the library
- *    being used are not cryptographic related :-).
- * 4. If you include any Windows specific code (or a derivative thereof) from
- *    the apps directory (application code) you must include an acknowledgement:
- *    "This product includes software written by Tim Hudson (tjh@cryptsoft.com)"
- *
- * THIS SOFTWARE IS PROVIDED BY ERIC YOUNG ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- * The licence and distribution terms for any publically available version or
- * derivative of this code cannot be changed.  i.e. this code cannot simply be
- * copied and put under another distribution licence
- * [including the GNU Public Licence.]
- */
-/* ====================================================================
- * Copyright (c) 1998-2007 The OpenSSL Project.  All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. All advertising materials mentioning features or use of this
- *    software must display the following acknowledgment:
- *    "This product includes software developed by the OpenSSL Project
- *    for use in the OpenSSL Toolkit. (http://www.openssl.org/)"
- *
- * 4. The names "OpenSSL Toolkit" and "OpenSSL Project" must not be used to
- *    endorse or promote products derived from this software without
- *    prior written permission. For written permission, please contact
- *    openssl-core@openssl.org.
- *
- * 5. Products derived from this software may not be called "OpenSSL"
- *    nor may "OpenSSL" appear in their names without prior written
- *    permission of the OpenSSL Project.
- *
- * 6. Redistributions of any form whatsoever must retain the following
- *    acknowledgment:
- *    "This product includes software developed by the OpenSSL Project
- *    for use in the OpenSSL Toolkit (http://www.openssl.org/)"
- *
- * THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY
- * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE OpenSSL PROJECT OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
- * OF THE POSSIBILITY OF SUCH DAMAGE.
- * ====================================================================
- *
- * This product includes cryptographic software written by Eric Young
- * (eay@cryptsoft.com).  This product includes software written by Tim
- * Hudson (tjh@cryptsoft.com).
- *
- */
-/* ====================================================================
- * Copyright 2002 Sun Microsystems, Inc. ALL RIGHTS RESERVED.
- * ECC cipher suite support in OpenSSL originally developed by
- * SUN MICROSYSTEMS, INC., and contributed to the OpenSSL project.
- */
-/* ====================================================================
+/*
+ * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2005 Nokia. All rights reserved.
  *
- * The portions of the attached software ("Contribution") is developed by
- * Nokia Corporation and is licensed pursuant to the OpenSSL open source
- * license.
- *
- * The Contribution, originally written by Mika Kousa and Pasi Eronen of
- * Nokia Corporation, consists of the "PSK" (Pre-Shared Key) ciphersuites
- * support (see RFC 4279) to OpenSSL.
- *
- * No patent licenses or other rights except those expressly stated in
- * the OpenSSL open source license shall be deemed granted or received
- * expressly, by implication, estoppel, or otherwise.
- *
- * No assurances are provided by Nokia that the Contribution does not
- * infringe the patent or other intellectual property rights of any third
- * party or that the license provides you with all the necessary rights
- * to make use of the Contribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. IN
- * ADDITION TO THE DISCLAIMERS INCLUDED IN THE LICENSE, NOKIA
- * SPECIFICALLY DISCLAIMS ANY LIABILITY FOR CLAIMS BROUGHT BY YOU OR ANY
- * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
- * OTHERWISE. */
+ * Licensed under the OpenSSL license (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * https://www.openssl.org/source/license.html
+ */
 
 #include <CNIOBoringSSL_ssl.h>
 
@@ -307,10 +178,10 @@ bool ssl_log_secret(const SSL *ssl, const char *label,
 
   ScopedCBB cbb;
   Array<uint8_t> line;
+  auto label_bytes = bssl::StringAsBytes(label);
   if (!CBB_init(cbb.get(), strlen(label) + 1 + SSL3_RANDOM_SIZE * 2 + 1 +
                                secret.size() * 2 + 1) ||
-      !CBB_add_bytes(cbb.get(), reinterpret_cast<const uint8_t *>(label),
-                     strlen(label)) ||
+      !CBB_add_bytes(cbb.get(), label_bytes.data(), label_bytes.size()) ||
       !CBB_add_u8(cbb.get(), ' ') ||
       !cbb_add_hex_consttime(cbb.get(), ssl->s3->client_random) ||
       !CBB_add_u8(cbb.get(), ' ') ||
@@ -506,7 +377,7 @@ static uint32_t ssl_session_hash(const SSL_SESSION *sess) {
 }
 
 static int ssl_session_cmp(const SSL_SESSION *a, const SSL_SESSION *b) {
-  return MakeConstSpan(a->session_id) == b->session_id ? 0 : 1;
+  return Span(a->session_id) == b->session_id ? 0 : 1;
 }
 
 ssl_ctx_st::ssl_ctx_st(const SSL_METHOD *ssl_method)
@@ -646,7 +517,7 @@ SSL *SSL_new(SSL_CTX *ctx) {
   ssl->config->permute_extensions = ctx->permute_extensions;
   ssl->config->aes_hw_override = ctx->aes_hw_override;
   ssl->config->aes_hw_override_value = ctx->aes_hw_override_value;
-  ssl->config->tls13_cipher_policy = ctx->tls13_cipher_policy;
+  ssl->config->compliance_policy = ctx->compliance_policy;
 
   if (!ssl->config->supported_group_list.CopyFrom(ctx->supported_group_list) ||
       !ssl->config->alpn_client_proto_list.CopyFrom(
@@ -828,7 +699,7 @@ int SSL_provide_quic_data(SSL *ssl, enum ssl_encryption_level_t level,
     return 0;
   }
 
-  return tls_append_handshake_data(ssl, MakeConstSpan(data, len));
+  return tls_append_handshake_data(ssl, Span(data, len));
 }
 
 int SSL_do_handshake(SSL *ssl) {
@@ -1092,8 +963,7 @@ int SSL_write(SSL *ssl, const void *buf, int num) {
     }
     ret = ssl->method->write_app_data(
         ssl, &needs_handshake, &bytes_written,
-        MakeConstSpan(static_cast<const uint8_t *>(buf),
-                      static_cast<size_t>(num)));
+        Span(static_cast<const uint8_t *>(buf), static_cast<size_t>(num)));
   } while (needs_handshake);
   return ret <= 0 ? ret : static_cast<int>(bytes_written);
 }
@@ -1204,8 +1074,8 @@ int SSL_send_fatal_alert(SSL *ssl, uint8_t alert) {
 
 int SSL_set_quic_transport_params(SSL *ssl, const uint8_t *params,
                                   size_t params_len) {
-  return ssl->config && ssl->config->quic_transport_params.CopyFrom(
-                            MakeConstSpan(params, params_len));
+  return ssl->config &&
+         ssl->config->quic_transport_params.CopyFrom(Span(params, params_len));
 }
 
 void SSL_get_peer_quic_transport_params(const SSL *ssl,
@@ -1218,7 +1088,7 @@ void SSL_get_peer_quic_transport_params(const SSL *ssl,
 int SSL_set_quic_early_data_context(SSL *ssl, const uint8_t *context,
                                     size_t context_len) {
   return ssl->config && ssl->config->quic_early_data_context.CopyFrom(
-                            MakeConstSpan(context, context_len));
+                            Span(context, context_len));
 }
 
 void SSL_CTX_set_early_data_enabled(SSL_CTX *ctx, int enabled) {
@@ -1522,7 +1392,7 @@ int SSL_get_tls_unique(const SSL *ssl, uint8_t *out, size_t *out_len,
 
 static int set_session_id_context(CERT *cert, const uint8_t *sid_ctx,
                                   size_t sid_ctx_len) {
-  if (!cert->sid_ctx.TryCopyFrom(MakeConstSpan(sid_ctx, sid_ctx_len))) {
+  if (!cert->sid_ctx.TryCopyFrom(Span(sid_ctx, sid_ctx_len))) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_SSL_SESSION_ID_CONTEXT_TOO_LONG);
     return 0;
   }
@@ -1943,7 +1813,7 @@ static bool check_group_ids(Span<const uint16_t> group_ids) {
 
 int SSL_CTX_set1_group_ids(SSL_CTX *ctx, const uint16_t *group_ids,
                            size_t num_group_ids) {
-  auto span = MakeConstSpan(group_ids, num_group_ids);
+  auto span = Span(group_ids, num_group_ids);
   return check_group_ids(span) && ctx->supported_group_list.CopyFrom(span);
 }
 
@@ -1952,7 +1822,7 @@ int SSL_set1_group_ids(SSL *ssl, const uint16_t *group_ids,
   if (!ssl->config) {
     return 0;
   }
-  auto span = MakeConstSpan(group_ids, num_group_ids);
+  auto span = Span(group_ids, num_group_ids);
   return check_group_ids(span) &&
          ssl->config->supported_group_list.CopyFrom(span);
 }
@@ -1977,7 +1847,7 @@ static bool ssl_nids_to_group_ids(Array<uint16_t> *out_group_ids,
 
 int SSL_CTX_set1_groups(SSL_CTX *ctx, const int *groups, size_t num_groups) {
   return ssl_nids_to_group_ids(&ctx->supported_group_list,
-                               MakeConstSpan(groups, num_groups));
+                               Span(groups, num_groups));
 }
 
 int SSL_set1_groups(SSL *ssl, const int *groups, size_t num_groups) {
@@ -1985,7 +1855,7 @@ int SSL_set1_groups(SSL *ssl, const int *groups, size_t num_groups) {
     return 0;
   }
   return ssl_nids_to_group_ids(&ssl->config->supported_group_list,
-                               MakeConstSpan(groups, num_groups));
+                               Span(groups, num_groups));
 }
 
 static bool ssl_str_to_group_ids(Array<uint16_t> *out_group_ids,
@@ -2258,8 +2128,8 @@ int SSL_select_next_proto(uint8_t **out, uint8_t *out_len, const uint8_t *peer,
 
   // Both |peer| and |supported| must be valid protocol lists, but |peer| may be
   // empty in NPN.
-  auto peer_span = MakeConstSpan(peer, peer_len);
-  auto supported_span = MakeConstSpan(supported, supported_len);
+  auto peer_span = Span(peer, peer_len);
+  auto supported_span = Span(supported, supported_len);
   if ((!peer_span.empty() && !ssl_is_valid_alpn_list(peer_span)) ||
       !ssl_is_valid_alpn_list(supported_span)) {
     return OPENSSL_NPN_NO_OVERLAP;
@@ -2272,7 +2142,7 @@ int SSL_select_next_proto(uint8_t **out, uint8_t *out_len, const uint8_t *peer,
       return OPENSSL_NPN_NO_OVERLAP;
     }
 
-    if (ssl_alpn_list_contains_protocol(MakeConstSpan(supported, supported_len),
+    if (ssl_alpn_list_contains_protocol(Span(supported, supported_len),
                                         proto)) {
       // This function is not const-correct for compatibility with existing
       // callers.
@@ -2327,7 +2197,7 @@ void SSL_CTX_set_next_proto_select_cb(SSL_CTX *ctx,
 int SSL_CTX_set_alpn_protos(SSL_CTX *ctx, const uint8_t *protos,
                             size_t protos_len) {
   // Note this function's return value is backwards.
-  auto span = MakeConstSpan(protos, protos_len);
+  auto span = Span(protos, protos_len);
   if (!span.empty() && !ssl_is_valid_alpn_list(span)) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_INVALID_ALPN_PROTOCOL_LIST);
     return 1;
@@ -2340,7 +2210,7 @@ int SSL_set_alpn_protos(SSL *ssl, const uint8_t *protos, size_t protos_len) {
   if (!ssl->config) {
     return 1;
   }
-  auto span = MakeConstSpan(protos, protos_len);
+  auto span = Span(protos, protos_len);
   if (!span.empty() && !ssl_is_valid_alpn_list(span)) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_INVALID_ALPN_PROTOCOL_LIST);
     return 1;
@@ -2382,8 +2252,8 @@ int SSL_add_application_settings(SSL *ssl, const uint8_t *proto,
     return 0;
   }
   ALPSConfig config;
-  if (!config.protocol.CopyFrom(MakeConstSpan(proto, proto_len)) ||
-      !config.settings.CopyFrom(MakeConstSpan(settings, settings_len)) ||
+  if (!config.protocol.CopyFrom(Span(proto, proto_len)) ||
+      !config.settings.CopyFrom(Span(settings, settings_len)) ||
       !ssl->config->alps_configs.Push(std::move(config))) {
     return 0;
   }
@@ -3297,7 +3167,7 @@ static const char kTLS12Ciphers[] =
     "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384";
 
 static int Configure(SSL_CTX *ctx) {
-  ctx->tls13_cipher_policy = ssl_compliance_policy_fips_202205;
+  ctx->compliance_policy = ssl_compliance_policy_fips_202205;
 
   return
       // Section 3.1:
@@ -3320,7 +3190,7 @@ static int Configure(SSL_CTX *ctx) {
 }
 
 static int Configure(SSL *ssl) {
-  ssl->config->tls13_cipher_policy = ssl_compliance_policy_fips_202205;
+  ssl->config->compliance_policy = ssl_compliance_policy_fips_202205;
 
   // See |Configure(SSL_CTX)|, above, for reasoning.
   return SSL_set_min_proto_version(ssl, TLS1_2_VERSION) &&
@@ -3354,7 +3224,7 @@ static const char kTLS12Ciphers[] =
     "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384";
 
 static int Configure(SSL_CTX *ctx) {
-  ctx->tls13_cipher_policy = ssl_compliance_policy_wpa3_192_202304;
+  ctx->compliance_policy = ssl_compliance_policy_wpa3_192_202304;
 
   return SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION) &&
          SSL_CTX_set_max_proto_version(ctx, TLS1_3_VERSION) &&
@@ -3367,7 +3237,7 @@ static int Configure(SSL_CTX *ctx) {
 }
 
 static int Configure(SSL *ssl) {
-  ssl->config->tls13_cipher_policy = ssl_compliance_policy_wpa3_192_202304;
+  ssl->config->compliance_policy = ssl_compliance_policy_wpa3_192_202304;
 
   return SSL_set_min_proto_version(ssl, TLS1_2_VERSION) &&
          SSL_set_max_proto_version(ssl, TLS1_3_VERSION) &&
@@ -3384,12 +3254,12 @@ static int Configure(SSL *ssl) {
 namespace cnsa202407 {
 
 static int Configure(SSL_CTX *ctx) {
-  ctx->tls13_cipher_policy = ssl_compliance_policy_cnsa_202407;
+  ctx->compliance_policy = ssl_compliance_policy_cnsa_202407;
   return 1;
 }
 
 static int Configure(SSL *ssl) {
-  ssl->config->tls13_cipher_policy = ssl_compliance_policy_cnsa_202407;
+  ssl->config->compliance_policy = ssl_compliance_policy_cnsa_202407;
   return 1;
 }
 
@@ -3409,6 +3279,10 @@ int SSL_CTX_set_compliance_policy(SSL_CTX *ctx,
   }
 }
 
+enum ssl_compliance_policy_t SSL_CTX_get_compliance_policy(const SSL_CTX *ctx) {
+  return ctx->compliance_policy;
+}
+
 int SSL_set_compliance_policy(SSL *ssl, enum ssl_compliance_policy_t policy) {
   switch (policy) {
     case ssl_compliance_policy_fips_202205:
@@ -3420,4 +3294,8 @@ int SSL_set_compliance_policy(SSL *ssl, enum ssl_compliance_policy_t policy) {
     default:
       return 0;
   }
+}
+
+enum ssl_compliance_policy_t SSL_get_compliance_policy(const SSL *ssl) {
+  return ssl->config->compliance_policy;
 }

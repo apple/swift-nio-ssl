@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, Google Inc.
+/* Copyright 2014 The BoringSSL Authors
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -45,9 +45,7 @@ struct cbs_st {
   // Allow implicit conversions to and from bssl::Span<const uint8_t>.
   cbs_st(bssl::Span<const uint8_t> span)
       : data(span.data()), len(span.size()) {}
-  operator bssl::Span<const uint8_t>() const {
-    return bssl::MakeConstSpan(data, len);
-  }
+  operator bssl::Span<const uint8_t>() const { return bssl::Span(data, len); }
 
   // Defining any constructors requires we explicitly default the others.
   cbs_st() = default;

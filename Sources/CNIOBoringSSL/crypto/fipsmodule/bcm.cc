@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, Google Inc.
+/* Copyright 2017 The BoringSSL Authors
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -36,8 +36,15 @@
 // separate compilation units again.
 #include "aes/aes.cc.inc"
 #include "aes/aes_nohw.cc.inc"
+#include "aes/cbc.cc.inc"
+#include "aes/cfb.cc.inc"
+#include "aes/ctr.cc.inc"
+#include "aes/gcm.cc.inc"
+#include "aes/gcm_nohw.cc.inc"
 #include "aes/key_wrap.cc.inc"
 #include "aes/mode_wrappers.cc.inc"
+#include "aes/ofb.cc.inc"
+#include "aes/polyval.cc.inc"
 #include "bn/add.cc.inc"
 #include "bn/asm/x86_64-gcc.cc.inc"
 #include "bn/bn.cc.inc"
@@ -86,13 +93,9 @@
 #include "ecdsa/ecdsa.cc.inc"
 #include "hkdf/hkdf.cc.inc"
 #include "hmac/hmac.cc.inc"
-#include "modes/cbc.cc.inc"
-#include "modes/cfb.cc.inc"
-#include "modes/ctr.cc.inc"
-#include "modes/gcm.cc.inc"
-#include "modes/gcm_nohw.cc.inc"
-#include "modes/ofb.cc.inc"
-#include "modes/polyval.cc.inc"
+#include "keccak/keccak.cc.inc"
+#include "mldsa/mldsa.cc.inc"
+#include "mlkem/mlkem.cc.inc"
 #include "rand/ctrdrbg.cc.inc"
 #include "rand/rand.cc.inc"
 #include "rsa/blinding.cc.inc"
@@ -105,6 +108,11 @@
 #include "sha/sha1.cc.inc"
 #include "sha/sha256.cc.inc"
 #include "sha/sha512.cc.inc"
+#include "slhdsa/fors.cc.inc"
+#include "slhdsa/merkle.cc.inc"
+#include "slhdsa/slhdsa.cc.inc"
+#include "slhdsa/thash.cc.inc"
+#include "slhdsa/wots.cc.inc"
 #include "tls/kdf.cc.inc"
 
 

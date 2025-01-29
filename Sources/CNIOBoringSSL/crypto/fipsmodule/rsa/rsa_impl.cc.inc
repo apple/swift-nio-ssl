@@ -1,58 +1,11 @@
-/* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
- * All rights reserved.
+/*
+ * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
  *
- * This package is an SSL implementation written
- * by Eric Young (eay@cryptsoft.com).
- * The implementation was written so as to conform with Netscapes SSL.
- *
- * This library is free for commercial and non-commercial use as long as
- * the following conditions are aheared to.  The following conditions
- * apply to all code found in this distribution, be it the RC4, RSA,
- * lhash, DES, etc., code; not just the SSL code.  The SSL documentation
- * included with this distribution is covered by the same copyright terms
- * except that the holder is Tim Hudson (tjh@cryptsoft.com).
- *
- * Copyright remains Eric Young's, and as such any Copyright notices in
- * the code are not to be removed.
- * If this package is used in a product, Eric Young should be given attribution
- * as the author of the parts of the library used.
- * This can be in the form of a textual message at program startup or
- * in documentation (online or textual) provided with the package.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *    "This product includes cryptographic software written by
- *     Eric Young (eay@cryptsoft.com)"
- *    The word 'cryptographic' can be left out if the rouines from the library
- *    being used are not cryptographic related :-).
- * 4. If you include any Windows specific code (or a derivative thereof) from
- *    the apps directory (application code) you must include an acknowledgement:
- *    "This product includes software written by Tim Hudson (tjh@cryptsoft.com)"
- *
- * THIS SOFTWARE IS PROVIDED BY ERIC YOUNG ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- * The licence and distribution terms for any publically available version or
- * derivative of this code cannot be changed.  i.e. this code cannot simply be
- * copied and put under another distribution licence
- * [including the GNU Public Licence.] */
+ * Licensed under the OpenSSL license (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * https://www.openssl.org/source/license.html
+ */
 
 #include <CNIOBoringSSL_rsa.h>
 
@@ -217,7 +170,6 @@ static int freeze_private_key(RSA *rsa, BN_CTX *ctx) {
         goto err;
       }
     }
-    const BIGNUM *p_fixed = &rsa->mont_p->N;
 
     if (rsa->mont_q == NULL) {
       rsa->mont_q = BN_MONT_CTX_new_consttime(rsa->q, ctx);
@@ -225,22 +177,12 @@ static int freeze_private_key(RSA *rsa, BN_CTX *ctx) {
         goto err;
       }
     }
-    const BIGNUM *q_fixed = &rsa->mont_q->N;
 
-    if (rsa->dmp1 != NULL && rsa->dmq1 != NULL) {
-      // Key generation relies on this function to compute |iqmp|.
-      if (rsa->iqmp == NULL) {
-        BIGNUM *iqmp = BN_new();
-        if (iqmp == NULL || !bn_mod_inverse_secret_prime(iqmp, rsa->q, rsa->p,
-                                                         ctx, rsa->mont_p)) {
-          BN_free(iqmp);
-          goto err;
-        }
-        rsa->iqmp = iqmp;
-      }
-
+    if (rsa->dmp1 != NULL && rsa->dmq1 != NULL && rsa->iqmp != NULL) {
       // CRT components are only publicly bounded by their corresponding
       // moduli's bit lengths.
+      const BIGNUM *p_fixed = &rsa->mont_p->N;
+      const BIGNUM *q_fixed = &rsa->mont_q->N;
       if (!ensure_fixed_copy(&rsa->dmp1_fixed, rsa->dmp1, p_fixed->width) ||
           !ensure_fixed_copy(&rsa->dmq1_fixed, rsa->dmq1, q_fixed->width)) {
         goto err;
@@ -298,8 +240,6 @@ void rsa_invalidate_key(RSA *rsa) {
   rsa->blindings_inuse = NULL;
   rsa->blinding_fork_generation = 0;
 }
-
-size_t rsa_default_size(const RSA *rsa) { return BN_num_bytes(rsa->n); }
 
 // MAX_BLINDINGS_PER_RSA defines the maximum number of cached BN_BLINDINGs per
 // RSA*. Then this limit is exceeded, BN_BLINDING objects will be created and
@@ -482,7 +422,7 @@ err:
 }
 
 
-static int mod_exp(BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx);
+static int rsa_mod_exp_crt(BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx);
 
 int rsa_verify_raw_no_self_test(RSA *rsa, size_t *out_len, uint8_t *out,
                                 size_t max_out, const uint8_t *in,
@@ -667,7 +607,7 @@ int rsa_default_private_transform(RSA *rsa, uint8_t *out, const uint8_t *in,
       // but it is true for keys generated by us and all common implementations.
       bn_less_than_montgomery_R(rsa->q, rsa->mont_p) &&
       bn_less_than_montgomery_R(rsa->p, rsa->mont_q)) {
-    if (!mod_exp(result, f, rsa, ctx)) {
+    if (!rsa_mod_exp_crt(result, f, rsa, ctx)) {
       goto err;
     }
   } else if (!BN_mod_exp_mont_consttime(result, f, rsa->d_fixed, rsa->n, ctx,
@@ -756,7 +696,7 @@ static int mod_montgomery(BIGNUM *r, const BIGNUM *I, const BIGNUM *p,
   return 1;
 }
 
-static int mod_exp(BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx) {
+static int rsa_mod_exp_crt(BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx) {
   assert(ctx != NULL);
 
   assert(rsa->n != NULL);
@@ -776,10 +716,6 @@ static int mod_exp(BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx) {
   m1 = BN_CTX_get(ctx);
   BIGNUM *n, *p, *q;
   if (r1 == NULL || m1 == NULL) {
-    goto err;
-  }
-
-  if (!freeze_private_key(rsa, ctx)) {
     goto err;
   }
 
@@ -1107,10 +1043,14 @@ static int rsa_generate_key_impl(RSA *rsa, int bits, const BIGNUM *e_value,
   }
 
   // We need the RSA components non-NULL.
-  if (!ensure_bignum(&rsa->n) || !ensure_bignum(&rsa->d) ||
-      !ensure_bignum(&rsa->e) || !ensure_bignum(&rsa->p) ||
-      !ensure_bignum(&rsa->q) || !ensure_bignum(&rsa->dmp1) ||
-      !ensure_bignum(&rsa->dmq1)) {
+  if (!ensure_bignum(&rsa->n) ||     //
+      !ensure_bignum(&rsa->d) ||     //
+      !ensure_bignum(&rsa->e) ||     //
+      !ensure_bignum(&rsa->p) ||     //
+      !ensure_bignum(&rsa->q) ||     //
+      !ensure_bignum(&rsa->dmp1) ||  //
+      !ensure_bignum(&rsa->dmq1) ||  //
+      !ensure_bignum(&rsa->iqmp)) {
     goto bn_err;
   }
 
@@ -1196,6 +1136,14 @@ static int rsa_generate_key_impl(RSA *rsa, int bits, const BIGNUM *e_value,
   // |rsa->n| is computed from the private key, but is public.
   bn_declassify(rsa->n);
 
+  // Calculate q^-1 mod p.
+  rsa->mont_p = BN_MONT_CTX_new_consttime(rsa->p, ctx);
+  if (rsa->mont_p == NULL ||  //
+      !bn_mod_inverse_secret_prime(rsa->iqmp, rsa->q, rsa->p, ctx,
+                                   rsa->mont_p)) {
+    goto bn_err;
+  }
+
   // Sanity-check that |rsa->n| has the specified size. This is implied by
   // |generate_prime|'s bounds.
   if (BN_num_bits(rsa->n) != (unsigned)bits) {
@@ -1203,16 +1151,11 @@ static int rsa_generate_key_impl(RSA *rsa, int bits, const BIGNUM *e_value,
     goto err;
   }
 
-  // Call |freeze_private_key| to compute the inverse of q mod p, by way of
-  // |rsa->mont_p|.
-  if (!freeze_private_key(rsa, ctx)) {
-    goto bn_err;
-  }
-
   // The key generation process is complex and thus error-prone. It could be
   // disastrous to generate and then use a bad key so double-check that the key
-  // makes sense.
-  if (!RSA_check_key(rsa)) {
+  // makes sense. Also, while |rsa| is mutable, fill in the cached components.
+  if (!RSA_check_key(rsa) ||
+      !freeze_private_key(rsa, ctx)) {
     OPENSSL_PUT_ERROR(RSA, RSA_R_INTERNAL_ERROR);
     goto err;
   }

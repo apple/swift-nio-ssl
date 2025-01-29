@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, Google Inc.
+/* Copyright 2016 The BoringSSL Authors
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -319,9 +319,11 @@ static void left_shift_3(uint8_t n[32]) {
   }
 }
 
+namespace {
 typedef struct {
   BN_ULONG words[32 / sizeof(BN_ULONG)];
 } scalar;
+}  // namespace
 
 // kOrder is the order of the prime-order subgroup of curve25519.
 static const scalar kOrder = {

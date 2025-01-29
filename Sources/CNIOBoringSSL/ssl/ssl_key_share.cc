@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, Google Inc.
+/* Copyright 2015 The BoringSSL Authors
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -388,9 +388,7 @@ constexpr NamedGroup kNamedGroups[] = {
 
 }  // namespace
 
-Span<const NamedGroup> NamedGroups() {
-  return MakeConstSpan(kNamedGroups, OPENSSL_ARRAY_SIZE(kNamedGroups));
-}
+Span<const NamedGroup> NamedGroups() { return kNamedGroups; }
 
 UniquePtr<SSLKeyShare> SSLKeyShare::Create(uint16_t group_id) {
   switch (group_id) {
@@ -464,5 +462,5 @@ const char *SSL_get_group_name(uint16_t group_id) {
 
 size_t SSL_get_all_group_names(const char **out, size_t max_out) {
   return GetAllNames(out, max_out, Span<const char *>(), &NamedGroup::name,
-                     MakeConstSpan(kNamedGroups));
+                     Span(kNamedGroups));
 }
