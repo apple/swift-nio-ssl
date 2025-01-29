@@ -142,7 +142,7 @@ let package = Package(
             ]
         ),
     ],
-    cxxLanguageStandard: .cxx14
+    cxxLanguageStandard: .cxx17
 )
 
 // ---    STANDARD CROSS-REPO SETTINGS DO NOT EDIT   --- //

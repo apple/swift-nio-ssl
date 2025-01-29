@@ -2,10 +2,10 @@ diff --git a/Sources/CNIOBoringSSL/crypto/evp/print.cc b/Sources/CNIOBoringSSL/c
 index 89ceb32..5e6fb2f 100644
 --- a/Sources/CNIOBoringSSL/crypto/evp/print.cc
 +++ b/Sources/CNIOBoringSSL/crypto/evp/print.cc
-@@ -50,6 +50,8 @@
-  * (eay@cryptsoft.com).  This product includes software written by Tim
-  * Hudson (tjh@cryptsoft.com). */
- 
+@@ -7,6 +7,8 @@
+  * https://www.openssl.org/source/license.html
+  */
+
 +#include <inttypes.h>
 +
  #include <CNIOBoringSSL_evp.h>
