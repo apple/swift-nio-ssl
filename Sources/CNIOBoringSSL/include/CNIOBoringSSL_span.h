@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, Google Inc.
+/* Copyright 2017 The BoringSSL Authors
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -24,16 +24,11 @@ extern "C++" {
 #include <stdlib.h>
 
 #include <algorithm>
+#include <string_view>
 #include <type_traits>
 
-#if __cplusplus >= 201703L
-#include <string_view>
-#endif
-
-#if defined(__has_include)
 #if __has_include(<version>)
 #include <version>
-#endif
 #endif
 
 #if defined(__cpp_lib_ranges) && __cpp_lib_ranges >= 201911L
@@ -74,12 +69,10 @@ class SpanBase {
 
 // Heuristically test whether C is a container type that can be converted into
 // a Span<T> by checking for data() and size() member functions.
-//
-// TODO(davidben): Require C++17 support for std::is_convertible_v, etc.
 template <typename C, typename T>
 using EnableIfContainer = std::enable_if_t<
-    std::is_convertible<decltype(std::declval<C>().data()), T *>::value &&
-    std::is_integral<decltype(std::declval<C>().size())>::value>;
+    std::is_convertible_v<decltype(std::declval<C>().data()), T *> &&
+    std::is_integral_v<decltype(std::declval<C>().size())>>;
 
 }  // namespace internal
 
@@ -106,10 +99,10 @@ using EnableIfContainer = std::enable_if_t<
 //
 // FooMutate(bssl::Span<uint8_t>(vec));
 //
-// You can also use the |MakeSpan| and |MakeConstSpan| factory methods to
-// construct Spans in order to deduce the type of the Span automatically.
+// You can also use C++17 class template argument deduction to construct Spans
+// in order to deduce the type of the Span automatically.
 //
-// FooMutate(bssl::MakeSpan(vec));
+// FooMutate(bssl::Span(vec));
 //
 // Note that Spans have value type sematics. They are cheap to construct and
 // copy, and should be passed by value whenever a method would otherwise accept
@@ -210,7 +203,6 @@ class Span : private internal::SpanBase<const T> {
 template <typename T>
 const size_t Span<T>::npos;
 
-#if __cplusplus >= 201703L
 template <typename T>
 Span(T *, size_t) -> Span<T>;
 template <typename T, size_t size>
@@ -220,10 +212,7 @@ template <
     typename T = std::remove_pointer_t<decltype(std::declval<C>().data())>,
     typename = internal::EnableIfContainer<C, T>>
 Span(C &) -> Span<T>;
-#endif
 
-// C++17 callers can instead rely on CTAD and the deduction guides defined
-// above.
 template <typename T>
 constexpr Span<T> MakeSpan(T *ptr, size_t size) {
   return Span<T>(ptr, size);
@@ -255,7 +244,6 @@ constexpr Span<const T> MakeConstSpan(T (&array)[size]) {
   return array;
 }
 
-#if __cplusplus >= 201703L
 inline Span<const uint8_t> StringAsBytes(std::string_view s) {
   return MakeConstSpan(reinterpret_cast<const uint8_t *>(s.data()), s.size());
 }
@@ -263,7 +251,6 @@ inline Span<const uint8_t> StringAsBytes(std::string_view s) {
 inline std::string_view BytesAsStringView(bssl::Span<const uint8_t> b) {
   return std::string_view(reinterpret_cast<const char *>(b.data()), b.size());
 }
-#endif
 
 BSSL_NAMESPACE_END
 

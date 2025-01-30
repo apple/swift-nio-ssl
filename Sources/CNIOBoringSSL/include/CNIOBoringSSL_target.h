@@ -1,4 +1,4 @@
-/* Copyright (c) 2023, Google Inc.
+/* Copyright 2023 The BoringSSL Authors
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -225,5 +225,15 @@
 #define OPENSSL_NO_ASM
 #endif
 #endif  // OPENSSL_ASM_INCOMPATIBLE
+
+// We do not detect any features at runtime on several 32-bit Arm platforms.
+// Apple platforms and OpenBSD require NEON and moved to 64-bit to pick up Armv8
+// extensions. Android baremetal does not aim to support 32-bit Arm at all, but
+// it simplifies things to make it build.
+#if defined(OPENSSL_ARM) && !defined(OPENSSL_STATIC_ARMCAP) && \
+    (defined(OPENSSL_APPLE) || defined(OPENSSL_OPENBSD) ||     \
+     defined(ANDROID_BAREMETAL))
+#define OPENSSL_STATIC_ARMCAP
+#endif
 
 #endif  // OPENSSL_HEADER_TARGET_H

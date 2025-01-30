@@ -2,8 +2,8 @@ diff --git a/Sources/CNIOBoringSSL/crypto/x509/t_x509.cc b/Sources/CNIOBoringSSL
 index 7a3acc8..c0bc1c5 100644
 --- a/Sources/CNIOBoringSSL/crypto/x509/t_x509.cc
 +++ b/Sources/CNIOBoringSSL/crypto/x509/t_x509.cc
-@@ -55,6 +55,7 @@
-  * [including the GNU Public Licence.] */
+@@ -8,6 +8,7 @@
+  */
  
  #include <assert.h>
 +#include <inttypes.h>  // for PRIu64 and friends

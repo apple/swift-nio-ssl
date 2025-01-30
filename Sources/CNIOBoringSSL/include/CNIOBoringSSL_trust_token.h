@@ -1,4 +1,4 @@
-/* Copyright (c) 2020, Google Inc.
+/* Copyright 2020 The BoringSSL Authors
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -31,8 +31,8 @@ extern "C" {
 //
 // References:
 // https://eprint.iacr.org/2020/072.pdf
-// https://github.com/alxdavids/privacy-pass-ietf/tree/master/drafts
-// https://github.com/WICG/trust-token-api/blob/master/README.md
+// https://github.com/ietf-wg-privacypass/base-drafts
+// https://github.com/WICG/trust-token-api/blob/main/README.md
 //
 // WARNING: This API is unstable and subject to change.
 

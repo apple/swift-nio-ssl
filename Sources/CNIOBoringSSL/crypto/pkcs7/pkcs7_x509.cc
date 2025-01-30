@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, Google Inc.
+/* Copyright 2017 The BoringSSL Authors
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -416,11 +416,13 @@ out:
   return ret;
 }
 
+namespace {
 struct signer_info_data {
   const X509 *sign_cert;
   uint8_t *signature;
   size_t signature_len;
 };
+}  // namespace
 
 // write_signer_info writes the SignerInfo structure from
 // https://datatracker.ietf.org/doc/html/rfc2315#section-9.2 to |out|. It

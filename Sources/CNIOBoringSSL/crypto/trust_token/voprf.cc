@@ -1,4 +1,4 @@
-/* Copyright (c) 2020, Google Inc.
+/* Copyright 2020 The BoringSSL Authors
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,7 +23,7 @@
 #include <CNIOBoringSSL_rand.h>
 #include <CNIOBoringSSL_sha.h>
 
-#include "../ec_extra/internal.h"
+#include "../ec/internal.h"
 #include "../fipsmodule/ec/internal.h"
 
 #include "internal.h"
