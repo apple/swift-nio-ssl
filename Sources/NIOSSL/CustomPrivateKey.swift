@@ -217,7 +217,7 @@ extension SSLConnection {
 
 // We heap-allocate the SSL_PRIVATE_KEY_METHOD we need because we can't define a static stored property with fixed address
 // in Swift.
-internal let customPrivateKeyMethod: UnsafePointer<SSL_PRIVATE_KEY_METHOD> = {
+nonisolated(unsafe) internal let customPrivateKeyMethod: UnsafePointer<SSL_PRIVATE_KEY_METHOD> = {
     let pointer = UnsafeMutablePointer<SSL_PRIVATE_KEY_METHOD>.allocate(capacity: 1)
     pointer.pointee = .init(sign: customKeySign, decrypt: customKeyDecrypt, complete: customKeyComplete)
     return UnsafePointer(pointer)

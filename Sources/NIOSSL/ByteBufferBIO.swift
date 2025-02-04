@@ -170,7 +170,7 @@ final class ByteBufferBIO {
     /// using a ByteBufferBIO. There will only ever be one value of this in a NIO program,
     /// and it will always be non-NULL. Failure to initialize this structure is fatal to
     /// the program.
-    private static let boringSSLBIOMethod: UnsafeMutablePointer<BIO_METHOD> = {
+    nonisolated(unsafe) private static let boringSSLBIOMethod: UnsafeMutablePointer<BIO_METHOD> = {
         guard boringSSLIsInitialized else {
             preconditionFailure("Failed to initialize BoringSSL")
         }
