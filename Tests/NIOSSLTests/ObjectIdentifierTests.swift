@@ -12,7 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+#else
 @_implementationOnly import CNIOBoringSSL
+#endif
 import XCTest
 
 @testable import NIOSSL
