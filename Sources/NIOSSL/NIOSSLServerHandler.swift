@@ -130,6 +130,3 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
         )
     }
 }
-
-@available(*, unavailable)
-extension NIOSSLServerHandler: Sendable {}
