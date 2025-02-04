@@ -31,7 +31,7 @@ import Android
 // This is a neat trick. Swift lazily initializes module-globals based on when they're first
 // used. This lets us defer BoringSSL intialization as late as possible and only do it if people
 // actually create any object that uses BoringSSL.
-internal var boringSSLIsInitialized: Bool = initializeBoringSSL()
+internal let boringSSLIsInitialized: Bool = initializeBoringSSL()
 
 internal enum FileSystemObject {
     case directory
