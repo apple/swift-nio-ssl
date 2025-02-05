@@ -19,67 +19,86 @@ import XCTest
 @testable import NIOSSL
 
 class SSLPrivateKeyTest: XCTestCase {
-    static var pemKeyFilePath: String! = nil
-    static var derKeyFilePath: String! = nil
-    static var passwordPemKeyFilePath: String! = nil
-    static var passwordPKCS8PemKeyFilePath: String! = nil
-    static var dynamicallyGeneratedKey: NIOSSLPrivateKey! = nil
+    static let dynamicallyGeneratedKey = generateSelfSignedCert().1
 
-    override class func setUp() {
-        SSLPrivateKeyTest.pemKeyFilePath = try! dumpToFile(
+    static func withPEMKeyFile(_ body: (String) throws -> Void) throws {
+        let path = try dumpToFile(
             text: samplePemKey,
             fileExtension: ".pem"
         )
-        SSLPrivateKeyTest.derKeyFilePath = try! dumpToFile(data: sampleDerKey)
-        SSLPrivateKeyTest.passwordPemKeyFilePath = try! dumpToFile(
+        defer {
+            unlink(path)
+        }
+
+        return try body(path)
+    }
+
+    static func withDERKeyFile(_ body: (String) throws -> Void) throws {
+        let path = try dumpToFile(
+            data: sampleDerKey
+        )
+        defer {
+            unlink(path)
+        }
+
+        return try body(path)
+    }
+
+    static func withPasswordPEMKeyFile(_ body: (String) throws -> Void) throws {
+        let path = try dumpToFile(
             text: samplePemRSAEncryptedKey,
             fileExtension: ".pem"
         )
-        SSLPrivateKeyTest.passwordPKCS8PemKeyFilePath = try! dumpToFile(text: samplePKCS8PemPrivateKey)
+        defer {
+            unlink(path)
+        }
 
-        let (_, key) = generateSelfSignedCert()
-        SSLPrivateKeyTest.dynamicallyGeneratedKey = key
+        return try body(path)
     }
 
-    override class func tearDown() {
-        _ = SSLPrivateKeyTest.pemKeyFilePath.withCString {
-            unlink($0)
+    static func withPasswordPKCS8PEMKeyFile(_ body: (String) throws -> Void) throws {
+        let path = try dumpToFile(
+            text: samplePKCS8PemPrivateKey
+        )
+        defer {
+            unlink(path)
         }
-        _ = SSLPrivateKeyTest.derKeyFilePath.withCString {
-            unlink($0)
-        }
-        _ = SSLPrivateKeyTest.passwordPemKeyFilePath.withCString {
-            unlink($0)
-        }
-        _ = SSLPrivateKeyTest.passwordPKCS8PemKeyFilePath.withCString {
-            unlink($0)
-        }
+
+        return try body(path)
     }
 
     func testLoadingPemKeyFromFile() throws {
-        let key1 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.pemKeyFilePath, format: .pem)
-        let key2 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.pemKeyFilePath, format: .pem)
+        try Self.withPEMKeyFile { pemKeyFilePath in
+            let key1 = try NIOSSLPrivateKey(file: pemKeyFilePath, format: .pem)
+            let key2 = try NIOSSLPrivateKey(file: pemKeyFilePath, format: .pem)
 
-        XCTAssertEqual(key1, key2)
-        XCTAssertNotEqual(key1, SSLPrivateKeyTest.dynamicallyGeneratedKey)
+            XCTAssertEqual(key1, key2)
+            XCTAssertNotEqual(key1, SSLPrivateKeyTest.dynamicallyGeneratedKey)
+        }
     }
 
     func testLoadingDerKeyFromFile() throws {
-        let key1 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.derKeyFilePath, format: .der)
-        let key2 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.derKeyFilePath, format: .der)
+        try Self.withDERKeyFile { derKeyFilePath in
+            let key1 = try NIOSSLPrivateKey(file: derKeyFilePath, format: .der)
+            let key2 = try NIOSSLPrivateKey(file: derKeyFilePath, format: .der)
 
-        XCTAssertEqual(key1, key2)
-        XCTAssertEqual(key1.hashValue, key2.hashValue)
-        XCTAssertNotEqual(key1, SSLPrivateKeyTest.dynamicallyGeneratedKey)
-        XCTAssertNotEqual(key1.hashValue, SSLPrivateKeyTest.dynamicallyGeneratedKey.hashValue)
+            XCTAssertEqual(key1, key2)
+            XCTAssertEqual(key1.hashValue, key2.hashValue)
+            XCTAssertNotEqual(key1, SSLPrivateKeyTest.dynamicallyGeneratedKey)
+            XCTAssertNotEqual(key1.hashValue, SSLPrivateKeyTest.dynamicallyGeneratedKey.hashValue)
+        }
     }
 
     func testDerAndPemAreIdentical() throws {
-        let key1 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.pemKeyFilePath, format: .pem)
-        let key2 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.derKeyFilePath, format: .der)
+        try Self.withPEMKeyFile { pemKeyFilePath in
+            try Self.withDERKeyFile { derKeyFilePath in
+                let key1 = try NIOSSLPrivateKey(file: pemKeyFilePath, format: .pem)
+                let key2 = try NIOSSLPrivateKey(file: derKeyFilePath, format: .der)
 
-        XCTAssertEqual(key1, key2)
-        XCTAssertEqual(key1.hashValue, key2.hashValue)
+                XCTAssertEqual(key1, key2)
+                XCTAssertEqual(key1.hashValue, key2.hashValue)
+            }
+        }
     }
 
     func testLoadingPemKeyFromMemory() throws {
@@ -195,27 +214,31 @@ class SSLPrivateKeyTest: XCTestCase {
     }
 
     func testLoadingEncryptedRSAKeyFromFile() throws {
-        let key1 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.passwordPemKeyFilePath, format: .pem) { closure in
-            closure("thisisagreatpassword".utf8)
-        }
-        let key2 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.passwordPemKeyFilePath, format: .pem) { closure in
-            closure("thisisagreatpassword".utf8)
-        }
+        try Self.withPasswordPEMKeyFile { passwordPemKeyFilePath in
+            let key1 = try NIOSSLPrivateKey(file: passwordPemKeyFilePath, format: .pem) { closure in
+                closure("thisisagreatpassword".utf8)
+            }
+            let key2 = try NIOSSLPrivateKey(file: passwordPemKeyFilePath, format: .pem) { closure in
+                closure("thisisagreatpassword".utf8)
+            }
 
-        XCTAssertEqual(key1, key2)
-        XCTAssertEqual(key1.hashValue, key2.hashValue)
+            XCTAssertEqual(key1, key2)
+            XCTAssertEqual(key1.hashValue, key2.hashValue)
+        }
     }
 
     func testLoadingEncryptedRSAPKCS8KeyFromFile() throws {
-        let key1 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.passwordPKCS8PemKeyFilePath, format: .pem) { closure in
-            closure("thisisagreatpassword".utf8)
-        }
-        let key2 = try NIOSSLPrivateKey(file: SSLPrivateKeyTest.passwordPKCS8PemKeyFilePath, format: .pem) { closure in
-            closure("thisisagreatpassword".utf8)
-        }
+        try Self.withPasswordPKCS8PEMKeyFile { passwordPKCS8PemKeyFilePath in
+            let key1 = try NIOSSLPrivateKey(file: passwordPKCS8PemKeyFilePath, format: .pem) { closure in
+                closure("thisisagreatpassword".utf8)
+            }
+            let key2 = try NIOSSLPrivateKey(file: passwordPKCS8PemKeyFilePath, format: .pem) { closure in
+                closure("thisisagreatpassword".utf8)
+            }
 
-        XCTAssertEqual(key1, key2)
-        XCTAssertEqual(key1.hashValue, key2.hashValue)
+            XCTAssertEqual(key1, key2)
+            XCTAssertEqual(key1.hashValue, key2.hashValue)
+        }
     }
 
     func testWildlyOverlongPassphraseRSAFromMemory() throws {
@@ -284,14 +307,16 @@ class SSLPrivateKeyTest: XCTestCase {
     }
 
     @available(*, deprecated, message: "`.file` NIOSSLPrivateKeySource option deprecated")
-    func testMissingPassword() {
-        let configuration = TLSConfiguration.makeServerConfiguration(
-            certificateChain: [],
-            privateKey: .file(SSLPrivateKeyTest.passwordPemKeyFilePath)
-        )
+    func testMissingPassword() throws {
+        try Self.withPasswordPEMKeyFile { passwordPemKeyFilePath in
+            let configuration = TLSConfiguration.makeServerConfiguration(
+                certificateChain: [],
+                privateKey: .file(passwordPemKeyFilePath)
+            )
 
-        XCTAssertThrowsError(try NIOSSLContext(configuration: configuration)) { error in
-            XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
+            XCTAssertThrowsError(try NIOSSLContext(configuration: configuration)) { error in
+                XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
+            }
         }
     }
 

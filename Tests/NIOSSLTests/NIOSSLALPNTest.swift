@@ -20,16 +20,6 @@ import NIOTLS
 import XCTest
 
 class NIOSSLALPNTest: XCTestCase {
-    static var cert: NIOSSLCertificate!
-    static var key: NIOSSLPrivateKey!
-
-    override class func setUp() {
-        super.setUp()
-        let (cert, key) = generateSelfSignedCert()
-        NIOSSLIntegrationTest.cert = cert
-        NIOSSLIntegrationTest.key = key
-    }
-
     private func configuredSSLContextWithAlpnProtocols(protocols: [String]) throws -> NIOSSLContext {
         var config = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],

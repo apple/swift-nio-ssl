@@ -69,7 +69,7 @@ internal func interactInMemory(
     }
 }
 
-private final class SimpleEchoServer: ChannelInboundHandler {
+private final class SimpleEchoServer: ChannelInboundHandler, Sendable {
     public typealias InboundIn = ByteBuffer
     public typealias OutboundOut = ByteBuffer
 
@@ -106,7 +106,7 @@ internal final class PromiseOnReadHandler: ChannelInboundHandler {
     }
 }
 
-private final class PromiseOnChildChannelInitHandler: ChannelInboundHandler {
+private final class PromiseOnChildChannelInitHandler: ChannelInboundHandler, Sendable {
     typealias InboundIn = ByteBuffer
 
     private let promise: EventLoopPromise<Channel>
@@ -121,7 +121,7 @@ private final class PromiseOnChildChannelInitHandler: ChannelInboundHandler {
     }
 }
 
-private final class ChannelInactiveHandler: ChannelInboundHandler {
+private final class ChannelInactiveHandler: ChannelInboundHandler, Sendable {
     typealias InboundIn = ByteBuffer
     private let promise: EventLoopPromise<Void>
 
@@ -181,11 +181,6 @@ private final class ShutdownVerificationHandler: ChannelInboundHandler {
         }
     }
 
-    public func waitForEvent() {
-        // We always notify it with a success so just force it with !
-        try! promise.futureResult.wait()
-    }
-
     public func channelInactive(context: ChannelHandlerContext) {
         switch shutdownEvent {
         case .input:
@@ -230,14 +225,17 @@ private final class ReadRecordingHandler: ChannelInboundHandler {
     }
 }
 
-private final class WriteCountingHandler: ChannelOutboundHandler {
+private final class WriteCountingHandler: ChannelOutboundHandler, Sendable {
     public typealias OutboundIn = Any
     public typealias OutboundOut = Any
 
-    public var writeCount = 0
+    public var writeCount: Int {
+        self._writeCount.withLockedValue { $0 }
+    }
+    private let _writeCount: NIOLockedValueBox<Int> = .init(0)
 
     public func write(context: ChannelHandlerContext, data: NIOAny, promise: EventLoopPromise<Void>?) {
-        writeCount += 1
+        self._writeCount.withLockedValue { $0 += 1 }
         context.write(data, promise: promise)
     }
 }
@@ -276,40 +274,43 @@ public final class EventRecorderHandler<UserEventType>: ChannelInboundHandler wh
         }
     }
 
-    public var events: [RecordedEvents] = []
+    public var events: [RecordedEvents] {
+        self._events.withLockedValue { $0 }
+    }
+    private let _events: NIOLockedValueBox<[RecordedEvents]> = .init([])
 
     public func channelRegistered(context: ChannelHandlerContext) {
-        events.append(.Registered)
+        self._events.withLockedValue { $0.append(.Registered) }
         context.fireChannelRegistered()
     }
 
     public func channelUnregistered(context: ChannelHandlerContext) {
-        events.append(.Unregistered)
+        self._events.withLockedValue { $0.append(.Unregistered) }
         context.fireChannelUnregistered()
     }
 
     public func channelActive(context: ChannelHandlerContext) {
-        events.append(.Active)
+        self._events.withLockedValue { $0.append(.Active) }
         context.fireChannelActive()
     }
 
     public func channelInactive(context: ChannelHandlerContext) {
-        events.append(.Inactive)
+        self._events.withLockedValue { $0.append(.Inactive) }
         context.fireChannelInactive()
     }
 
     public func channelRead(context: ChannelHandlerContext, data: NIOAny) {
-        events.append(.Read)
+        self._events.withLockedValue { $0.append(.Read) }
         context.fireChannelRead(data)
     }
 
     public func channelReadComplete(context: ChannelHandlerContext) {
-        events.append(.ReadComplete)
+        self._events.withLockedValue { $0.append(.ReadComplete) }
         context.fireChannelReadComplete()
     }
 
     public func channelWritabilityChanged(context: ChannelHandlerContext) {
-        events.append(.WritabilityChanged)
+        self._events.withLockedValue { $0.append(.WritabilityChanged) }
         context.fireChannelWritabilityChanged()
     }
 
@@ -318,13 +319,18 @@ public final class EventRecorderHandler<UserEventType>: ChannelInboundHandler wh
             context.fireUserInboundEventTriggered(event)
             return
         }
-        events.append(.UserEvent(ourEvent))
+        self._events.withLockedValue { $0.append(.UserEvent(ourEvent)) }
     }
 }
 
-private class ChannelActiveWaiter: ChannelInboundHandler {
+extension EventRecorderHandler: Sendable where UserEventType: Sendable {}
+
+extension EventRecorderHandler.RecordedEvents: Sendable where UserEventType: Sendable {}
+
+private final class ChannelActiveWaiter: ChannelInboundHandler, Sendable {
     public typealias InboundIn = Any
-    private var activePromise: EventLoopPromise<Void>
+
+    private let activePromise: EventLoopPromise<Void>
 
     public init(promise: EventLoopPromise<Void>) {
         activePromise = promise
@@ -363,7 +369,7 @@ private class WriteDelayHandler: ChannelOutboundHandler {
 
 internal func serverTLSChannel(
     context: NIOSSLContext,
-    handlers: [ChannelHandler],
+    handlers: @autoclosure @escaping @Sendable () -> [ChannelHandler],
     group: EventLoopGroup,
     file: StaticString = #filePath,
     line: UInt = #line
@@ -372,7 +378,7 @@ internal func serverTLSChannel(
         serverTLSChannel(
             context: context,
             preHandlers: [],
-            postHandlers: handlers,
+            postHandlers: handlers(),
             group: group,
             file: file,
             line: line
@@ -384,10 +390,13 @@ internal func serverTLSChannel(
 
 internal func serverTLSChannel(
     context: NIOSSLContext,
-    preHandlers: [ChannelHandler],
-    postHandlers: [ChannelHandler],
+    preHandlers: @autoclosure @escaping @Sendable () -> [ChannelHandler],
+    postHandlers: @autoclosure @escaping @Sendable () -> [ChannelHandler],
     group: EventLoopGroup,
-    customVerificationCallback: NIOSSLCustomVerificationCallback? = nil,
+    customVerificationCallback: (
+        @Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) ->
+            Void
+    )? = nil,
     file: StaticString = #filePath,
     line: UInt = #line
 ) throws -> Channel {
@@ -395,18 +404,18 @@ internal func serverTLSChannel(
         ServerBootstrap(group: group)
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .childChannelInitializer { channel in
-                let results = preHandlers.map { channel.pipeline.addHandler($0) }
-                return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop).map {
+                channel.eventLoop.makeCompletedFuture {
+                    try channel.pipeline.syncOperations.addHandlers(preHandlers())
+
+                    let handler: NIOSSLHandler
                     if let verify = customVerificationCallback {
-                        return NIOSSLServerHandler(context: context, customVerificationCallback: verify)
+                        handler = NIOSSLServerHandler(context: context, customVerificationCallback: verify)
                     } else {
-                        return NIOSSLServerHandler(context: context)
+                        handler = NIOSSLServerHandler(context: context)
                     }
-                }.flatMap {
-                    channel.pipeline.addHandler($0)
-                }.flatMap {
-                    let results = postHandlers.map { channel.pipeline.addHandler($0) }
-                    return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop)
+                    try channel.pipeline.syncOperations.addHandler(handler)
+
+                    try channel.pipeline.syncOperations.addHandlers(postHandlers())
                 }
             }.bind(host: "127.0.0.1", port: 0).wait(),
         file: file,
@@ -420,8 +429,8 @@ typealias SendableAdditionalPeerCertificateVerificationCallback = @Sendable (NIO
 internal func clientTLSChannel(
     context: NIOSSLContext,
     additionalPeerCertificateVerificationCallback: SendableAdditionalPeerCertificateVerificationCallback? = nil,
-    preHandlers: [ChannelHandler],
-    postHandlers: [ChannelHandler],
+    preHandlers: @autoclosure @escaping @Sendable () -> [ChannelHandler],
+    postHandlers: @autoclosure @escaping @Sendable () -> [ChannelHandler],
     group: EventLoopGroup,
     connectingTo: SocketAddress,
     serverHostname: String? = nil,
@@ -447,18 +456,19 @@ internal func clientTLSChannel(
 }
 
 @available(*, deprecated, message: "just for testing the deprecated functionality")
-private struct DeprecatedTLSProviderForTests<Bootstrap: NIOClientTCPBootstrapProtocol>: NIOClientTLSProvider {
+private struct DeprecatedTLSProviderForTests<Bootstrap: NIOClientTCPBootstrapProtocol>: NIOClientTLSProvider, Sendable {
     public typealias Bootstrap = Bootstrap
 
     let context: NIOSSLContext
     let serverHostname: String?
-    let verificationCallback: NIOSSLVerificationCallback
+    let verificationCallback: @Sendable (NIOSSLVerificationResult, NIOSSLCertificate) -> NIOSSLVerificationResult
 
     @available(*, deprecated, renamed: "init(context:serverHostname:customVerificationCallback:)")
     public init(
         context: NIOSSLContext,
         serverHostname: String?,
-        verificationCallback: @escaping NIOSSLVerificationCallback
+        verificationCallback: @escaping @Sendable (NIOSSLVerificationResult, NIOSSLCertificate) ->
+            NIOSSLVerificationResult
     ) {
         self.context = context
         self.serverHostname = serverHostname
@@ -488,12 +498,12 @@ private struct DeprecatedTLSProviderForTests<Bootstrap: NIOClientTCPBootstrapPro
 )
 internal func clientTLSChannel(
     context: NIOSSLContext,
-    preHandlers: [ChannelHandler],
-    postHandlers: [ChannelHandler],
+    preHandlers: @autoclosure @escaping @Sendable () -> [ChannelHandler],
+    postHandlers: @autoclosure @escaping @Sendable () -> [ChannelHandler],
     group: EventLoopGroup,
     connectingTo: SocketAddress,
     serverHostname: String? = nil,
-    verificationCallback: @escaping NIOSSLVerificationCallback,
+    verificationCallback: @escaping @Sendable (NIOSSLVerificationResult, NIOSSLCertificate) -> NIOSSLVerificationResult,
     file: StaticString = #filePath,
     line: UInt = #line
 ) throws -> Channel {
@@ -513,12 +523,13 @@ internal func clientTLSChannel(
 
 internal func clientTLSChannel(
     context: NIOSSLContext,
-    preHandlers: [ChannelHandler],
-    postHandlers: [ChannelHandler],
+    preHandlers: @autoclosure @escaping @Sendable () -> [ChannelHandler],
+    postHandlers: @autoclosure @escaping @Sendable () -> [ChannelHandler],
     group: EventLoopGroup,
     connectingTo: SocketAddress,
     serverHostname: String? = nil,
-    customVerificationCallback: @escaping NIOSSLCustomVerificationCallback,
+    customVerificationCallback: @escaping @Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) ->
+        Void,
     file: StaticString = #filePath,
     line: UInt = #line
 ) throws -> Channel {
@@ -542,8 +553,8 @@ internal func clientTLSChannel(
 
 private func _clientTLSChannel<TLS: NIOClientTLSProvider>(
     context: NIOSSLContext,
-    preHandlers: [ChannelHandler],
-    postHandlers: [ChannelHandler],
+    preHandlers: @escaping @Sendable () -> [ChannelHandler],
+    postHandlers: @escaping @Sendable () -> [ChannelHandler],
     group: EventLoopGroup,
     connectingTo: SocketAddress,
     tlsFactory: @escaping () -> TLS,
@@ -557,13 +568,16 @@ private func _clientTLSChannel<TLS: NIOClientTLSProvider>(
     return try assertNoThrowWithValue(
         bootstrap
             .channelInitializer { channel in
-                channel.pipeline.addHandlers(postHandlers)
+                channel.eventLoop.makeCompletedFuture {
+                    try channel.pipeline.syncOperations.addHandlers(postHandlers())
+                }
             }
             .enableTLS()
             .connect(to: connectingTo)
             .flatMap { channel in
-                channel.pipeline.addHandlers(preHandlers, position: .first).map {
-                    channel
+                channel.eventLoop.makeCompletedFuture {
+                    try channel.pipeline.syncOperations.addHandlers(preHandlers(), position: .first)
+                    return channel
                 }
             }
             .wait(),
@@ -581,7 +595,7 @@ extension EventLoopFuture {
         self.whenComplete { result in
             switch result {
             case .success(let value):
-                promise.succeed(value)
+                promise.assumeIsolated().succeed(value)
             case .failure(let error):
                 promise.fail(error)
             }
@@ -596,24 +610,26 @@ extension EventLoopFuture {
 }
 
 class NIOSSLIntegrationTest: XCTestCase {
-    static var cert: NIOSSLCertificate!
-    static var key: NIOSSLPrivateKey!
-    static var encryptedKeyPath: String!
+    private static let certAndKey = generateSelfSignedCert()
+    static var cert: NIOSSLCertificate { Self.certAndKey.0 }
+    static var key: NIOSSLPrivateKey { Self.certAndKey.1 }
 
     override class func setUp() {
         super.setUp()
         guard boringSSLIsInitialized else { fatalError() }
-        let (cert, key) = generateSelfSignedCert()
-        NIOSSLIntegrationTest.cert = cert
-        NIOSSLIntegrationTest.key = key
-        NIOSSLIntegrationTest.encryptedKeyPath = try! keyInFile(
+    }
+
+    private static func withEncryptedKeyPath<ReturnType>(
+        _ body: (String) throws -> ReturnType
+    ) throws -> ReturnType {
+        let path = try keyInFile(
             key: NIOSSLIntegrationTest.key,
             passphrase: "thisisagreatpassword"
         )
-    }
-
-    override class func tearDown() {
-        _ = unlink(NIOSSLIntegrationTest.encryptedKeyPath)
+        defer {
+            unlink(path)
+        }
+        return try body(path)
     }
 
     private func configuredSSLContext(
@@ -628,27 +644,6 @@ class NIOSSLIntegrationTest: XCTestCase {
         config.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
         config.keyLogCallback = keyLogCallback
         return try assertNoThrowWithValue(NIOSSLContext(configuration: config), file: file, line: line)
-    }
-
-    private func configuredSSLContext<T: Collection>(
-        passphraseCallback: @escaping NIOSSLPassphraseCallback<T>,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) throws -> NIOSSLContext
-    where T.Element == UInt8 {
-        let privateKey = try NIOSSLPrivateKey(file: NIOSSLIntegrationTest.encryptedKeyPath, format: .pem) { closure in
-            closure("thisisagreatpassword".utf8)
-        }
-        var config = TLSConfiguration.makeServerConfiguration(
-            certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
-            privateKey: .privateKey(privateKey)
-        )
-        config.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
-        return try assertNoThrowWithValue(
-            NIOSSLContext(configuration: config, passphraseCallback: passphraseCallback),
-            file: file,
-            line: line
-        )
     }
 
     private func configuredClientContext(
@@ -862,20 +857,15 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
 
-        let preHandlers: [ChannelHandler] = []
-        let postHandlers = [SimpleEchoServer()]
         let serverChannel: Channel = try ServerBootstrap(group: group)
             .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true)  // Important!
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .childChannelInitializer { channel in
-                let results = preHandlers.map { channel.pipeline.addHandler($0) }
-                return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop).map {
-                    NIOSSLServerHandler(context: context)
-                }.flatMap {
-                    channel.pipeline.addHandler($0)
-                }.flatMap {
-                    let results = postHandlers.map { channel.pipeline.addHandler($0) }
-                    return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop)
+                channel.eventLoop.makeCompletedFuture {
+                    try channel.pipeline.syncOperations.addHandlers(
+                        NIOSSLServerHandler(context: context),
+                        SimpleEchoServer()
+                    )
                 }
             }
             .bind(host: "127.0.0.1", port: 0)
@@ -918,23 +908,16 @@ class NIOSSLIntegrationTest: XCTestCase {
         let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
         let childChannelInitPromise: EventLoopPromise<Channel> = group.next().makePromise()
 
-        let preHandlers: [ChannelHandler] = []
-        let postHandlers: [ChannelHandler] = [
-            PromiseOnChildChannelInitHandler(promise: childChannelInitPromise),
-            SimpleEchoServer(),
-        ]
         let serverChannel: Channel = try ServerBootstrap(group: group)
             .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true)  // Important!
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .childChannelInitializer { channel in
-                let results = preHandlers.map { channel.pipeline.addHandler($0) }
-                return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop).map {
-                    NIOSSLServerHandler(context: context)
-                }.flatMap {
-                    channel.pipeline.addHandler($0)
-                }.flatMap {
-                    let results = postHandlers.map { channel.pipeline.addHandler($0) }
-                    return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop)
+                channel.eventLoop.makeCompletedFuture {
+                    try channel.pipeline.syncOperations.addHandlers(
+                        NIOSSLServerHandler(context: context),
+                        PromiseOnChildChannelInitHandler(promise: childChannelInitPromise),
+                        SimpleEchoServer(),
+                    )
                 }
             }
             .bind(host: "127.0.0.1", port: 0)
@@ -944,16 +927,16 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
 
         let clientChannelInactivePromise: EventLoopPromise<Void> = group.next().makePromise()
-        let closeInputVerificationHandler = ShutdownVerificationHandler(
-            shutdownEvent: .input,
-            promise: group.next().makePromise()
-        )
+        let shutdownPromise = group.next().makePromise(of: Void.self)
         let clientChannel = try clientTLSChannel(
             context: context,
             preHandlers: [],
             postHandlers: [
                 PromiseOnReadHandler(promise: completionPromise),
-                closeInputVerificationHandler,
+                ShutdownVerificationHandler(
+                    shutdownEvent: .input,
+                    promise: shutdownPromise
+                ),
                 ChannelInactiveHandler(promise: clientChannelInactivePromise),
             ],
             group: group,
@@ -975,7 +958,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         // Closing the output of the connection on the server should automatically
         // close the input of the clientChannel.
         XCTAssertNoThrow(try connectionChildChannel.close(mode: .output).wait())
-        closeInputVerificationHandler.waitForEvent()
+        try shutdownPromise.futureResult.wait()
 
         // Closing the output of the client channel (with input closed) should
         // result in full closure.
@@ -993,20 +976,15 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
 
-        let preHandlers: [ChannelHandler] = []
-        let postHandlers = [SimpleEchoServer()]
         let serverChannel: Channel = try ServerBootstrap(group: group)
             .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true)  // Important!
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .childChannelInitializer { channel in
-                let results = preHandlers.map { channel.pipeline.addHandler($0) }
-                return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop).map {
-                    NIOSSLServerHandler(context: context)
-                }.flatMap {
-                    channel.pipeline.addHandler($0)
-                }.flatMap {
-                    let results = postHandlers.map { channel.pipeline.addHandler($0) }
-                    return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop)
+                channel.eventLoop.makeCompletedFuture {
+                    try channel.pipeline.syncOperations.addHandlers(
+                        NIOSSLServerHandler(context: context),
+                        SimpleEchoServer()
+                    )
                 }
             }
             .bind(host: "127.0.0.1", port: 0)
@@ -1048,20 +1026,15 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
 
-        let preHandlers: [ChannelHandler] = []
-        let postHandlers = [SimpleEchoServer()]
         let serverChannel: Channel = try ServerBootstrap(group: group)
             .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true)  // Important!
             .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
             .childChannelInitializer { channel in
-                let results = preHandlers.map { channel.pipeline.addHandler($0) }
-                return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop).map {
-                    NIOSSLServerHandler(context: context)
-                }.flatMap {
-                    channel.pipeline.addHandler($0)
-                }.flatMap {
-                    let results = postHandlers.map { channel.pipeline.addHandler($0) }
-                    return EventLoopFuture<Void>.andAllSucceed(results, on: channel.eventLoop)
+                channel.eventLoop.makeCompletedFuture {
+                    try channel.pipeline.syncOperations.addHandlers(
+                        NIOSSLServerHandler(context: context),
+                        SimpleEchoServer()
+                    )
                 }
             }
             .bind(host: "127.0.0.1", port: 0)
@@ -1209,7 +1182,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         originalBuffer.writeString("A")
         var writeFutures: [EventLoopFuture<()>] = []
         for _ in 0..<5 {
-            writeFutures.append(clientChannel.write(NIOAny(originalBuffer)))
+            writeFutures.append(clientChannel.write(originalBuffer))
         }
 
         clientChannel.flush()
@@ -1250,25 +1223,28 @@ class NIOSSLIntegrationTest: XCTestCase {
         // We're going to issue a number of small writes. Each of these should be coalesced together
         // and all their futures (along with the one for the flush) should fire, in order, with nothing
         // missed.
-        var firedFutures: [Int] = []
-        var writeFutures: [EventLoopFuture<()>] = []
+        let firedFutures: NIOLockedValueBox<[Int]> = .init([])
+        let writeFutures: NIOLockedValueBox<[EventLoopFuture<()>]> = .init([])
         var originalBuffer = clientChannel.allocator.buffer(capacity: 1)
         originalBuffer.writeString("A")
         for index in 0..<5 {
             let promise: EventLoopPromise<Void> = group.next().makePromise()
-            writeFutures.append(promise.futureResult)
+            writeFutures.withLockedValue { $0.append(promise.futureResult) }
             promise.futureResult.map {
-                XCTAssertEqual(firedFutures.count, index)
-                firedFutures.append(index)
+                XCTAssertEqual(firedFutures.withLockedValue { $0.count }, index)
+                firedFutures.withLockedValue { $0.append(index) }
             }.whenFailure { error in
                 XCTFail("Write promise failed: \(error)")
             }
-            clientChannel.write(NIOAny(originalBuffer), promise: promise)
+            clientChannel.write(originalBuffer, promise: promise)
         }
 
         clientChannel.flush()
-        try EventLoopFuture<()>.andAllSucceed(writeFutures, on: clientChannel.eventLoop).map {
-            XCTAssertEqual(firedFutures, [0, 1, 2, 3, 4])
+        try EventLoopFuture<()>.andAllSucceed(
+            writeFutures.withLockedValue { $0 },
+            on: clientChannel.eventLoop
+        ).map {
+            XCTAssertEqual(firedFutures.withLockedValue { $0 }, [0, 1, 2, 3, 4])
         }.recover { error in
             XCTFail("Write promised failed: \(error)")
         }.wait()
@@ -1277,7 +1253,9 @@ class NIOSSLIntegrationTest: XCTestCase {
     func testImmediateCloseSatisfiesPromises() throws {
         let context = try configuredSSLContext()
         let channel = EmbeddedChannel()
-        try channel.pipeline.addHandler(NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
+        try channel.pipeline.syncOperations.addHandler(
+            NIOSSLClientHandler(context: context, serverHostname: nil)
+        )
 
         // Start by initiating the handshake.
         try channel.connect(to: SocketAddress(unixDomainSocketPath: "/tmp/doesntmatter")).wait()
@@ -1309,9 +1287,14 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         // Create a client channel without TLS in it, and connect it.
         let readPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
-        let promiseOnReadHandler = PromiseOnReadHandler(promise: readPromise)
         let clientChannel = try ClientBootstrap(group: group)
-            .channelInitializer({ $0.pipeline.addHandler(promiseOnReadHandler) })
+            .channelInitializer { channel in
+                channel.eventLoop.makeCompletedFuture {
+                    try channel.pipeline.syncOperations.addHandler(
+                        PromiseOnReadHandler(promise: readPromise)
+                    )
+                }
+            }
             .connect(to: serverChannel.localAddress!).wait()
         defer {
             XCTAssertNoThrow(try clientChannel.close().wait())
@@ -1325,10 +1308,13 @@ class NIOSSLIntegrationTest: XCTestCase {
         }.wait()
 
         // Now, add the TLS handler to the pipeline.
-        try clientChannel.pipeline.addHandler(
-            NIOSSLClientHandler(context: context, serverHostname: nil),
-            position: .first
-        ).wait()
+        try clientChannel.eventLoop.submit {
+            try clientChannel.pipeline.syncOperations.addHandler(
+                NIOSSLClientHandler(context: context, serverHostname: nil),
+                position: .first
+            )
+        }.wait()
+
         var data = clientChannel.allocator.buffer(capacity: 1)
         data.writeStaticString("x")
         try clientChannel.writeAndFlush(data).wait()
@@ -1587,8 +1573,12 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let context = try configuredSSLContext()
 
-        try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait()
-        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
+        try serverChannel.pipeline.syncOperations.addHandler(
+            NIOSSLServerHandler(context: context)
+        )
+        try clientChannel.pipeline.syncOperations.addHandler(
+            try NIOSSLClientHandler(context: context, serverHostname: nil)
+        )
 
         let addr: SocketAddress = try SocketAddress(unixDomainSocketPath: "/tmp/whatever")
         let connectFuture = clientChannel.connect(to: addr)
@@ -1604,7 +1594,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         // synchronization: all of this should succeed synchronously. If it doesn't, that's
         // a bug too!
         let closePromise = serverChannel.close()
-        closePromise.whenComplete { _ in
+        closePromise.assumeIsolated().whenComplete { _ in
             // This looks like unsynchronized access to channelClosed, but it isn't: as we're
             // using EmbeddedChannel here there is no cross-thread hopping.
             channelClosed = true
@@ -1740,8 +1730,12 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let context = try configuredSSLContext()
 
-        try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait()
-        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
+        try serverChannel.pipeline.syncOperations.addHandler(
+            NIOSSLServerHandler(context: context)
+        )
+        try clientChannel.pipeline.syncOperations.addHandler(
+            try NIOSSLClientHandler(context: context, serverHostname: nil)
+        )
 
         let addr = try SocketAddress(unixDomainSocketPath: "/tmp/whatever2")
         let connectFuture = clientChannel.connect(to: addr)
@@ -1757,7 +1751,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         closePromise.whenComplete { _ in
             var buffer = serverChannel.allocator.buffer(capacity: 5)
             buffer.writeStaticString("hello")
-            serverChannel.pipeline.fireChannelRead(NIOAny(buffer))
+            serverChannel.pipeline.fireChannelRead(buffer)
             serverChannel.pipeline.fireChannelReadComplete()
         }
 
@@ -1777,12 +1771,20 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let completePromise: EventLoopPromise<ByteBuffer> = serverChannel.eventLoop.makePromise()
 
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(
-            try serverChannel.pipeline.addHandler(ReadRecordingHandler(completePromise: completePromise)).wait()
+            try serverChannel.pipeline.syncOperations.addHandler(
+                NIOSSLServerHandler(context: context)
+            )
         )
         XCTAssertNoThrow(
-            try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
+            try serverChannel.pipeline.syncOperations.addHandler(
+                ReadRecordingHandler(completePromise: completePromise)
+            )
+        )
+        XCTAssertNoThrow(
+            try clientChannel.pipeline.syncOperations.addHandler(
+                try NIOSSLClientHandler(context: context, serverHostname: nil)
+            )
         )
 
         let addr = try SocketAddress(unixDomainSocketPath: "/tmp/whatever2")
@@ -1867,8 +1869,12 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let context = try configuredSSLContext()
 
-        try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait()
-        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
+        try serverChannel.pipeline.syncOperations.addHandler(
+            NIOSSLServerHandler(context: context)
+        )
+        try clientChannel.pipeline.syncOperations.addHandler(
+            try NIOSSLClientHandler(context: context, serverHostname: nil)
+        )
 
         let addr = try SocketAddress(unixDomainSocketPath: "/tmp/whatever2")
         let connectFuture = clientChannel.connect(to: addr)
@@ -1880,23 +1886,23 @@ class NIOSSLIntegrationTest: XCTestCase {
         // writes are succeeded in order. To do that, we want to add a WriteDelayHandler to
         // prevent the EmbeddedChannel succeeding the early writes.
         let writeDelayer = WriteDelayHandler()
-        try clientChannel.pipeline.addHandler(writeDelayer, position: .first).wait()
+        try clientChannel.pipeline.syncOperations.addHandler(writeDelayer, position: .first)
         var writeCount = 0
         let emptyBuffer = clientChannel.allocator.buffer(capacity: 16)
         var buffer = clientChannel.allocator.buffer(capacity: 16)
         buffer.writeStaticString("hello world")
 
-        clientChannel.write(buffer).whenComplete { _ in
+        clientChannel.write(buffer).assumeIsolated().whenComplete { _ in
             XCTAssertEqual(writeCount, 0)
             writeCount = 1
         }
         clientChannel.flush()
-        clientChannel.write(emptyBuffer).whenComplete { _ in
+        clientChannel.write(emptyBuffer).assumeIsolated().whenComplete { _ in
             XCTAssertEqual(writeCount, 1)
             writeCount = 2
         }
         clientChannel.flush()
-        clientChannel.write(buffer).whenComplete { _ in
+        clientChannel.write(buffer).assumeIsolated().whenComplete { _ in
             XCTAssertEqual(writeCount, 2)
             writeCount = 3
         }
@@ -1959,12 +1965,20 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let completePromise: EventLoopPromise<ByteBuffer> = serverChannel.eventLoop.makePromise()
 
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(
-            try serverChannel.pipeline.addHandler(ReadRecordingHandler(completePromise: completePromise)).wait()
+            try serverChannel.pipeline.syncOperations.addHandler(
+                NIOSSLServerHandler(context: context)
+            )
         )
         XCTAssertNoThrow(
-            try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
+            try serverChannel.pipeline.syncOperations.addHandler(
+                ReadRecordingHandler(completePromise: completePromise)
+            )
+        )
+        XCTAssertNoThrow(
+            try clientChannel.pipeline.syncOperations.addHandler(
+                try NIOSSLClientHandler(context: context, serverHostname: nil)
+            )
         )
 
         // Connect
@@ -2068,7 +2082,7 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
 
-        var certificates = [NIOSSLCertificate]()
+        let certificates = NIOLockedValueBox([NIOSSLCertificate]())
         let clientChannel = try clientTLSChannel(
             context: configuredClientContext(),
             preHandlers: [],
@@ -2077,7 +2091,7 @@ class NIOSSLIntegrationTest: XCTestCase {
             connectingTo: serverChannel.localAddress!,
             serverHostname: "localhost",
             verificationCallback: { verify, certificate in
-                certificates.append(certificate)
+                certificates.withLockedValue { $0.append(certificate) }
                 return verify
             }
         )
@@ -2092,7 +2106,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         let newBuffer = try completionPromise.futureResult.wait()
         XCTAssertEqual(newBuffer, originalBuffer)
 
-        XCTAssertEqual(certificates.count, 1)
+        XCTAssertEqual(certificates.withLockedValue { $0.count }, 1)
     }
 
     func testForcingVerificationFailureNewCallback() throws {
@@ -2180,17 +2194,16 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
 
-        var completionPromiseFired: Bool = false
-        let completionPromiseFiredLock = NIOLock()
+        let completionPromiseFired = NIOLockedValueBox(false)
 
         let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
         completionPromise.futureResult.whenComplete { _ in
-            completionPromiseFiredLock.withLock {
-                completionPromiseFired = true
+            completionPromiseFired.withLockedValue {
+                $0 = true
             }
         }
 
-        var handshakeCompletePromise: EventLoopPromise<NIOSSLVerificationResult>? = nil
+        let handshakeCompletePromise: NIOLockedValueBox<EventLoopPromise<NIOSSLVerificationResult>?> = .init(nil)
         let handshakeFiredPromise: EventLoopPromise<Void> = group.next().makePromise()
 
         let serverChannel: Channel = try serverTLSChannel(
@@ -2199,7 +2212,7 @@ class NIOSSLIntegrationTest: XCTestCase {
             postHandlers: [PromiseOnReadHandler(promise: completionPromise)],
             group: group,
             customVerificationCallback: { innerCertificates, promise in
-                handshakeCompletePromise = promise
+                handshakeCompletePromise.withLockedValue { $0 = promise }
                 handshakeFiredPromise.succeed(())
             }
         )
@@ -2226,12 +2239,12 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertNoThrow(try handshakeFiredPromise.futureResult.wait())
 
         // We can now check whether the completion promise has fired: it should not have.
-        completionPromiseFiredLock.withLock {
-            XCTAssertFalse(completionPromiseFired)
+        completionPromiseFired.withLockedValue {
+            XCTAssertFalse($0)
         }
 
         // Ok, allow the handshake to run.
-        handshakeCompletePromise!.succeed(.certificateVerified)
+        handshakeCompletePromise.withLockedValue { $0!.succeed(.certificateVerified) }
 
         let newBuffer = try completionPromise.futureResult.wait()
         XCTAssertEqual(newBuffer, originalBuffer)
@@ -2245,13 +2258,12 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
         }
 
-        var completionPromiseFired: Bool = false
-        let completionPromiseFiredLock = NIOLock()
+        let completionPromiseFired = NIOLockedValueBox(false)
 
         let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
         completionPromise.futureResult.whenComplete { _ in
-            completionPromiseFiredLock.withLock {
-                completionPromiseFired = true
+            completionPromiseFired.withLockedValue {
+                $0 = true
             }
         }
 
@@ -2264,7 +2276,7 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
 
-        var handshakeCompletePromise: EventLoopPromise<NIOSSLVerificationResult>? = nil
+        let handshakeCompletePromise: NIOLockedValueBox<EventLoopPromise<NIOSSLVerificationResult>?> = .init(nil)
         let handshakeFiredPromise: EventLoopPromise<Void> = group.next().makePromise()
 
         let clientChannel = try clientTLSChannel(
@@ -2275,7 +2287,7 @@ class NIOSSLIntegrationTest: XCTestCase {
             connectingTo: serverChannel.localAddress!,
             serverHostname: "localhost",
             customVerificationCallback: { innerCertificates, promise in
-                handshakeCompletePromise = promise
+                handshakeCompletePromise.withLockedValue { $0 = promise }
                 handshakeFiredPromise.succeed(())
             }
         )
@@ -2291,12 +2303,12 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertNoThrow(try handshakeFiredPromise.futureResult.wait())
 
         // We can now check whether the completion promise has fired: it should not have.
-        completionPromiseFiredLock.withLock {
-            XCTAssertFalse(completionPromiseFired)
+        completionPromiseFired.withLockedValue {
+            XCTAssertFalse($0)
         }
 
         // Ok, allow the handshake to run.
-        handshakeCompletePromise!.succeed(.certificateVerified)
+        handshakeCompletePromise.withLockedValue { $0!.succeed(.certificateVerified) }
 
         let newBuffer = try completionPromise.futureResult.wait()
         XCTAssertEqual(newBuffer, originalBuffer)
@@ -2321,7 +2333,7 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
 
-        var certificates = [NIOSSLCertificate]()
+        let certificates = NIOLockedValueBox([NIOSSLCertificate]())
         let clientChannel = try clientTLSChannel(
             context: configuredClientContext(),
             preHandlers: [],
@@ -2330,7 +2342,7 @@ class NIOSSLIntegrationTest: XCTestCase {
             connectingTo: serverChannel.localAddress!,
             serverHostname: "localhost",
             customVerificationCallback: { innerCertificates, promise in
-                certificates = innerCertificates
+                certificates.withLockedValue { $0 = innerCertificates }
                 promise.succeed(.certificateVerified)
             }
         )
@@ -2345,7 +2357,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         let newBuffer = try completionPromise.futureResult.wait()
         XCTAssertEqual(newBuffer, originalBuffer)
 
-        XCTAssertEqual(certificates, [NIOSSLIntegrationTest.cert])
+        XCTAssertEqual(certificates.withLockedValue { $0 }, [NIOSSLIntegrationTest.cert])
     }
 
     func testNewCallbackCombinedWithDefaultTrustStore() throws {
@@ -2490,9 +2502,15 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(
-            try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
+            try serverChannel.pipeline.syncOperations.addHandler(
+                NIOSSLServerHandler(context: context)
+            )
+        )
+        XCTAssertNoThrow(
+            try clientChannel.pipeline.syncOperations.addHandler(
+                NIOSSLClientHandler(context: context, serverHostname: nil)
+            )
         )
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
@@ -2506,16 +2524,16 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertTrue(handshakeHandler.handshakeSucceeded)
 
         // We're going to close twice: the first one without a promise, the second one with one.
-        var closed = false
+        let closed = NIOLockedValueBox(false)
         clientChannel.close(promise: nil)
         clientChannel.close().whenComplete { _ in
-            closed = true
+            closed.withLockedValue { $0 = true }
         }
-        XCTAssertFalse(closed)
+        XCTAssertFalse(closed.withLockedValue { $0 })
         XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
 
         // The closure should have happened.
-        XCTAssertTrue(closed)
+        XCTAssertTrue(closed.withLockedValue { $0 })
     }
 
     func testClosureTimeout() throws {
@@ -2530,9 +2548,15 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
         XCTAssertNoThrow(
-            try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
+            try serverChannel.pipeline.syncOperations.addHandler(
+                NIOSSLServerHandler(context: context)
+            )
+        )
+        XCTAssertNoThrow(
+            try clientChannel.pipeline.syncOperations.addHandler(
+                NIOSSLClientHandler(context: context, serverHostname: nil)
+            )
         )
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
@@ -2545,9 +2569,9 @@ class NIOSSLIntegrationTest: XCTestCase {
         try connectFuture.wait()
         XCTAssertTrue(handshakeHandler.handshakeSucceeded)
 
-        var closed = false
+        let closed = NIOLockedValueBox(false)
         clientChannel.close().whenComplete { _ in
-            closed = true
+            closed.withLockedValue { $0 = true }
         }
 
         clientChannel.close().whenFailure { error in
@@ -2559,11 +2583,11 @@ class NIOSSLIntegrationTest: XCTestCase {
             try serverChannel.writeInbound(clientDatum)
         }
 
-        XCTAssertFalse(closed)
+        XCTAssertFalse(closed.withLockedValue { $0 })
 
         // Let the shutdown timeout.
         clientChannel.embeddedEventLoop.advanceTime(by: context.configuration.shutdownTimeout)
-        XCTAssertTrue(closed)
+        XCTAssertTrue(closed.withLockedValue { $0 })
 
         // Let the server shutdown.
         try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel)
@@ -2573,7 +2597,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         let serverChannel = EmbeddedChannel()
         let clientChannel = EmbeddedChannel()
 
-        var clientClosed = false
+        let clientClosed = NIOLockedValueBox(false)
 
         defer {
             XCTAssertThrowsError(try serverChannel.finish())
@@ -2583,14 +2607,26 @@ class NIOSSLIntegrationTest: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(
+            try serverChannel.pipeline.syncOperations.addHandler(
+                NIOSSLServerHandler(context: context)
+            )
+        )
+        XCTAssertNoThrow(
+            try clientChannel.pipeline.syncOperations.addHandler(
+                clientHandler
+            )
+        )
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(
+            try clientChannel.pipeline.syncOperations.addHandler(
+                handshakeHandler
+            )
+        )
 
         // Mark the closure of the client.
         clientChannel.closeFuture.whenComplete { _ in
-            clientClosed = true
+            clientClosed.withLockedValue { $0 = true }
         }
 
         // Connect. This should lead to a completed handshake.
@@ -2604,7 +2640,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         // Let's close the client connection.
         clientChannel.close(promise: nil)
         (clientChannel.eventLoop as! EmbeddedEventLoop).run()
-        XCTAssertFalse(clientClosed)
+        XCTAssertFalse(clientClosed.withLockedValue { $0 })
 
         // Now we're going to simulate the client receiving gibberish data in response, instead
         // of a CLOSE_NOTIFY.
@@ -2622,7 +2658,7 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNotNil(regex.firstMatch(in: errorString, options: [], range: range))
         }
         (clientChannel.eventLoop as! EmbeddedEventLoop).run()
-        XCTAssertTrue(clientClosed)
+        XCTAssertTrue(clientClosed.withLockedValue { $0 })
 
         // Clean up by bringing the server up to speed
         serverChannel.pipeline.fireChannelInactive()
@@ -2640,8 +2676,16 @@ class NIOSSLIntegrationTest: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(
+            try serverChannel.pipeline.syncOperations.addHandler(
+                NIOSSLServerHandler(context: context)
+            )
+        )
+        XCTAssertNoThrow(
+            try clientChannel.pipeline.syncOperations.addHandler(
+                clientHandler
+            )
+        )
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
@@ -2654,33 +2698,33 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertTrue(handshakeHandler.handshakeSucceeded)
 
         // Queue up a write.
-        var writeCompleted = false
+        let writeCompleted = NIOLockedValueBox(false)
         var buffer = clientChannel.allocator.buffer(capacity: 1024)
         buffer.writeStaticString("Hello, world!")
         clientChannel.write(buffer).map {
             XCTFail("Must not succeed")
         }.whenFailure { error in
             XCTAssertEqual(error as? ChannelError, .ioOnClosedChannel)
-            writeCompleted = true
+            writeCompleted.withLockedValue { $0 = true }
         }
 
         // We haven't spun the event loop, so the handlers are still in the pipeline. Now attempt to close.
-        var closed = false
+        let closed = NIOLockedValueBox(false)
         clientChannel.closeFuture.whenComplete { _ in
-            closed = true
+            closed.withLockedValue { $0 = true }
         }
 
-        XCTAssertFalse(writeCompleted)
+        XCTAssertFalse(writeCompleted.withLockedValue { $0 })
         clientChannel.close(promise: nil)
         (clientChannel.eventLoop as! EmbeddedEventLoop).run()
-        XCTAssertFalse(writeCompleted)
-        XCTAssertFalse(closed)
+        XCTAssertFalse(writeCompleted.withLockedValue { $0 })
+        XCTAssertFalse(closed.withLockedValue { $0 })
 
         // Now try to flush the write. This should fail the write early, and take out the connection.
         clientChannel.flush()
         (clientChannel.eventLoop as! EmbeddedEventLoop).run()
-        XCTAssertTrue(writeCompleted)
-        XCTAssertTrue(closed)
+        XCTAssertTrue(writeCompleted.withLockedValue { $0 })
+        XCTAssertTrue(closed.withLockedValue { $0 })
 
         // Bring the server up to speed.
         serverChannel.pipeline.fireChannelInactive()
@@ -2715,12 +2759,18 @@ class NIOSSLIntegrationTest: XCTestCase {
             // The client channel is closed in the test.
         }
 
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(SecondChannelInactiveSwallower()).wait())
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(FlushOnReadHandler()).wait())
+        XCTAssertNoThrow(
+            try serverChannel.pipeline.syncOperations.addHandlers(
+                SecondChannelInactiveSwallower(),
+                NIOSSLServerHandler(context: context),
+                FlushOnReadHandler()
+            )
+        )
 
         XCTAssertNoThrow(
-            try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
+            try clientChannel.pipeline.syncOperations.addHandler(
+                try NIOSSLClientHandler(context: context, serverHostname: nil)
+            )
         )
 
         // Connect
@@ -2775,10 +2825,15 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         // Handshake
         XCTAssertNoThrow(
-            try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil))
-                .wait()
+            try clientChannel.pipeline.syncOperations.addHandler(
+                NIOSSLClientHandler(context: clientContext, serverHostname: nil)
+            )
         )
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext)).wait())
+        XCTAssertNoThrow(
+            try serverChannel.pipeline.syncOperations.addHandler(
+                NIOSSLServerHandler(context: serverContext)
+            )
+        )
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
 
@@ -2848,8 +2903,12 @@ class NIOSSLIntegrationTest: XCTestCase {
 
         let context = try configuredSSLContext()
 
-        try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait()
-        try clientChannel.pipeline.addHandler(try NIOSSLClientHandler(context: context, serverHostname: nil)).wait()
+        try serverChannel.pipeline.syncOperations.addHandler(
+            NIOSSLServerHandler(context: context)
+        )
+        try clientChannel.pipeline.syncOperations.addHandler(
+            try NIOSSLClientHandler(context: context, serverHostname: nil)
+        )
 
         // Do the handshake.
         let addr: SocketAddress = try SocketAddress(unixDomainSocketPath: "/tmp/whatever")
@@ -2863,7 +2922,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         var buffer = clientChannel.allocator.buffer(capacity: 1024)
         buffer.writeBytes("Hello, world!".utf8)
 
-        clientChannel.write(buffer).whenComplete { _ in
+        clientChannel.write(buffer).whenComplete { [buffer] _ in
             clientChannel.writeAndFlush(buffer, promise: nil)
         }
 
@@ -3064,9 +3123,11 @@ class NIOSSLIntegrationTest: XCTestCase {
         )
         XCTAssertNoThrow(try b2b.connectInMemory())
 
-        var completed = false
+        let completed = NIOLockedValueBox(false)
         let promise = b2b.loop.makePromise(of: Void.self)
-        promise.futureResult.whenComplete { _ in completed = true }
+        promise.futureResult.whenComplete { _ in
+            completed.withLockedValue { $0 = true }
+        }
 
         let recordObserver = TLS13RecordObserver()
         XCTAssertNoThrow(
@@ -3085,7 +3146,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         }
         let totalReadBytes = reads.reduce(into: 0, { $0 += $1.readableBytes })
         XCTAssertEqual(totalReadBytes, targetSize)
-        XCTAssertTrue(completed)
+        XCTAssertTrue(completed.withLockedValue { $0 })
         XCTAssertEqual(recordObserver.writtenRecords.filter { $0.contentType == .applicationData }.count, 5)
 
         b2b.client.close(promise: nil)

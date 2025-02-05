@@ -408,35 +408,46 @@ var noPassP12: [UInt8] {
 }
 
 class SSLPKCS12BundleTest: XCTestCase {
-    static var simpleFilePath: String! = nil
-    static var complexFilePath: String! = nil
-    static var noPassFilePath: String! = nil
-
-    override class func setUp() {
-        SSLPKCS12BundleTest.simpleFilePath = try! dumpToFile(
+    static func withSimpleFilePath(_ body: (String) throws -> Void) throws {
+        let path = try dumpToFile(
             data: Data(
                 base64Encoded: base64EncodedSimpleP12,
                 options: .ignoreUnknownCharacters
             )!
         )
-        SSLPKCS12BundleTest.complexFilePath = try! dumpToFile(
+        defer {
+            unlink(path)
+        }
+
+        return try body(path)
+    }
+
+    static func withComplexFilePath(_ body: (String) throws -> Void) throws {
+        let path = try dumpToFile(
             data: Data(
                 base64Encoded: base64EncodedComplexP12,
                 options: .ignoreUnknownCharacters
             )!
         )
-        SSLPKCS12BundleTest.noPassFilePath = try! dumpToFile(
+        defer {
+            unlink(path)
+        }
+
+        return try body(path)
+    }
+
+    static func withNoPasswordFilePath(_ body: (String) throws -> Void) throws {
+        let path = try dumpToFile(
             data: Data(
                 base64Encoded: base64EncodedNoPassP12,
                 options: .ignoreUnknownCharacters
             )!
         )
-    }
+        defer {
+            unlink(path)
+        }
 
-    override class func tearDown() {
-        _ = unlink(SSLPKCS12BundleTest.simpleFilePath)
-        _ = unlink(SSLPKCS12BundleTest.complexFilePath)
-        _ = unlink(SSLPKCS12BundleTest.noPassFilePath)
+        return try body(path)
     }
 
     func testDecodingSimpleP12FromMemory() throws {
@@ -471,40 +482,46 @@ class SSLPKCS12BundleTest: XCTestCase {
     }
 
     func testDecodingSimpleP12FromFile() throws {
-        let p12Bundle = try NIOSSLPKCS12Bundle(
-            file: SSLPKCS12BundleTest.simpleFilePath,
-            passphrase: "thisisagreatpassword".utf8
-        )
-        let expectedKey = try NIOSSLPrivateKey(bytes: .init(samplePemKey.utf8), format: .pem)
-        let expectedCert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
+        try Self.withSimpleFilePath { simpleFilePath in
+            let p12Bundle = try NIOSSLPKCS12Bundle(
+                file: simpleFilePath,
+                passphrase: "thisisagreatpassword".utf8
+            )
+            let expectedKey = try NIOSSLPrivateKey(bytes: .init(samplePemKey.utf8), format: .pem)
+            let expectedCert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
 
-        XCTAssertEqual(p12Bundle.privateKey, expectedKey)
-        XCTAssertEqual(p12Bundle.certificateChain, [expectedCert])
+            XCTAssertEqual(p12Bundle.privateKey, expectedKey)
+            XCTAssertEqual(p12Bundle.certificateChain, [expectedCert])
+        }
     }
 
     func testDecodingComplexP12FromFile() throws {
-        let p12Bundle = try NIOSSLPKCS12Bundle(
-            file: SSLPKCS12BundleTest.complexFilePath,
-            passphrase: "thisisagreatpassword".utf8
-        )
-        let expectedKey = try NIOSSLPrivateKey(bytes: .init(samplePemKey.utf8), format: .pem)
-        let expectedCert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
-        let caOne = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
-        let caTwo = try NIOSSLCertificate(bytes: .init(multiCNCert.utf8), format: .pem)
-        let caThree = try NIOSSLCertificate(bytes: .init(noCNCert.utf8), format: .pem)
-        let caFour = try NIOSSLCertificate(bytes: .init(unicodeCNCert.utf8), format: .pem)
+        try Self.withComplexFilePath { complexFilePath in
+            let p12Bundle = try NIOSSLPKCS12Bundle(
+                file: complexFilePath,
+                passphrase: "thisisagreatpassword".utf8
+            )
+            let expectedKey = try NIOSSLPrivateKey(bytes: .init(samplePemKey.utf8), format: .pem)
+            let expectedCert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
+            let caOne = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
+            let caTwo = try NIOSSLCertificate(bytes: .init(multiCNCert.utf8), format: .pem)
+            let caThree = try NIOSSLCertificate(bytes: .init(noCNCert.utf8), format: .pem)
+            let caFour = try NIOSSLCertificate(bytes: .init(unicodeCNCert.utf8), format: .pem)
 
-        XCTAssertEqual(p12Bundle.privateKey, expectedKey)
-        XCTAssertEqual(p12Bundle.certificateChain, [expectedCert, caOne, caTwo, caThree, caFour])
+            XCTAssertEqual(p12Bundle.privateKey, expectedKey)
+            XCTAssertEqual(p12Bundle.certificateChain, [expectedCert, caOne, caTwo, caThree, caFour])
+        }
     }
 
     func testDecodingSimpleP12FromFileWithoutPassphrase() throws {
-        let p12Bundle = try NIOSSLPKCS12Bundle(file: SSLPKCS12BundleTest.noPassFilePath)
-        let expectedKey = try NIOSSLPrivateKey(bytes: .init(samplePemKey.utf8), format: .pem)
-        let expectedCert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
+        try Self.withNoPasswordFilePath { noPassFilePath in
+            let p12Bundle = try NIOSSLPKCS12Bundle(file: noPassFilePath)
+            let expectedKey = try NIOSSLPrivateKey(bytes: .init(samplePemKey.utf8), format: .pem)
+            let expectedCert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
 
-        XCTAssertEqual(p12Bundle.privateKey, expectedKey)
-        XCTAssertEqual(p12Bundle.certificateChain, [expectedCert])
+            XCTAssertEqual(p12Bundle.privateKey, expectedKey)
+            XCTAssertEqual(p12Bundle.certificateChain, [expectedCert])
+        }
     }
 
     func testDecodingNonExistentPKCS12File() throws {
