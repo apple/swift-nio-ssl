@@ -17,7 +17,12 @@ import Foundation
 
 // MARK: Test Harness
 
+#if compiler(>=5.10)
+nonisolated(unsafe) var warning: String = ""
+#else
 var warning: String = ""
+#endif
+
 assert(
     {
         print("======================================================")

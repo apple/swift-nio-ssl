@@ -46,8 +46,8 @@ final class BenchRepeatedHandshakes: Benchmark {
             let backToBack = BackToBackEmbeddedChannel()
             let serverHandler = NIOSSLServerHandler(context: self.serverContext)
             let clientHandler = try NIOSSLClientHandler(context: self.clientContext, serverHostname: "localhost")
-            try backToBack.client.pipeline.addHandler(clientHandler).wait()
-            try backToBack.server.pipeline.addHandler(serverHandler).wait()
+            try backToBack.client.pipeline.syncOperations.addHandler(clientHandler)
+            try backToBack.server.pipeline.syncOperations.addHandler(serverHandler)
 
             // To trigger activation of both channels we use connect().
             try backToBack.client.connect(to: self.dummyAddress).wait()
