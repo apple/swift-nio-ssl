@@ -93,10 +93,11 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
         // NIOSSLClientHandler.init only throws because of `malloc` error and invalid SNI hostnames. We want to crash
         // on malloc error and we pre-checked the SNI hostname in `init` so that should be impossible here.
         bootstrap.protocolHandlers {
+            [context, serverHostname, customVerificationCallback, additionalPeerCertificateVerificationCallback] in
             [
                 try! NIOSSLClientHandler(
-                    context: self.context,
-                    serverHostname: self.serverHostname,
+                    context: context,
+                    serverHostname: serverHostname,
                     optionalCustomVerificationCallback: customVerificationCallback,
                     optionalAdditionalPeerCertificateVerificationCallback: additionalPeerCertificateVerificationCallback
                 )
@@ -104,3 +105,5 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
         }
     }
 }
+
+extension NIOSSLClientTLSProvider: Sendable where Bootstrap: Sendable {}
