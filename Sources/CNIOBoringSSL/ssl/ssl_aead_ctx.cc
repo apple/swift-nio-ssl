@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, Google Inc.
+/* Copyright 2015 The BoringSSL Authors
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -109,8 +109,8 @@ UniquePtr<SSLAEADContext> SSLAEADContext::Create(
     OPENSSL_memcpy(merged_key + mac_key.size(), enc_key.data(), enc_key.size());
     OPENSSL_memcpy(merged_key + mac_key.size() + enc_key.size(),
                    fixed_iv.data(), fixed_iv.size());
-    enc_key = MakeConstSpan(merged_key,
-                            enc_key.size() + mac_key.size() + fixed_iv.size());
+    enc_key =
+        Span(merged_key, enc_key.size() + mac_key.size() + fixed_iv.size());
 
     // The |EVP_AEAD|'s per-encryption nonce, if any, is actually the CBC IV. It
     // must be generated randomly and prepended to the record.
@@ -226,7 +226,7 @@ Span<const uint8_t> SSLAEADContext::GetAdditionalData(
     storage[len++] = static_cast<uint8_t>((plaintext_len >> 8));
     storage[len++] = static_cast<uint8_t>(plaintext_len);
   }
-  return MakeConstSpan(storage, len);
+  return Span(storage, len);
 }
 
 bool SSLAEADContext::Open(Span<uint8_t> *out, uint8_t type,

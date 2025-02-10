@@ -1,110 +1,11 @@
-/* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
- * All rights reserved.
+/*
+ * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
  *
- * This package is an SSL implementation written
- * by Eric Young (eay@cryptsoft.com).
- * The implementation was written so as to conform with Netscapes SSL.
- *
- * This library is free for commercial and non-commercial use as long as
- * the following conditions are aheared to.  The following conditions
- * apply to all code found in this distribution, be it the RC4, RSA,
- * lhash, DES, etc., code; not just the SSL code.  The SSL documentation
- * included with this distribution is covered by the same copyright terms
- * except that the holder is Tim Hudson (tjh@cryptsoft.com).
- *
- * Copyright remains Eric Young's, and as such any Copyright notices in
- * the code are not to be removed.
- * If this package is used in a product, Eric Young should be given attribution
- * as the author of the parts of the library used.
- * This can be in the form of a textual message at program startup or
- * in documentation (online or textual) provided with the package.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *    "This product includes cryptographic software written by
- *     Eric Young (eay@cryptsoft.com)"
- *    The word 'cryptographic' can be left out if the rouines from the library
- *    being used are not cryptographic related :-).
- * 4. If you include any Windows specific code (or a derivative thereof) from
- *    the apps directory (application code) you must include an acknowledgement:
- *    "This product includes software written by Tim Hudson (tjh@cryptsoft.com)"
- *
- * THIS SOFTWARE IS PROVIDED BY ERIC YOUNG ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- * The licence and distribution terms for any publically available version or
- * derivative of this code cannot be changed.  i.e. this code cannot simply be
- * copied and put under another distribution licence
- * [including the GNU Public Licence.]
+ * Licensed under the OpenSSL license (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * https://www.openssl.org/source/license.html
  */
-/* ====================================================================
- * Copyright (c) 1998-2001 The OpenSSL Project.  All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. All advertising materials mentioning features or use of this
- *    software must display the following acknowledgment:
- *    "This product includes software developed by the OpenSSL Project
- *    for use in the OpenSSL Toolkit. (http://www.openssl.org/)"
- *
- * 4. The names "OpenSSL Toolkit" and "OpenSSL Project" must not be used to
- *    endorse or promote products derived from this software without
- *    prior written permission. For written permission, please contact
- *    openssl-core@openssl.org.
- *
- * 5. Products derived from this software may not be called "OpenSSL"
- *    nor may "OpenSSL" appear in their names without prior written
- *    permission of the OpenSSL Project.
- *
- * 6. Redistributions of any form whatsoever must retain the following
- *    acknowledgment:
- *    "This product includes software developed by the OpenSSL Project
- *    for use in the OpenSSL Toolkit (http://www.openssl.org/)"
- *
- * THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY
- * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE OpenSSL PROJECT OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
- * OF THE POSSIBILITY OF SUCH DAMAGE.
- * ====================================================================
- *
- * This product includes cryptographic software written by Eric Young
- * (eay@cryptsoft.com).  This product includes software written by Tim
- * Hudson (tjh@cryptsoft.com). */
 
 #ifndef OPENSSL_HEADER_CRYPTO_INTERNAL_H
 #define OPENSSL_HEADER_CRYPTO_INTERNAL_H
@@ -167,7 +68,7 @@ void OPENSSL_cpuid_setup(void);
 // needed. This function is idempotent and may be called concurrently.
 void OPENSSL_init_cpuid(void);
 #else
-OPENSSL_INLINE void OPENSSL_init_cpuid(void) {}
+inline void OPENSSL_init_cpuid(void) {}
 #endif
 
 #if (defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)) && \
@@ -203,24 +104,6 @@ typedef __uint128_t uint128_t;
 #if __has_attribute(fallthrough)
 #define OPENSSL_CAN_USE_ATTR_FALLTHROUGH
 #endif
-#endif
-
-// Have a generic fall-through for different versions of C/C++.
-#if defined(__cplusplus) && __cplusplus >= 201703L
-#define OPENSSL_FALLTHROUGH [[fallthrough]]
-#elif defined(__cplusplus) && __cplusplus >= 201103L && defined(__clang__)
-#define OPENSSL_FALLTHROUGH [[clang::fallthrough]]
-#elif defined(__cplusplus) && __cplusplus >= 201103L && defined(__GNUC__)
-#define OPENSSL_FALLTHROUGH [[gnu::fallthrough]]
-#elif defined(__GNUC__)
-#define OPENSSL_FALLTHROUGH __attribute__((fallthrough))
-#elif defined(OPENSSL_CAN_USE_ATTR_FALLTHROUGH)
-// Clang 3.5, at least, complains about "error: declaration does not declare
-// anything", possibily because we put a semicolon after this macro in
-// practice. Thus limit it to >= Clang 5, which does work.
-#define OPENSSL_FALLTHROUGH __attribute__((fallthrough))
-#else  // all other cases
-#define OPENSSL_FALLTHROUGH
 #endif
 
 // GCC-like compilers indicate SSE2 with |__SSE2__|. MSVC leaves the caller to
@@ -270,9 +153,9 @@ OPENSSL_EXPORT void OPENSSL_disable_malloc_failures_for_testing(void);
 // re-enables simulated malloc failures.
 OPENSSL_EXPORT void OPENSSL_enable_malloc_failures_for_testing(void);
 #else
-OPENSSL_INLINE void OPENSSL_reset_malloc_counter_for_testing(void) {}
-OPENSSL_INLINE void OPENSSL_disable_malloc_failures_for_testing(void) {}
-OPENSSL_INLINE void OPENSSL_enable_malloc_failures_for_testing(void) {}
+inline void OPENSSL_reset_malloc_counter_for_testing(void) {}
+inline void OPENSSL_disable_malloc_failures_for_testing(void) {}
+inline void OPENSSL_enable_malloc_failures_for_testing(void) {}
 #endif
 
 #if defined(__has_builtin)
@@ -669,12 +552,11 @@ inline void CRYPTO_atomic_store_u32(CRYPTO_atomic_u32 *val, uint32_t desired) {
 
 typedef uint32_t CRYPTO_atomic_u32;
 
-OPENSSL_INLINE uint32_t CRYPTO_atomic_load_u32(CRYPTO_atomic_u32 *val) {
-  return *val;
-}
+inline uint32_t CRYPTO_atomic_load_u32(CRYPTO_atomic_u32 *val) { return *val; }
 
-OPENSSL_INLINE int CRYPTO_atomic_compare_exchange_weak_u32(
-    CRYPTO_atomic_u32 *val, uint32_t *expected, uint32_t desired) {
+inline int CRYPTO_atomic_compare_exchange_weak_u32(CRYPTO_atomic_u32 *val,
+                                                   uint32_t *expected,
+                                                   uint32_t desired) {
   if (*val != *expected) {
     *expected = *val;
     return 0;
@@ -683,8 +565,7 @@ OPENSSL_INLINE int CRYPTO_atomic_compare_exchange_weak_u32(
   return 1;
 }
 
-OPENSSL_INLINE void CRYPTO_atomic_store_u32(CRYPTO_atomic_u32 *val,
-                                            uint32_t desired) {
+inline void CRYPTO_atomic_store_u32(CRYPTO_atomic_u32 *val, uint32_t desired) {
   *val = desired;
 }
 
@@ -1157,9 +1038,9 @@ void boringssl_ensure_ffdh_self_test(void);
 
 // Outside of FIPS mode, the lazy tests are no-ops.
 
-OPENSSL_INLINE void boringssl_ensure_rsa_self_test(void) {}
-OPENSSL_INLINE void boringssl_ensure_ecc_self_test(void) {}
-OPENSSL_INLINE void boringssl_ensure_ffdh_self_test(void) {}
+inline void boringssl_ensure_rsa_self_test(void) {}
+inline void boringssl_ensure_ecc_self_test(void) {}
+inline void boringssl_ensure_ffdh_self_test(void) {}
 
 #endif  // FIPS
 
@@ -1175,16 +1056,16 @@ int boringssl_self_test_hmac_sha256(void);
 #if defined(BORINGSSL_FIPS_COUNTERS)
 void boringssl_fips_inc_counter(enum fips_counter_t counter);
 #else
-OPENSSL_INLINE void boringssl_fips_inc_counter(enum fips_counter_t counter) {}
+inline void boringssl_fips_inc_counter(enum fips_counter_t counter) {}
 #endif
 
 #if defined(BORINGSSL_FIPS_BREAK_TESTS)
-OPENSSL_INLINE int boringssl_fips_break_test(const char *test) {
+inline int boringssl_fips_break_test(const char *test) {
   const char *const value = getenv("BORINGSSL_FIPS_BREAK_TEST");
   return value != NULL && strcmp(value, test) == 0;
 }
 #else
-OPENSSL_INLINE int boringssl_fips_break_test(const char *test) { return 0; }
+inline int boringssl_fips_break_test(const char *test) { return 0; }
 #endif  // BORINGSSL_FIPS_BREAK_TESTS
 
 
@@ -1224,7 +1105,7 @@ OPENSSL_ATTR_CONST uint32_t OPENSSL_get_ia32cap(int idx);
 
 // See Intel manual, volume 2A, table 3-11.
 
-OPENSSL_INLINE int CRYPTO_is_FXSR_capable(void) {
+inline int CRYPTO_is_FXSR_capable(void) {
 #if defined(__FXSR__)
   return 1;
 #else
@@ -1232,14 +1113,14 @@ OPENSSL_INLINE int CRYPTO_is_FXSR_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_intel_cpu(void) {
+inline int CRYPTO_is_intel_cpu(void) {
   // The reserved bit 30 is used to indicate an Intel CPU.
   return (OPENSSL_get_ia32cap(0) & (1u << 30)) != 0;
 }
 
 // See Intel manual, volume 2A, table 3-10.
 
-OPENSSL_INLINE int CRYPTO_is_PCLMUL_capable(void) {
+inline int CRYPTO_is_PCLMUL_capable(void) {
 #if defined(__PCLMUL__)
   return 1;
 #else
@@ -1247,7 +1128,7 @@ OPENSSL_INLINE int CRYPTO_is_PCLMUL_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_SSSE3_capable(void) {
+inline int CRYPTO_is_SSSE3_capable(void) {
 #if defined(__SSSE3__)
   return 1;
 #else
@@ -1255,7 +1136,7 @@ OPENSSL_INLINE int CRYPTO_is_SSSE3_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_SSE4_1_capable(void) {
+inline int CRYPTO_is_SSE4_1_capable(void) {
 #if defined(__SSE4_1__)
   return 1;
 #else
@@ -1263,7 +1144,7 @@ OPENSSL_INLINE int CRYPTO_is_SSE4_1_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_MOVBE_capable(void) {
+inline int CRYPTO_is_MOVBE_capable(void) {
 #if defined(__MOVBE__)
   return 1;
 #else
@@ -1271,7 +1152,7 @@ OPENSSL_INLINE int CRYPTO_is_MOVBE_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_AESNI_capable(void) {
+inline int CRYPTO_is_AESNI_capable(void) {
 #if defined(__AES__)
   return 1;
 #else
@@ -1282,7 +1163,7 @@ OPENSSL_INLINE int CRYPTO_is_AESNI_capable(void) {
 // We intentionally avoid defining a |CRYPTO_is_XSAVE_capable| function. See
 // |CRYPTO_cpu_perf_is_like_silvermont|.
 
-OPENSSL_INLINE int CRYPTO_is_AVX_capable(void) {
+inline int CRYPTO_is_AVX_capable(void) {
 #if defined(__AVX__)
   return 1;
 #else
@@ -1290,7 +1171,7 @@ OPENSSL_INLINE int CRYPTO_is_AVX_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_RDRAND_capable(void) {
+inline int CRYPTO_is_RDRAND_capable(void) {
   // We intentionally do not check |__RDRND__| here. On some AMD processors, we
   // will act as if the hardware is RDRAND-incapable, even it actually supports
   // it. See cpu_intel.c.
@@ -1299,7 +1180,7 @@ OPENSSL_INLINE int CRYPTO_is_RDRAND_capable(void) {
 
 // See Intel manual, volume 2A, table 3-8.
 
-OPENSSL_INLINE int CRYPTO_is_BMI1_capable(void) {
+inline int CRYPTO_is_BMI1_capable(void) {
 #if defined(__BMI__)
   return 1;
 #else
@@ -1307,7 +1188,7 @@ OPENSSL_INLINE int CRYPTO_is_BMI1_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_AVX2_capable(void) {
+inline int CRYPTO_is_AVX2_capable(void) {
 #if defined(__AVX2__)
   return 1;
 #else
@@ -1315,7 +1196,7 @@ OPENSSL_INLINE int CRYPTO_is_AVX2_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_BMI2_capable(void) {
+inline int CRYPTO_is_BMI2_capable(void) {
 #if defined(__BMI2__)
   return 1;
 #else
@@ -1323,7 +1204,7 @@ OPENSSL_INLINE int CRYPTO_is_BMI2_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_ADX_capable(void) {
+inline int CRYPTO_is_ADX_capable(void) {
 #if defined(__ADX__)
   return 1;
 #else
@@ -1332,7 +1213,7 @@ OPENSSL_INLINE int CRYPTO_is_ADX_capable(void) {
 }
 
 // SHA-1 and SHA-256 are defined as a single extension.
-OPENSSL_INLINE int CRYPTO_is_x86_SHA_capable(void) {
+inline int CRYPTO_is_x86_SHA_capable(void) {
   // We should check __SHA__ here, but for now we ignore it. We've run into a
   // few places where projects build with -march=goldmont, but need a build that
   // does not require SHA extensions:
@@ -1366,7 +1247,7 @@ OPENSSL_INLINE int CRYPTO_is_x86_SHA_capable(void) {
 // isn't matched by this. Various sources indicate AMD first implemented MOVBE
 // and XSAVE at the same time in Jaguar, so it seems like AMD chips will not be
 // matched by this. That seems to be the case for other x86(-64) CPUs.
-OPENSSL_INLINE int CRYPTO_cpu_perf_is_like_silvermont(void) {
+inline int CRYPTO_cpu_perf_is_like_silvermont(void) {
   // WARNING: This MUST NOT be used to guard the execution of the XSAVE
   // instruction. This is the "hardware supports XSAVE" bit, not the OSXSAVE bit
   // that indicates whether we can safely execute XSAVE. This bit may be set
@@ -1380,7 +1261,7 @@ OPENSSL_INLINE int CRYPTO_cpu_perf_is_like_silvermont(void) {
   return !hardware_supports_xsave && CRYPTO_is_MOVBE_capable();
 }
 
-OPENSSL_INLINE int CRYPTO_is_AVX512BW_capable(void) {
+inline int CRYPTO_is_AVX512BW_capable(void) {
 #if defined(__AVX512BW__)
   return 1;
 #else
@@ -1388,7 +1269,7 @@ OPENSSL_INLINE int CRYPTO_is_AVX512BW_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_AVX512VL_capable(void) {
+inline int CRYPTO_is_AVX512VL_capable(void) {
 #if defined(__AVX512VL__)
   return 1;
 #else
@@ -1400,11 +1281,11 @@ OPENSSL_INLINE int CRYPTO_is_AVX512VL_capable(void) {
 // should not be used even if the CPU supports them.
 //
 // Note that this reuses the bit for the removed MPX feature.
-OPENSSL_INLINE int CRYPTO_cpu_avoid_zmm_registers(void) {
+inline int CRYPTO_cpu_avoid_zmm_registers(void) {
   return (OPENSSL_get_ia32cap(2) & (1u << 14)) != 0;
 }
 
-OPENSSL_INLINE int CRYPTO_is_VAES_capable(void) {
+inline int CRYPTO_is_VAES_capable(void) {
 #if defined(__VAES__)
   return 1;
 #else
@@ -1412,7 +1293,7 @@ OPENSSL_INLINE int CRYPTO_is_VAES_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_VPCLMULQDQ_capable(void) {
+inline int CRYPTO_is_VPCLMULQDQ_capable(void) {
 #if defined(__VPCLMULQDQ__)
   return 1;
 #else
@@ -1433,16 +1314,6 @@ extern uint32_t OPENSSL_armcap_P;
 // merged by the compiler.
 OPENSSL_ATTR_CONST uint32_t OPENSSL_get_armcap(void);
 
-// We do not detect any features at runtime on several 32-bit Arm platforms.
-// Apple platforms and OpenBSD require NEON and moved to 64-bit to pick up Armv8
-// extensions. Android baremetal does not aim to support 32-bit Arm at all, but
-// it simplifies things to make it build.
-#if defined(OPENSSL_ARM) && !defined(OPENSSL_STATIC_ARMCAP) && \
-    (defined(OPENSSL_APPLE) || defined(OPENSSL_OPENBSD) ||     \
-     defined(ANDROID_BAREMETAL))
-#define OPENSSL_STATIC_ARMCAP
-#endif
-
 // Normalize some older feature flags to their modern ACLE values.
 // https://developer.arm.com/architectures/system-architectures/software-standards/acle
 #if defined(__ARM_NEON__) && !defined(__ARM_NEON)
@@ -1459,7 +1330,7 @@ OPENSSL_ATTR_CONST uint32_t OPENSSL_get_armcap(void);
 
 // CRYPTO_is_NEON_capable returns true if the current CPU has a NEON unit. If
 // this is known statically, it is a constant inline function.
-OPENSSL_INLINE int CRYPTO_is_NEON_capable(void) {
+inline int CRYPTO_is_NEON_capable(void) {
 #if defined(OPENSSL_STATIC_ARMCAP_NEON) || defined(__ARM_NEON)
   return 1;
 #elif defined(OPENSSL_STATIC_ARMCAP)
@@ -1469,7 +1340,7 @@ OPENSSL_INLINE int CRYPTO_is_NEON_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_ARMv8_AES_capable(void) {
+inline int CRYPTO_is_ARMv8_AES_capable(void) {
 #if defined(OPENSSL_STATIC_ARMCAP_AES) || defined(__ARM_FEATURE_AES)
   return 1;
 #elif defined(OPENSSL_STATIC_ARMCAP)
@@ -1479,7 +1350,7 @@ OPENSSL_INLINE int CRYPTO_is_ARMv8_AES_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_ARMv8_PMULL_capable(void) {
+inline int CRYPTO_is_ARMv8_PMULL_capable(void) {
 #if defined(OPENSSL_STATIC_ARMCAP_PMULL) || defined(__ARM_FEATURE_AES)
   return 1;
 #elif defined(OPENSSL_STATIC_ARMCAP)
@@ -1489,7 +1360,7 @@ OPENSSL_INLINE int CRYPTO_is_ARMv8_PMULL_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_ARMv8_SHA1_capable(void) {
+inline int CRYPTO_is_ARMv8_SHA1_capable(void) {
   // SHA-1 and SHA-2 (only) share |__ARM_FEATURE_SHA2| but otherwise
   // are dealt with independently.
 #if defined(OPENSSL_STATIC_ARMCAP_SHA1) || defined(__ARM_FEATURE_SHA2)
@@ -1501,7 +1372,7 @@ OPENSSL_INLINE int CRYPTO_is_ARMv8_SHA1_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_ARMv8_SHA256_capable(void) {
+inline int CRYPTO_is_ARMv8_SHA256_capable(void) {
   // SHA-1 and SHA-2 (only) share |__ARM_FEATURE_SHA2| but otherwise
   // are dealt with independently.
 #if defined(OPENSSL_STATIC_ARMCAP_SHA256) || defined(__ARM_FEATURE_SHA2)
@@ -1513,7 +1384,7 @@ OPENSSL_INLINE int CRYPTO_is_ARMv8_SHA256_capable(void) {
 #endif
 }
 
-OPENSSL_INLINE int CRYPTO_is_ARMv8_SHA512_capable(void) {
+inline int CRYPTO_is_ARMv8_SHA512_capable(void) {
   // There is no |OPENSSL_STATIC_ARMCAP_SHA512|.
 #if defined(__ARM_FEATURE_SHA512)
   return 1;
@@ -1537,7 +1408,10 @@ OPENSSL_INLINE int CRYPTO_is_ARMv8_SHA512_capable(void) {
 //   3: aes_hw_set_encrypt_key
 //   4: vpaes_encrypt
 //   5: vpaes_set_encrypt_key
-extern uint8_t BORINGSSL_function_hit[7];
+//   6: aes_gcm_enc_update_vaes_avx10_256 [reserved]
+//   7: aes_gcm_enc_update_vaes_avx10_512
+//   8: aes_gcm_enc_update_vaes_avx2
+extern uint8_t BORINGSSL_function_hit[9];
 #endif  // BORINGSSL_DISPATCH_TEST
 
 // OPENSSL_vasprintf_internal is just like |vasprintf(3)|. If |system_malloc| is

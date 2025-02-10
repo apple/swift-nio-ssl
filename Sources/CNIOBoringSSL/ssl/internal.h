@@ -1,142 +1,12 @@
-/* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
- * All rights reserved.
- *
- * This package is an SSL implementation written
- * by Eric Young (eay@cryptsoft.com).
- * The implementation was written so as to conform with Netscapes SSL.
- *
- * This library is free for commercial and non-commercial use as long as
- * the following conditions are aheared to.  The following conditions
- * apply to all code found in this distribution, be it the RC4, RSA,
- * lhash, DES, etc., code; not just the SSL code.  The SSL documentation
- * included with this distribution is covered by the same copyright terms
- * except that the holder is Tim Hudson (tjh@cryptsoft.com).
- *
- * Copyright remains Eric Young's, and as such any Copyright notices in
- * the code are not to be removed.
- * If this package is used in a product, Eric Young should be given attribution
- * as the author of the parts of the library used.
- * This can be in the form of a textual message at program startup or
- * in documentation (online or textual) provided with the package.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *    "This product includes cryptographic software written by
- *     Eric Young (eay@cryptsoft.com)"
- *    The word 'cryptographic' can be left out if the rouines from the library
- *    being used are not cryptographic related :-).
- * 4. If you include any Windows specific code (or a derivative thereof) from
- *    the apps directory (application code) you must include an acknowledgement:
- *    "This product includes software written by Tim Hudson (tjh@cryptsoft.com)"
- *
- * THIS SOFTWARE IS PROVIDED BY ERIC YOUNG ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- * The licence and distribution terms for any publically available version or
- * derivative of this code cannot be changed.  i.e. this code cannot simply be
- * copied and put under another distribution licence
- * [including the GNU Public Licence.]
- */
-/* ====================================================================
- * Copyright (c) 1998-2007 The OpenSSL Project.  All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. All advertising materials mentioning features or use of this
- *    software must display the following acknowledgment:
- *    "This product includes software developed by the OpenSSL Project
- *    for use in the OpenSSL Toolkit. (http://www.openssl.org/)"
- *
- * 4. The names "OpenSSL Toolkit" and "OpenSSL Project" must not be used to
- *    endorse or promote products derived from this software without
- *    prior written permission. For written permission, please contact
- *    openssl-core@openssl.org.
- *
- * 5. Products derived from this software may not be called "OpenSSL"
- *    nor may "OpenSSL" appear in their names without prior written
- *    permission of the OpenSSL Project.
- *
- * 6. Redistributions of any form whatsoever must retain the following
- *    acknowledgment:
- *    "This product includes software developed by the OpenSSL Project
- *    for use in the OpenSSL Toolkit (http://www.openssl.org/)"
- *
- * THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY
- * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE OpenSSL PROJECT OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
- * OF THE POSSIBILITY OF SUCH DAMAGE.
- * ====================================================================
- *
- * This product includes cryptographic software written by Eric Young
- * (eay@cryptsoft.com).  This product includes software written by Tim
- * Hudson (tjh@cryptsoft.com).
- *
- */
-/* ====================================================================
- * Copyright 2002 Sun Microsystems, Inc. ALL RIGHTS RESERVED.
- * ECC cipher suite support in OpenSSL originally developed by
- * SUN MICROSYSTEMS, INC., and contributed to the OpenSSL project.
- */
-/* ====================================================================
+/*
+ * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2005 Nokia. All rights reserved.
  *
- * The portions of the attached software ("Contribution") is developed by
- * Nokia Corporation and is licensed pursuant to the OpenSSL open source
- * license.
- *
- * The Contribution, originally written by Mika Kousa and Pasi Eronen of
- * Nokia Corporation, consists of the "PSK" (Pre-Shared Key) ciphersuites
- * support (see RFC 4279) to OpenSSL.
- *
- * No patent licenses or other rights except those expressly stated in
- * the OpenSSL open source license shall be deemed granted or received
- * expressly, by implication, estoppel, or otherwise.
- *
- * No assurances are provided by Nokia that the Contribution does not
- * infringe the patent or other intellectual property rights of any third
- * party or that the license provides you with all the necessary rights
- * to make use of the Contribution.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. IN
- * ADDITION TO THE DISCLAIMERS INCLUDED IN THE LICENSE, NOKIA
- * SPECIFICALLY DISCLAIMS ANY LIABILITY FOR CLAIMS BROUGHT BY YOU OR ANY
- * OTHER ENTITY BASED ON INFRINGEMENT OF INTELLECTUAL PROPERTY RIGHTS OR
- * OTHERWISE.
+ * Licensed under the OpenSSL license (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * https://www.openssl.org/source/license.html
  */
 
 #ifndef OPENSSL_HEADER_SSL_INTERNAL_H
@@ -151,6 +21,7 @@
 #include <initializer_list>
 #include <limits>
 #include <new>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -187,53 +58,6 @@ struct SSL_PROTOCOL_METHOD;
 struct SSL_X509_METHOD;
 
 // C++ utilities.
-
-// Fill-ins for various functions in C++17.
-// TODO(crbug.com/42290600): Replace these with the standard ones when we
-// require C++17.
-
-template <typename ForwardIt>
-ForwardIt cxx17_uninitialized_default_construct_n(ForwardIt first, size_t n) {
-  using T = typename std::iterator_traits<ForwardIt>::value_type;
-  while (n > 0) {
-    new (std::addressof(*first)) T;
-    first++;
-    n--;
-  }
-  return first;
-}
-
-template <typename ForwardIt>
-ForwardIt cxx17_uninitialized_value_construct_n(ForwardIt first, size_t n) {
-  using T = typename std::iterator_traits<ForwardIt>::value_type;
-  while (n > 0) {
-    new (std::addressof(*first)) T();
-    first++;
-    n--;
-  }
-  return first;
-}
-
-template <typename InputIt, typename OutputIt>
-InputIt cxx17_uninitialized_move(InputIt first, InputIt last, OutputIt out) {
-  using OutputT = typename std::iterator_traits<OutputIt>::value_type;
-  for (; first != last; ++first) {
-    new (std::addressof(*out)) OutputT(std::move(*first));
-    ++out;
-  }
-  return out;
-}
-
-template <typename ForwardIt>
-ForwardIt cxx17_destroy_n(ForwardIt first, size_t n) {
-  using T = typename std::iterator_traits<ForwardIt>::value_type;
-  while (n > 0) {
-    first->~T();
-    first++;
-    n--;
-  }
-  return first;
-}
 
 // New behaves like |new| but uses |OPENSSL_malloc| for memory allocation. It
 // returns nullptr on allocation error. It only implements single-object
@@ -318,7 +142,7 @@ class Array {
   // Reset releases the current contents of the array and takes ownership of the
   // raw pointer supplied by the caller.
   void Reset(T *new_data, size_t new_size) {
-    cxx17_destroy_n(data_, size_);
+    std::destroy_n(data_, size_);
     OPENSSL_free(data_);
     data_ = new_data;
     size_ = new_size;
@@ -337,28 +161,28 @@ class Array {
   // value-constructed copies of |T|. It returns true on success and false on
   // error. If |T| is a primitive type like |uint8_t|, value-construction means
   // it will be zero-initialized.
-  bool Init(size_t new_size) {
+  [[nodiscard]] bool Init(size_t new_size) {
     if (!InitUninitialized(new_size)) {
       return false;
     }
-    cxx17_uninitialized_value_construct_n(data_, size_);
+    std::uninitialized_value_construct_n(data_, size_);
     return true;
   }
 
   // InitForOverwrite behaves like |Init| but it default-constructs each element
   // instead. This means that, if |T| is a primitive type, the array will be
   // uninitialized and thus must be filled in by the caller.
-  bool InitForOverwrite(size_t new_size) {
+  [[nodiscard]] bool InitForOverwrite(size_t new_size) {
     if (!InitUninitialized(new_size)) {
       return false;
     }
-    cxx17_uninitialized_default_construct_n(data_, size_);
+    std::uninitialized_default_construct_n(data_, size_);
     return true;
   }
 
   // CopyFrom replaces the array with a newly-allocated copy of |in|. It returns
   // true on success and false on error.
-  bool CopyFrom(Span<const T> in) {
+  [[nodiscard]] bool CopyFrom(Span<const T> in) {
     if (!InitUninitialized(in.size())) {
       return false;
     }
@@ -372,7 +196,7 @@ class Array {
     if (new_size > size_) {
       abort();
     }
-    cxx17_destroy_n(data_ + new_size, size_ - new_size);
+    std::destroy_n(data_ + new_size, size_ - new_size);
     size_ = new_size;
   }
 
@@ -440,7 +264,7 @@ class Vector {
   const T *end() const { return data_ + size_; }
 
   void clear() {
-    cxx17_destroy_n(data_, size_);
+    std::destroy_n(data_, size_);
     OPENSSL_free(data_);
     data_ = nullptr;
     size_ = 0;
@@ -449,7 +273,7 @@ class Vector {
 
   // Push adds |elem| at the end of the internal array, growing if necessary. It
   // returns false when allocation fails.
-  bool Push(T elem) {
+  [[nodiscard]] bool Push(T elem) {
     if (!MaybeGrow()) {
       return false;
     }
@@ -460,7 +284,7 @@ class Vector {
 
   // CopyFrom replaces the contents of the array with a copy of |in|. It returns
   // true on success and false on allocation error.
-  bool CopyFrom(Span<const T> in) {
+  [[nodiscard]] bool CopyFrom(Span<const T> in) {
     Array<T> copy;
     if (!copy.CopyFrom(in)) {
       return false;
@@ -499,7 +323,7 @@ class Vector {
       return false;
     }
     size_t new_size = size_;
-    cxx17_uninitialized_move(begin(), end(), new_data);
+    std::uninitialized_move(begin(), end(), new_data);
     clear();
     data_ = new_data;
     size_ = new_size;
@@ -543,7 +367,7 @@ class InplaceVector {
   }
   InplaceVector &operator=(InplaceVector &&other) {
     clear();
-    cxx17_uninitialized_move(other.begin(), other.end(), data());
+    std::uninitialized_move(other.begin(), other.end(), data());
     size_ = other.size();
     return *this;
   }
@@ -575,14 +399,14 @@ class InplaceVector {
   // default-constructible.
   void Shrink(size_t new_size) {
     BSSL_CHECK(new_size <= size_);
-    cxx17_destroy_n(data() + new_size, size_ - new_size);
+    std::destroy_n(data() + new_size, size_ - new_size);
     size_ = static_cast<PackedSize<N>>(new_size);
   }
 
   // TryResize resizes the vector to |new_size| and returns true, or returns
   // false if |new_size| is too large. Any newly-added elements are
   // value-initialized.
-  bool TryResize(size_t new_size) {
+  [[nodiscard]] bool TryResize(size_t new_size) {
     if (new_size <= size_) {
       Shrink(new_size);
       return true;
@@ -590,7 +414,7 @@ class InplaceVector {
     if (new_size > capacity()) {
       return false;
     }
-    cxx17_uninitialized_value_construct_n(data() + size_, new_size - size_);
+    std::uninitialized_value_construct_n(data() + size_, new_size - size_);
     size_ = static_cast<PackedSize<N>>(new_size);
     return true;
   }
@@ -598,7 +422,7 @@ class InplaceVector {
   // TryResizeForOverwrite behaves like |TryResize|, but newly-added elements
   // are default-initialized, so POD types may contain uninitialized values that
   // the caller is responsible for filling in.
-  bool TryResizeForOverwrite(size_t new_size) {
+  [[nodiscard]] bool TryResizeForOverwrite(size_t new_size) {
     if (new_size <= size_) {
       Shrink(new_size);
       return true;
@@ -606,14 +430,14 @@ class InplaceVector {
     if (new_size > capacity()) {
       return false;
     }
-    cxx17_uninitialized_default_construct_n(data() + size_, new_size - size_);
+    std::uninitialized_default_construct_n(data() + size_, new_size - size_);
     size_ = static_cast<PackedSize<N>>(new_size);
     return true;
   }
 
   // TryCopyFrom sets the vector to a copy of |in| and returns true, or returns
   // false if |in| is too large.
-  bool TryCopyFrom(Span<const T> in) {
+  [[nodiscard]] bool TryCopyFrom(Span<const T> in) {
     if (in.size() > capacity()) {
       return false;
     }
@@ -625,7 +449,7 @@ class InplaceVector {
 
   // TryPushBack appends |val| to the vector and returns a pointer to the
   // newly-inserted value, or nullptr if the vector is at capacity.
-  T *TryPushBack(T val) {
+  [[nodiscard]] T *TryPushBack(T val) {
     if (size() >= capacity()) {
       return nullptr;
     }
@@ -731,7 +555,7 @@ template <typename T, typename Name>
 inline size_t GetAllNames(const char **out, size_t max_out,
                           Span<const char *const> fixed_names, Name(T::*name),
                           Span<const T> objects) {
-  auto span = bssl::MakeSpan(out, max_out);
+  auto span = bssl::Span(out, max_out);
   for (size_t i = 0; !span.empty() && i < fixed_names.size(); i++) {
     span[0] = fixed_names[i];
     span = span.subspan(1);
@@ -1054,8 +878,8 @@ class SSLTranscript {
   bool CopyToHashContext(EVP_MD_CTX *ctx, const EVP_MD *digest) const;
 
   Span<const uint8_t> buffer() const {
-    return MakeConstSpan(reinterpret_cast<const uint8_t *>(buffer_->data),
-                         buffer_->length);
+    return Span(reinterpret_cast<const uint8_t *>(buffer_->data),
+                buffer_->length);
   }
 
   // FreeBuffer releases the handshake buffer. Subsequent calls to
@@ -1109,7 +933,7 @@ class SSLTranscript {
 // as the secret and |label| as the label. |seed1| and |seed2| are concatenated
 // to form the seed parameter. It returns true on success and false on failure.
 bool tls1_prf(const EVP_MD *digest, Span<uint8_t> out,
-              Span<const uint8_t> secret, Span<const char> label,
+              Span<const uint8_t> secret, std::string_view label,
               Span<const uint8_t> seed1, Span<const uint8_t> seed2);
 
 
@@ -1643,11 +1467,9 @@ class SSLBuffer {
   bool empty() const { return size_ == 0; }
   size_t cap() const { return cap_; }
 
-  Span<uint8_t> span() { return MakeSpan(data(), size()); }
+  Span<uint8_t> span() { return Span(data(), size()); }
 
-  Span<uint8_t> remaining() {
-    return MakeSpan(data() + size(), cap() - size());
-  }
+  Span<uint8_t> remaining() { return Span(data() + size(), cap() - size()); }
 
   // Clear releases the buffer.
   void Clear();
@@ -1682,9 +1504,6 @@ class SSLBuffer {
   uint16_t cap_ = 0;
   // inline_buf_ is a static buffer for short reads.
   uint8_t inline_buf_[SSL3_RT_HEADER_LENGTH];
-  // buf_allocated_ is true if |buf_| points to allocated data and must be freed
-  // or false if it points into |inline_buf_|.
-  bool buf_allocated_ = false;
 };
 
 // ssl_read_buffer_extend_to extends the read buffer to the desired length. For
@@ -1835,7 +1654,7 @@ bool tls13_derive_resumption_secret(SSL_HANDSHAKE *hs);
 // |exporter_secret|.
 bool tls13_export_keying_material(SSL *ssl, Span<uint8_t> out,
                                   Span<const uint8_t> secret,
-                                  Span<const char> label,
+                                  std::string_view label,
                                   Span<const uint8_t> context);
 
 // tls13_finished_mac calculates the MAC of the handshake transcript to verify
@@ -2116,7 +1935,8 @@ BSSL_NAMESPACE_BEGIN
 bool ssl_get_credential_list(SSL_HANDSHAKE *hs, Array<SSL_CREDENTIAL *> *out);
 
 // ssl_credential_matches_requested_issuers returns true if |cred| is a
-// usable match for any requested issuers in |hs|.
+// usable match for any requested issuers in |hs|, and false with an error
+// otherwise.
 bool ssl_credential_matches_requested_issuers(SSL_HANDSHAKE *hs,
                                               const SSL_CREDENTIAL *cred);
 
@@ -3421,9 +3241,9 @@ struct hm_header_st {
 struct DTLSIncomingMessage {
   static constexpr bool kAllowUniquePtr = true;
 
-  Span<uint8_t> msg() { return MakeSpan(data).subspan(DTLS1_HM_HEADER_LENGTH); }
+  Span<uint8_t> msg() { return Span(data).subspan(DTLS1_HM_HEADER_LENGTH); }
   Span<const uint8_t> msg() const {
-    return MakeSpan(data).subspan(DTLS1_HM_HEADER_LENGTH);
+    return Span(data).subspan(DTLS1_HM_HEADER_LENGTH);
   }
   size_t msg_len() const { return msg().size(); }
 
@@ -3767,9 +3587,9 @@ struct SSL_CONFIG {
   // structure for the client to use when negotiating ECH.
   Array<uint8_t> client_ech_config_list;
 
-  // tls13_cipher_policy limits the set of ciphers that can be selected when
+  // compliance_policy limits the set of ciphers that can be selected when
   // negotiating a TLS 1.3 connection.
-  enum ssl_compliance_policy_t tls13_cipher_policy = ssl_compliance_policy_none;
+  enum ssl_compliance_policy_t compliance_policy = ssl_compliance_policy_none;
 
   // verify_mode is a bitmask of |SSL_VERIFY_*| values.
   uint8_t verify_mode = SSL_VERIFY_NONE;
@@ -4421,9 +4241,9 @@ struct ssl_ctx_st : public bssl::RefCounted<ssl_ctx_st> {
   int (*legacy_ocsp_callback)(SSL *ssl, void *arg) = nullptr;
   void *legacy_ocsp_callback_arg = nullptr;
 
-  // tls13_cipher_policy limits the set of ciphers that can be selected when
+  // compliance_policy limits the set of ciphers that can be selected when
   // negotiating a TLS 1.3 connection.
-  enum ssl_compliance_policy_t tls13_cipher_policy = ssl_compliance_policy_none;
+  enum ssl_compliance_policy_t compliance_policy = ssl_compliance_policy_none;
 
   // verify_sigalgs, if not empty, is the set of signature algorithms
   // accepted from the peer in decreasing order of preference.
