@@ -424,6 +424,26 @@ class SSLCertificateTest: XCTestCase {
         XCTAssertEqual(String(decoding: sans[6].contents, as: UTF8.self), "http://example.org/")
     }
 
+    func testSubjectName() throws {
+        let cert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
+        XCTAssertEqual(
+            cert.subjectName,
+            [
+                SSLCertificateName("US", .country),
+                SSLCertificateName("California", .state),
+                SSLCertificateName("San Fransokyo", .city),
+                SSLCertificateName("San Fransokyo Institute of Technology", .organization),
+                SSLCertificateName("Robotics Lab", .organizationalUnit),
+                SSLCertificateName("robots.sanfransokyo.edu", .commonName),
+            ]
+        )
+    }
+
+    func testIssuerName() throws {
+        let cert = try NIOSSLCertificate(bytes: .init(sampleIntermediateCA.utf8), format: .pem)
+        XCTAssertEqual(cert.issuerName, [SSLCertificateName("badCertificateAuthority", .commonName)])
+    }
+
     func testNonexistentSan() throws {
         let cert = try NIOSSLCertificate(bytes: .init(samplePemCert.utf8), format: .pem)
         XCTAssertTrue(cert._subjectAlternativeNames().isEmpty)
