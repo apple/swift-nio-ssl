@@ -210,9 +210,15 @@ final class SecurityFrameworkVerificationTests: XCTestCase {
     }
 }
 
-// This typealias allows us to work around an awkward bug with our static below.
+// This class allows us to work around an awkward bug with our static below.
+// We need to mark this type non-Sendable.
 #if !canImport(Darwin)
-private typealias SecCertificate = Never
+final class SecCertificate {
+
+}
+
+@available(*, unavailable)
+extension SecCertificate: Sendable { }
 #endif
 
 extension SecurityFrameworkVerificationTests {
@@ -221,12 +227,12 @@ extension SecurityFrameworkVerificationTests {
     /// in that order:
     /// `openssl s_client -connect www.apple.com:443 -servername www.apple.com -showcerts`
     #if compiler(>=5.10)
-    nonisolated(unsafe) static let appleComCertChain: [SecCertificate] = buildAppleComCertChain()
+    nonisolated(unsafe) fileprivate static let appleComCertChain: [SecCertificate] = buildAppleComCertChain()
     #else
-    static let appleComCertChain: [SecCertificate] = buildAppleComCertChain()
+    fileprivate static let appleComCertChain: [SecCertificate] = buildAppleComCertChain()
     #endif
 
-    static func buildAppleComCertChain() -> [SecCertificate] {
+    fileprivate static func buildAppleComCertChain() -> [SecCertificate] {
         #if canImport(Darwin)
         // All certs here are PEM format, with the leading/trailing lines stripped.
         let leaf = """
@@ -306,6 +312,8 @@ extension SecurityFrameworkVerificationTests {
         return [leaf, intermediate].map {
             SecCertificateCreateWithData(nil, Data(base64Encoded: $0, options: .ignoreUnknownCharacters)! as CFData)!
         }
+        #else
+        return []
         #endif
     }
 }
