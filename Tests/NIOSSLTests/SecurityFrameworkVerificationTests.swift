@@ -216,7 +216,13 @@ extension SecurityFrameworkVerificationTests {
     /// by running the following command, and replacing both served certificates as leaf and intermediate,
     /// in that order:
     /// `openssl s_client -connect www.apple.com:443 -servername www.apple.com -showcerts`
-    nonisolated(unsafe) static let appleComCertChain: [SecCertificate] = {
+    #if compiler(>=5.10)
+    nonisolated(unsafe) static let appleComCertChain: [SecCertificate] = buildAppleComCertChain()
+    #else
+    static let appleComCertChain: [SecCertificate] = buildAppleComCertChain()
+    #endif
+    
+    static func buildAppleComCertChain() -> [SecCertificate] {
         // All certs here are PEM format, with the leading/trailing lines stripped.
         let leaf = """
             MIIHezCCBmOgAwIBAgIQdBPCMTNJmIlbB9vLs/QpFTANBgkqhkiG9w0BAQsFADBR
@@ -295,6 +301,6 @@ extension SecurityFrameworkVerificationTests {
         return [leaf, intermediate].map {
             SecCertificateCreateWithData(nil, Data(base64Encoded: $0, options: .ignoreUnknownCharacters)! as CFData)!
         }
-    }()
+    }
 }
 #endif
