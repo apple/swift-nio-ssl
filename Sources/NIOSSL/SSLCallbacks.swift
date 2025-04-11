@@ -12,8 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import CNIOBoringSSL
 import NIOCore
+
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+#else
+@_implementationOnly import CNIOBoringSSL
+#endif
 
 #if canImport(Darwin)
 import Darwin.C
@@ -333,10 +338,10 @@ extension CustomContextManager {
             let promise = eventLoop.makePromise(of: NIOSSLContextConfigurationOverride.self)
             self.callback(values, promise)
 
-            promise.futureResult.whenComplete { result in
+            promise.futureResult.assumeIsolated().whenComplete { result in
                 // Ensure we execute any completion on the next event loop tick
                 // This ensures that we suspend before calling resume
-                eventLoop.execute {
+                eventLoop.assumeIsolated().execute {
                     connection.parentContext.customContextManager?.state = .complete(result)
                     connection.parentHandler?.resumeHandshake()
                 }
@@ -445,11 +450,11 @@ extension CustomVerifyManager {
 
         // We need to attach our "do the thing" callback. This will always invoke the "ask me again" API, and it will do so in a separate
         // event loop tick to avoid awkward re-entrancy with this method.
-        promise.futureResult.whenComplete { result in
+        promise.futureResult.assumeIsolated().whenComplete { result in
             // When we complete here we need to set our result state, and then ask to respin certificate verification.
             // If we can't respin verification because we've dropped the parent handler, that's fine, no harm no foul.
             // For that reason, we tolerate both the verify manager and the parent handler being nil.
-            eventLoop.execute {
+            eventLoop.assumeIsolated().execute {
                 // Note that we don't close over self here: that's to deal with the fact that this is a struct, and we don't want to
                 // escape the mutable ownership of self.
                 precondition(
