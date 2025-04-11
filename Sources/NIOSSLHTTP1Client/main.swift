@@ -68,7 +68,7 @@ private final class HTTPResponseHandler: ChannelInboundHandler {
 let arguments = CommandLine.arguments
 let arg1 = arguments.dropFirst().first
 
-var url: URL
+let url: URL
 var cert: [NIOSSLCertificateSource] = []
 var key: NIOSSLPrivateKeySource?
 var trustRoot: NIOSSLTrustRoots = .default
@@ -108,11 +108,11 @@ let sslContext = try! NIOSSLContext(configuration: tlsConfiguration)
 let bootstrap = ClientBootstrap(group: eventLoopGroup)
     .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
     .channelInitializer { channel in
-        let openSslHandler = try! NIOSSLClientHandler(context: sslContext, serverHostname: url.host)
-        return channel.pipeline.addHandler(openSslHandler).flatMap {
-            channel.pipeline.addHTTPClientHandlers()
-        }.flatMap {
-            channel.pipeline.addHandler(HTTPResponseHandler(promise))
+        channel.eventLoop.makeCompletedFuture {
+            let openSslHandler = try NIOSSLClientHandler(context: sslContext, serverHostname: url.host)
+            try channel.pipeline.syncOperations.addHandler(openSslHandler)
+            try channel.pipeline.syncOperations.addHTTPClientHandlers()
+            try channel.pipeline.syncOperations.addHandler(HTTPResponseHandler(promise))
         }
     }
 
