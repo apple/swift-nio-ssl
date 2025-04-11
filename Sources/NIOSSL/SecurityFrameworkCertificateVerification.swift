@@ -1,5 +1,3 @@
-import NIOCore
-
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the SwiftNIO open source project
@@ -13,6 +11,8 @@ import NIOCore
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
+import NIOCore
+
 #if compiler(>=6.1)
 internal import CNIOBoringSSL
 #else
