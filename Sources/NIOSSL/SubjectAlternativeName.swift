@@ -75,6 +75,9 @@ public struct _SubjectAlternativeNames {
 // _SubjectAlternativeNames is immutable and therefore Sendable
 extension _SubjectAlternativeNames: @unchecked Sendable {}
 
+// _SubjectAlternativeNames.Storage is immutable and therefore Sendable
+extension _SubjectAlternativeNames.Storage: @unchecked Sendable {}
+
 extension _SubjectAlternativeNames: RandomAccessCollection {
 
     @inlinable public subscript(position: Int) -> _SubjectAlternativeName {

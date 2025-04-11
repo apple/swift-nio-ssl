@@ -156,7 +156,7 @@ extension SSLConnection {
         inputBytes.writeBytes(`in`)
 
         let result = customKey.sign(channel: channel, algorithm: wrappedAlgorithm, data: inputBytes)
-        result.whenComplete { signingResult in
+        result.hop(to: channel.eventLoop).assumeIsolated().whenComplete { signingResult in
             self.storeCustomPrivateKeyResult(signingResult, channel: channel)
         }
 
@@ -178,7 +178,7 @@ extension SSLConnection {
         inputBytes.writeBytes(`in`)
 
         let result = customKey.decrypt(channel: channel, data: inputBytes)
-        result.whenComplete { decryptionResult in
+        result.hop(to: channel.eventLoop).assumeIsolated().whenComplete { decryptionResult in
             self.storeCustomPrivateKeyResult(decryptionResult, channel: channel)
         }
 
@@ -207,7 +207,7 @@ extension SSLConnection {
         // When we complete here we need to set our result state, and then ask to respin the handshake.
         // If we can't respin the handshake because we've dropped the parent handler, that's fine, no harm no foul.
         // For that reason, we tolerate both the verify manager and the parent handler being nil.
-        channel.eventLoop.execute {
+        channel.eventLoop.assumeIsolated().execute {
             precondition(self.customPrivateKeyResult == nil)
             self.customPrivateKeyResult = result
             self.parentHandler?.resumeHandshake()
