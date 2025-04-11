@@ -12,9 +12,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+import NIOCore
+
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+internal import CNIOBoringSSLShims
+#else
 @_implementationOnly import CNIOBoringSSL
 @_implementationOnly import CNIOBoringSSLShims
-import NIOCore
+#endif
 
 #if canImport(Darwin)
 import Darwin.C
@@ -74,6 +80,9 @@ public struct _SubjectAlternativeNames {
 
 // _SubjectAlternativeNames is immutable and therefore Sendable
 extension _SubjectAlternativeNames: @unchecked Sendable {}
+
+// _SubjectAlternativeNames.Storage is immutable and therefore Sendable
+extension _SubjectAlternativeNames.Storage: @unchecked Sendable {}
 
 extension _SubjectAlternativeNames: RandomAccessCollection {
 
