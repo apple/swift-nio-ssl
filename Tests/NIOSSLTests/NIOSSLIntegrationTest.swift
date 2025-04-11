@@ -916,7 +916,7 @@ class NIOSSLIntegrationTest: XCTestCase {
                     try channel.pipeline.syncOperations.addHandlers(
                         NIOSSLServerHandler(context: context),
                         PromiseOnChildChannelInitHandler(promise: childChannelInitPromise),
-                        SimpleEchoServer(),
+                        SimpleEchoServer()
                     )
                 }
             }
