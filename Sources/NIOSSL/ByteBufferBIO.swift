@@ -171,7 +171,8 @@ final class ByteBufferBIO {
     /// and it will always be non-NULL. Failure to initialize this structure is fatal to
     /// the program.
     #if compiler(>=5.10)
-    nonisolated(unsafe) private static let boringSSLBIOMethod: UnsafeMutablePointer<BIO_METHOD> = buildBoringSSLBIOMethod()
+    nonisolated(unsafe) private static let boringSSLBIOMethod: UnsafeMutablePointer<BIO_METHOD> =
+        buildBoringSSLBIOMethod()
     #else
     private static let boringSSLBIOMethod: UnsafeMutablePointer<BIO_METHOD> = buildBoringSSLBIOMethod()
     #endif
