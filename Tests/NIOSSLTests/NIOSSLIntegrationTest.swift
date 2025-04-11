@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import CNIOBoringSSL
 import NIOConcurrencyHelpers
 import NIOCore
 import NIOEmbedded
@@ -21,6 +20,12 @@ import NIOTLS
 import XCTest
 
 @testable import NIOSSL
+
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+#else
+@_implementationOnly import CNIOBoringSSL
+#endif
 
 public func assertNoThrowWithValue<T>(
     _ body: @autoclosure () throws -> T,
