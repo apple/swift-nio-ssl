@@ -23,7 +23,7 @@ internal import CNIOBoringSSL
 #if canImport(Darwin)
 import Dispatch
 import Foundation
-import Security
+@preconcurrency import Security
 
 extension SSLConnection {
     func performSecurityFrameworkValidation(
