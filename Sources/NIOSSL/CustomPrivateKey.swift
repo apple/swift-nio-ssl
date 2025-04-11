@@ -217,11 +217,17 @@ extension SSLConnection {
 
 // We heap-allocate the SSL_PRIVATE_KEY_METHOD we need because we can't define a static stored property with fixed address
 // in Swift.
-nonisolated(unsafe) internal let customPrivateKeyMethod: UnsafePointer<SSL_PRIVATE_KEY_METHOD> = {
+#if compiler(>=5.10)
+nonisolated(unsafe) internal let customPrivateKeyMethod: UnsafePointer<SSL_PRIVATE_KEY_METHOD> = buildCustomPrivateKeyMethod()
+#else
+internal let customPrivateKeyMethod: UnsafePointer<SSL_PRIVATE_KEY_METHOD> = buildCustomPrivateKeyMethod()
+#endif
+
+fileprivate func buildCustomPrivateKeyMethod() -> UnsafePointer<SSL_PRIVATE_KEY_METHOD> {
     let pointer = UnsafeMutablePointer<SSL_PRIVATE_KEY_METHOD>.allocate(capacity: 1)
     pointer.pointee = .init(sign: customKeySign, decrypt: customKeyDecrypt, complete: customKeyComplete)
     return UnsafePointer(pointer)
-}()
+}
 
 /// This is our entry point from BoringSSL when we've been asked to do a sign.
 private func customKeySign(
