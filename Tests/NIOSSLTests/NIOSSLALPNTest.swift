@@ -12,16 +12,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if compiler(>=6.1)
-internal import CNIOBoringSSL
-#else
-@_implementationOnly import CNIOBoringSSL
-#endif
 import NIOCore
 import NIOPosix
 import NIOSSL
 import NIOTLS
 import XCTest
+
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+#else
+@_implementationOnly import CNIOBoringSSL
+#endif
 
 class NIOSSLALPNTest: XCTestCase {
     static var cert: NIOSSLCertificate!

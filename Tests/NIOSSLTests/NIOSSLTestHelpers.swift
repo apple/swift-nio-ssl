@@ -12,16 +12,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if compiler(>=6.1)
-internal import CNIOBoringSSL
-#else
-@_implementationOnly import CNIOBoringSSL
-#endif
 import Foundation
 import NIOCore
 import NIOEmbedded
 
 @testable import NIOSSL
+
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+#else
+@_implementationOnly import CNIOBoringSSL
+#endif
 
 let samplePemCert = """
     -----BEGIN CERTIFICATE-----

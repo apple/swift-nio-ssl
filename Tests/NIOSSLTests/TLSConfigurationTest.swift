@@ -12,11 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if compiler(>=6.1)
-internal import CNIOBoringSSL
-#else
-@_implementationOnly import CNIOBoringSSL
-#endif
 import NIOCore
 import NIOEmbedded
 import NIOPosix
@@ -24,6 +19,12 @@ import NIOTLS
 import XCTest
 
 @testable import NIOSSL
+
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+#else
+@_implementationOnly import CNIOBoringSSL
+#endif
 
 #if compiler(>=5.8)
 @preconcurrency import Dispatch

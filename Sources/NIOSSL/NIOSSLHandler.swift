@@ -12,13 +12,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+import NIOCore
+import NIOTLS
+
 #if compiler(>=6.1)
 internal import CNIOBoringSSL
 #else
 @_implementationOnly import CNIOBoringSSL
 #endif
-import NIOCore
-import NIOTLS
 
 /// The base class for all NIOSSL handlers.
 ///
