@@ -218,7 +218,7 @@ final class SecCertificate {
 }
 
 @available(*, unavailable)
-extension SecCertificate: Sendable { }
+extension SecCertificate: Sendable {}
 #endif
 
 extension SecurityFrameworkVerificationTests {
