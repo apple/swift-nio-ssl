@@ -210,7 +210,11 @@ final class SecurityFrameworkVerificationTests: XCTestCase {
     }
 }
 
-#if canImport(Darwin)
+// This typealias allows us to work around an awkward bug with our static below.
+#if !canImport(Darwin)
+private typealias SecCertificate = Never
+#endif
+
 extension SecurityFrameworkVerificationTests {
     /// If tests fail because of an expired cert, you can regenerate the leaf and intermediate certificates
     /// by running the following command, and replacing both served certificates as leaf and intermediate,
@@ -223,6 +227,7 @@ extension SecurityFrameworkVerificationTests {
     #endif
 
     static func buildAppleComCertChain() -> [SecCertificate] {
+        #if canImport(Darwin)
         // All certs here are PEM format, with the leading/trailing lines stripped.
         let leaf = """
             MIIHezCCBmOgAwIBAgIQdBPCMTNJmIlbB9vLs/QpFTANBgkqhkiG9w0BAQsFADBR
@@ -301,6 +306,6 @@ extension SecurityFrameworkVerificationTests {
         return [leaf, intermediate].map {
             SecCertificateCreateWithData(nil, Data(base64Encoded: $0, options: .ignoreUnknownCharacters)! as CFData)!
         }
+        #endif
     }
 }
-#endif
