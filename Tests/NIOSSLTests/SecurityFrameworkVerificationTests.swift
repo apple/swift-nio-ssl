@@ -221,7 +221,7 @@ extension SecurityFrameworkVerificationTests {
     #else
     static let appleComCertChain: [SecCertificate] = buildAppleComCertChain()
     #endif
-    
+
     static func buildAppleComCertChain() -> [SecCertificate] {
         // All certs here are PEM format, with the leading/trailing lines stripped.
         let leaf = """
