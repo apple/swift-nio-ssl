@@ -173,30 +173,36 @@ internal func dumpToFile(text: String, fileExtension: String = "") throws -> Str
 }
 
 class SSLCertificateTest: XCTestCase {
-    static var pemCertFilePath: String! = nil
-    static var pemCertsFilePath: String! = nil
-    static var derCertFilePath: String! = nil
-    static var dynamicallyGeneratedCert: NIOSSLCertificate! = nil
+    static let dynamicallyGeneratedCert = generateSelfSignedCert().0
 
-    override class func setUp() {
-        SSLCertificateTest.pemCertFilePath = try! dumpToFile(text: samplePemCert)
-        SSLCertificateTest.pemCertsFilePath = try! dumpToFile(text: samplePemCerts)
-        SSLCertificateTest.derCertFilePath = try! dumpToFile(data: sampleDerCert)
-
-        let (cert, _) = generateSelfSignedCert()
-        SSLCertificateTest.dynamicallyGeneratedCert = cert
+    private static func withPemCertPath<ReturnType>(
+        _ body: (String) throws -> ReturnType
+    ) throws -> ReturnType {
+        let pemCertFilePath = try dumpToFile(text: samplePemCert)
+        defer {
+            unlink(pemCertFilePath)
+        }
+        return try body(pemCertFilePath)
     }
 
-    override class func tearDown() {
-        _ = SSLCertificateTest.pemCertFilePath.withCString {
-            unlink($0)
+    private static func withPemCertsPath<ReturnType>(
+        _ body: (String) throws -> ReturnType
+    ) throws -> ReturnType {
+        let pemCertsFilePath = try dumpToFile(text: samplePemCerts)
+        defer {
+            unlink(pemCertsFilePath)
         }
-        _ = SSLCertificateTest.pemCertsFilePath.withCString {
-            unlink($0)
+        return try body(pemCertsFilePath)
+    }
+
+    private static func withDerCertPath<ReturnType>(
+        _ body: (String) throws -> ReturnType
+    ) throws -> ReturnType {
+        let derCertFilePath = try dumpToFile(data: sampleDerCert)
+        defer {
+            unlink(derCertFilePath)
         }
-        _ = SSLCertificateTest.derCertFilePath.withCString {
-            unlink($0)
-        }
+        return try body(derCertFilePath)
     }
 
     private func dateFromComponents(year: Int, month: Int, day: Int, hour: Int, minute: Int, second: Int) -> Date {
@@ -213,8 +219,12 @@ class SSLCertificateTest: XCTestCase {
     }
 
     func testLoadingPemCertFromFile() throws {
-        let cert1 = try NIOSSLCertificate(file: SSLCertificateTest.pemCertFilePath, format: .pem)
-        let cert2 = try NIOSSLCertificate(file: SSLCertificateTest.pemCertFilePath, format: .pem)
+        let (cert1, cert2) = try Self.withPemCertPath {
+            (
+                try NIOSSLCertificate(file: $0, format: .pem),
+                try NIOSSLCertificate(file: $0, format: .pem)
+            )
+        }
 
         XCTAssertEqual(cert1, cert2)
         XCTAssertEqual(cert1.hashValue, cert2.hashValue)
@@ -223,8 +233,12 @@ class SSLCertificateTest: XCTestCase {
     }
 
     func testLoadingDerCertFromFile() throws {
-        let cert1 = try NIOSSLCertificate(file: SSLCertificateTest.derCertFilePath, format: .der)
-        let cert2 = try NIOSSLCertificate(file: SSLCertificateTest.derCertFilePath, format: .der)
+        let (cert1, cert2) = try Self.withDerCertPath {
+            (
+                try NIOSSLCertificate(file: $0, format: .der),
+                try NIOSSLCertificate(file: $0, format: .der)
+            )
+        }
 
         XCTAssertEqual(cert1, cert2)
         XCTAssertEqual(cert1.hashValue, cert2.hashValue)
@@ -233,8 +247,12 @@ class SSLCertificateTest: XCTestCase {
     }
 
     func testDerAndPemAreIdentical() throws {
-        let cert1 = try NIOSSLCertificate(file: SSLCertificateTest.pemCertFilePath, format: .pem)
-        let cert2 = try NIOSSLCertificate(file: SSLCertificateTest.derCertFilePath, format: .der)
+        let cert1 = try Self.withPemCertPath {
+            try NIOSSLCertificate(file: $0, format: .pem)
+        }
+        let cert2 = try Self.withDerCertPath {
+            try NIOSSLCertificate(file: $0, format: .der)
+        }
 
         XCTAssertEqual(cert1, cert2)
         XCTAssertEqual(cert1.hashValue, cert2.hashValue)
@@ -266,8 +284,12 @@ class SSLCertificateTest: XCTestCase {
     }
 
     func testLoadingPemCertsFromFile() throws {
-        let certs1 = try NIOSSLCertificate.fromPEMFile(SSLCertificateTest.pemCertsFilePath)
-        let certs2 = try NIOSSLCertificate.fromPEMFile(SSLCertificateTest.pemCertsFilePath)
+        let (certs1, certs2) = try Self.withPemCertsPath {
+            (
+                try NIOSSLCertificate.fromPEMFile($0),
+                try NIOSSLCertificate.fromPEMFile($0)
+            )
+        }
 
         XCTAssertEqual(certs1.count, 2)
         XCTAssertEqual(certs1, certs2)

@@ -26,10 +26,10 @@ func connectInMemory(client: EmbeddedChannel, server: EmbeddedChannel) throws {
     XCTAssertNoThrow(try connectFuture.wait())
 }
 
-extension ChannelPipeline {
+extension ChannelPipeline.SynchronousOperations {
     func assertContains(handler: ChannelHandler, file: StaticString = #filePath, line: UInt = #line) {
         do {
-            _ = try self.context(handler: handler).wait()
+            _ = try self.context(handler: handler)
         } catch {
             XCTFail("Handler \(handler) missing from \(self)", file: (file), line: line)
         }
@@ -37,7 +37,7 @@ extension ChannelPipeline {
 
     func assertDoesNotContain(handler: ChannelHandler, file: StaticString = #filePath, line: UInt = #line) {
         do {
-            _ = try self.context(handler: handler).wait()
+            _ = try self.context(handler: handler)
             XCTFail("Handler \(handler) present in \(self)", file: (file), line: line)
         } catch {
             // Expected
@@ -46,17 +46,9 @@ extension ChannelPipeline {
 }
 
 final class UnwrappingTests: XCTestCase {
-    static var cert: NIOSSLCertificate!
-    static var key: NIOSSLPrivateKey!
-    static var encryptedKeyPath: String!
-
-    override class func setUp() {
-        super.setUp()
-        guard boringSSLIsInitialized else { fatalError() }
-        let (cert, key) = generateSelfSignedCert()
-        UnwrappingTests.cert = cert
-        UnwrappingTests.key = key
-    }
+    static let _certAndKey = generateSelfSignedCert()
+    static let cert = UnwrappingTests._certAndKey.0
+    static let key = UnwrappingTests._certAndKey.1
 
     private func configuredSSLContext(file: StaticString = #filePath, line: UInt = #line) throws -> NIOSSLContext {
         var config = TLSConfiguration.makeServerConfiguration(
@@ -84,16 +76,16 @@ final class UnwrappingTests: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: context)))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(handshakeHandler))
 
         // Mark the closure of the channels.
-        clientChannel.closeFuture.whenComplete { _ in
+        clientChannel.closeFuture.assumeIsolated().whenComplete { _ in
             clientClosed = true
         }
-        serverChannel.closeFuture.whenComplete { _ in
+        serverChannel.closeFuture.assumeIsolated().whenComplete { _ in
             serverClosed = true
         }
 
@@ -104,7 +96,7 @@ final class UnwrappingTests: XCTestCase {
         // Let's unwrap the client connection. With no additional configuration, this will cause the server
         // to close. The client will not close because interactInMemory does not propagate closure.
         let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
-        stopPromise.futureResult.whenComplete { _ in
+        stopPromise.futureResult.assumeIsolated().whenComplete { _ in
             unwrapped = true
         }
         clientHandler.stopTLS(promise: stopPromise)
@@ -115,7 +107,7 @@ final class UnwrappingTests: XCTestCase {
 
         XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
 
-        clientChannel.pipeline.assertDoesNotContain(handler: clientHandler)
+        clientChannel.pipeline.syncOperations.assertDoesNotContain(handler: clientHandler)
 
         (serverChannel.eventLoop as! EmbeddedEventLoop).run()
         (clientChannel.eventLoop as! EmbeddedEventLoop).run()
@@ -143,16 +135,16 @@ final class UnwrappingTests: XCTestCase {
 
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
         let serverHandler = try assertNoThrowWithValue(NIOSSLServerHandler(context: context))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(serverHandler).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(serverHandler))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(handshakeHandler))
 
         // Mark the closure of the channels.
-        clientChannel.closeFuture.whenComplete { _ in
+        clientChannel.closeFuture.assumeIsolated().whenComplete { _ in
             clientClosed = true
         }
-        serverChannel.closeFuture.whenComplete { _ in
+        serverChannel.closeFuture.assumeIsolated().whenComplete { _ in
             serverClosed = true
         }
 
@@ -163,13 +155,13 @@ final class UnwrappingTests: XCTestCase {
         // Let's unwrap the client connection and the server connection at the same time. This should
         // not close either channel.
         let clientStopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
-        clientStopPromise.futureResult.whenComplete { _ in
+        clientStopPromise.futureResult.assumeIsolated().whenComplete { _ in
             clientUnwrapped = true
         }
         clientHandler.stopTLS(promise: clientStopPromise)
 
         let serverStopPromise: EventLoopPromise<Void> = serverChannel.eventLoop.makePromise()
-        serverStopPromise.futureResult.whenComplete { _ in
+        serverStopPromise.futureResult.assumeIsolated().whenComplete { _ in
             serverUnwrapped = true
         }
         serverHandler.stopTLS(promise: serverStopPromise)
@@ -181,8 +173,8 @@ final class UnwrappingTests: XCTestCase {
 
         XCTAssertNoThrow(try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel))
 
-        clientChannel.pipeline.assertDoesNotContain(handler: clientHandler)
-        serverChannel.pipeline.assertDoesNotContain(handler: serverHandler)
+        clientChannel.pipeline.syncOperations.assertDoesNotContain(handler: clientHandler)
+        serverChannel.pipeline.syncOperations.assertDoesNotContain(handler: serverHandler)
 
         (serverChannel.eventLoop as! EmbeddedEventLoop).run()
         (clientChannel.eventLoop as! EmbeddedEventLoop).run()
@@ -209,13 +201,13 @@ final class UnwrappingTests: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: context)))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(handshakeHandler))
 
         // Mark the closure of the client.
-        clientChannel.closeFuture.whenComplete { _ in
+        clientChannel.closeFuture.assumeIsolated().whenComplete { _ in
             clientClosed = true
         }
 
@@ -225,7 +217,7 @@ final class UnwrappingTests: XCTestCase {
 
         // Let's unwrap the client connection.
         let clientStopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
-        clientStopPromise.futureResult.map {
+        clientStopPromise.futureResult.assumeIsolated().map {
             XCTFail("Must not succeed")
         }.whenFailure { error in
             XCTAssertEqual(error as? NIOTLSUnwrappingError, NIOTLSUnwrappingError.closeRequestedDuringUnwrap)
@@ -234,7 +226,7 @@ final class UnwrappingTests: XCTestCase {
         clientHandler.stopTLS(promise: clientStopPromise)
 
         // Now we're going to close the client.
-        clientChannel.close().whenComplete { _ in
+        clientChannel.close().assumeIsolated().whenComplete { _ in
             XCTAssertFalse(clientClosed)
             XCTAssertTrue(clientUnwrapped)
         }
@@ -245,7 +237,7 @@ final class UnwrappingTests: XCTestCase {
         XCTAssertNoThrow(
             try interactInMemory(clientChannel: clientChannel, serverChannel: serverChannel, runLoops: false)
         )
-        clientChannel.pipeline.assertContains(handler: clientHandler)
+        clientChannel.pipeline.syncOperations.assertContains(handler: clientHandler)
 
         (serverChannel.eventLoop as! EmbeddedEventLoop).run()
         (clientChannel.eventLoop as! EmbeddedEventLoop).run()
@@ -270,13 +262,13 @@ final class UnwrappingTests: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: context)))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(handshakeHandler))
 
         // Mark the closure of the client.
-        clientChannel.closeFuture.whenComplete { _ in
+        clientChannel.closeFuture.assumeIsolated().whenComplete { _ in
             clientClosed = true
         }
 
@@ -286,7 +278,7 @@ final class UnwrappingTests: XCTestCase {
 
         // Let's unwrap the client connection.
         let clientStopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
-        clientStopPromise.futureResult.map {
+        clientStopPromise.futureResult.assumeIsolated().map {
             XCTFail("Must not succeed")
         }.whenFailure { error in
             XCTAssertEqual(error as? NIOSSLError, .uncleanShutdown)
@@ -299,7 +291,7 @@ final class UnwrappingTests: XCTestCase {
 
         // Now we're going to simulate the client receiving a TCP FIN the other way.
         clientChannel.pipeline.fireChannelInactive()
-        clientChannel.pipeline.assertContains(handler: clientHandler)
+        clientChannel.pipeline.syncOperations.assertContains(handler: clientHandler)
 
         (clientChannel.eventLoop as! EmbeddedEventLoop).run()
         XCTAssertTrue(clientUnwrapped)
@@ -323,10 +315,10 @@ final class UnwrappingTests: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: context)))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(handshakeHandler))
 
         // Connect. This should lead to a completed handshake.
         XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel))
@@ -335,7 +327,7 @@ final class UnwrappingTests: XCTestCase {
         // Let's unwrap the client connection twice. We'll ignore the first promise.
         let dummyPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
         let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
-        stopPromise.futureResult.whenComplete { _ in
+        stopPromise.futureResult.assumeIsolated().whenComplete { _ in
             promiseCalled = true
         }
         clientHandler.stopTLS(promise: dummyPromise)
@@ -361,10 +353,10 @@ final class UnwrappingTests: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: context)))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(handshakeHandler))
 
         // Connect. This should lead to a completed handshake.
         XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel))
@@ -372,7 +364,7 @@ final class UnwrappingTests: XCTestCase {
 
         // Let's unwrap the client connection twice. We'll only send a promise the second time.
         let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
-        stopPromise.futureResult.whenComplete { _ in
+        stopPromise.futureResult.assumeIsolated().whenComplete { _ in
             promiseCalled = true
         }
         clientHandler.stopTLS(promise: nil)
@@ -395,12 +387,12 @@ final class UnwrappingTests: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
         let handler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try channel.pipeline.addHandler(handler).wait())
-        channel.pipeline.assertContains(handler: handler)
+        XCTAssertNoThrow(try channel.pipeline.syncOperations.addHandler(handler))
+        channel.pipeline.syncOperations.assertContains(handler: handler)
 
         // Let's unwrap. This should succeed easily.
         let stopPromise: EventLoopPromise<Void> = channel.eventLoop.makePromise()
-        stopPromise.futureResult.whenComplete { _ in
+        stopPromise.futureResult.assumeIsolated().whenComplete { _ in
             promiseCalled = true
         }
 
@@ -424,10 +416,10 @@ final class UnwrappingTests: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: context)))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(handshakeHandler))
 
         // Connect. This should lead to a completed handshake.
         XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel))
@@ -435,7 +427,7 @@ final class UnwrappingTests: XCTestCase {
 
         // Let's unwrap the client connection.
         let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
-        stopPromise.futureResult.whenComplete { _ in
+        stopPromise.futureResult.assumeIsolated().whenComplete { _ in
             promiseCalled = true
         }
         clientHandler.stopTLS(promise: stopPromise)
@@ -467,10 +459,10 @@ final class UnwrappingTests: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: context)))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(handshakeHandler))
 
         // Connect. This should lead to a completed handshake.
         XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel))
@@ -506,13 +498,13 @@ final class UnwrappingTests: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: context)))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(handshakeHandler))
 
         // Mark the closure of the client.
-        clientChannel.closeFuture.whenComplete { _ in
+        clientChannel.closeFuture.assumeIsolated().whenComplete { _ in
             clientClosed = true
         }
 
@@ -522,7 +514,7 @@ final class UnwrappingTests: XCTestCase {
 
         // Let's unwrap the client connection.
         let clientStopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
-        clientStopPromise.futureResult.map {
+        clientStopPromise.futureResult.assumeIsolated().map {
             XCTFail("Must not succeed")
         }.whenFailure { error in
             switch error as? NIOSSLError {
@@ -558,7 +550,7 @@ final class UnwrappingTests: XCTestCase {
         // The client should have errored out now. The handler should still be there, as unwrapping
         // has failed.
         XCTAssertTrue(clientUnwrapped)
-        clientChannel.pipeline.assertContains(handler: clientHandler)
+        clientChannel.pipeline.syncOperations.assertContains(handler: clientHandler)
 
         // Clean up by bringing the server up to speed
         serverChannel.pipeline.fireChannelInactive()
@@ -577,10 +569,10 @@ final class UnwrappingTests: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: context)))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(handshakeHandler))
 
         // Connect. This should lead to a completed handshake.
         XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel))
@@ -590,7 +582,7 @@ final class UnwrappingTests: XCTestCase {
         var writeCompleted = false
         var buffer = clientChannel.allocator.buffer(capacity: 1024)
         buffer.writeStaticString("Hello, world!")
-        clientChannel.write(buffer).map {
+        clientChannel.write(buffer).assumeIsolated().map {
             XCTFail("Must not succeed")
         }.whenFailure { error in
             XCTAssertEqual(error as? NIOTLSUnwrappingError, .unflushedWriteOnUnwrap)
@@ -600,7 +592,7 @@ final class UnwrappingTests: XCTestCase {
         // We haven't spun the event loop, so the handlers are still in the pipeline. Now attempt to unwrap.
         var unwrapped = false
         let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
-        stopPromise.futureResult.whenSuccess {
+        stopPromise.futureResult.assumeIsolated().whenSuccess {
             XCTAssertTrue(writeCompleted)
             unwrapped = true
         }
@@ -627,10 +619,10 @@ final class UnwrappingTests: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: context)))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(handshakeHandler))
 
         // Connect. This should lead to a completed handshake.
         XCTAssertNoThrow(try connectInMemory(client: clientChannel, server: serverChannel))
@@ -640,7 +632,7 @@ final class UnwrappingTests: XCTestCase {
         var writeCompleted = false
         var buffer = clientChannel.allocator.buffer(capacity: 1024)
         buffer.writeStaticString("Hello, world!")
-        clientChannel.write(buffer).map {
+        clientChannel.write(buffer).assumeIsolated().map {
             XCTFail("Must not succeed")
         }.whenFailure { error in
             XCTAssertEqual(error as? ChannelError, .ioOnClosedChannel)
@@ -650,7 +642,7 @@ final class UnwrappingTests: XCTestCase {
         // We haven't spun the event loop, so the handlers are still in the pipeline. Now attempt to unwrap.
         var unwrapped = false
         let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
-        stopPromise.futureResult.whenFailure { error in
+        stopPromise.futureResult.assumeIsolated().whenFailure { error in
             switch error as? BoringSSLError {
             case .some(.sslError):
                 // ok
@@ -687,15 +679,17 @@ final class UnwrappingTests: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
 
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: context)))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(handshakeHandler))
         let readPromise: EventLoopPromise<ByteBuffer> = clientChannel.eventLoop.makePromise()
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(PromiseOnReadHandler(promise: readPromise)).wait())
+        XCTAssertNoThrow(
+            try clientChannel.pipeline.syncOperations.addHandler(PromiseOnReadHandler(promise: readPromise))
+        )
 
         var readCompleted = false
-        readPromise.futureResult.whenSuccess { buffer in
+        readPromise.futureResult.assumeIsolated().whenSuccess { buffer in
             XCTAssertEqual(buffer.getString(at: buffer.readerIndex, length: buffer.readableBytes), "Hello, world!")
             readCompleted = true
         }
@@ -708,7 +702,7 @@ final class UnwrappingTests: XCTestCase {
         // to close. The client will not close because interactInMemory does not propagate closure.
         var unwrapped = false
         let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
-        stopPromise.futureResult.whenSuccess {
+        stopPromise.futureResult.assumeIsolated().whenSuccess {
             unwrapped = true
         }
         clientHandler.stopTLS(promise: stopPromise)
@@ -752,16 +746,16 @@ final class UnwrappingTests: XCTestCase {
 
         let serverHandler = try assertNoThrowWithValue(NIOSSLServerHandler(context: context))
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(serverHandler).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(serverHandler))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(handshakeHandler))
 
         // Mark the closure of the channels.
-        clientChannel.closeFuture.whenComplete { _ in
+        clientChannel.closeFuture.assumeIsolated().whenComplete { _ in
             clientClosed = true
         }
-        serverChannel.closeFuture.whenComplete { _ in
+        serverChannel.closeFuture.assumeIsolated().whenComplete { _ in
             serverClosed = true
         }
 
@@ -772,7 +766,7 @@ final class UnwrappingTests: XCTestCase {
         // Let's unwrap the server connection. We are not going to interact in memory, because we want to simulate a
         // timeout.
         let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
-        stopPromise.futureResult.whenComplete { result in
+        stopPromise.futureResult.assumeIsolated().whenComplete { result in
             unwrapped = true
 
             switch result {
@@ -794,7 +788,7 @@ final class UnwrappingTests: XCTestCase {
         XCTAssertFalse(clientClosed)
         XCTAssertFalse(serverClosed)
         XCTAssertTrue(unwrapped)
-        serverChannel.pipeline.assertDoesNotContain(handler: serverHandler)
+        serverChannel.pipeline.syncOperations.assertDoesNotContain(handler: serverHandler)
         XCTAssertThrowsError(try serverChannel.throwIfErrorCaught()) { error in
             XCTAssertTrue(error is NIOSSLCloseTimedOutError, "Unexpected error: \(error)")
         }
@@ -802,7 +796,7 @@ final class UnwrappingTests: XCTestCase {
         // Now we do the same for the client to get it out of the pipeline too. Naturally, it'll time out.
         clientHandler.stopTLS(promise: nil)
         clientChannel.embeddedEventLoop.advanceTime(by: .seconds(5))
-        clientChannel.pipeline.assertDoesNotContain(handler: clientHandler)
+        clientChannel.pipeline.syncOperations.assertDoesNotContain(handler: clientHandler)
         XCTAssertThrowsError(try clientChannel.throwIfErrorCaught()) { error in
             XCTAssertTrue(error is NIOSSLCloseTimedOutError, "Unexpected error: \(error)")
         }
@@ -829,16 +823,16 @@ final class UnwrappingTests: XCTestCase {
 
         let serverHandler = try assertNoThrowWithValue(NIOSSLServerHandler(context: context))
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(serverHandler).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(serverHandler))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(handshakeHandler))
 
         // Mark the closure of the channels.
-        clientChannel.closeFuture.whenComplete { _ in
+        clientChannel.closeFuture.assumeIsolated().whenComplete { _ in
             clientClosed = true
         }
-        serverChannel.closeFuture.whenComplete { _ in
+        serverChannel.closeFuture.assumeIsolated().whenComplete { _ in
             serverClosed = true
         }
 
@@ -848,7 +842,7 @@ final class UnwrappingTests: XCTestCase {
 
         // Let's unwrap the server connection.
         let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
-        stopPromise.futureResult.whenSuccess { result in
+        stopPromise.futureResult.assumeIsolated().whenSuccess { result in
             unwrapped = true
         }
         serverHandler.stopTLS(promise: stopPromise)
@@ -865,14 +859,14 @@ final class UnwrappingTests: XCTestCase {
         XCTAssertFalse(clientClosed)
         XCTAssertFalse(serverClosed)
         XCTAssertTrue(unwrapped)
-        serverChannel.pipeline.assertDoesNotContain(handler: serverHandler)
+        serverChannel.pipeline.syncOperations.assertDoesNotContain(handler: serverHandler)
 
         // Now advance time by 5 seconds and confirm that the server doesn't get closed.
         serverChannel.embeddedEventLoop.advanceTime(by: .seconds(5))
         XCTAssertFalse(clientClosed)
         XCTAssertFalse(serverClosed)
         XCTAssertTrue(unwrapped)
-        serverChannel.pipeline.assertDoesNotContain(handler: serverHandler)
+        serverChannel.pipeline.syncOperations.assertDoesNotContain(handler: serverHandler)
     }
 
     func testUnwrappingAndClosingShareATimeout() throws {
@@ -893,16 +887,16 @@ final class UnwrappingTests: XCTestCase {
 
         let serverHandler = try assertNoThrowWithValue(NIOSSLServerHandler(context: context))
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(serverHandler).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(serverHandler))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(handshakeHandler))
 
         // Mark the closure of the channels.
-        clientChannel.closeFuture.whenComplete { _ in
+        clientChannel.closeFuture.assumeIsolated().whenComplete { _ in
             clientClosed = true
         }
-        serverChannel.closeFuture.whenComplete { _ in
+        serverChannel.closeFuture.assumeIsolated().whenComplete { _ in
             serverClosed = true
         }
 
@@ -913,7 +907,7 @@ final class UnwrappingTests: XCTestCase {
         // Let's unwrap the server connection. We are not going to interact in memory, because we want to simulate a
         // timeout.
         let stopPromise: EventLoopPromise<Void> = clientChannel.eventLoop.makePromise()
-        stopPromise.futureResult.whenComplete { result in
+        stopPromise.futureResult.assumeIsolated().whenComplete { result in
             unwrapped = true
 
             switch result {
@@ -934,10 +928,10 @@ final class UnwrappingTests: XCTestCase {
         XCTAssertFalse(clientClosed)
         XCTAssertFalse(serverClosed)
         XCTAssertFalse(unwrapped)
-        serverChannel.pipeline.assertContains(handler: serverHandler)
+        serverChannel.pipeline.syncOperations.assertContains(handler: serverHandler)
 
         // Now we close. This will report success.
-        serverChannel.close().whenSuccess { result in
+        serverChannel.close().assumeIsolated().whenSuccess { result in
             closed = true
         }
 
@@ -945,7 +939,7 @@ final class UnwrappingTests: XCTestCase {
         XCTAssertFalse(serverClosed)
         XCTAssertFalse(unwrapped)
         XCTAssertFalse(closed)
-        serverChannel.pipeline.assertContains(handler: serverHandler)
+        serverChannel.pipeline.syncOperations.assertContains(handler: serverHandler)
 
         // Now we advance two more seconds. This closes the connection. All the promises succeed.
         serverChannel.embeddedEventLoop.advanceTime(by: .seconds(2))
@@ -953,12 +947,12 @@ final class UnwrappingTests: XCTestCase {
         XCTAssertTrue(serverClosed)
         XCTAssertTrue(unwrapped)
         XCTAssertTrue(closed)
-        serverChannel.pipeline.assertDoesNotContain(handler: serverHandler)
+        serverChannel.pipeline.syncOperations.assertDoesNotContain(handler: serverHandler)
 
         // Now we do the same for the client to get it out of the pipeline too. Naturally, it'll time out.
         clientHandler.stopTLS(promise: nil)
         clientChannel.embeddedEventLoop.advanceTime(by: .seconds(5))
-        clientChannel.pipeline.assertDoesNotContain(handler: clientHandler)
+        clientChannel.pipeline.syncOperations.assertDoesNotContain(handler: clientHandler)
         XCTAssertThrowsError(try clientChannel.throwIfErrorCaught()) { error in
             XCTAssertTrue(error is NIOSSLCloseTimedOutError, "Unexpected error: \(error)")
         }
@@ -984,12 +978,12 @@ final class UnwrappingTests: XCTestCase {
         let context = try assertNoThrowWithValue(configuredSSLContext())
         let serverHandler = try assertNoThrowWithValue(NIOSSLServerHandler(context: context))
         let clientHandler = try assertNoThrowWithValue(NIOSSLClientHandler(context: context, serverHostname: nil))
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: context)).wait())
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(clientHandler).wait())
+        XCTAssertNoThrow(try serverChannel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: context)))
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(clientHandler))
         let handshakeHandler = HandshakeCompletedHandler()
-        XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
+        XCTAssertNoThrow(try clientChannel.pipeline.syncOperations.addHandler(handshakeHandler))
 
-        serverChannel.closeFuture.whenComplete { _ in
+        serverChannel.closeFuture.assumeIsolated().whenComplete { _ in
             serverClosed = true
         }
 
@@ -1023,7 +1017,7 @@ final class UnwrappingTests: XCTestCase {
         XCTAssertFalse(serverUnwrapped)
 
         let serverStopPromise: EventLoopPromise<Void> = serverChannel.eventLoop.makePromise()
-        serverStopPromise.futureResult.whenComplete { _ in
+        serverStopPromise.futureResult.assumeIsolated().whenComplete { _ in
             serverUnwrapped = true
         }
         serverHandler.stopTLS(promise: serverStopPromise)

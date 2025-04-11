@@ -19,16 +19,6 @@ import NIOTLS
 import XCTest
 
 class ClientSNITests: XCTestCase {
-    static var cert: NIOSSLCertificate!
-    static var key: NIOSSLPrivateKey!
-
-    override class func setUp() {
-        super.setUp()
-        let (cert, key) = generateSelfSignedCert()
-        NIOSSLIntegrationTest.cert = cert
-        NIOSSLIntegrationTest.key = key
-    }
-
     private func configuredSSLContext() throws -> NIOSSLContext {
         var config = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
@@ -48,15 +38,16 @@ class ClientSNITests: XCTestCase {
         }
 
         let sniPromise: EventLoopPromise<SNIResult> = group.next().makePromise()
-        let sniHandler = ByteToMessageHandler(
-            SNIHandler {
-                sniPromise.succeed($0)
-                return group.next().makeSucceededFuture(())
-            }
-        )
         let serverChannel = try serverTLSChannel(
             context: context,
-            preHandlers: [sniHandler],
+            preHandlers: [
+                ByteToMessageHandler(
+                    SNIHandler {
+                        sniPromise.succeed($0)
+                        return group.next().makeSucceededFuture(())
+                    }
+                )
+            ],
             postHandlers: [],
             group: group
         )

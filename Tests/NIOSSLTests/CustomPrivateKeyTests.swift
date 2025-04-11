@@ -30,7 +30,9 @@ import CNIOBoringSSL
 #endif
 
 // This is a helper that lets us work with an EVP_PKEY.
-private final class CustomPKEY {
+//
+// This type is thread-safe: it doesn't perform any mutation of the underlying object.
+private final class CustomPKEY: @unchecked Sendable {
     private let ref: OpaquePointer
 
     init(from key: NIOSSLPrivateKey) {
@@ -164,27 +166,35 @@ private final class CustomKeyImmediateResult: NIOSSLCustomPrivateKey, Hashable {
     let backing: CustomPKEY
     let signatureAlgorithms: [SignatureAlgorithm]
     let expectedChannel: Channel
-    var signCallCount: Int
-    var decryptCallCount: Int
+    let _signCallCount: NIOLockedValueBox<Int>
+    let _decryptCallCount: NIOLockedValueBox<Int>
+
+    var signCallCount: Int {
+        self._signCallCount.withLockedValue { $0 }
+    }
+
+    var decryptCallCount: Int {
+        self._decryptCallCount.withLockedValue { $0 }
+    }
 
     fileprivate init(_ backing: CustomPKEY, signatureAlgorithms: [SignatureAlgorithm], expectedChannel: Channel) {
         self.backing = backing
         self.signatureAlgorithms = signatureAlgorithms
         self.expectedChannel = expectedChannel
-        self.signCallCount = 0
-        self.decryptCallCount = 0
+        self._signCallCount = .init(0)
+        self._decryptCallCount = .init(0)
     }
 
     func sign(channel: Channel, algorithm: SignatureAlgorithm, data: ByteBuffer) -> EventLoopFuture<ByteBuffer> {
         XCTAssertTrue(channel === self.expectedChannel)
         XCTAssertTrue(self.signatureAlgorithms.contains(algorithm))
-        self.signCallCount += 1
+        self._signCallCount.withLockedValue { $0 += 1 }
         return channel.eventLoop.makeSucceededFuture(self.backing.sign(algorithm: algorithm, data: data))
     }
 
     func decrypt(channel: Channel, data: ByteBuffer) -> EventLoopFuture<ByteBuffer> {
         XCTAssertTrue(channel === self.expectedChannel)
-        self.decryptCallCount += 1
+        self._decryptCallCount.withLockedValue { $0 += 1 }
         return channel.eventLoop.makeSucceededFuture(self.backing.decrypt(data: data))
     }
 
@@ -202,15 +212,22 @@ private final class CustomKeyDelayedCompletion: NIOSSLCustomPrivateKey, Hashable
     let backing: CustomPKEY
     let signatureAlgorithms: [SignatureAlgorithm]
     let expectedChannel: Channel
-    var pendingSigningEvents: [EventLoopPromise<Void>]
-    var pendingDecryptionEvents: [EventLoopPromise<Void>]
+    let _pendingSigningEvents: NIOLockedValueBox<[EventLoopPromise<Void>]>
+    let _pendingDecryptionEvents: NIOLockedValueBox<[EventLoopPromise<Void>]>
+
+    var pendingSigningEvents: [EventLoopPromise<Void>] {
+        self._pendingSigningEvents.withLockedValue { $0 }
+    }
+    var pendingDecryptionEvents: [EventLoopPromise<Void>] {
+        self._pendingDecryptionEvents.withLockedValue { $0 }
+    }
 
     fileprivate init(_ backing: CustomPKEY, signatureAlgorithms: [SignatureAlgorithm], expectedChannel: Channel) {
         self.backing = backing
         self.signatureAlgorithms = signatureAlgorithms
         self.expectedChannel = expectedChannel
-        self.pendingSigningEvents = []
-        self.pendingDecryptionEvents = []
+        self._pendingSigningEvents = .init([])
+        self._pendingDecryptionEvents = .init([])
     }
 
     func sign(channel: Channel, algorithm: SignatureAlgorithm, data: ByteBuffer) -> EventLoopFuture<ByteBuffer> {
@@ -218,7 +235,7 @@ private final class CustomKeyDelayedCompletion: NIOSSLCustomPrivateKey, Hashable
         XCTAssertTrue(self.signatureAlgorithms.contains(algorithm))
 
         let promise = channel.eventLoop.makePromise(of: Void.self)
-        self.pendingSigningEvents.append(promise)
+        self._pendingSigningEvents.withLockedValue { $0.append(promise) }
         return promise.futureResult.map {
             self.backing.sign(algorithm: algorithm, data: data)
         }
@@ -228,7 +245,7 @@ private final class CustomKeyDelayedCompletion: NIOSSLCustomPrivateKey, Hashable
         XCTAssertTrue(channel === self.expectedChannel)
 
         let promise = channel.eventLoop.makePromise(of: Void.self)
-        self.pendingDecryptionEvents.append(promise)
+        self._pendingDecryptionEvents.withLockedValue { $0.append(promise) }
         return promise.futureResult.map {
             self.backing.decrypt(data: data)
         }

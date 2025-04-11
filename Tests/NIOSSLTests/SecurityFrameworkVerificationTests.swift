@@ -210,13 +210,30 @@ final class SecurityFrameworkVerificationTests: XCTestCase {
     }
 }
 
-#if canImport(Darwin)
+// This class allows us to work around an awkward bug with our static below.
+// We need to mark this type non-Sendable.
+#if !canImport(Darwin)
+final class SecCertificate {
+
+}
+
+@available(*, unavailable)
+extension SecCertificate: Sendable {}
+#endif
+
 extension SecurityFrameworkVerificationTests {
     /// If tests fail because of an expired cert, you can regenerate the leaf and intermediate certificates
     /// by running the following command, and replacing both served certificates as leaf and intermediate,
     /// in that order:
     /// `openssl s_client -connect www.apple.com:443 -servername www.apple.com -showcerts`
-    static let appleComCertChain: [SecCertificate] = {
+    #if compiler(>=5.10)
+    nonisolated(unsafe) fileprivate static let appleComCertChain: [SecCertificate] = buildAppleComCertChain()
+    #else
+    fileprivate static let appleComCertChain: [SecCertificate] = buildAppleComCertChain()
+    #endif
+
+    fileprivate static func buildAppleComCertChain() -> [SecCertificate] {
+        #if canImport(Darwin)
         // All certs here are PEM format, with the leading/trailing lines stripped.
         let leaf = """
             MIIHezCCBmOgAwIBAgIQdBPCMTNJmIlbB9vLs/QpFTANBgkqhkiG9w0BAQsFADBR
@@ -295,6 +312,8 @@ extension SecurityFrameworkVerificationTests {
         return [leaf, intermediate].map {
             SecCertificateCreateWithData(nil, Data(base64Encoded: $0, options: .ignoreUnknownCharacters)! as CFData)!
         }
-    }()
+        #else
+        return []
+        #endif
+    }
 }
-#endif
