@@ -47,8 +47,8 @@ let bootstrap = ServerBootstrap(group: group)
 
     // Set the handlers that are applied to the accepted channels.
     .childChannelInitializer { channel in
-        channel.pipeline.addHandler(NIOSSLServerHandler(context: sslContext)).flatMap {
-            channel.pipeline.addHandler(EchoHandler())
+        channel.eventLoop.makeCompletedFuture {
+            try channel.pipeline.syncOperations.addHandlers(NIOSSLServerHandler(context: sslContext), EchoHandler())
         }
     }
 
