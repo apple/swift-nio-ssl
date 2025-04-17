@@ -1,7 +1,26 @@
-@_implementationOnly import CNIOBoringSSL
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the SwiftNIO open source project
+//
+// Copyright (c) 2025 Apple Inc. and the SwiftNIO project authors
+// Licensed under Apache License v2.0
+//
+// See LICENSE.txt for license information
+// See CONTRIBUTORS.txt for the list of SwiftNIO project authors
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
 
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+#else
+@_implementationOnly import CNIOBoringSSL
+#endif
+
+/// Defines the type of X509 name
 public struct SSLCertificateNameType: Equatable, Hashable, Sendable {
-    public var nid: Int32
+    internal var nid: Int32
     public static let organization = SSLCertificateNameType(nid: NID_organizationName)
     public static let organizationalUnit = SSLCertificateNameType(nid: NID_organizationalUnitName)
     public static let state = SSLCertificateNameType(nid: NID_stateOrProvinceName)
@@ -12,6 +31,7 @@ public struct SSLCertificateNameType: Equatable, Hashable, Sendable {
     public static let userId = SSLCertificateNameType(nid: NID_userId)
 }
 
+/// Contains the string value of a X509 name
 public struct SSLCertificateName: Equatable, Hashable, Sendable {
     public var value: String
     public var type: SSLCertificateNameType
@@ -47,10 +67,13 @@ extension NIOSSLCertificate {
             guard let namePtr = encodedName else {
                 continue
             }
+
+            defer {
+                CNIOBoringSSL_OPENSSL_free(namePtr)
+            }
+
             let arr = UnsafeBufferPointer(start: namePtr, count: Int(stringLength))
             let nameString = String(decoding: arr, as: UTF8.self)
-            CNIOBoringSSL_OPENSSL_free(namePtr)
-
             let nid = CNIOBoringSSL_OBJ_obj2nid(object)
             names.append(SSLCertificateName(nameString, .init(nid: nid)))
         }
