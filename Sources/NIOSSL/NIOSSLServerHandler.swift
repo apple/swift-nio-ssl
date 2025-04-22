@@ -51,7 +51,7 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
         )
     }
 
-    /// Construct a new ``NIOSSLClientHandler`` with the given `context` and a specific `serverHostname`.
+    /// Construct a new ``NIOSSLServerHandler`` with the given `context` and a specific `serverHostname`.
     ///
     /// - parameters:
     ///     - context: The ``NIOSSLContext`` to use on this connection.
@@ -70,7 +70,7 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
         )
     }
 
-    /// Construct a new ``NIOSSLClientHandler`` with the given `context` and a specific `serverHostname`.
+    /// Construct a new ``NIOSSLServerHandler`` with the given `context` and a specific `serverHostname`.
     ///
     /// - parameters:
     ///     - context: The ``NIOSSLContext`` to use on this connection.
