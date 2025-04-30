@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftNIO open source project
 //
-// Copyright (c) 2017-2021 Apple Inc. and the SwiftNIO project authors
+// Copyright (c) 2017-2025 Apple Inc. and the SwiftNIO project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -163,6 +163,7 @@ public struct NIOTLSCurve: RawRepresentable, Hashable, Sendable {
     public static let secp521r1 = NIOTLSCurve(rawValue: 0x19)
     public static let x25519 = NIOTLSCurve(rawValue: 0x1D)
     public static let x448 = NIOTLSCurve(rawValue: 0x1E)
+    public static let x25519_MLKEM768 = NIOTLSCurve(rawValue: 0x11EC)
 }
 
 /// Formats NIOSSL supports for serializing keys and certificates.

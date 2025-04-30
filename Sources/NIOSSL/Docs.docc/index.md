@@ -67,6 +67,10 @@ SwiftNIO SSL        | Minimum Swift Version
 
 ## Topics
 
+### Articles
+
+- <doc:quantum-secure-tls>
+
 ### Channel Handlers
 
 - ``NIOSSLClientHandler``
