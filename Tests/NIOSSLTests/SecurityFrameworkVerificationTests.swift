@@ -226,11 +226,7 @@ extension SecurityFrameworkVerificationTests {
     /// by running the following command, and replacing both served certificates as leaf and intermediate,
     /// in that order:
     /// `openssl s_client -connect www.apple.com:443 -servername www.apple.com -showcerts`
-    #if compiler(>=5.10)
     nonisolated(unsafe) fileprivate static let appleComCertChain: [SecCertificate] = buildAppleComCertChain()
-    #else
-    fileprivate static let appleComCertChain: [SecCertificate] = buildAppleComCertChain()
-    #endif
 
     fileprivate static func buildAppleComCertChain() -> [SecCertificate] {
         #if canImport(Darwin)

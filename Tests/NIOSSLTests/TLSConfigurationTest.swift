@@ -27,11 +27,7 @@ internal import CNIOBoringSSL
 @_implementationOnly import CNIOBoringSSL
 #endif
 
-#if compiler(>=5.8)
 @preconcurrency import Dispatch
-#else
-import Dispatch
-#endif
 
 final class ErrorCatcher<T: Error>: ChannelInboundHandler, Sendable {
     public typealias InboundIn = Any
