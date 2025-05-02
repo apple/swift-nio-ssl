@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@preconcurrency import Dispatch
 import NIOConcurrencyHelpers
 import NIOCore
 import NIOEmbedded
@@ -26,8 +27,6 @@ internal import CNIOBoringSSL
 #else
 @_implementationOnly import CNIOBoringSSL
 #endif
-
-@preconcurrency import Dispatch
 
 final class ErrorCatcher<T: Error>: ChannelInboundHandler, Sendable {
     public typealias InboundIn = Any
