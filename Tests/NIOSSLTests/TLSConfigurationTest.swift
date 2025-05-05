@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@preconcurrency import Dispatch
 import NIOConcurrencyHelpers
 import NIOCore
 import NIOEmbedded
@@ -25,12 +26,6 @@ import XCTest
 internal import CNIOBoringSSL
 #else
 @_implementationOnly import CNIOBoringSSL
-#endif
-
-#if compiler(>=5.8)
-@preconcurrency import Dispatch
-#else
-import Dispatch
 #endif
 
 final class ErrorCatcher<T: Error>: ChannelInboundHandler, Sendable {
