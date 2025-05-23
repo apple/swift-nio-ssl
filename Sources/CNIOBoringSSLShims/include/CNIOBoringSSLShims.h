@@ -22,6 +22,10 @@
 #include "CNIOBoringSSL.h"
 #endif
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 X509_EXTENSION *CNIOBoringSSLShims_sk_X509_EXTENSION_value(const STACK_OF(X509_EXTENSION) *sk, size_t i);
 size_t CNIOBoringSSLShims_sk_X509_EXTENSION_num(const STACK_OF(X509_EXTENSION) *sk);
 
@@ -33,5 +37,9 @@ int CNIOBoringSSLShims_SSL_CTX_set_app_data(SSL_CTX *ctx, void *data);
 
 int CNIOBoringSSLShims_ERR_GET_LIB(uint32_t err);
 int CNIOBoringSSLShims_ERR_GET_REASON(uint32_t err);
+
+#if defined(__cplusplus)
+}  // extern "C"
+#endif
 
 #endif  // C_NIO_BORINGSSL_SHIMS_H
