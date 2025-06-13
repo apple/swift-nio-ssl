@@ -413,7 +413,7 @@ extension NIOSSLPrivateKey {
         switch self.representation {
         case .native(let evpKey):
             return try Self.withUnsafeDERBuffer(of: evpKey) { Array($0) }
-        case .custom(let custom):
+        case .custom:
             return []
         }
     }

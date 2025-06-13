@@ -686,6 +686,18 @@ final class CustomPrivateKeyTests: XCTestCase {
             ])
         )
     }
+
+    func testDERBytes_ReturnsEmptyArray() throws {
+        let b2b = BackToBackEmbeddedChannel()
+        let customKey = CustomKeyDelayedCompletion(
+            CustomPrivateKeyTests.customECDSACertAndKey.key,
+            signatureAlgorithms: [.ecdsaSecp256R1Sha256],
+            expectedChannel: b2b.server
+        )
+        let key = NIOSSLPrivateKey(customPrivateKey: customKey)
+        let derBytes = try key.toDERBytes()
+        XCTAssertEqual(derBytes, [])
+    }
 }
 
 extension SignatureAlgorithm {
