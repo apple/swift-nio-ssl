@@ -257,6 +257,51 @@ private final class CustomKeyDelayedCompletion: NIOSSLCustomPrivateKey, Hashable
     }
 }
 
+private final class CustomKeyWithoutDERBytes: NIOSSLCustomPrivateKey, Hashable {
+    var signatureAlgorithms: [SignatureAlgorithm] { [] }
+
+    func sign(channel: Channel, algorithm: SignatureAlgorithm, data: ByteBuffer) -> EventLoopFuture<ByteBuffer> {
+        fatalError("Not implemented")
+    }
+
+    func decrypt(channel: Channel, data: ByteBuffer) -> EventLoopFuture<ByteBuffer> {
+        fatalError("Not implemented")
+    }
+
+    static func == (lhs: CustomKeyWithoutDERBytes, rhs: CustomKeyWithoutDERBytes) -> Bool {
+        lhs.signatureAlgorithms == rhs.signatureAlgorithms
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+        hasher.combine(signatureAlgorithms)
+    }
+}
+
+private final class CustomKeyWithDERBytes: NIOSSLCustomPrivateKey, Hashable {
+    var signatureAlgorithms: [NIOSSL.SignatureAlgorithm] { [] }
+
+    var derBytes: [UInt8] { [42] }
+
+    func sign(channel: Channel, algorithm: SignatureAlgorithm, data: ByteBuffer) -> EventLoopFuture<ByteBuffer> {
+        fatalError("Not implemented")
+    }
+
+    func decrypt(channel: Channel, data: ByteBuffer) -> EventLoopFuture<ByteBuffer> {
+        fatalError("Not implemented")
+    }
+
+    static func == (lhs: CustomKeyWithDERBytes, rhs: CustomKeyWithDERBytes) -> Bool {
+        lhs.signatureAlgorithms == rhs.signatureAlgorithms && lhs.derBytes == rhs.derBytes
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+        hasher.combine(signatureAlgorithms)
+        hasher.combine(derBytes)
+    }
+}
+
 final class CustomPrivateKeyTests: XCTestCase {
     fileprivate static let customECDSACertAndKey: (certificate: NIOSSLCertificate, key: CustomPKEY) = {
         let (cert, originalKey) = generateSelfSignedCert(keygenFunction: {
@@ -685,6 +730,20 @@ final class CustomPrivateKeyTests: XCTestCase {
                 NIOSSLPrivateKey(customPrivateKey: thirdKey),
             ])
         )
+    }
+
+    func testDERBytes_DefaultImplementation_ReturnsEmptyArray() throws {
+        let customKey = CustomKeyWithoutDERBytes()
+        let key = NIOSSLPrivateKey(customPrivateKey: customKey)
+        let derBytes = try key.derBytes
+        XCTAssertEqual(derBytes, [])
+    }
+
+    func testDERBytes_ReturnsBytes() throws {
+        let customKey = CustomKeyWithDERBytes()
+        let key = NIOSSLPrivateKey(customPrivateKey: customKey)
+        let derBytes = try key.derBytes
+        XCTAssertEqual(derBytes, [42])
     }
 }
 

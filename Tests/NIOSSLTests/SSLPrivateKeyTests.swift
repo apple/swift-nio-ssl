@@ -338,4 +338,10 @@ class SSLPrivateKeyTest: XCTestCase {
         XCTAssertNotEqual(key1, key2)
         XCTAssertNotEqual(key1.hashValue, key2.hashValue)
     }
+
+    func testDERBytes() throws {
+        let key = try NIOSSLPrivateKey(bytes: .init(samplePemKey.utf8), format: .pem)
+        let derBytes = try key.derBytes
+        XCTAssertEqual(Data(derBytes), pemToDer(samplePemKey))
+    }
 }
