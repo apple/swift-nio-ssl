@@ -81,7 +81,7 @@ public protocol NIOSSLCustomPrivateKey: _NIOPreconcurrencySendable {
 }
 
 extension NIOSSLCustomPrivateKey {
-    var derBytes: [UInt8] { [] }
+    public var derBytes: [UInt8] { [] }
 }
 
 /// This is a type-erased wrapper that can be used to encapsulate a NIOSSLCustomPrivateKey and provide it with
