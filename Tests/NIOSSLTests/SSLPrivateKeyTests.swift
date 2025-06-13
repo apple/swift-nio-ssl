@@ -341,7 +341,7 @@ class SSLPrivateKeyTest: XCTestCase {
 
     func testDERBytes() throws {
         let key = try NIOSSLPrivateKey(bytes: .init(samplePemKey.utf8), format: .pem)
-        let derBytes = try key.toDERBytes()
+        let derBytes = try key.derBytes
         XCTAssertEqual(Data(derBytes), pemToDer(samplePemKey))
     }
 }

@@ -406,15 +406,15 @@ extension NIOSSLPrivateKey {
     }
 
     /// Extracts the bytes of this private key in DER format.
-    /// - Important: If the key is not an `EVP_PKEY`, an empty array will be returned.
-    /// - Returns: The DER-encoded bytes for this `EVP_PKEY` private key.
-    /// - Throws: If an error occurred while serializing the private key.
-    public func toDERBytes() throws -> [UInt8] {
-        switch self.representation {
-        case .native(let evpKey):
-            return try Self.withUnsafeDERBuffer(of: evpKey) { Array($0) }
-        case .custom:
-            return []
+    /// - Returns: The DER-encoded bytes for this private key.
+    public var derBytes: [UInt8] {
+        get throws {
+            switch self.representation {
+            case .native(let evpKey):
+                return try Self.withUnsafeDERBuffer(of: evpKey) { Array($0) }
+            case .custom(let custom):
+                return custom.derBytes
+            }
         }
     }
 }
