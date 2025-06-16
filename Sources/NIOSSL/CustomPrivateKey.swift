@@ -41,6 +41,11 @@ public protocol NIOSSLCustomPrivateKey: _NIOPreconcurrencySendable {
     /// The signature algorithms supported by this key.
     var signatureAlgorithms: [SignatureAlgorithm] { get }
 
+    /// The DER bytes for this private key.
+    ///
+    /// Custom key implementations should return an appropriate value, but by default, an empty array will be returned.
+    var derBytes: [UInt8] { get }
+
     /// Called to perform a signing operation.
     ///
     /// The data being passed to the call has not been hashed, and it is the responsibility of the implementer
@@ -75,12 +80,14 @@ public protocol NIOSSLCustomPrivateKey: _NIOPreconcurrencySendable {
     func decrypt(channel: Channel, data: ByteBuffer) -> EventLoopFuture<ByteBuffer>
 }
 
+extension NIOSSLCustomPrivateKey {
+    @inlinable public var derBytes: [UInt8] { [] }
+}
+
 /// This is a type-erased wrapper that can be used to encapsulate a NIOSSLCustomPrivateKey and provide it with
 /// hashability and equatability.
 ///
-/// While generally speaking type-erasure has some nasty performance problems, we only need the type-erasure for
-/// Hashable conformance, which we don't use in any production code: only the tests use it. To that end, we don't
-/// mind too much that we need to do this.
+/// While generally speaking type-erasure has some nasty performance problems, we need the type-erasure for Hashable conformance.
 @usableFromInline
 internal struct AnyNIOSSLCustomPrivateKey: NIOSSLCustomPrivateKey, Hashable {
     @usableFromInline let _value: NIOSSLCustomPrivateKey
@@ -98,6 +105,10 @@ internal struct AnyNIOSSLCustomPrivateKey: NIOSSLCustomPrivateKey, Hashable {
     // @usableFromInline as it's a protocol requirement on a @usableFromInline type.
     @inlinable var signatureAlgorithms: [SignatureAlgorithm] {
         self._value.signatureAlgorithms
+    }
+
+    @inlinable var derBytes: [UInt8] {
+        self._value.derBytes
     }
 
     // This method does not need to be @inlinable for performance, but it needs to be _at least_
