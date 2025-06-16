@@ -411,7 +411,7 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
             }
 
             // If there's a failed custom context operation, we fire both errors.
-            if let customContextError = self.connection.parentContext.customContextManager?.loadContextError {
+            if let customContextError = self.connection.customContextManager?.loadContextError {
                 context.fireErrorCaught(customContextError)
             }
 

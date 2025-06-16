@@ -342,7 +342,7 @@ extension CustomContextManager {
                 // Ensure we execute any completion on the next event loop tick
                 // This ensures that we suspend before calling resume
                 eventLoop.assumeIsolated().execute {
-                    connection.parentContext.customContextManager?.state = .complete(result)
+                    connection.customContextManager?.state = .complete(result)
                     connection.parentHandler?.resumeHandshake()
                 }
             }
