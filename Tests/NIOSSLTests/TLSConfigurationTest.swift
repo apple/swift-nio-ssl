@@ -242,7 +242,24 @@ class TLSConfigurationTest: XCTestCase {
     ) throws {
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
+        try self.assertHandshakeSucceededInMemory(
+            withClientContext: clientContext,
+            andServerContext: serverContext,
+            file: file,
+            line: line
+        )
+    }
 
+    /// Performs a connection in memory and validates that the handshake was successful.
+    ///
+    /// - NOTE: This function should only be used when you know that there is no custom verification
+    /// callback in use, otherwise it will not be thread-safe.
+    func assertHandshakeSucceededInMemory(
+        withClientContext clientContext: NIOSSLContext,
+        andServerContext serverContext: NIOSSLContext,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
         let serverChannel = EmbeddedChannel()
         let clientChannel = EmbeddedChannel()
 
@@ -294,7 +311,23 @@ class TLSConfigurationTest: XCTestCase {
             file: file,
             line: line
         )
+        try self.assertHandshakeSucceededEventLoop(
+            withClientContext: clientContext,
+            andServerContext: serverContext,
+            file: file,
+            line: line
+        )
+    }
 
+    /// Performs a connection using a real event loop and validates that the handshake was successful.
+    ///
+    /// This function is thread-safe in the presence of custom verification callbacks.
+    func assertHandshakeSucceededEventLoop(
+        withClientContext clientContext: NIOSSLContext,
+        andServerContext serverContext: NIOSSLContext,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
@@ -352,6 +385,31 @@ class TLSConfigurationTest: XCTestCase {
         return try assertHandshakeSucceededEventLoop(
             withClientConfig: clientConfig,
             andServerConfig: serverConfig,
+            file: file,
+            line: line
+        )
+        #endif
+    }
+
+    func assertHandshakeSucceeded(
+        withClientContext clientContext: NIOSSLContext,
+        andServerContext serverContext: NIOSSLContext,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        // The only use of a custom callback is on Darwin...
+        #if os(Linux)
+        return try self.assertHandshakeSucceededInMemory(
+            withClientContext: clientContext,
+            andServerContext: serverContext,
+            file: file,
+            line: line
+        )
+
+        #else
+        return try self.assertHandshakeSucceededEventLoop(
+            withClientContext: clientContext,
+            andServerContext: serverContext,
             file: file,
             line: line
         )
@@ -2061,6 +2119,73 @@ class TLSConfigurationTest: XCTestCase {
             andServerConfig: serverConfig,
             errorTextContains: "TLSV1_ALERT_INTERNAL_ERROR"
         )
+    }
+
+    func testClientSideCertSelection_eachConnectionSelectsAgain() throws {
+        let callbackCount = NIOLockedValueBox(0)
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+        clientConfig.sslContextCallback = { _, promise in
+            callbackCount.withLockedValue { $0 += 1 }
+
+            var `override` = NIOSSLContextConfigurationOverride()
+            override.certificateChain = [.certificate(TLSConfigurationTest.cert2)]
+            override.privateKey = .privateKey(TLSConfigurationTest.key2)
+            promise.succeed(override)
+        }
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.certificateVerification = .noHostnameVerification
+        serverConfig.trustRoots = .certificates([TLSConfigurationTest.cert2])
+
+        let clientContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: clientConfig)
+        )
+        let serverContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: serverConfig)
+        )
+
+        for _ in 0..<5 {
+            try assertHandshakeSucceeded(withClientContext: clientContext, andServerContext: serverContext)
+        }
+
+        XCTAssertEqual(callbackCount.withLockedValue { $0 }, 5)
+    }
+
+    func testServerSideCertSelection_eachConnectionSelectsAgain() throws {
+        let callbackCount = NIOLockedValueBox(0)
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert2)],
+            privateKey: .privateKey(TLSConfigurationTest.key2)
+        )
+        serverConfig.sslContextCallback = { _, promise in
+            var `override` = NIOSSLContextConfigurationOverride()
+            override.certificateChain = [.certificate(TLSConfigurationTest.cert1)]
+            override.privateKey = .privateKey(TLSConfigurationTest.key1)
+            callbackCount.withLockedValue { $0 += 1 }
+            promise.succeed(override)
+        }
+
+        let clientContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: clientConfig)
+        )
+        let serverContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: serverConfig)
+        )
+
+        for _ in 0..<5 {
+            try assertHandshakeSucceeded(withClientContext: clientContext, andServerContext: serverContext)
+        }
+
+        XCTAssertEqual(callbackCount.withLockedValue { $0 }, 5)
     }
 }
 
