@@ -46,8 +46,8 @@ final class BenchManyWrites: Benchmark {
     func setUp() throws {
         let serverHandler = NIOSSLServerHandler(context: self.serverContext)
         let clientHandler = try NIOSSLClientHandler(context: self.clientContext, serverHostname: "localhost")
-        try self.backToBack.client.pipeline.addHandler(clientHandler).wait()
-        try self.backToBack.server.pipeline.addHandler(serverHandler).wait()
+        try self.backToBack.client.pipeline.syncOperations.addHandler(clientHandler)
+        try self.backToBack.server.pipeline.syncOperations.addHandler(serverHandler)
 
         // To trigger activation of both channels we use connect().
         try self.backToBack.client.connect(to: dummyAddress).wait()

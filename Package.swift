@@ -1,4 +1,4 @@
-// swift-tools-version:5.9
+// swift-tools-version:5.10
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the SwiftNIO open source project
@@ -36,7 +36,7 @@ import class Foundation.ProcessInfo
 func generateDependencies() -> [Package.Dependency] {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         return [
-            .package(url: "https://github.com/apple/swift-nio.git", from: "2.54.0")
+            .package(url: "https://github.com/apple/swift-nio.git", from: "2.80.0")
         ]
     } else {
         return [
@@ -53,6 +53,24 @@ let includePrivacyManifest = true
 #else
 let includePrivacyManifest = false
 #endif
+
+let strictConcurrencyDevelopment = false
+
+let strictConcurrencySettings: [SwiftSetting] = {
+    var initialSettings: [SwiftSetting] = []
+    initialSettings.append(contentsOf: [
+        .enableUpcomingFeature("StrictConcurrency"),
+        .enableUpcomingFeature("InferSendableFromCaptures"),
+    ])
+
+    if strictConcurrencyDevelopment {
+        // -warnings-as-errors here is a workaround so that IDE-based development can
+        // get tripped up on -require-explicit-sendable.
+        initialSettings.append(.unsafeFlags(["-Xfrontend", "-require-explicit-sendable", "-warnings-as-errors"]))
+    }
+
+    return initialSettings
+}()
 
 // swift-format-ignore: NoBlockComments
 let package = Package(
@@ -95,7 +113,8 @@ let package = Package(
                 .product(name: "NIOTLS", package: "swift-nio"),
             ],
             exclude: includePrivacyManifest ? [] : ["PrivacyInfo.xcprivacy"],
-            resources: includePrivacyManifest ? [.copy("PrivacyInfo.xcprivacy")] : []
+            resources: includePrivacyManifest ? [.copy("PrivacyInfo.xcprivacy")] : [],
+            swiftSettings: strictConcurrencySettings
         ),
         .executableTarget(
             name: "NIOTLSServer",
@@ -107,7 +126,8 @@ let package = Package(
             ],
             exclude: [
                 "README.md"
-            ]
+            ],
+            swiftSettings: strictConcurrencySettings
         ),
         .executableTarget(
             name: "NIOSSLHTTP1Client",
@@ -120,7 +140,8 @@ let package = Package(
             ],
             exclude: [
                 "README.md"
-            ]
+            ],
+            swiftSettings: strictConcurrencySettings
         ),
         .executableTarget(
             name: "NIOSSLPerformanceTester",
@@ -129,7 +150,8 @@ let package = Package(
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOEmbedded", package: "swift-nio"),
                 .product(name: "NIOTLS", package: "swift-nio"),
-            ]
+            ],
+            swiftSettings: strictConcurrencySettings
         ),
         .testTarget(
             name: "NIOSSLTests",
@@ -139,7 +161,8 @@ let package = Package(
                 .product(name: "NIOEmbedded", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOTLS", package: "swift-nio"),
-            ]
+            ],
+            swiftSettings: strictConcurrencySettings
         ),
     ],
     cxxLanguageStandard: .cxx17

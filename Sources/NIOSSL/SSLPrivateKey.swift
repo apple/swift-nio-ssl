@@ -12,7 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+#else
 @_implementationOnly import CNIOBoringSSL
+#endif
 
 /// An ``NIOSSLPassphraseCallback`` is a callback that will be invoked by NIOSSL when it needs to
 /// get access to a private key that is stored in encrypted form.
@@ -398,6 +402,19 @@ extension NIOSSLPrivateKey {
             return nil
         case .custom(let customKey):
             return customKey.signatureAlgorithms
+        }
+    }
+
+    /// Extracts the bytes of this private key in DER format.
+    /// - Returns: The DER-encoded bytes for this private key.
+    public var derBytes: [UInt8] {
+        get throws {
+            switch self.representation {
+            case .native(let evpKey):
+                return try Self.withUnsafeDERBuffer(of: evpKey) { Array($0) }
+            case .custom(let custom):
+                return custom.derBytes
+            }
         }
     }
 }

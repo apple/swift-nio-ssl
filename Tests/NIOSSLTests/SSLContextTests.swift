@@ -35,21 +35,13 @@ final class SSLContextTest: XCTestCase {
         case contextError
     }
 
-    static var cert1: NIOSSLCertificate!
-    static var key1: NIOSSLPrivateKey!
+    static let _certAndKey1 = generateSelfSignedCert()
+    static let cert1 = SSLContextTest._certAndKey1.0
+    static let key1 = SSLContextTest._certAndKey1.1
 
-    static var cert2: NIOSSLCertificate!
-    static var key2: NIOSSLPrivateKey!
-
-    override class func setUp() {
-        super.setUp()
-        let (cert1, key1) = generateSelfSignedCert()
-        SSLContextTest.cert1 = cert1
-        SSLContextTest.key1 = key1
-        let (cert2, key2) = generateSelfSignedCert()
-        SSLContextTest.cert2 = cert2
-        SSLContextTest.key2 = key2
-    }
+    static let _certAndKey2 = generateSelfSignedCert()
+    static let cert2 = SSLContextTest._certAndKey2.0
+    static let key2 = SSLContextTest._certAndKey2.1
 
     private func configuredClientSSLContext() throws -> NIOSSLContext {
         var config = TLSConfiguration.makeServerConfiguration(
@@ -98,16 +90,17 @@ final class SSLContextTest: XCTestCase {
         let serverContext = try configuredServerSSLContext(eventLoop: group.next())
 
         let sniPromise: EventLoopPromise<SNIResult> = group.next().makePromise()
-        let sniHandler = ByteToMessageHandler(
-            SNIHandler {
-                sniPromise.succeed($0)
-                return group.next().makeSucceededFuture(())
-            }
-        )
 
         let serverChannel = try serverTLSChannel(
             context: serverContext,
-            preHandlers: [sniHandler],
+            preHandlers: [
+                ByteToMessageHandler(
+                    SNIHandler {
+                        sniPromise.succeed($0)
+                        return group.next().makeSucceededFuture(())
+                    }
+                )
+            ],
             postHandlers: [],
             group: group
         )
@@ -153,18 +146,19 @@ final class SSLContextTest: XCTestCase {
         let serverContext = try configuredServerSSLContext(eventLoop: group.next(), throwing: expectedError)
 
         let sniPromise: EventLoopPromise<SNIResult> = group.next().makePromise()
-        let sniHandler = ByteToMessageHandler(
-            SNIHandler {
-                sniPromise.succeed($0)
-                return group.next().makeSucceededFuture(())
-            }
-        )
 
         let eventHandler = ErrorCatcher<any Error>()
 
         let serverChannel = try serverTLSChannel(
             context: serverContext,
-            preHandlers: [sniHandler],
+            preHandlers: [
+                ByteToMessageHandler(
+                    SNIHandler {
+                        sniPromise.succeed($0)
+                        return group.next().makeSucceededFuture(())
+                    }
+                )
+            ],
             postHandlers: [eventHandler],
             group: group
         )

@@ -12,24 +12,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import CNIOBoringSSL
 import NIOCore
 import NIOPosix
 import NIOSSL
 import NIOTLS
 import XCTest
 
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+#else
+@_implementationOnly import CNIOBoringSSL
+#endif
+
 class NIOSSLALPNTest: XCTestCase {
-    static var cert: NIOSSLCertificate!
-    static var key: NIOSSLPrivateKey!
-
-    override class func setUp() {
-        super.setUp()
-        let (cert, key) = generateSelfSignedCert()
-        NIOSSLIntegrationTest.cert = cert
-        NIOSSLIntegrationTest.key = key
-    }
-
     private func configuredSSLContextWithAlpnProtocols(protocols: [String]) throws -> NIOSSLContext {
         var config = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],

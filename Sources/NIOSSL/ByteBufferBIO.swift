@@ -12,8 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import CNIOBoringSSL
 import NIOCore
+
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+#else
+@_implementationOnly import CNIOBoringSSL
+#endif
 
 #if canImport(Darwin)
 import Darwin.C
@@ -170,7 +175,10 @@ final class ByteBufferBIO {
     /// using a ByteBufferBIO. There will only ever be one value of this in a NIO program,
     /// and it will always be non-NULL. Failure to initialize this structure is fatal to
     /// the program.
-    private static let boringSSLBIOMethod: UnsafeMutablePointer<BIO_METHOD> = {
+    nonisolated(unsafe) private static let boringSSLBIOMethod: UnsafeMutablePointer<BIO_METHOD> =
+        buildBoringSSLBIOMethod()
+
+    private static func buildBoringSSLBIOMethod() -> UnsafeMutablePointer<BIO_METHOD> {
         guard boringSSLIsInitialized else {
             preconditionFailure("Failed to initialize BoringSSL")
         }
@@ -189,7 +197,7 @@ final class ByteBufferBIO {
         CNIOBoringSSL_BIO_meth_set_destroy(method, boringSSLBIODestroyFunc)
 
         return method
-    }()
+    }
 
     /// Pointer to the backing BoringSSL BIO object.
     ///

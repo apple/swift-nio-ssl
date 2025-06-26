@@ -12,8 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import CNIOBoringSSL
 import NIOCore
+
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+#else
+@_implementationOnly import CNIOBoringSSL
+#endif
 
 /// ``NIOSSLCustomPrivateKey`` defines the interface of a custom, non-BoringSSL private key.
 ///
@@ -35,6 +40,11 @@ import NIOCore
 public protocol NIOSSLCustomPrivateKey: _NIOPreconcurrencySendable {
     /// The signature algorithms supported by this key.
     var signatureAlgorithms: [SignatureAlgorithm] { get }
+
+    /// The DER bytes for this private key.
+    ///
+    /// Custom key implementations should return an appropriate value, but by default, an empty array will be returned.
+    var derBytes: [UInt8] { get }
 
     /// Called to perform a signing operation.
     ///
@@ -70,12 +80,14 @@ public protocol NIOSSLCustomPrivateKey: _NIOPreconcurrencySendable {
     func decrypt(channel: Channel, data: ByteBuffer) -> EventLoopFuture<ByteBuffer>
 }
 
+extension NIOSSLCustomPrivateKey {
+    @inlinable public var derBytes: [UInt8] { [] }
+}
+
 /// This is a type-erased wrapper that can be used to encapsulate a NIOSSLCustomPrivateKey and provide it with
 /// hashability and equatability.
 ///
-/// While generally speaking type-erasure has some nasty performance problems, we only need the type-erasure for
-/// Hashable conformance, which we don't use in any production code: only the tests use it. To that end, we don't
-/// mind too much that we need to do this.
+/// While generally speaking type-erasure has some nasty performance problems, we need the type-erasure for Hashable conformance.
 @usableFromInline
 internal struct AnyNIOSSLCustomPrivateKey: NIOSSLCustomPrivateKey, Hashable {
     @usableFromInline let _value: NIOSSLCustomPrivateKey
@@ -93,6 +105,10 @@ internal struct AnyNIOSSLCustomPrivateKey: NIOSSLCustomPrivateKey, Hashable {
     // @usableFromInline as it's a protocol requirement on a @usableFromInline type.
     @inlinable var signatureAlgorithms: [SignatureAlgorithm] {
         self._value.signatureAlgorithms
+    }
+
+    @inlinable var derBytes: [UInt8] {
+        self._value.derBytes
     }
 
     // This method does not need to be @inlinable for performance, but it needs to be _at least_
@@ -156,7 +172,7 @@ extension SSLConnection {
         inputBytes.writeBytes(`in`)
 
         let result = customKey.sign(channel: channel, algorithm: wrappedAlgorithm, data: inputBytes)
-        result.whenComplete { signingResult in
+        result.hop(to: channel.eventLoop).assumeIsolated().whenComplete { signingResult in
             self.storeCustomPrivateKeyResult(signingResult, channel: channel)
         }
 
@@ -178,7 +194,7 @@ extension SSLConnection {
         inputBytes.writeBytes(`in`)
 
         let result = customKey.decrypt(channel: channel, data: inputBytes)
-        result.whenComplete { decryptionResult in
+        result.hop(to: channel.eventLoop).assumeIsolated().whenComplete { decryptionResult in
             self.storeCustomPrivateKeyResult(decryptionResult, channel: channel)
         }
 
@@ -207,7 +223,7 @@ extension SSLConnection {
         // When we complete here we need to set our result state, and then ask to respin the handshake.
         // If we can't respin the handshake because we've dropped the parent handler, that's fine, no harm no foul.
         // For that reason, we tolerate both the verify manager and the parent handler being nil.
-        channel.eventLoop.execute {
+        channel.eventLoop.assumeIsolated().execute {
             precondition(self.customPrivateKeyResult == nil)
             self.customPrivateKeyResult = result
             self.parentHandler?.resumeHandshake()
@@ -217,11 +233,14 @@ extension SSLConnection {
 
 // We heap-allocate the SSL_PRIVATE_KEY_METHOD we need because we can't define a static stored property with fixed address
 // in Swift.
-internal let customPrivateKeyMethod: UnsafePointer<SSL_PRIVATE_KEY_METHOD> = {
+nonisolated(unsafe) internal let customPrivateKeyMethod: UnsafePointer<SSL_PRIVATE_KEY_METHOD> =
+    buildCustomPrivateKeyMethod()
+
+private func buildCustomPrivateKeyMethod() -> UnsafePointer<SSL_PRIVATE_KEY_METHOD> {
     let pointer = UnsafeMutablePointer<SSL_PRIVATE_KEY_METHOD>.allocate(capacity: 1)
     pointer.pointee = .init(sign: customKeySign, decrypt: customKeyDecrypt, complete: customKeyComplete)
     return UnsafePointer(pointer)
-}()
+}
 
 /// This is our entry point from BoringSSL when we've been asked to do a sign.
 private func customKeySign(

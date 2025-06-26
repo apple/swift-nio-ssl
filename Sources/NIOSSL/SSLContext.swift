@@ -12,9 +12,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+import NIOCore
+
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+internal import CNIOBoringSSLShims
+#else
 @_implementationOnly import CNIOBoringSSL
 @_implementationOnly import CNIOBoringSSLShims
-import NIOCore
+#endif
 
 #if canImport(Darwin)
 import Darwin.C
@@ -31,7 +37,7 @@ import Android
 // This is a neat trick. Swift lazily initializes module-globals based on when they're first
 // used. This lets us defer BoringSSL intialization as late as possible and only do it if people
 // actually create any object that uses BoringSSL.
-internal var boringSSLIsInitialized: Bool = initializeBoringSSL()
+internal let boringSSLIsInitialized: Bool = initializeBoringSSL()
 
 internal enum FileSystemObject {
     case directory
@@ -244,7 +250,7 @@ private func sslContextCallback(ssl: OpaquePointer?, arg: UnsafeMutableRawPointe
         )
     }
 
-    let parentSwiftContext = NIOSSLContext.lookupFromRawContext(ssl: ssl)
+    let parentSwiftContext = SSLConnection.loadConnectionFromSSL(ssl)
 
     // This is a safe force unwrap as this callback is only register directly after setting the manager
     var contextManager = parentSwiftContext.customContextManager!
@@ -289,7 +295,6 @@ public final class NIOSSLContext {
     fileprivate let sslContext: OpaquePointer
     private let callbackManager: CallbackManagerProtocol?
     private var keyLogManager: KeyLogCallbackManager?
-    internal var customContextManager: CustomContextManager?
     internal var pskClientConfigurationCallback: _NIOPSKClientIdentityProvider?
     internal var pskServerConfigurationCallback: _NIOPSKServerIdentityProvider?
     internal let configuration: TLSConfiguration
@@ -366,8 +371,8 @@ public final class NIOSSLContext {
         }
 
         // Set the SSL Context Configuration callback.
-        if let sslContextConfigurationCallback = configuration.sslContextCallback {
-            self.customContextManager = CustomContextManager(callback: sslContextConfigurationCallback)
+        // The state is managed on the connection.
+        if configuration.sslContextCallback != nil {
             CNIOBoringSSL_SSL_CTX_set_cert_cb(context, sslContextCallback, nil)
         }
 

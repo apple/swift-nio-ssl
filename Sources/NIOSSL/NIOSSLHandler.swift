@@ -12,9 +12,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import CNIOBoringSSL
 import NIOCore
 import NIOTLS
+
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+#else
+@_implementationOnly import CNIOBoringSSL
+#endif
 
 /// The base class for all NIOSSL handlers.
 ///
@@ -388,6 +393,7 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
                 }
                 additionalPeerCertificateVerificationCallback(peerCertificate, context.channel)
                     .hop(to: context.eventLoop)
+                    .assumeIsolated()
                     .whenComplete { result in
                         self.completedAdditionalPeerCertificateVerification(result: result)
                     }
@@ -405,7 +411,7 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
             }
 
             // If there's a failed custom context operation, we fire both errors.
-            if let customContextError = self.connection.parentContext.customContextManager?.loadContextError {
+            if let customContextError = self.connection.customContextManager?.loadContextError {
                 context.fireErrorCaught(customContextError)
             }
 
@@ -530,7 +536,7 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
     /// Creates a scheduled task to perform an unclean shutdown in event of a clean shutdown timing
     /// out. This task should be cancelled if the shutdown does not time out.
     private func scheduleTimedOutShutdown(context: ChannelHandlerContext) -> Scheduled<Void> {
-        context.eventLoop.scheduleTask(in: self.shutdownTimeout) {
+        context.eventLoop.assumeIsolated().scheduleTask(in: self.shutdownTimeout) {
             switch self.state {
             case .inputClosed, .outputClosed, .idle, .handshaking, .additionalVerification, .active:
                 preconditionFailure("Cannot schedule timed out shutdown on non-shutting down handler")
@@ -672,11 +678,17 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
             // We didn't deliver data, but the channel is still active. If this channel has got
             // autoread turned off then we should call read again, because otherwise the user
             // will never see any result from their read call.
+            //
+            // In the unlikely event we couldn't get the answer, we assume auto-read is on.
             self.plaintextReadBuffer = receiveBuffer
-            context.channel.getOption(ChannelOptions.autoRead).whenSuccess { autoRead in
+
+            do {
+                let autoRead = try context.channel.syncOptions?.getOption(ChannelOptions.autoRead) ?? true
                 if !autoRead {
                     context.read()
                 }
+            } catch {
+                context.fireErrorCaught(error)
             }
         } else {
             // Regardless of what happens here, we need to put the plaintext read buffer back. Very important.
@@ -739,7 +751,7 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
         // We create a promise here to make sure we operate in the special magic state
         // where we are not in the pipeline any more, but we still have a valid context.
         let removalPromise: EventLoopPromise<Void> = context.eventLoop.makePromise()
-        let removalFuture = removalPromise.futureResult.map {
+        let removalFuture = removalPromise.futureResult.assumeIsolated().map {
             // Now drop all actions.
             self.discardBufferedActions(reason: NIOTLSUnwrappingError.unflushedWriteOnUnwrap)
 
@@ -763,11 +775,11 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
                     promise.fail(failure)
                 }
             }
-            removalFuture.cascade(to: promise)
+            removalFuture.nonisolated().cascade(to: promise)
         }
 
         // Ok, we've unwrapped. Let's get out of the channel.
-        context.channel.pipeline.removeHandler(context: context, promise: removalPromise)
+        context.channel.pipeline.syncOperations.removeHandler(context: context, promise: removalPromise)
     }
 
     /// Validates the hostname from the certificate against the hostname provided by
@@ -798,6 +810,13 @@ extension NIOSSLHandler {
     public var tlsVersion: TLSVersion? {
         self.connection.getTLSVersionForConnection()
     }
+
+    /// Return a NIOSSLCertificate from the verified peer after handshake has completed.
+    ///
+    /// Similar to getTlsVersionForConnection this **is not thread safe**.
+    public var peerCertificate: NIOSSLCertificate? {
+        self.connection.getPeerCertificate()
+    }
 }
 
 extension Channel {
@@ -807,6 +826,14 @@ extension Channel {
             $0.tlsVersion
         }
     }
+
+    /// API to retrieve the verified NIOSSLCertificate of the peer off the 'Channel'
+    public func nioSSL_peerCertificate() -> EventLoopFuture<NIOSSLCertificate?> {
+        self.pipeline.handler(type: NIOSSLHandler.self).map {
+            $0.peerCertificate
+        }
+    }
+
 }
 
 extension ChannelPipeline.SynchronousOperations {
@@ -814,6 +841,12 @@ extension ChannelPipeline.SynchronousOperations {
     public func nioSSL_tlsVersion() throws -> TLSVersion? {
         let handler = try self.handler(type: NIOSSLHandler.self)
         return handler.tlsVersion
+    }
+
+    /// API to retrieve the verified NIOSSLCertificate of the peer directly from the 'ChannelPipeline'
+    public func nioSSL_peerCertificate() throws -> NIOSSLCertificate? {
+        let handler = try self.handler(type: NIOSSLHandler.self)
+        return handler.peerCertificate
     }
 }
 

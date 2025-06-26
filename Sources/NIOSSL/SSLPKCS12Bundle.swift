@@ -12,7 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+#else
 @_implementationOnly import CNIOBoringSSL
+#endif
 
 /// A container for a single PKCS#12 bundle.
 ///

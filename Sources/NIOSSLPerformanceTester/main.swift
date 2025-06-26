@@ -17,7 +17,8 @@ import Foundation
 
 // MARK: Test Harness
 
-var warning: String = ""
+nonisolated(unsafe) var warning: String = ""
+
 assert(
     {
         print("======================================================")

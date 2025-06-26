@@ -12,8 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import CNIOBoringSSL
 import NIOCore
+
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
+#else
+@_implementationOnly import CNIOBoringSSL
+#endif
 
 internal let SSL_MAX_RECORD_SIZE = 16 * 1024
 
@@ -53,6 +58,7 @@ internal final class SSLConnection {
     private var verificationCallback: NIOSSLVerificationCallback?
     internal var customVerificationManager: CustomVerifyManager?
     internal var customPrivateKeyResult: Result<ByteBuffer, Error>?
+    internal var customContextManager: CustomContextManager?
 
     /// Whether certificate hostnames should be validated.
     var validateHostnames: Bool {
@@ -65,6 +71,10 @@ internal final class SSLConnection {
     init(ownedSSL: OpaquePointer, parentContext: NIOSSLContext) {
         self.ssl = ownedSSL
         self.parentContext = parentContext
+
+        if let customContextCallback = parentContext.configuration.sslContextCallback {
+            self.customContextManager = CustomContextManager(callback: customContextCallback)
+        }
 
         // We pass the SSL object an unowned reference to this object.
         let pointerToSelf = Unmanaged.passUnretained(self).toOpaque()

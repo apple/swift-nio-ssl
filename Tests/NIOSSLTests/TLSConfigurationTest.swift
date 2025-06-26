@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import CNIOBoringSSL
+@preconcurrency import Dispatch
+import NIOConcurrencyHelpers
 import NIOCore
 import NIOEmbedded
 import NIOPosix
@@ -21,44 +22,50 @@ import XCTest
 
 @testable import NIOSSL
 
-#if compiler(>=5.8)
-@preconcurrency import Dispatch
+#if compiler(>=6.1)
+internal import CNIOBoringSSL
 #else
-import Dispatch
+@_implementationOnly import CNIOBoringSSL
 #endif
 
-class ErrorCatcher<T: Error>: ChannelInboundHandler {
+final class ErrorCatcher<T: Error>: ChannelInboundHandler, Sendable {
     public typealias InboundIn = Any
-    public var errors: [T]
+    let _errors: NIOLockedValueBox<[T]>
+    var errors: [T] {
+        self._errors.withLockedValue { $0 }
+    }
 
     public init() {
-        errors = []
+        self._errors = .init([])
     }
 
     public func errorCaught(context: ChannelHandlerContext, error: Error) {
-        errors.append(error as! T)
+        self._errors.withLockedValue { $0.append(error as! T) }
     }
 }
 
-class HandshakeCompletedHandler: ChannelInboundHandler {
+final class HandshakeCompletedHandler: ChannelInboundHandler, Sendable {
     public typealias InboundIn = Any
-    public var handshakeSucceeded = false
+    let _handshakeSucceeded = NIOLockedValueBox(false)
+    var handshakeSucceeded: Bool {
+        self._handshakeSucceeded.withLockedValue { $0 }
+    }
 
     public func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
         if let event = event as? TLSUserEvent, case .handshakeCompleted = event {
-            self.handshakeSucceeded = true
+            self._handshakeSucceeded.withLockedValue { $0 = true }
         }
         context.fireUserInboundEventTriggered(event)
     }
 }
 
-class WaitForHandshakeHandler: ChannelInboundHandler {
+final class WaitForHandshakeHandler: ChannelInboundHandler, Sendable {
     public typealias InboundIn = Any
     public var handshakeResult: EventLoopFuture<Void> {
         self.handshakeResultPromise.futureResult
     }
 
-    private var handshakeResultPromise: EventLoopPromise<Void>
+    private let handshakeResultPromise: EventLoopPromise<Void>
 
     init(handshakeResultPromise: EventLoopPromise<Void>) {
         self.handshakeResultPromise = handshakeResultPromise
@@ -80,22 +87,13 @@ class WaitForHandshakeHandler: ChannelInboundHandler {
 }
 
 class TLSConfigurationTest: XCTestCase {
-    static var cert1: NIOSSLCertificate!
-    static var key1: NIOSSLPrivateKey!
+    static let _certAndKey1 = generateSelfSignedCert()
+    static let cert1 = TLSConfigurationTest._certAndKey1.0
+    static let key1 = TLSConfigurationTest._certAndKey1.1
 
-    static var cert2: NIOSSLCertificate!
-    static var key2: NIOSSLPrivateKey!
-
-    override class func setUp() {
-        super.setUp()
-        var (cert, key) = generateSelfSignedCert()
-        TLSConfigurationTest.cert1 = cert
-        TLSConfigurationTest.key1 = key
-
-        (cert, key) = generateSelfSignedCert()
-        TLSConfigurationTest.cert2 = cert
-        TLSConfigurationTest.key2 = key
-    }
+    static let _certAndKey2 = generateSelfSignedCert()
+    static let cert2 = TLSConfigurationTest._certAndKey2.0
+    static let key2 = TLSConfigurationTest._certAndKey2.1
 
     func assertHandshakeError(
         withClientConfig clientConfig: TLSConfiguration,
@@ -244,7 +242,24 @@ class TLSConfigurationTest: XCTestCase {
     ) throws {
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
+        try self.assertHandshakeSucceededInMemory(
+            withClientContext: clientContext,
+            andServerContext: serverContext,
+            file: file,
+            line: line
+        )
+    }
 
+    /// Performs a connection in memory and validates that the handshake was successful.
+    ///
+    /// - NOTE: This function should only be used when you know that there is no custom verification
+    /// callback in use, otherwise it will not be thread-safe.
+    func assertHandshakeSucceededInMemory(
+        withClientContext clientContext: NIOSSLContext,
+        andServerContext serverContext: NIOSSLContext,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
         let serverChannel = EmbeddedChannel()
         let clientChannel = EmbeddedChannel()
 
@@ -255,13 +270,14 @@ class TLSConfigurationTest: XCTestCase {
         }
 
         XCTAssertNoThrow(
-            try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext)).wait(),
+            try serverChannel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: serverContext)),
             file: (file),
             line: line
         )
         XCTAssertNoThrow(
-            try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil))
-                .wait(),
+            try clientChannel.pipeline.syncOperations.addHandler(
+                NIOSSLClientHandler(context: clientContext, serverHostname: nil)
+            ),
             file: (file),
             line: line
         )
@@ -295,7 +311,23 @@ class TLSConfigurationTest: XCTestCase {
             file: file,
             line: line
         )
+        try self.assertHandshakeSucceededEventLoop(
+            withClientContext: clientContext,
+            andServerContext: serverContext,
+            file: file,
+            line: line
+        )
+    }
 
+    /// Performs a connection using a real event loop and validates that the handshake was successful.
+    ///
+    /// This function is thread-safe in the presence of custom verification callbacks.
+    func assertHandshakeSucceededEventLoop(
+        withClientContext clientContext: NIOSSLContext,
+        andServerContext serverContext: NIOSSLContext,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
             XCTAssertNoThrow(try group.syncShutdownGracefully())
@@ -353,6 +385,31 @@ class TLSConfigurationTest: XCTestCase {
         return try assertHandshakeSucceededEventLoop(
             withClientConfig: clientConfig,
             andServerConfig: serverConfig,
+            file: file,
+            line: line
+        )
+        #endif
+    }
+
+    func assertHandshakeSucceeded(
+        withClientContext clientContext: NIOSSLContext,
+        andServerContext serverContext: NIOSSLContext,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        // The only use of a custom callback is on Darwin...
+        #if os(Linux)
+        return try self.assertHandshakeSucceededInMemory(
+            withClientContext: clientContext,
+            andServerContext: serverContext,
+            file: file,
+            line: line
+        )
+
+        #else
+        return try self.assertHandshakeSucceededEventLoop(
+            withClientContext: clientContext,
+            andServerContext: serverContext,
             file: file,
             line: line
         )
@@ -683,10 +740,13 @@ class TLSConfigurationTest: XCTestCase {
             _ = try? clientChannel.finish()
         }
 
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext)).wait())
         XCTAssertNoThrow(
-            try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil))
-                .wait()
+            try serverChannel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: serverContext))
+        )
+        XCTAssertNoThrow(
+            try clientChannel.pipeline.syncOperations.addHandler(
+                NIOSSLClientHandler(context: clientContext, serverHostname: nil)
+            )
         )
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
@@ -755,10 +815,13 @@ class TLSConfigurationTest: XCTestCase {
             _ = try? clientChannel.finish()
         }
 
-        XCTAssertNoThrow(try serverChannel.pipeline.addHandler(NIOSSLServerHandler(context: serverContext)).wait())
         XCTAssertNoThrow(
-            try clientChannel.pipeline.addHandler(NIOSSLClientHandler(context: clientContext, serverHostname: nil))
-                .wait()
+            try serverChannel.pipeline.syncOperations.addHandler(NIOSSLServerHandler(context: serverContext))
+        )
+        XCTAssertNoThrow(
+            try clientChannel.pipeline.syncOperations.addHandler(
+                NIOSSLClientHandler(context: clientContext, serverHostname: nil)
+            )
         )
         let handshakeHandler = HandshakeCompletedHandler()
         XCTAssertNoThrow(try clientChannel.pipeline.addHandler(handshakeHandler).wait())
@@ -1070,6 +1133,51 @@ class TLSConfigurationTest: XCTestCase {
             andServerConfig: serverConfig,
             errorTextContains: "ALERT_HANDSHAKE_FAILURE"
         )
+    }
+
+    func testPQCompatibleCurves() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.curves = [.x25519_MLKEM768]
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.curves = [.x25519_MLKEM768]
+        serverConfig.certificateVerification = .none
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    func testDefaultCurvesExcludePQ() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.curves = [.x25519_MLKEM768]
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.certificateVerification = .none
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContains: "ALERT_HANDSHAKE_FAILURE"
+        )
+    }
+
+    func testUnknownCurveValuesFail() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.curves = [.init(rawValue: 0x9898)]
+
+        XCTAssertThrowsError(try NIOSSLContext(configuration: clientConfig)) { error in
+            XCTAssertTrue(
+                String(describing: error).contains("UNSUPPORTED_ELLIPTIC_CURVE"),
+                "Error \(error) does not contain UNSUPPORTED_ELLIPTIC_CURVE"
+            )
+        }
     }
 
     func testCompatibleCipherSuite() throws {
@@ -1827,11 +1935,12 @@ class TLSConfigurationTest: XCTestCase {
     }
 
     func testTLSPSKNoServerHint() throws {
-        let expectation = expectation(description: "pskClientProvider is called")
+        let pseudoExpectation = ConditionLock(value: false)
         // This test ensures that different PSKs used on the client and server fail when passed in.
         let pskClientProvider: NIOPSKClientIdentityProvider = {
             (context: PSKClientContext) -> PSKClientIdentityResponse in
-            expectation.fulfill()
+            pseudoExpectation.lock()
+            pseudoExpectation.unlock(withValue: true)
             // Ensure server hint is nil
             XCTAssertEqual(context.hint, nil)
             // Evaluate hint and clientIdentity to send back proper PSK.
@@ -1864,15 +1973,17 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.pskServerProvider = pskServerProvider
         serverConfig.pskHint = nil
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
-        waitForExpectations(timeout: 1)
+        XCTAssertTrue(pseudoExpectation.lock(whenValue: true, timeoutSeconds: 1))
+        pseudoExpectation.unlock()
     }
 
     func testTLSPSKNoClientHint() throws {
-        let expectation = expectation(description: "pskClientProvider is called")
+        let pseudoExpectation = ConditionLock(value: false)
         // This test ensures that different PSKs used on the client and server fail when passed in.
         let pskClientProvider: NIOPSKClientIdentityProvider = {
             (context: PSKClientContext) -> PSKClientIdentityResponse in
-            expectation.fulfill()
+            pseudoExpectation.lock()
+            pseudoExpectation.unlock(withValue: true)
             // Ensure server hint is nil
             XCTAssertEqual(context.hint, nil)
             // Evaluate hint and clientIdentity to send back proper PSK.
@@ -1905,7 +2016,8 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.pskServerProvider = pskServerProvider
         serverConfig.pskHint = nil
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
-        waitForExpectations(timeout: 1)
+        XCTAssertTrue(pseudoExpectation.lock(whenValue: true, timeoutSeconds: 1))
+        pseudoExpectation.unlock()
     }
 
     func testClientSideCertSelection() throws {
@@ -2007,6 +2119,73 @@ class TLSConfigurationTest: XCTestCase {
             andServerConfig: serverConfig,
             errorTextContains: "TLSV1_ALERT_INTERNAL_ERROR"
         )
+    }
+
+    func testClientSideCertSelection_eachConnectionSelectsAgain() throws {
+        let callbackCount = NIOLockedValueBox(0)
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+        clientConfig.sslContextCallback = { _, promise in
+            callbackCount.withLockedValue { $0 += 1 }
+
+            var `override` = NIOSSLContextConfigurationOverride()
+            override.certificateChain = [.certificate(TLSConfigurationTest.cert2)]
+            override.privateKey = .privateKey(TLSConfigurationTest.key2)
+            promise.succeed(override)
+        }
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.certificateVerification = .noHostnameVerification
+        serverConfig.trustRoots = .certificates([TLSConfigurationTest.cert2])
+
+        let clientContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: clientConfig)
+        )
+        let serverContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: serverConfig)
+        )
+
+        for _ in 0..<5 {
+            try assertHandshakeSucceeded(withClientContext: clientContext, andServerContext: serverContext)
+        }
+
+        XCTAssertEqual(callbackCount.withLockedValue { $0 }, 5)
+    }
+
+    func testServerSideCertSelection_eachConnectionSelectsAgain() throws {
+        let callbackCount = NIOLockedValueBox(0)
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert2)],
+            privateKey: .privateKey(TLSConfigurationTest.key2)
+        )
+        serverConfig.sslContextCallback = { _, promise in
+            var `override` = NIOSSLContextConfigurationOverride()
+            override.certificateChain = [.certificate(TLSConfigurationTest.cert1)]
+            override.privateKey = .privateKey(TLSConfigurationTest.key1)
+            callbackCount.withLockedValue { $0 += 1 }
+            promise.succeed(override)
+        }
+
+        let clientContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: clientConfig)
+        )
+        let serverContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: serverConfig)
+        )
+
+        for _ in 0..<5 {
+            try assertHandshakeSucceeded(withClientContext: clientContext, andServerContext: serverContext)
+        }
+
+        XCTAssertEqual(callbackCount.withLockedValue { $0 }, 5)
     }
 }
 
