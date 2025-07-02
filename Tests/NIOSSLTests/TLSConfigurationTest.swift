@@ -667,8 +667,6 @@ class TLSConfigurationTest: XCTestCase {
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
             privateKey: .privateKey(TLSConfigurationTest.key1)
         )
-        serverConfig.trustRoots = .default
-        serverConfig.additionalTrustRoots = [.certificates([TLSConfigurationTest.cert2])]
 
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
@@ -684,8 +682,6 @@ class TLSConfigurationTest: XCTestCase {
             certificateChain: [.certificate(TLSConfigurationTest.cert1)],
             privateKey: .privateKey(TLSConfigurationTest.key1)
         )
-        serverConfig.trustRoots = .certificates([])
-        serverConfig.additionalTrustRoots = [.certificates([TLSConfigurationTest.cert2])]
 
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
@@ -1599,8 +1595,8 @@ class TLSConfigurationTest: XCTestCase {
         }
 
         var clientConfig = TLSConfiguration.makeClientConfiguration()
-        clientConfig.certificateVerification = .none
         clientConfig.trustRoots = .certificates([])
+        clientConfig.certificateVerification = .none
         clientConfig.minimumTLSVersion = .tlsv13
         clientConfig.maximumTLSVersion = .tlsv13
         clientConfig.pskClientCallback = pskClientCallback
@@ -1791,8 +1787,8 @@ class TLSConfigurationTest: XCTestCase {
         }
 
         var clientConfig = TLSConfiguration.makeClientConfiguration()
-        clientConfig.certificateVerification = .none
         clientConfig.trustRoots = .certificates([])
+        clientConfig.certificateVerification = .none
         clientConfig.minimumTLSVersion = .tlsv13
         clientConfig.maximumTLSVersion = .tlsv13
         clientConfig.pskClientProvider = pskClientProvider
@@ -2186,6 +2182,78 @@ class TLSConfigurationTest: XCTestCase {
         }
 
         XCTAssertEqual(callbackCount.withLockedValue { $0 }, 5)
+    }
+
+    func testSettingTrustRootsForcesHostnameVerificationUp() throws {
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert2)],
+            privateKey: .privateKey(TLSConfigurationTest.key2)
+        )
+        XCTAssertEqual(config.certificateVerification, .none)
+        config.trustRoots = .default
+        XCTAssertEqual(config.certificateVerification, .noHostnameVerification)
+
+        config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert2)],
+            privateKey: .privateKey(TLSConfigurationTest.key2)
+        )
+        XCTAssertEqual(config.certificateVerification, .none)
+        config.trustRoots = .certificates([TLSConfigurationTest.cert2])
+        XCTAssertEqual(config.certificateVerification, .noHostnameVerification)
+
+        config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert2)],
+            privateKey: .privateKey(TLSConfigurationTest.key2)
+        )
+        XCTAssertEqual(config.certificateVerification, .none)
+        config.trustRoots = .file("/foo/bar")
+        XCTAssertEqual(config.certificateVerification, .noHostnameVerification)
+
+        config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert2)],
+            privateKey: .privateKey(TLSConfigurationTest.key2)
+        )
+        XCTAssertEqual(config.certificateVerification, .none)
+        config.trustRoots = .none
+        XCTAssertEqual(config.certificateVerification, .none)
+    }
+
+    func testSettingTrustRootsDoesNotForceVerificationDown() throws {
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert2)],
+            privateKey: .privateKey(TLSConfigurationTest.key2)
+        )
+        config.certificateVerification = .fullVerification
+        XCTAssertEqual(config.certificateVerification, .fullVerification)
+        config.trustRoots = .default
+        XCTAssertEqual(config.certificateVerification, .fullVerification)
+
+        config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert2)],
+            privateKey: .privateKey(TLSConfigurationTest.key2)
+        )
+        config.certificateVerification = .fullVerification
+        XCTAssertEqual(config.certificateVerification, .fullVerification)
+        config.trustRoots = .certificates([TLSConfigurationTest.cert2])
+        XCTAssertEqual(config.certificateVerification, .fullVerification)
+
+        config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert2)],
+            privateKey: .privateKey(TLSConfigurationTest.key2)
+        )
+        config.certificateVerification = .fullVerification
+        XCTAssertEqual(config.certificateVerification, .fullVerification)
+        config.trustRoots = .file("/foo/bar")
+        XCTAssertEqual(config.certificateVerification, .fullVerification)
+
+        config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert2)],
+            privateKey: .privateKey(TLSConfigurationTest.key2)
+        )
+        config.certificateVerification = .fullVerification
+        XCTAssertEqual(config.certificateVerification, .fullVerification)
+        config.trustRoots = .none
+        XCTAssertEqual(config.certificateVerification, .fullVerification)
     }
 }
 

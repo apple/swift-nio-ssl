@@ -647,6 +647,7 @@ class NIOSSLIntegrationTest: XCTestCase {
             privateKey: .privateKey(NIOSSLIntegrationTest.key)
         )
         config.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
+        config.certificateVerification = .none
         config.keyLogCallback = keyLogCallback
         return try assertNoThrowWithValue(NIOSSLContext(configuration: config), file: file, line: line)
     }
@@ -2418,8 +2419,8 @@ class NIOSSLIntegrationTest: XCTestCase {
             privateKey: .privateKey(NIOSSLIntegrationTest.key)
         )
         var clientConfig = TLSConfiguration.makeClientConfiguration()
-        clientConfig.certificateVerification = .none
         clientConfig.trustRoots = .default
+        clientConfig.certificateVerification = .none
         let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
         let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
 
