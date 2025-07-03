@@ -315,22 +315,12 @@ public struct TLSConfiguration {
     /// The trust roots to use to validate certificates. This only needs to be provided if you intend to validate
     /// certificates.
     ///
-    /// - NOTE: If you set this field to a non-`none` value, ``certificateVerification`` will be automatically
-    /// set to ``CertificateVerification/noHostnameVerification`` if it was previously set to ``CertificateVerification/none``.
-    /// If the value was set higher, it will not be changed.
-    ///
     /// - NOTE: If certificate validation is enabled and ``trustRoots`` is `nil` then the system default root of
     /// trust is used (as if ``trustRoots`` had been explicitly set to ``NIOSSLTrustRoots/default``).
     ///
     /// - NOTE: If a directory path is used here to load a directory of certificates into a configuration, then the
     ///         certificates in this directory must be formatted by `c_rehash` to create the rehash file format of `HHHHHHHH.D` with a symlink.
-    public var trustRoots: NIOSSLTrustRoots? {
-        didSet {
-            if self.trustRoots != nil && self.certificateVerification == .none {
-                self.certificateVerification = .noHostnameVerification
-            }
-        }
-    }
+    public var trustRoots: NIOSSLTrustRoots?
 
     /// Additional trust roots to use to validate certificates, used in addition to ``trustRoots``.
     public var additionalTrustRoots: [NIOSSLAdditionalTrustRoots]
