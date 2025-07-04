@@ -2187,6 +2187,67 @@ class TLSConfigurationTest: XCTestCase {
 
         XCTAssertEqual(callbackCount.withLockedValue { $0 }, 5)
     }
+
+    func testCorrectSetUpOfMTLSContext() throws {
+        var basicConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert2)],
+            privateKey: .privateKey(TLSConfigurationTest.key2)
+        )
+        let mtlsConfig = TLSConfiguration.makeServerConfigurationWithMTLS(
+            certificateChain: [.certificate(TLSConfigurationTest.cert2)],
+            privateKey: .privateKey(TLSConfigurationTest.key2),
+            trustRoots: .default
+        )
+        XCTAssertFalse(basicConfig.bestEffortEquals(mtlsConfig))
+
+        basicConfig.trustRoots = .default
+        basicConfig.certificateVerification = .noHostnameVerification
+
+        XCTAssertTrue(basicConfig.bestEffortEquals(mtlsConfig))
+    }
+
+    func testMTLSContext_happyPath() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+        clientConfig.certificateChain = [.certificate(TLSConfigurationTest.cert2)]
+        clientConfig.privateKey = .privateKey(TLSConfigurationTest.key2)
+        clientConfig.certificateVerification = .noHostnameVerification
+
+        let serverConfig = TLSConfiguration.makeServerConfigurationWithMTLS(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1),
+            trustRoots: .certificates([TLSConfigurationTest.cert2])
+        )
+
+        let clientContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: clientConfig)
+        )
+        let serverContext = try assertNoThrowWithValue(
+            NIOSSLContext(configuration: serverConfig)
+        )
+
+        try assertHandshakeSucceeded(withClientContext: clientContext, andServerContext: serverContext)
+    }
+
+    func testMTLSContext_clientPresentsWrongCert() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+        clientConfig.certificateChain = [.certificate(TLSConfigurationTest.cert1)]
+        clientConfig.privateKey = .privateKey(TLSConfigurationTest.key1)
+        clientConfig.certificateVerification = .noHostnameVerification
+
+        let serverConfig = TLSConfiguration.makeServerConfigurationWithMTLS(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1),
+            trustRoots: .certificates([TLSConfigurationTest.cert2])
+        )
+
+        try assertPostHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContainsAnyOf: ["ALERT_UNKNOWN_CA", "ALERT_CERTIFICATE_UNKNOWN"]
+        )
+    }
 }
 
 extension EmbeddedChannel {
