@@ -14,7 +14,7 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "NIOSSHBenchmarks",
+            name: "NIOSSLBenchmarks",
             dependencies: [
                 .product(name: "Benchmark", package: "package-benchmark"),
                 .product(name: "NIOSSL", package: "swift-nio-ssl"),
