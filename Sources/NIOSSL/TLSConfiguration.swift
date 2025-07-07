@@ -648,9 +648,9 @@ extension TLSConfiguration {
     ///
     /// This provides sensible defaults while requiring that you provide any data that is necessary
     /// for server-side function. For servers that don't need mTLS, try
-    /// ``TLSConfiguration/makeServerConfiguration()`` instead.
+    /// ``TLSConfiguration/makeServerConfiguration(certificateChain:privateKey:)`` instead.
     ///
-    /// This configuration is very similar to ``TLSConfiguration/makeServerConfiguration()`` but
+    /// This configuration is very similar to ``TLSConfiguration/makeServerConfiguration(certificateChain:privateKey:)`` but
     /// adds a `trustRoots` requirement. These roots will be used to validate the certificate
     /// presented by the peer. It also sets the ``certificateVerification`` field to
     /// ``CertificateVerification/noHostnameVerification``, which enables verification but disables
