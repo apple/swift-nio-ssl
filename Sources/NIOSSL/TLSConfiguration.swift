@@ -449,9 +449,9 @@ public struct TLSConfiguration {
         self.signingSignatureAlgorithms = signingSignatureAlgorithms
         self.minimumTLSVersion = minimumTLSVersion
         self.maximumTLSVersion = maximumTLSVersion
-        self.certificateVerification = certificateVerification
         self.trustRoots = trustRoots
         self.additionalTrustRoots = additionalTrustRoots
+        self.certificateVerification = certificateVerification
         self.certificateChain = certificateChain
         self.privateKey = privateKey
         self.encodedApplicationProtocols = []
@@ -631,6 +631,47 @@ extension TLSConfiguration {
             trustRoots: .default,
             certificateChain: [],
             privateKey: nil,
+            applicationProtocols: [],
+            shutdownTimeout: .seconds(5),
+            keyLogCallback: nil,
+            renegotiationSupport: .none,
+            additionalTrustRoots: [],
+            sendCANameList: false,
+            pskClientProvider: nil,
+            pskServerProvider: nil,
+            pskHint: nil
+        )
+    }
+
+    /// Create a TLS configuration for use with server-side contexts that expect to validate a client
+    /// certificate (often called mTLS).
+    ///
+    /// This provides sensible defaults while requiring that you provide any data that is necessary
+    /// for server-side function. For servers that don't need mTLS, try
+    /// ``TLSConfiguration/makeServerConfiguration(certificateChain:privateKey:)`` instead.
+    ///
+    /// This configuration is very similar to ``TLSConfiguration/makeServerConfiguration(certificateChain:privateKey:)`` but
+    /// adds a `trustRoots` requirement. These roots will be used to validate the certificate
+    /// presented by the peer. It also sets the ``certificateVerification`` field to
+    /// ``CertificateVerification/noHostnameVerification``, which enables verification but disables
+    /// any hostname checking, which cannot succeed in a server context.
+    ///
+    /// For customising fields, modify the returned TLSConfiguration object.
+    public static func makeServerConfigurationWithMTLS(
+        certificateChain: [NIOSSLCertificateSource],
+        privateKey: NIOSSLPrivateKeySource,
+        trustRoots: NIOSSLTrustRoots
+    ) -> TLSConfiguration {
+        TLSConfiguration(
+            cipherSuites: defaultCipherSuites,
+            verifySignatureAlgorithms: nil,
+            signingSignatureAlgorithms: nil,
+            minimumTLSVersion: .tlsv1,
+            maximumTLSVersion: nil,
+            certificateVerification: .noHostnameVerification,
+            trustRoots: trustRoots,
+            certificateChain: certificateChain,
+            privateKey: privateKey,
             applicationProtocols: [],
             shutdownTimeout: .seconds(5),
             keyLogCallback: nil,
