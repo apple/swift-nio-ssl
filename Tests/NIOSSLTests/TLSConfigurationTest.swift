@@ -439,9 +439,9 @@ class TLSConfigurationTest: XCTestCase {
     func getRehashFilename(path: String, testName: String, numericExtension: Int) -> String {
         var cert: NIOSSLCertificate!
         if path.suffix(4) == ".pem" {
-            XCTAssertNoThrow(cert = try NIOSSLCertificate(file: path, format: .pem))
+            XCTAssertNoThrow(cert = try NIOSSLCertificate.fromPEMFile(path).first)
         } else {
-            XCTAssertNoThrow(cert = try NIOSSLCertificate(file: path, format: .der))
+            XCTAssertNoThrow(cert = try NIOSSLCertificate.fromDERFile(path))
         }
         // Create a rehash format filename to symlink the hard file above to.
         let originalSubjectName = cert.getSubjectNameHash()
