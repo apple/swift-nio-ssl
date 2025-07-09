@@ -70,6 +70,7 @@ SwiftNIO SSL        | Minimum Swift Version
 ### Articles
 
 - <doc:quantum-secure-tls>
+- <doc:trust-roots-behavior>
 
 ### Channel Handlers
 
