@@ -320,9 +320,16 @@ public struct TLSConfiguration {
     ///
     /// - NOTE: If a directory path is used here to load a directory of certificates into a configuration, then the
     ///         certificates in this directory must be formatted by `c_rehash` to create the rehash file format of `HHHHHHHH.D` with a symlink.
+    ///
+    /// - NOTE: The choice of trust roots affects which certificate validation backend is used. See <doc:trust-roots-behavior>
+    ///         for detailed information about platform-specific behavior differences.
     public var trustRoots: NIOSSLTrustRoots?
 
     /// Additional trust roots to use to validate certificates, used in addition to ``trustRoots``.
+    ///
+    /// - NOTE: The combination of ``trustRoots`` and ``additionalTrustRoots`` affects which certificate validation
+    ///         backend is used on Apple platforms. See <doc:trust-roots-behavior> for detailed information about
+    ///         platform-specific behavior differences.
     public var additionalTrustRoots: [NIOSSLAdditionalTrustRoots]
 
     /// The certificates to offer during negotiation. If not present, no certificates will be offered.
