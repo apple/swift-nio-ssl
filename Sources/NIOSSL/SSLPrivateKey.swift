@@ -457,3 +457,6 @@ extension NIOSSLPrivateKey: Hashable {
         }
     }
 }
+
+@available(*, unavailable)
+extension NIOSSLPrivateKey.Representation: Sendable {}
