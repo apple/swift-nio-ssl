@@ -212,3 +212,6 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
         )
     }
 }
+
+@available(*, unavailable)
+extension NIOSSLClientHandler: Sendable {}

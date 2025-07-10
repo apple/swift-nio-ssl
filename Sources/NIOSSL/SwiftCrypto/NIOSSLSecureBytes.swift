@@ -159,7 +159,7 @@ extension NIOSSLSecureBytes: RangeReplaceableCollection {
 // MARK: - Heap allocated backing storage.
 extension NIOSSLSecureBytes {
     @usableFromInline
-    internal struct BackingHeader {
+    internal struct BackingHeader: Sendable {
         @usableFromInline
         internal var count: Int
 
@@ -239,6 +239,9 @@ extension NIOSSLSecureBytes {
         }
     }
 }
+
+@available(*, unavailable)
+extension NIOSSLSecureBytes.Backing: Sendable {}
 
 extension NIOSSLSecureBytes.Backing {
     @usableFromInline
