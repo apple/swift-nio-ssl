@@ -87,11 +87,12 @@ public final class NIOSSLCertificate {
     ///     - file: The path to the file to load the certificate from.
     ///     - format: The format to use to parse the file.
     @available(
-        *, deprecated, message:
-        """
-        Use 'fromPEMFile(_:)' to load all certificates from a PEM file or 'fromDERFile(_:)' \
-        to load a single certificate from a DER file.
-        """
+        *,
+        deprecated,
+        message: """
+            Use 'fromPEMFile(_:)' to load all certificates from a PEM file or 'fromDERFile(_:)' \
+            to load a single certificate from a DER file.
+            """
     )
     public convenience init(file: String, format: NIOSSLSerializationFormats) throws {
         try self.init(_file: file, format: format)

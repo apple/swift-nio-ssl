@@ -244,7 +244,7 @@ class SSLCertificateTest: XCTestCase {
 
     func testDerAndPemAreIdentical() throws {
         let cert1 = try Self.withPemCertPath {
-            return try NIOSSLCertificate.fromPEMFile($0).first!
+            try NIOSSLCertificate.fromPEMFile($0).first!
         }
         let cert2 = try Self.withDerCertPath {
             try NIOSSLCertificate.fromDERFile($0)
