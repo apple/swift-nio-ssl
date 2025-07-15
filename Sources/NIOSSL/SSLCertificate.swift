@@ -80,10 +80,33 @@ public final class NIOSSLCertificate {
     ///
     /// Note that this method will only ever load the first certificate from a given file.
     ///
+    /// If you want to load certificates from a PEM file use ``fromPEMFile(_:)``. To load
+    /// a certificate from a DER file use ``fromDERFile(_:)``.
+    ///
     /// - parameters:
     ///     - file: The path to the file to load the certificate from.
     ///     - format: The format to use to parse the file.
+    @available(
+        *,
+        deprecated,
+        message: """
+            Use 'fromPEMFile(_:)' to load all certificates from a PEM file or 'fromDERFile(_:)' \
+            to load a single certificate from a DER file.
+            """
+    )
     public convenience init(file: String, format: NIOSSLSerializationFormats) throws {
+        try self.init(_file: file, format: format)
+    }
+
+    /// Create a ``NIOSSLCertificate`` from a file at a given path in either PEM or
+    /// DER format.
+    ///
+    /// Note that this method will only ever load the first certificate from a given file.
+    ///
+    /// - parameters:
+    ///     - file: The path to the file to load the certificate from.
+    ///     - format: The format to use to parse the file.
+    private convenience init(_file file: String, format: NIOSSLSerializationFormats) throws {
         let fileObject = try Posix.fopen(file: file, mode: "rb")
         defer {
             fclose(fileObject)
@@ -333,6 +356,14 @@ extension NIOSSLCertificate {
         }
 
         return try readCertificatesFromBIO(bio)
+    }
+
+    /// Create a ``NIOSSLCertificate`` from a DER file at a given path.
+    ///
+    /// - parameters:
+    ///     - path: The path to the file to load the certificate from.
+    public static func fromDERFile(_ path: String) throws -> NIOSSLCertificate {
+        try NIOSSLCertificate(_file: path, format: .der)
     }
 
     /// Returns the timestamp before which this certificate is not valid.

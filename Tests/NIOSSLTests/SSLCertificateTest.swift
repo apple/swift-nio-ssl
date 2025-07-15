@@ -220,10 +220,8 @@ class SSLCertificateTest: XCTestCase {
 
     func testLoadingPemCertFromFile() throws {
         let (cert1, cert2) = try Self.withPemCertPath {
-            (
-                try NIOSSLCertificate(file: $0, format: .pem),
-                try NIOSSLCertificate(file: $0, format: .pem)
-            )
+            let cert = try NIOSSLCertificate.fromPEMFile($0).first!
+            return (cert, cert)
         }
 
         XCTAssertEqual(cert1, cert2)
@@ -234,10 +232,8 @@ class SSLCertificateTest: XCTestCase {
 
     func testLoadingDerCertFromFile() throws {
         let (cert1, cert2) = try Self.withDerCertPath {
-            (
-                try NIOSSLCertificate(file: $0, format: .der),
-                try NIOSSLCertificate(file: $0, format: .der)
-            )
+            let cert = try NIOSSLCertificate.fromDERFile($0)
+            return (cert, cert)
         }
 
         XCTAssertEqual(cert1, cert2)
@@ -248,10 +244,10 @@ class SSLCertificateTest: XCTestCase {
 
     func testDerAndPemAreIdentical() throws {
         let cert1 = try Self.withPemCertPath {
-            try NIOSSLCertificate(file: $0, format: .pem)
+            try NIOSSLCertificate.fromPEMFile($0).first!
         }
         let cert2 = try Self.withDerCertPath {
-            try NIOSSLCertificate(file: $0, format: .der)
+            try NIOSSLCertificate.fromDERFile($0)
         }
 
         XCTAssertEqual(cert1, cert2)
@@ -334,7 +330,7 @@ class SSLCertificateTest: XCTestCase {
             _ = tempFile.withCString { unlink($0) }
         }
 
-        XCTAssertThrowsError(try NIOSSLCertificate(file: tempFile, format: .pem)) { error in
+        XCTAssertThrowsError(try NIOSSLCertificate.fromPEMFile(tempFile)) { error in
             XCTAssertEqual(.failedToLoadCertificate, error as? NIOSSLError)
         }
     }
@@ -356,11 +352,12 @@ class SSLCertificateTest: XCTestCase {
             _ = tempFile.withCString { unlink($0) }
         }
 
-        XCTAssertThrowsError(try NIOSSLCertificate(file: tempFile, format: .der)) { error in
+        XCTAssertThrowsError(try NIOSSLCertificate.fromDERFile(tempFile)) { error in
             XCTAssertEqual(.failedToLoadCertificate, error as? NIOSSLError)
         }
     }
 
+    @available(*, deprecated, message: "Deprecated to test deprecated functionality")
     func testLoadingNonexistentFileAsPem() throws {
         XCTAssertThrowsError(try NIOSSLCertificate(file: "/nonexistent/path", format: .pem)) { error in
             guard let error = error as? IOError else {
@@ -382,7 +379,7 @@ class SSLCertificateTest: XCTestCase {
     }
 
     func testLoadingNonexistentFileAsDer() throws {
-        XCTAssertThrowsError(try NIOSSLCertificate(file: "/nonexistent/path", format: .der)) { error in
+        XCTAssertThrowsError(try NIOSSLCertificate.fromDERFile("/nonexistent/path")) { error in
             guard let error = error as? IOError else {
                 return XCTFail("unexpected error \(error)")
             }
