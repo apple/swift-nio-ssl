@@ -688,9 +688,8 @@ extension NIOSSLContext {
             // Load only the certificates that resolve to an existing certificate in the directory.
             for symPath in certificateFilePaths {
                 // c_rehash only support pem files.
-                if let cert = try NIOSSLCertificate.fromPEMFile(symPath).first {
-                    try addCACertificateNameToList(context: context, certificate: cert)
-                }
+                let cert = try NIOSSLCertificate(_file: symPath, format: .pem)
+                try addCACertificateNameToList(context: context, certificate: cert)
             }
         }
     }
