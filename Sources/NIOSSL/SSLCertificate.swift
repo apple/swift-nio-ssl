@@ -106,7 +106,7 @@ public final class NIOSSLCertificate {
     /// - parameters:
     ///     - file: The path to the file to load the certificate from.
     ///     - format: The format to use to parse the file.
-    private convenience init(_file file: String, format: NIOSSLSerializationFormats) throws {
+    internal convenience init(_file file: String, format: NIOSSLSerializationFormats) throws {
         let fileObject = try Posix.fopen(file: file, mode: "rb")
         defer {
             fclose(fileObject)
