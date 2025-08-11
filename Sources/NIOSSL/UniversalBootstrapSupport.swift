@@ -14,6 +14,26 @@
 
 import NIOCore
 
+/// A wrapper around the custom verification callback types (``NIOSSLCustomVerificationCallback`` and ``NIOSSLCustomVerificationCallbackWithMetadata``)
+enum CustomCallback: Sendable {
+    case callback(@Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) -> Void)
+
+    case callbackWithMetadata(
+        @Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResultWithMetadata>) -> Void
+    )
+
+    var manager: CustomVerifyManager {
+        switch self {
+        /// See ``NIOSSLCustomVerificationCallback`` for more documentation
+        case .callback(let callback):
+            CustomVerifyManager(callback: callback)
+        /// See ``NIOSSLCustomVerificationCallbackWithMetadata`` for more documentation
+        case .callbackWithMetadata(let callbackWithMetadata):
+            CustomVerifyManager(callback: callbackWithMetadata)
+        }
+    }
+}
+
 /// A TLS provider to bootstrap TLS-enabled connections with `NIOClientTCPBootstrap`.
 ///
 /// Example:
@@ -35,9 +55,7 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
 
     let context: NIOSSLContext
     let serverHostname: String?
-    /// See ``NIOSSLCustomVerificationCallback`` for more documentation
-    let customVerificationCallback:
-        (@Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) -> Void)?
+    let customVerificationCallback: CustomCallback?
     /// See ``_NIOAdditionalPeerCertificateVerificationCallback`` for more documentation
     let additionalPeerCertificateVerificationCallback:
         (@Sendable (NIOSSLCertificate, Channel) -> EventLoopFuture<Void>)?
@@ -45,9 +63,7 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
     internal init(
         context: NIOSSLContext,
         serverHostname: String?,
-        customVerificationCallback: (
-            @Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) -> Void
-        )? = nil,
+        customVerificationCallback: CustomCallback? = nil,
         additionalPeerCertificateVerificationCallback: (
             @Sendable (NIOSSLCertificate, Channel) -> EventLoopFuture<Void>
         )? = nil
@@ -82,7 +98,32 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
         try self.init(
             context: context,
             serverHostname: serverHostname,
-            customVerificationCallback: customVerificationCallback,
+            customVerificationCallback: customVerificationCallback.map { .callback($0) },
+            additionalPeerCertificateVerificationCallback: nil
+        )
+    }
+
+    /// Construct the TLS provider with the necessary configuration.
+    ///
+    /// - parameters:
+    ///     - context: The ``NIOSSLContext`` to use with the connection.
+    ///     - serverHostname: The hostname of the server we're trying to connect to, if known. This will be used in the SNI extension,
+    ///         and used to validate the server certificate.
+    ///     - customVerificationCallbackWithMetadata: A callback to use that will override NIOSSL's normal verification logic. This callback can also return additional metadata. See ``NIOSSLCustomVerificationCallbackWithMetadata`` for complete documentation.
+    ///
+    ///         This callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed them. The callback will not be used if the
+    ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
+    public init(
+        context: NIOSSLContext,
+        serverHostname: String?,
+        customVerificationCallbackWithMetadata: @escaping (
+            @Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResultWithMetadata>) -> Void
+        )
+    ) throws {
+        try self.init(
+            context: context,
+            serverHostname: serverHostname,
+            customVerificationCallback: .callbackWithMetadata(customVerificationCallbackWithMetadata),
             additionalPeerCertificateVerificationCallback: nil
         )
     }
@@ -98,7 +139,7 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
                 try! NIOSSLClientHandler(
                     context: context,
                     serverHostname: serverHostname,
-                    optionalCustomVerificationCallback: customVerificationCallback,
+                    optionalCustomVerificationCallbackManager: customVerificationCallback?.manager,
                     optionalAdditionalPeerCertificateVerificationCallback: additionalPeerCertificateVerificationCallback
                 )
             ]

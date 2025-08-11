@@ -817,6 +817,14 @@ extension NIOSSLHandler {
     public var peerCertificate: NIOSSLCertificate? {
         self.connection.getPeerCertificate()
     }
+
+    /// Return the *validated* certificate chain from the verified peer after handshake has completed.
+    ///
+    /// The peer presents a set of certificates during the handshake. We validate these certificates and derive a trust
+    /// chain. This property returns the certificates forming that validated trust chain.
+    public var peerValidatedCertificateChain: ValidatedCertificateChain? {
+        self.connection.customVerificationManager?.verificationMetadata?.validatedCertificateChain
+    }
 }
 
 extension Channel {
@@ -834,6 +842,15 @@ extension Channel {
         }
     }
 
+    /// API to retrieve the *validated* certificate chain of the peer.
+    ///
+    /// The peer presents a set of certificates during the handshake. We validate these certificates and derive a trust
+    /// chain. This method returns the certificates forming that validated trust chain.
+    public func nioSSL_peerValidatedCertificateChain() -> EventLoopFuture<ValidatedCertificateChain?> {
+        self.pipeline.handler(type: NIOSSLHandler.self).map {
+            $0.peerValidatedCertificateChain
+        }
+    }
 }
 
 extension ChannelPipeline.SynchronousOperations {
@@ -847,6 +864,15 @@ extension ChannelPipeline.SynchronousOperations {
     public func nioSSL_peerCertificate() throws -> NIOSSLCertificate? {
         let handler = try self.handler(type: NIOSSLHandler.self)
         return handler.peerCertificate
+    }
+
+    /// API to retrieve the *validated* certificate chain of the peer.
+    ///
+    /// The peer presents a set of certificates during the handshake. We validate these certificates and derive a trust
+    /// chain. This method returns the certificates forming that validated trust chain.
+    public func nioSSL_peerValidatedCertificateChain() throws -> ValidatedCertificateChain? {
+        let handler = try self.handler(type: NIOSSLHandler.self)
+        return handler.peerValidatedCertificateChain
     }
 }
 
