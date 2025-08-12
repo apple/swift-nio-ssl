@@ -75,8 +75,8 @@ public struct VerificationMetadata: Sendable, Hashable {
 
     /// Creates an instance with the peer's *validated* certificate chain.
     ///
-    /// - Parameter validatedCertificateChain: The *validated* certificate chain. This must **only** contain the chain
-    /// of trust that was built and validated, which may not exactly match the set of certificates presented by the peer.
+    /// - Parameter validatedCertificateChain: The *validated* certificate chain. This must **only** contain the
+    /// **validated** chain of trust that was built and verified from the certificates presented by the peer.
     public init(_ validatedCertificateChain: ValidatedCertificateChain) {
         self.validatedCertificateChain = validatedCertificateChain
     }
@@ -616,8 +616,7 @@ extension NIOSSLVerificationResultWithMetadata {
 
 /// Represents a *validated* certificate chain.
 ///
-/// - Note: A *validated* certificate chain is the chain of trust that was derived and validated by the receiver. This
-///   may not exactly match the set of certificates presented by the peer.
+/// - Note: A *validated* certificate chain is the chain of trust that was derived and validated by the receiver.
 public struct ValidatedCertificateChain: Sendable, Collection, Hashable {
     let validatedChain: [NIOSSLCertificate]
 
