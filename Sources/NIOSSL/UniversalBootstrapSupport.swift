@@ -109,10 +109,17 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
     ///     - context: The ``NIOSSLContext`` to use with the connection.
     ///     - serverHostname: The hostname of the server we're trying to connect to, if known. This will be used in the SNI extension,
     ///         and used to validate the server certificate.
-    ///     - customVerificationCallbackWithMetadata: A callback to use that will override NIOSSL's normal verification logic. This callback can also return additional metadata. See ``NIOSSLCustomVerificationCallbackWithMetadata`` for complete documentation.
+    ///     - customVerificationCallbackWithMetadata: A callback to use that will override NIOSSL's normal verification
+    ///         logic. If validation is successful, the peer's validated certificate chain can be returned, and later
+    ///         accessed via ``NIOSSLHandler/peerValidatedCertificateChain``. The callback will not be used if the
+    ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has
+    ///         ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
     ///
-    ///         This callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed them. The callback will not be used if the
-    ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
+    ///       - This callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed
+    ///       them. Therefore, a validated chain must be derived *within* this callback (potentially involving fetching
+    ///       additional intermediate certificates). The *validated* certificate chain returned in the promise result
+    ///       **must** be a verified path to a trusted root. Importantly, the certificate chain presented by the peer
+    ///       should not be assumed to be valid.
     public init(
         context: NIOSSLContext,
         serverHostname: String?,

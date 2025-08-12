@@ -61,7 +61,8 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
     ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
     ///
     /// - Note: Use ``init(context:customVerificationCallbackWithMetadata:)`` to provide a custom verification
-    ///         callback that captures metadata such as the peer's *validated* certificate chain, which can then be accessed from the handler.
+    ///   callback where metadata such as the peer's *validated* certificate chain can be returned. This data
+    ///   can then be accessed from the handler.
     public convenience init(
         context: NIOSSLContext,
         customVerificationCallback: @escaping NIOSSLCustomVerificationCallback
@@ -78,10 +79,16 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
     /// - parameters:
     ///     - context: The ``NIOSSLContext`` to use on this connection.
     ///     - customVerificationCallbackWithMetadata: A callback to use that will override NIOSSL's normal verification
-    ///         logic. If validation is successful, metadata can be obtained from the result, e.g the peer's validated certificate chain via ``NIOSSLHandler/peerValidatedCertificateChain``.
+    ///         logic. If validation is successful, the peer's validated certificate chain can be returned, and later
+    ///         accessed via ``NIOSSLHandler/peerValidatedCertificateChain``. The callback will not be used if the
+    ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has
+    ///         ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
     ///
-    ///         This callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed them. The callback will not be used if the
-    ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
+    ///       - This callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed
+    ///       them. Therefore, a validated chain must be derived *within* this callback (potentially involving fetching
+    ///       additional intermediate certificates). The *validated* certificate chain returned in the promise result
+    ///       **must** be a verified path to a trusted root. Importantly, the certificate chain presented by the peer
+    ///       should not be assumed to be valid.
     public convenience init(
         context: NIOSSLContext,
         customVerificationCallbackWithMetadata: @escaping NIOSSLCustomVerificationCallbackWithMetadata
@@ -105,8 +112,9 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
     ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
     ///     - configuration: Configuration for this handler.
     ///
-    /// - Note: Use ``init(context:customVerificationCallbackWithMetadata:configuration:)`` to provide a custom verification
-    ///         callback that captures metadata such as the peer's *validated* certificate chain, which can then be accessed from the handler.
+    /// - Note: Use ``init(context:customVerificationCallbackWithMetadata:configuration:)`` to provide a custom
+    ///   verification callback where metadata such as the peer's *validated* certificate chain can be returned.
+    ///   This data can then be accessed from the handler.
     public convenience init(
         context: NIOSSLContext,
         customVerificationCallback: NIOSSLCustomVerificationCallback? = nil,
@@ -125,10 +133,16 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
     /// - parameters:
     ///     - context: The ``NIOSSLContext`` to use on this connection.
     ///     - customVerificationCallbackWithMetadata: A callback to use that will override NIOSSL's normal verification
-    ///         logic. If validation is successful, metadata can be obtained from the result, e.g the peer's validated certificate chain via ``NIOSSLHandler/peerValidatedCertificateChain``.
+    ///         logic. If validation is successful, the peer's validated certificate chain can be returned, and later
+    ///         accessed via ``NIOSSLHandler/peerValidatedCertificateChain``. The callback will not be used if the
+    ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has
+    ///         ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
     ///
-    ///         This callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed them. The callback will not be used if the
-    ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
+    ///       - This callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed
+    ///       them. Therefore, a validated chain must be derived *within* this callback (potentially involving fetching
+    ///       additional intermediate certificates). The *validated* certificate chain returned in the promise result
+    ///       **must** be a verified path to a trusted root. Importantly, the certificate chain presented by the peer
+    ///       should not be assumed to be valid.
     ///     - configuration: Configuration for this handler.
     public convenience init(
         context: NIOSSLContext,

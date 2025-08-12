@@ -65,7 +65,8 @@ public enum NIOSSLVerificationResultWithMetadata: Sendable, Hashable {
 
 /// The metadata captured during the verification of an X.509 certificate.
 public struct VerificationMetadata: Sendable, Hashable {
-    /// The *validated* chain of certificates
+    /// A container for the validated certificate chain: an array of certificates forming a verified chain of trust
+    /// from the peer's leaf certificate to a trusted root certificate.
     var validatedCertificateChain: ValidatedCertificateChain?
 
     /// Creates an instance with empty metadata.
@@ -124,7 +125,7 @@ public typealias NIOSSLVerificationCallback = (NIOSSLVerificationResult, NIOSSLC
 /// leads to undefined behaviour. It is acceptable to leave the event loop context and then call into the ``NIOSSLHandler``,
 /// as this will not be re-entrant.
 ///
-/// Note that setting this callback will override _all_ verification logic that BoringSSL provides.
+/// - Warning: Note that setting this callback will override _all_ verification logic that BoringSSL provides.
 public typealias NIOSSLCustomVerificationCallback = ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) ->
     Void
 
@@ -148,7 +149,10 @@ public typealias NIOSSLCustomVerificationCallback = ([NIOSSLCertificate], EventL
 /// leads to undefined behaviour. It is acceptable to leave the event loop context and then call into the ``NIOSSLHandler``,
 /// as this will not be re-entrant.
 ///
-/// Note that setting this callback will override _all_ verification logic that BoringSSL provides.
+/// - Warning: Setting this callback will override _all_ verification logic that BoringSSL provides. Therefore, a
+///   validated chain must be derived *within* this callback (potentially involving fetching additional intermediate
+///   certificates). The *validated* certificate chain returned in the promise result **must** be a verified path
+///   to a trusted root. Importantly, the certificate chain presented by the peer should not be assumed to be valid.
 public typealias NIOSSLCustomVerificationCallbackWithMetadata = (
     [NIOSSLCertificate],
     EventLoopPromise<NIOSSLVerificationResultWithMetadata>
@@ -614,9 +618,8 @@ extension NIOSSLVerificationResultWithMetadata {
     }
 }
 
-/// Represents a *validated* certificate chain.
-///
-/// - Note: A *validated* certificate chain is the chain of trust that was derived and validated by the receiver.
+/// Represents a *validated* certificate chain, an array of certificates forming a verified path from the peer's
+/// certificate to a trusted root certificate.
 public struct ValidatedCertificateChain: Sendable, Collection, Hashable {
     let validatedChain: [NIOSSLCertificate]
 
@@ -634,6 +637,13 @@ public struct ValidatedCertificateChain: Sendable, Collection, Hashable {
         self.validatedChain.index(after: i)
     }
 
+    /// Creates a `ValidatedCertificateChain` instance from an array of certificates forming a *verified* chain of trust.
+    ///
+    /// - Parameter validatedChain: An array of `NIOSSLCertificate` objects, representing the verified path from the
+    ///   peer's certificate to a trusted root certificate.
+    ///
+    /// - Important: Do not blindly pass in the array of certificates presented by the peer; the array *must* represent
+    ///   a fully validated and trusted chain.
     public init(_ validatedChain: [NIOSSLCertificate]) {
         self.validatedChain = validatedChain
     }
