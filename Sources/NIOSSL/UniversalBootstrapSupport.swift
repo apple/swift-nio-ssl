@@ -118,8 +118,8 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
     ///       - This callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed
     ///       them. Therefore, a validated chain must be derived *within* this callback (potentially involving fetching
     ///       additional intermediate certificates). The *validated* certificate chain returned in the promise result
-    ///       **must** be a verified path to a trusted root. Importantly, the certificate chain presented by the peer
-    ///       should not be assumed to be valid.
+    ///       **must** be a verified path to a trusted root. Importantly, the certificates presented by the peer should
+    ///       not be assumed to be valid.
     public init(
         context: NIOSSLContext,
         serverHostname: String?,

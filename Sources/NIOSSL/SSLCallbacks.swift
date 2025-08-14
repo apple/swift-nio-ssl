@@ -60,14 +60,15 @@ public enum NIOSSLVerificationResultWithMetadata: Sendable, Hashable {
     /// The certificate was not verified.
     case failed
 
-    static let certificateVerified: Self = .certificateVerified(.init())
+    /// The certificate was successfully verified with no metadata returned.
+    public static let certificateVerified: Self = .certificateVerified(.init())
 }
 
 /// The metadata captured during the verification of an X.509 certificate.
 public struct VerificationMetadata: Sendable, Hashable {
-    /// A container for the validated certificate chain: an array of certificates forming a verified chain of trust
-    /// from the peer's leaf certificate to a trusted root certificate.
-    var validatedCertificateChain: ValidatedCertificateChain?
+    /// A container for the validated certificate chain: an array of certificates forming a verified and ordered chain
+    /// of trust, starting from the peer's leaf certificate to a trusted root certificate.
+    public var validatedCertificateChain: ValidatedCertificateChain?
 
     /// Creates an instance with empty metadata.
     public init() {
@@ -131,7 +132,7 @@ public typealias NIOSSLCustomVerificationCallback = ([NIOSSLCertificate], EventL
 
 /// A custom verification callback that allows completely overriding the certificate verification logic of BoringSSL.
 /// The only difference between this callback and ``NIOSSLCustomVerificationCallback`` is that this callback allows
-/// additional metadata such as the peer's validated certificate chain to be returned.
+/// the peer's validated certificate chain to be returned.
 ///
 /// This verification callback is called no more than once per connection attempt. It is invoked with two arguments:
 ///
@@ -152,7 +153,7 @@ public typealias NIOSSLCustomVerificationCallback = ([NIOSSLCertificate], EventL
 /// - Warning: Setting this callback will override _all_ verification logic that BoringSSL provides. Therefore, a
 ///   validated chain must be derived *within* this callback (potentially involving fetching additional intermediate
 ///   certificates). The *validated* certificate chain returned in the promise result **must** be a verified path
-///   to a trusted root. Importantly, the certificate chain presented by the peer should not be assumed to be valid.
+///   to a trusted root. Importantly, the certificates presented by the peer should not be assumed to be valid.
 public typealias NIOSSLCustomVerificationCallbackWithMetadata = (
     [NIOSSLCertificate],
     EventLoopPromise<NIOSSLVerificationResultWithMetadata>
@@ -481,7 +482,7 @@ internal struct CustomVerifyManager {
 }
 
 extension CustomVerifyManager {
-    private enum PendingResult: Hashable {
+    fileprivate enum PendingResult: Hashable {
         case notStarted
 
         case pendingResult
@@ -489,6 +490,10 @@ extension CustomVerifyManager {
         case complete(NIOSSLVerificationResult)
 
         case completeWithMetadata(NIOSSLVerificationResultWithMetadata)
+    }
+
+    fileprivate protocol PendingResultConvertible {
+        static func pendingResult(_ result: Result<Self, any Error>) -> PendingResult
     }
 }
 
@@ -527,20 +532,17 @@ extension CustomVerifyManager {
         case publicWithMetadata(NIOSSLCustomVerificationCallbackWithMetadata)
         case `internal`(InternalCallback)
 
-        // Prepares the promise that will be provided as an argument to the callback. Since different callbacks have
-        // different result types, the generic `transformResult` closure is required for converting the specific result
-        // type into ``CustomVerifyManager/PendingResult``.
-        func preparePromise<T>(
-            on connection: SSLConnection,
-            transformResult: @escaping (Result<T, any Error>) -> PendingResult
-        ) -> EventLoopPromise<T> {
+        // Prepares the promise that will be provided as an argument to the callback.
+        private static func preparePromise<CallbackResult: PendingResultConvertible>(
+            on connection: SSLConnection
+        ) -> EventLoopPromise<CallbackResult> {
             // We need a promise for the user to use to supply a result.
             guard let eventLoop = connection.eventLoop else {
                 // No event loop. We cannot possibly be negotiating here.
                 preconditionFailure("No event loop present")
             }
 
-            let promise = eventLoop.makePromise(of: T.self)
+            let promise = eventLoop.makePromise(of: CallbackResult.self)
 
             // We need to attach our "do the thing" callback. This will always invoke the "ask me again" API, and it will do so in a separate
             // event loop tick to avoid awkward re-entrancy with this method.
@@ -555,7 +557,7 @@ extension CustomVerifyManager {
                         connection.customVerificationManager == nil
                             || connection.customVerificationManager?.result == .some(.pendingResult)
                     )
-                    connection.customVerificationManager?.result = transformResult(result)
+                    connection.customVerificationManager?.result = CallbackResult.pendingResult(result)
                     connection.parentHandler?.resumeHandshake()
                 }
             }
@@ -568,11 +570,11 @@ extension CustomVerifyManager {
         func invoke(on connection: SSLConnection) {
             switch self {
             case .internal(let internalCallback):
-                let promise = self.preparePromise(on: connection) { .complete(NIOSSLVerificationResult($0)) }
+                let promise: EventLoopPromise<NIOSSLVerificationResult> = Self.preparePromise(on: connection)
 
                 internalCallback(promise)
             case .public(let callback):
-                let promise = self.preparePromise(on: connection) { .complete(NIOSSLVerificationResult($0)) }
+                let promise: EventLoopPromise<NIOSSLVerificationResult> = Self.preparePromise(on: connection)
 
                 do {
                     callback(try connection.peerCertificateChain(), promise)
@@ -580,9 +582,9 @@ extension CustomVerifyManager {
                     promise.fail(error)
                 }
             case .publicWithMetadata(let callback):
-                let promise = self.preparePromise(on: connection) {
-                    .completeWithMetadata(NIOSSLVerificationResultWithMetadata($0))
-                }
+                let promise: EventLoopPromise<NIOSSLVerificationResultWithMetadata> = Self.preparePromise(
+                    on: connection
+                )
 
                 do {
                     callback(try connection.peerCertificateChain(), promise)
@@ -596,31 +598,31 @@ extension CustomVerifyManager {
     internal typealias InternalCallback = (EventLoopPromise<NIOSSLVerificationResult>) -> Void
 }
 
-extension NIOSSLVerificationResult {
-    init(_ result: Result<NIOSSLVerificationResult, Error>) {
+extension NIOSSLVerificationResult: CustomVerifyManager.PendingResultConvertible {
+    fileprivate static func pendingResult(_ result: Result<Self, Error>) -> CustomVerifyManager.PendingResult {
         switch result {
         case .success(let s):
-            self = s
+            .complete(s)
         case .failure:
-            self = .failed
+            .complete(.failed)
         }
     }
 }
 
-extension NIOSSLVerificationResultWithMetadata {
-    init(_ result: Result<NIOSSLVerificationResultWithMetadata, Error>) {
+extension NIOSSLVerificationResultWithMetadata: CustomVerifyManager.PendingResultConvertible {
+    fileprivate static func pendingResult(_ result: Result<Self, Error>) -> CustomVerifyManager.PendingResult {
         switch result {
         case .success(let s):
-            self = s
+            .completeWithMetadata(s)
         case .failure:
-            self = .failed
+            .completeWithMetadata(.failed)
         }
     }
 }
 
-/// Represents a *validated* certificate chain, an array of certificates forming a verified path from the peer's
-/// certificate to a trusted root certificate.
-public struct ValidatedCertificateChain: Sendable, Collection, Hashable {
+/// Represents a *validated* certificate chain, an array of certificates forming a verified and ordered trust path,
+/// starting from the peer's certificate to a trusted root certificate.
+public struct ValidatedCertificateChain: Sendable, Collection, RandomAccessCollection, Hashable {
     let validatedChain: [NIOSSLCertificate]
 
     public typealias Index = Int
@@ -639,12 +641,18 @@ public struct ValidatedCertificateChain: Sendable, Collection, Hashable {
 
     /// Creates a `ValidatedCertificateChain` instance from an array of certificates forming a *verified* chain of trust.
     ///
-    /// - Parameter validatedChain: An array of `NIOSSLCertificate` objects, representing the verified path from the
-    ///   peer's certificate to a trusted root certificate.
+    /// - Parameter validatedChain: An array of `NIOSSLCertificate` objects, representing the verified and ordered trust
+    ///   path, starting from the peer's certificate (first element) to a trusted root certificate (last element), with
+    ///   intermediate certificates ordered in between.
     ///
     /// - Important: Do not blindly pass in the array of certificates presented by the peer; the array *must* represent
     ///   a fully validated and trusted chain.
     public init(_ validatedChain: [NIOSSLCertificate]) {
         self.validatedChain = validatedChain
+    }
+
+    /// Returns the first element of the chain: the leaf certificate.
+    public var leaf: NIOSSLCertificate? {
+        self.validatedChain.first
     }
 }

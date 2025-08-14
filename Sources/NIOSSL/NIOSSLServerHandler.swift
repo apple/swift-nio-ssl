@@ -61,8 +61,8 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
     ///         ``TLSConfiguration`` that was used to construct the ``NIOSSLContext`` has ``TLSConfiguration/certificateVerification`` set to ``CertificateVerification/none``.
     ///
     /// - Note: Use ``init(context:customVerificationCallbackWithMetadata:)`` to provide a custom verification
-    ///   callback where metadata such as the peer's *validated* certificate chain can be returned. This data
-    ///   can then be accessed from the handler.
+    ///   callback where the peer's *validated* certificate chain can be returned. This data can then be accessed from
+    ///   the handler.
     public convenience init(
         context: NIOSSLContext,
         customVerificationCallback: @escaping NIOSSLCustomVerificationCallback
@@ -87,8 +87,8 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
     ///       - This callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed
     ///       them. Therefore, a validated chain must be derived *within* this callback (potentially involving fetching
     ///       additional intermediate certificates). The *validated* certificate chain returned in the promise result
-    ///       **must** be a verified path to a trusted root. Importantly, the certificate chain presented by the peer
-    ///       should not be assumed to be valid.
+    ///       **must** be a verified path to a trusted root. Importantly, the certificates presented by the peer should
+    ///       not be assumed to be valid.
     public convenience init(
         context: NIOSSLContext,
         customVerificationCallbackWithMetadata: @escaping NIOSSLCustomVerificationCallbackWithMetadata
@@ -113,8 +113,8 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
     ///     - configuration: Configuration for this handler.
     ///
     /// - Note: Use ``init(context:customVerificationCallbackWithMetadata:configuration:)`` to provide a custom
-    ///   verification callback where metadata such as the peer's *validated* certificate chain can be returned.
-    ///   This data can then be accessed from the handler.
+    ///   verification callback where the peer's *validated* certificate chain can be returned. This data can then be
+    ///   accessed from the handler.
     public convenience init(
         context: NIOSSLContext,
         customVerificationCallback: NIOSSLCustomVerificationCallback? = nil,
@@ -141,8 +141,8 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
     ///       - This callback is provided the certificates presented by the peer. NIOSSL will not have pre-processed
     ///       them. Therefore, a validated chain must be derived *within* this callback (potentially involving fetching
     ///       additional intermediate certificates). The *validated* certificate chain returned in the promise result
-    ///       **must** be a verified path to a trusted root. Importantly, the certificate chain presented by the peer
-    ///       should not be assumed to be valid.
+    ///       **must** be a verified path to a trusted root. Importantly, the certificates presented by the peer should
+    ///       not be assumed to be valid.
     ///     - configuration: Configuration for this handler.
     public convenience init(
         context: NIOSSLContext,
