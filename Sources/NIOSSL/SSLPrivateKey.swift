@@ -228,7 +228,7 @@ public final class NIOSSLPrivateKey {
     }
 
     /// Create a ``NIOSSLPrivateKey`` from a file at a given path in either PEM or
-    /// DER format, providing a passphrase callback.
+    /// DER format.
     ///
     /// - parameters:
     ///     - file: The path to the file to load.
