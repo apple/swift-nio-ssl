@@ -648,11 +648,13 @@ public struct ValidatedCertificateChain: Sendable, Collection, RandomAccessColle
     /// - Important: Do not blindly pass in the array of certificates presented by the peer; the array *must* represent
     ///   a fully validated and trusted chain.
     public init(_ validatedChain: [NIOSSLCertificate]) {
+        precondition(validatedChain.count > 0, "The provided validated chain must have at least one certificate")
         self.validatedChain = validatedChain
     }
 
     /// Returns the first element of the chain: the leaf certificate.
-    public var leaf: NIOSSLCertificate? {
-        self.validatedChain.first
+    public var leaf: NIOSSLCertificate {
+        // We can safely force unwrap: the initializer enforces at least one element in `validatedChain`
+        self.validatedChain.first!
     }
 }
