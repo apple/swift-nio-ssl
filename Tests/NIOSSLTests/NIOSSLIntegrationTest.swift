@@ -2364,7 +2364,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertEqual(certificates.withLockedValue { $0 }, [NIOSSLIntegrationTest.cert])
     }
 
-    func testExtractingCertificateChainFromCustomVerificationCallback() throws {
+    func testCustomVerificationCallbackExtractingCertificateChain() throws {
         let context = try configuredSSLContext()
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
@@ -2411,6 +2411,105 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertEqual(newBuffer, originalBuffer)
 
         // We should be able to extract the certificate chain from the channel
+        let extractedCertChain = try clientChannel.nioSSL_peerValidatedCertificateChain().wait()
+        XCTAssertEqual(extractedCertChain?.validatedChain, [NIOSSLIntegrationTest.cert])
+    }
+
+    func testCustomVerificationCallbackNotReturningChain() throws {
+        let context = try configuredSSLContext()
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let serverChannel: Channel = try serverTLSChannel(
+            context: context,
+            handlers: [SimpleEchoServer()],
+            group: group
+        )
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
+
+        let clientChannel = try clientTLSChannel(
+            context: configuredClientContext(),
+            preHandlers: [],
+            postHandlers: [PromiseOnReadHandler(promise: completionPromise)],
+            group: group,
+            connectingTo: serverChannel.localAddress!,
+            serverHostname: "localhost",
+            customVerificationCallback: .callbackWithMetadata { innerCertificates, promise in
+                // Initialize an empty Verification metadata without a chain.
+                promise.succeed(.certificateVerified(VerificationMetadata()))
+            }
+        )
+        defer {
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        XCTAssertNoThrow(try clientChannel.writeAndFlush(originalBuffer).wait())
+
+        let newBuffer = try completionPromise.futureResult.wait()
+        XCTAssertEqual(newBuffer, originalBuffer)
+
+        // We should not be able to extract the chain: no chain was returned
+        XCTAssertNil(try clientChannel.nioSSL_peerValidatedCertificateChain().wait())
+    }
+
+    func testCustomVerificationCallbackDelayReturningCertificateChain() throws {
+        let context = try configuredSSLContext()
+
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        let serverChannel: Channel = try serverTLSChannel(
+            context: context,
+            handlers: [SimpleEchoServer()],
+            group: group
+        )
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let completionPromise: EventLoopPromise<ByteBuffer> = group.next().makePromise()
+
+        let clientChannel = try clientTLSChannel(
+            context: configuredClientContext(),
+            preHandlers: [],
+            postHandlers: [PromiseOnReadHandler(promise: completionPromise)],
+            group: group,
+            connectingTo: serverChannel.localAddress!,
+            serverHostname: "localhost",
+            customVerificationCallback: CustomCallback.callbackWithMetadata { innerCertificates, promise in
+                // Complete the promise in 10 milliseconds
+                promise.futureResult.eventLoop.scheduleTask(in: .milliseconds(10)) {
+                    promise.succeed(
+                        .certificateVerified(
+                            VerificationMetadata(ValidatedCertificateChain(innerCertificates))
+                        )
+                    )
+                }
+            }
+        )
+        defer {
+            XCTAssertNoThrow(try clientChannel.close().wait())
+        }
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        XCTAssertNoThrow(try clientChannel.writeAndFlush(originalBuffer).wait())
+
+        let newBuffer = try completionPromise.futureResult.wait()
+        XCTAssertEqual(newBuffer, originalBuffer)
+
+        // We should be able to extract the certificate chain.
         let extractedCertChain = try clientChannel.nioSSL_peerValidatedCertificateChain().wait()
         XCTAssertEqual(extractedCertChain?.validatedChain, [NIOSSLIntegrationTest.cert])
     }

@@ -59,9 +59,6 @@ public enum NIOSSLVerificationResultWithMetadata: Sendable, Hashable {
 
     /// The certificate was not verified.
     case failed
-
-    /// The certificate was successfully verified with no metadata returned.
-    public static let certificateVerified: Self = .certificateVerified(.init())
 }
 
 /// The metadata captured during the verification of an X.509 certificate.
