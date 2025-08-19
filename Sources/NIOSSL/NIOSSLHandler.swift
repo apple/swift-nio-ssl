@@ -829,10 +829,10 @@ extension NIOSSLHandler {
     /// To create a `NIOSSLClientHandler` handler with a custom verification callback that can return the certificate
     /// chain, use:
     /// - ``NIOSSLClientHandler/init(context:serverHostname:customVerificationCallbackWithMetadata:)`` or
-    /// - ``NIOSSLClientHandler/init(context:serverHostname:customVerificationCallbackWithMetadata:configuration:)``
+    /// - ``NIOSSLClientHandler/init(context:serverHostname:configuration:customVerificationCallbackWithMetadata:)``
     /// For `NIOSSLServerHandler`, use:
     /// - ``NIOSSLServerHandler/init(context:customVerificationCallbackWithMetadata:)`` or
-    /// - ``NIOSSLServerHandler/init(context:customVerificationCallbackWithMetadata:configuration:)``
+    /// - ``NIOSSLServerHandler/init(context:configuration:customVerificationCallbackWithMetadata:)``
     ///
     public var peerValidatedCertificateChain: ValidatedCertificateChain? {
         self.connection.customVerificationManager?.verificationMetadata?.validatedCertificateChain
