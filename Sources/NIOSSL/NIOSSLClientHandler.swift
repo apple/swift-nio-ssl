@@ -219,8 +219,8 @@ public final class NIOSSLClientHandler: NIOSSLHandler {
     public convenience init(
         context: NIOSSLContext,
         serverHostname: String?,
-        customVerificationCallbackWithMetadata: @escaping NIOSSLCustomVerificationCallbackWithMetadata,
-        configuration: Configuration
+        configuration: Configuration,
+        customVerificationCallbackWithMetadata: @escaping NIOSSLCustomVerificationCallbackWithMetadata
     ) throws {
         try self.init(
             context: context,

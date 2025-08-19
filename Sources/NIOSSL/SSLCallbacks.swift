@@ -67,16 +67,11 @@ public struct VerificationMetadata: Sendable, Hashable {
     /// of trust, starting from the peer's leaf certificate to a trusted root certificate.
     public var validatedCertificateChain: ValidatedCertificateChain?
 
-    /// Creates an instance with empty metadata.
-    public init() {
-
-    }
-
     /// Creates an instance with the peer's *validated* certificate chain.
     ///
-    /// - Parameter validatedCertificateChain: The *validated* certificate chain. This must **only** contain the
-    /// **validated** chain of trust that was built and verified from the certificates presented by the peer.
-    public init(_ validatedCertificateChain: ValidatedCertificateChain) {
+    /// - Parameter validatedCertificateChain: An optional *validated* certificate chain. If provided, it must **only**
+    /// contain the **validated** chain of trust that was built and verified from the certificates presented by the peer.
+    public init(_ validatedCertificateChain: ValidatedCertificateChain?) {
         self.validatedCertificateChain = validatedCertificateChain
     }
 }
@@ -644,6 +639,8 @@ public struct ValidatedCertificateChain: Sendable, Collection, RandomAccessColle
     ///
     /// - Important: Do not blindly pass in the array of certificates presented by the peer; the array *must* represent
     ///   a fully validated and trusted chain.
+    ///
+    /// - Precondition: `validatedChain` must contain at least one certificate.
     public init(_ validatedChain: [NIOSSLCertificate]) {
         precondition(validatedChain.count > 0, "The provided validated chain must have at least one certificate")
         self.validatedChain = validatedChain

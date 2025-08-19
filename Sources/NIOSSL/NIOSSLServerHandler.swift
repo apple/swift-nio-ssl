@@ -146,8 +146,8 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
     ///     - configuration: Configuration for this handler.
     public convenience init(
         context: NIOSSLContext,
-        customVerificationCallbackWithMetadata: @escaping NIOSSLCustomVerificationCallbackWithMetadata,
-        configuration: Configuration
+        configuration: Configuration,
+        customVerificationCallbackWithMetadata: @escaping NIOSSLCustomVerificationCallbackWithMetadata
     ) {
         self.init(
             context: context,

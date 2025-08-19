@@ -2442,8 +2442,8 @@ class NIOSSLIntegrationTest: XCTestCase {
             connectingTo: serverChannel.localAddress!,
             serverHostname: "localhost",
             customVerificationCallback: .callbackWithMetadata { innerCertificates, promise in
-                // Initialize an empty Verification metadata without a chain.
-                promise.succeed(.certificateVerified(VerificationMetadata()))
+                // Initialize an empty VerificationMetadata without a chain.
+                promise.succeed(.certificateVerified(VerificationMetadata(nil)))
             }
         )
         defer {
