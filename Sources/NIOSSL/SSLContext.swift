@@ -297,7 +297,7 @@ public final class NIOSSLContext {
     private var keyLogManager: KeyLogCallbackManager?
     internal var pskClientConfigurationCallback: _NIOPSKClientIdentityProvider?
     internal var pskServerConfigurationCallback: _NIOPSKServerIdentityProvider?
-    internal let configuration: TLSConfiguration
+    public let configuration: TLSConfiguration
 
     /// Initialize a context that will create multiple connections, all with the same
     /// configuration.
