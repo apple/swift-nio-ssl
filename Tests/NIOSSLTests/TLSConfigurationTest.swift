@@ -298,6 +298,10 @@ class TLSConfigurationTest: XCTestCase {
     func assertHandshakeSucceededEventLoop(
         withClientConfig clientConfig: TLSConfiguration,
         andServerConfig serverConfig: TLSConfiguration,
+        serverCustomVerificationCallback: (
+            @Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) ->
+                Void
+        )? = nil,
         file: StaticString = #filePath,
         line: UInt = #line
     ) throws {
@@ -314,6 +318,7 @@ class TLSConfigurationTest: XCTestCase {
         try self.assertHandshakeSucceededEventLoop(
             withClientContext: clientContext,
             andServerContext: serverContext,
+            serverCustomVerificationCallback: serverCustomVerificationCallback,
             file: file,
             line: line
         )
@@ -325,6 +330,10 @@ class TLSConfigurationTest: XCTestCase {
     func assertHandshakeSucceededEventLoop(
         withClientContext clientContext: NIOSSLContext,
         andServerContext serverContext: NIOSSLContext,
+        serverCustomVerificationCallback: (
+            @Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) ->
+                Void
+        )? = nil,
         file: StaticString = #filePath,
         line: UInt = #line
     ) throws {
@@ -339,7 +348,12 @@ class TLSConfigurationTest: XCTestCase {
         let handshakeWatcher = WaitForHandshakeHandler(handshakeResultPromise: handshakeResultPromise)
 
         let serverChannel = try assertNoThrowWithValue(
-            serverTLSChannel(context: serverContext, handlers: [], group: group),
+            serverTLSChannel(
+                context: serverContext,
+                handlers: [],
+                group: group,
+                customVerificationCallback: serverCustomVerificationCallback
+            ),
             file: file,
             line: line
         )
@@ -2039,6 +2053,43 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.trustRoots = .certificates([TLSConfigurationTest.cert2])
 
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    /// This test ensures that, when a certificate is overriden, only the new chain is sent, not the previous one.
+    /// This test would have failed prior to the commit in which it was added.
+    func testClientSideCertSelectionWithChain() throws {
+        let (testIntermediate, _) = generateSelfSignedCert()
+        let (testLeaf, privateKey) = generateSelfSignedCert()
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateChain = [.certificate(testLeaf), .certificate(testIntermediate)]
+        clientConfig.privateKey = .privateKey(privateKey)
+
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+        // This callback should be a no-op, it returns the same certs we had already set anyway
+        clientConfig.sslContextCallback = { _, promise in
+            var `override` = NIOSSLContextConfigurationOverride()
+            override.certificateChain = [.certificate(testLeaf), .certificate(testIntermediate)]
+            override.privateKey = .privateKey(privateKey)
+            promise.succeed(override)
+        }
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.certificateVerification = .noHostnameVerification
+
+        try assertHandshakeSucceededEventLoop(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            serverCustomVerificationCallback: { certificates, promise in
+                XCTAssertEqual(certificates.count, 2)
+                XCTAssertEqual(certificates, [testLeaf, testIntermediate])
+                // Always succeed for the purposes of this test
+                promise.succeed(.certificateVerified)
+            }
+        )
     }
 
     func testServerSideCertSelection() throws {

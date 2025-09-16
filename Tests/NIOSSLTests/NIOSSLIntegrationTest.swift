@@ -376,6 +376,10 @@ internal func serverTLSChannel(
     context: NIOSSLContext,
     handlers: @autoclosure @escaping @Sendable () -> [ChannelHandler],
     group: EventLoopGroup,
+    customVerificationCallback: (
+        @Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) ->
+            Void
+    )? = nil,
     file: StaticString = #filePath,
     line: UInt = #line
 ) throws -> Channel {
@@ -385,6 +389,7 @@ internal func serverTLSChannel(
             preHandlers: [],
             postHandlers: handlers(),
             group: group,
+            customVerificationCallback: customVerificationCallback,
             file: file,
             line: line
         ),
