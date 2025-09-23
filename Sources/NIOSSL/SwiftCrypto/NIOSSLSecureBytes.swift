@@ -240,8 +240,11 @@ extension NIOSSLSecureBytes {
     }
 }
 
+// This conformance is technically redundant - Swift 6.2 compiler finally caught this
+#if compiler(<6.2)
 @available(*, unavailable)
 extension NIOSSLSecureBytes.Backing: Sendable {}
+#endif
 
 extension NIOSSLSecureBytes.Backing {
     @usableFromInline
