@@ -114,7 +114,7 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
         let matched = try validIdentityForService(
             serverHostname: nil,
-            socketAddress: try .makeAddressResolvingHost("192.168.0.1", port: 443),
+            socketAddress: try .init(ipAddress: "192.168.0.1", port: 443),
             leafCertificate: cert
         )
         XCTAssertTrue(matched)
@@ -122,7 +122,7 @@ class IdentityVerificationTest: XCTestCase {
 
     func testAcceptsIpv6Address() throws {
         guard try ipv6Supported() else { return }
-        let ipv6Address = try SocketAddress.makeAddressResolvingHost("2001:db8::1", port: 443)
+        let ipv6Address = try SocketAddress(ipAddress: "2001:db8::1", port: 443)
 
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
         let matched = try validIdentityForService(
@@ -137,7 +137,7 @@ class IdentityVerificationTest: XCTestCase {
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
         let matched = try validIdentityForService(
             serverHostname: nil,
-            socketAddress: try .makeAddressResolvingHost("192.168.0.2", port: 443),
+            socketAddress: try .init(ipAddress: "192.168.0.2", port: 443),
             leafCertificate: cert
         )
         XCTAssertFalse(matched)
@@ -145,7 +145,7 @@ class IdentityVerificationTest: XCTestCase {
 
     func testRejectsIncorrectIpv6Address() throws {
         guard try ipv6Supported() else { return }
-        let ipv6Address = try SocketAddress.makeAddressResolvingHost("2001:db8::2", port: 443)
+        let ipv6Address = try SocketAddress(ipAddress: "2001:db8::2", port: 443)
 
         let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
         let matched = try validIdentityForService(
