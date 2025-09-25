@@ -123,9 +123,10 @@ public struct NIOSSLClientTLSProvider<Bootstrap: NIOClientTCPBootstrapProtocol>:
     public init(
         context: NIOSSLContext,
         serverHostname: String?,
-        customVerificationCallbackWithMetadata: @escaping (
-            @Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResultWithMetadata>) -> Void
-        )
+        customVerificationCallbackWithMetadata:
+            @escaping (
+                @Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResultWithMetadata>) -> Void
+            )
     ) throws {
         try self.init(
             context: context,

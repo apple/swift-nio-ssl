@@ -139,7 +139,7 @@ private func serverPSKCallback(
 
     guard let serverCallback = parentSwiftContext.pskServerConfigurationCallback,
         let unwrappedIdentity = identity,  // Incoming identity
-        let strIdentity = String(validatingUTF8: unwrappedIdentity),
+        let strIdentity = String(validatingCString: unwrappedIdentity),
         let outputPSK = psk  // Output PSK key.
     else {
         return 0
@@ -198,7 +198,7 @@ private func clientPSKCallback(
     }
 
     // If set, build out a hint otherwise fallback to an empty string and pass it into the client callback.
-    let clientHint: String? = hint.flatMap({ String(validatingUTF8: $0) })
+    let clientHint: String? = hint.flatMap({ String(validatingCString: $0) })
 
     // Take the hint and pass it down to the callback to get associated PSK from callback
     let pskIdentity: PSKClientIdentityResponse?

@@ -320,9 +320,10 @@ extension NIOSSLContextConfigurationOverride {
 /// Within this callback, the user can create and return a new `NIOSSLContextConfigurationOverride` for the given host,
 /// and the delta will be applied to the current handshake configuration.
 ///
-public typealias NIOSSLContextCallback = @Sendable (
-    NIOSSLClientExtensionValues, EventLoopPromise<NIOSSLContextConfigurationOverride>
-) -> Void
+public typealias NIOSSLContextCallback =
+    @Sendable (
+        NIOSSLClientExtensionValues, EventLoopPromise<NIOSSLContextConfigurationOverride>
+    ) -> Void
 
 /// A struct that provides helpers for working with a NIOSSLContextCallback.
 internal struct CustomContextManager: Sendable {
