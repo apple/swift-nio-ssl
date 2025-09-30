@@ -15,10 +15,6 @@
 
 import PackageDescription
 
-// Used only for environment variables, does not make its way
-// into the product code.
-import class Foundation.ProcessInfo
-
 // This package contains a vendored copy of BoringSSL. For ease of tracking
 // down problems with the copy of BoringSSL in use, we include a copy of the
 // commit hash of the revision of BoringSSL included in the given release.
@@ -34,7 +30,7 @@ import class Foundation.ProcessInfo
 /// of the Swift toolchain, and so need to use local checkouts of our
 /// dependencies.
 func generateDependencies() -> [Package.Dependency] {
-    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
+    if Context.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         return [
             .package(url: "https://github.com/apple/swift-nio.git", from: "2.80.0")
         ]
