@@ -29,7 +29,7 @@ let server = ServerBootstrap(group: group)
         let handler = NIOSSLServerHandler(context: sslContext)
 
         [...]
-        channel.pipeline.addHandler(handler)
+        channel.pipeline.syncOperations.addHandler(handler)
         [...]
     }
 ```
@@ -46,7 +46,7 @@ let client = ClientBootstrap(group: group)
         let handler = try NIOSSLClientHandler(context: sslContext)
 
         [...]
-        channel.pipeline.addHandler(handler)
+        channel.pipeline.syncOperations.addHandler(handler)
         [...]
     }
 ```
