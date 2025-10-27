@@ -174,8 +174,17 @@ public enum NIOSSLSerializationFormats: Sendable {
 
 /// Certificate verification modes.
 public enum CertificateVerification: Sendable {
-    /// All certificate verification disabled.
-    case none
+    public struct NoneOptions: Sendable, Equatable, Hashable {
+        /// While the peer does not have to give you certificates,
+        /// they can optionally be verified if the peer offers them.
+        public var validatePresentedCertificates: Bool
+        fileprivate init() {
+            // Backwards-compatible
+            self.validatePresentedCertificates = false
+        }
+    }
+    /// Usable through ``none`` and ``optionalVerification``.
+    case none(NoneOptions)
 
     /// Certificates will be validated against the trust store, but will not
     /// be checked to see if they are valid for the given hostname.
@@ -184,6 +193,27 @@ public enum CertificateVerification: Sendable {
     /// Certificates will be validated against the trust store and checked
     /// against the hostname of the service we are contacting.
     case fullVerification
+}
+
+extension CertificateVerification {
+
+    /// Certificates will be validated if they are presented by the peer, i.e., if the peer presents
+    /// certificates they must pass validation. However, if the peer does not present certificates,
+    /// the connection will be accepted.
+    public static var optionalVerification: CertificateVerification {
+        var options = NoneOptions()
+        options.validatePresentedCertificates = true
+        return .none(options)
+    }
+
+    /// All certificate verification disabled.
+    public static var none: CertificateVerification {
+        .none(NoneOptions())
+    }
+}
+
+extension CertificateVerification: Hashable {
+    // empty
 }
 
 /// Support for TLS renegotiation.
