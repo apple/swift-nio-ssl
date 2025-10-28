@@ -13,11 +13,7 @@
 //===----------------------------------------------------------------------===//
 import NIOCore
 
-#if compiler(>=6.1)
-internal import CNIOBoringSSL
-#else
 @_implementationOnly import CNIOBoringSSL
-#endif
 
 // We can only use Security.framework to validate TLS certificates on Apple platforms.
 #if canImport(Darwin)

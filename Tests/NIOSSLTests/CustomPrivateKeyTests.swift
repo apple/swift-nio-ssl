@@ -19,11 +19,7 @@ import XCTest
 
 @testable import NIOSSL
 
-#if compiler(>=6.1)
-internal import CNIOBoringSSL
-#else
 @_implementationOnly import CNIOBoringSSL
-#endif
 
 // This is a helper that lets us work with an EVP_PKEY.
 //

@@ -22,11 +22,7 @@ import XCTest
 
 @testable import NIOSSL
 
-#if compiler(>=6.1)
-internal import CNIOBoringSSL
-#else
 @_implementationOnly import CNIOBoringSSL
-#endif
 
 final class ErrorCatcher<T: Error>: ChannelInboundHandler, Sendable {
     public typealias InboundIn = Any

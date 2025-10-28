@@ -12,11 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if compiler(>=6.1)
-internal import CNIOBoringSSL
-#else
 @_implementationOnly import CNIOBoringSSL
-#endif
 
 /// Defines the type of X509 name
 public struct SSLCertificateNameType: Equatable, Hashable, Sendable {

@@ -12,11 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if compiler(>=6.1)
-internal import CNIOBoringSSL
-#else
 @_implementationOnly import CNIOBoringSSL
-#endif
 
 /// An ``NIOSSLPassphraseCallback`` is a callback that will be invoked by NIOSSL when it needs to
 /// get access to a private key that is stored in encrypted form.
