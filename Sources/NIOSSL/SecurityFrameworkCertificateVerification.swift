@@ -1,4 +1,3 @@
-@_implementationOnly import CNIOBoringSSL
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the SwiftNIO open source project
@@ -12,6 +11,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
+@_implementationOnly import CNIOBoringSSL
 import NIOCore
 
 // We can only use Security.framework to validate TLS certificates on Apple platforms.
