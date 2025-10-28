@@ -12,15 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import NIOCore
-
-#if compiler(>=6.1)
-internal import CNIOBoringSSL
-internal import CNIOBoringSSLShims
-#else
 @_implementationOnly import CNIOBoringSSL
 @_implementationOnly import CNIOBoringSSLShims
-#endif
+import NIOCore
 
 #if canImport(Darwin)
 import Darwin.C
