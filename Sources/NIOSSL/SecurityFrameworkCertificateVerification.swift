@@ -1,3 +1,4 @@
+@_implementationOnly import CNIOBoringSSL
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the SwiftNIO open source project
@@ -12,8 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 import NIOCore
-
-@_implementationOnly import CNIOBoringSSL
 
 // We can only use Security.framework to validate TLS certificates on Apple platforms.
 #if canImport(Darwin)

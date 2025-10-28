@@ -12,10 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_implementationOnly import CNIOBoringSSL
 import NIOCore
 import NIOTLS
-
-@_implementationOnly import CNIOBoringSSL
 
 /// The base class for all NIOSSL handlers.
 ///

@@ -12,13 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_implementationOnly import CNIOBoringSSL
 import Foundation
 import NIOCore
 import NIOEmbedded
 
 @testable import NIOSSL
-
-@_implementationOnly import CNIOBoringSSL
 
 let samplePemCert = """
     -----BEGIN CERTIFICATE-----

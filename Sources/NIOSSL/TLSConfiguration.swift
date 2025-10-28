@@ -12,9 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import NIOCore
-
 @_implementationOnly import CNIOBoringSSL
+import NIOCore
 
 /// Known and supported TLS versions.
 public enum TLSVersion: Sendable {

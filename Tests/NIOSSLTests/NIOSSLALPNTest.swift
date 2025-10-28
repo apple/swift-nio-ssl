@@ -12,13 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_implementationOnly import CNIOBoringSSL
 import NIOCore
 import NIOPosix
 import NIOSSL
 import NIOTLS
 import XCTest
-
-@_implementationOnly import CNIOBoringSSL
 
 class NIOSSLALPNTest: XCTestCase {
     private func configuredSSLContextWithAlpnProtocols(protocols: [String]) throws -> NIOSSLContext {

@@ -12,11 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_implementationOnly import CNIOBoringSSL
 import XCTest
 
 @testable import NIOSSL
-
-@_implementationOnly import CNIOBoringSSL
 
 private final class OIDMemoryOwner {
     var reference: OpaquePointer!

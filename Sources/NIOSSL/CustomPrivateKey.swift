@@ -12,9 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import NIOCore
-
 @_implementationOnly import CNIOBoringSSL
+import NIOCore
 
 /// ``NIOSSLCustomPrivateKey`` defines the interface of a custom, non-BoringSSL private key.
 ///

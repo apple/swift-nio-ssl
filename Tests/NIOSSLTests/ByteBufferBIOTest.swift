@@ -12,12 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_implementationOnly import CNIOBoringSSL
 import NIOCore
 import XCTest
 
 @testable import NIOSSL
-
-@_implementationOnly import CNIOBoringSSL
 
 final class ByteBufferBIOTest: XCTestCase {
     override func setUp() {

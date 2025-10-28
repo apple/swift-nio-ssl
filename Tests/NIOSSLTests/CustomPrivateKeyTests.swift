@@ -12,14 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_implementationOnly import CNIOBoringSSL
 import NIOConcurrencyHelpers
 import NIOCore
 import NIOEmbedded
 import XCTest
 
 @testable import NIOSSL
-
-@_implementationOnly import CNIOBoringSSL
 
 // This is a helper that lets us work with an EVP_PKEY.
 //
