@@ -76,7 +76,12 @@ final class ObjectIdentifierTests: XCTestCase {
 
     func testUnowned() {
         var owner: Optional = OIDMemoryOwner("1.2.3")!
+
+        #if compiler(>=6.3)
+        weak let weakReferenceToOwner = owner
+        #else
         weak var weakReferenceToOwner = owner
+        #endif
 
         var oid: Optional = NIOSSLObjectIdentifier(borrowing: owner!.reference, owner: owner!)
         XCTAssertEqual(oid?.description, "1.2.3")
@@ -95,7 +100,12 @@ final class ObjectIdentifierTests: XCTestCase {
 
     func testCopy() {
         var owner: Optional = OIDMemoryOwner("1.2.3")!
+
+        #if compiler(>=6.3)
+        weak let weakReferenceToOwner = owner
+        #else
         weak var weakReferenceToOwner = owner
+        #endif
 
         let oid: Optional = withExtendedLifetime(owner) {
             NIOSSLObjectIdentifier(copyOf: $0?.reference)
