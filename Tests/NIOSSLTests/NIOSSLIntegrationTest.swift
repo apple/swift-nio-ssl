@@ -2656,8 +2656,8 @@ class NIOSSLIntegrationTest: XCTestCase {
     }
 
     func testMacOSConnectionSuccessfulIfServerVerificationOptionalAndPeerPresentsTrustedCert() throws {
-        // This test checks that when setting verification to `.optionalVerification`, a peer cannot successfully
-        // connect when they present an untrusted certificate. On macOS, this exercises the SecTrust validation backend,
+        // This test checks that when setting verification to `.optionalVerification`, a peer can successfully
+        // connect when they present a trusted certificate. On macOS, this exercises the SecTrust validation backend,
         // as `serverConfig.trustRoots` is set to `.default` and the client cert is registered under
         // `additionalTrustRoots` (see the behavioral matrix in `NIOSSL/Docs.docc/trust-roots-behavior.md`).
         var clientConfig = TLSConfiguration.makeClientConfiguration()
