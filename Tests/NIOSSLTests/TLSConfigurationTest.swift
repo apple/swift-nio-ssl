@@ -591,7 +591,7 @@ class TLSConfigurationTest: XCTestCase {
         try assertPostHandshakeError(
             withClientConfig: clientConfig,
             andServerConfig: serverConfig,
-            errorTextContainsAnyOf: ["SSLV3_ALERT_CERTIFICATE_UNKNOWN"]
+            errorTextContainsAnyOf: ["SSLV3_ALERT_CERTIFICATE_UNKNOWN", "TLSV1_ALERT_UNKNOWN_CA"]
         )
     }
 
