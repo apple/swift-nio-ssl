@@ -660,8 +660,6 @@ extension NIOSSLContext {
             if opts.validatePresentedCertificates {
                 try setupVerification(context, sendCANames, trustRoots, additionalTrustRoots, .peerCertificatesOptional)
             }
-        default:
-            break
         }
     }
 
