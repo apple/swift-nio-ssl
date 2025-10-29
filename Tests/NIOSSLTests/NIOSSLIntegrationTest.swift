@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_implementationOnly import CNIOBoringSSL
 import NIOConcurrencyHelpers
 import NIOCore
 import NIOEmbedded
@@ -20,12 +21,6 @@ import NIOTLS
 import XCTest
 
 @testable import NIOSSL
-
-#if compiler(>=6.1)
-internal import CNIOBoringSSL
-#else
-@_implementationOnly import CNIOBoringSSL
-#endif
 
 public func assertNoThrowWithValue<T>(
     _ body: @autoclosure () throws -> T,
@@ -376,6 +371,10 @@ internal func serverTLSChannel(
     context: NIOSSLContext,
     handlers: @autoclosure @escaping @Sendable () -> [ChannelHandler],
     group: EventLoopGroup,
+    customVerificationCallback: (
+        @Sendable ([NIOSSLCertificate], EventLoopPromise<NIOSSLVerificationResult>) ->
+            Void
+    )? = nil,
     file: StaticString = #filePath,
     line: UInt = #line
 ) throws -> Channel {
@@ -385,6 +384,7 @@ internal func serverTLSChannel(
             preHandlers: [],
             postHandlers: handlers(),
             group: group,
+            customVerificationCallback: customVerificationCallback,
             file: file,
             line: line
         ),
@@ -428,8 +428,8 @@ internal func serverTLSChannel(
     )
 }
 
-typealias SendableAdditionalPeerCertificateVerificationCallback = @Sendable (NIOSSLCertificate, Channel) ->
-    EventLoopFuture<Void>
+typealias SendableAdditionalPeerCertificateVerificationCallback =
+    @Sendable (NIOSSLCertificate, Channel) -> EventLoopFuture<Void>
 
 internal func clientTLSChannel(
     context: NIOSSLContext,
@@ -472,7 +472,8 @@ private struct DeprecatedTLSProviderForTests<Bootstrap: NIOClientTCPBootstrapPro
     public init(
         context: NIOSSLContext,
         serverHostname: String?,
-        verificationCallback: @escaping @Sendable (NIOSSLVerificationResult, NIOSSLCertificate) ->
+        verificationCallback:
+            @escaping @Sendable (NIOSSLVerificationResult, NIOSSLCertificate) ->
             NIOSSLVerificationResult
     ) {
         self.context = context
@@ -481,14 +482,14 @@ private struct DeprecatedTLSProviderForTests<Bootstrap: NIOClientTCPBootstrapPro
     }
 
     public func enableTLS(_ bootstrap: Bootstrap) -> Bootstrap {
-        bootstrap.protocolHandlers {
+        bootstrap.protocolHandlers { [context, serverHostname, verificationCallback] in
             // NIOSSLClientHandler.init only throws because of `malloc` error and invalid SNI hostnames. We want to crash
             // on malloc error and we pre-checked the SNI hostname in `init` so that should be impossible here.
             [
                 try! NIOSSLClientHandler(
-                    context: self.context,
-                    serverHostname: self.serverHostname,
-                    verificationCallback: self.verificationCallback
+                    context: context,
+                    serverHostname: serverHostname,
+                    verificationCallback: verificationCallback
                 )
             ]
         }

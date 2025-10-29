@@ -12,13 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import NIOCore
-
-#if compiler(>=6.1)
-internal import CNIOBoringSSL
-#else
 @_implementationOnly import CNIOBoringSSL
-#endif
+import NIOCore
 
 /// Wraps a single error from BoringSSL.
 public struct BoringSSLInternalError: Equatable, CustomStringConvertible, Sendable {

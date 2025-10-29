@@ -12,13 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if compiler(>=6.1)
-internal import CNIOBoringSSL
-internal import CNIOBoringSSLShims
-#else
 @_implementationOnly import CNIOBoringSSL
 @_implementationOnly import CNIOBoringSSLShims
-#endif
 
 /// A representation of an ASN.1 Object Identifier (OID)
 public struct NIOSSLObjectIdentifier {

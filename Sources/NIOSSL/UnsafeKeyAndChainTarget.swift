@@ -11,11 +11,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-#if compiler(>=6.1)
-internal import CNIOBoringSSL
-#else
 @_implementationOnly import CNIOBoringSSL
-#endif
 
 enum UnsafeKeyAndChainTarget {
     case sslContext(OpaquePointer)
@@ -24,6 +20,9 @@ enum UnsafeKeyAndChainTarget {
     func useCertificateChain(
         _ certificateChain: [NIOSSLCertificateSource]
     ) throws {
+        // Clear the existing chain first.
+        // So that when this function is called, `certificateChain` becomes the only certificates in the context.
+        self.clearAdditionalChainCertificates()
         var leaf = true
         for source in certificateChain {
             switch source {
@@ -65,6 +64,15 @@ enum UnsafeKeyAndChainTarget {
         }
         guard rc == 1 else {
             throw NIOSSLError.failedToLoadCertificate
+        }
+    }
+
+    func clearAdditionalChainCertificates() {
+        switch self {
+        case .sslContext(let context):
+            CNIOBoringSSL_SSL_CTX_clear_chain_certs(context)
+        case .ssl(let ssl):
+            CNIOBoringSSL_SSL_clear_chain_certs(ssl)
         }
     }
 

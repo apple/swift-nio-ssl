@@ -29,7 +29,7 @@ let server = ServerBootstrap(group: group)
         let handler = NIOSSLServerHandler(context: sslContext)
 
         [...]
-        channel.pipeline.addHandler(handler)
+        channel.pipeline.syncOperations.addHandler(handler)
         [...]
     }
 ```
@@ -46,7 +46,7 @@ let client = ClientBootstrap(group: group)
         let handler = try NIOSSLClientHandler(context: sslContext)
 
         [...]
-        channel.pipeline.addHandler(handler)
+        channel.pipeline.syncOperations.addHandler(handler)
         [...]
     }
 ```
@@ -61,4 +61,7 @@ SwiftNIO SSL        | Minimum Swift Version
 `2.23.0 ..< 2.23.2` | 5.5.2
 `2.23.2 ..< 2.26.0` | 5.6
 `2.26.0 ..< 2.27.0` | 5.7
-`2.27.0 ...`        | 5.8
+`2.27.0 ..< 2.29.3` | 5.8
+`2.29.3 ..< 2.31.0` | 5.9
+`2.31.0 ..< 2.35.0` | 5.10
+`2.35.0 ...`        | 6.0

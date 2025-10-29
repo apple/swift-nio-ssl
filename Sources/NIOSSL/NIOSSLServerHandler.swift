@@ -198,5 +198,8 @@ public final class NIOSSLServerHandler: NIOSSLHandler {
     }
 }
 
+// This conformance is technically redundant - Swift 6.2 compiler finally caught this
+#if compiler(<6.2)
 @available(*, unavailable)
 extension NIOSSLServerHandler: Sendable {}
+#endif

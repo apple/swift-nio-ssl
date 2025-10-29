@@ -67,7 +67,12 @@ final class SSLCertificateExtensionsTests: XCTestCase {
 
     func testUnowned() throws {
         var owner: Optional = try NIOSSLCertificate(bytes: Array(samplePemCert.utf8), format: .pem)
+
+        #if compiler(>=6.3)
+        weak let weakReferenceToOwner = owner
+        #else
         weak var weakReferenceToOwner = owner
+        #endif
 
         var extensions: Optional = owner!._extensions
         XCTAssertEqual(extensions.map { Array($0) }?.count, 3)
