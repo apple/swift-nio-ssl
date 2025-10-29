@@ -552,6 +552,69 @@ class TLSConfigurationTest: XCTestCase {
         )
     }
 
+    func testMutualValidationWithCertVerificationOptionalSuccess_NoPeerCert() throws {
+        // The client doesn't present a cert chain
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .default
+        clientConfig.additionalTrustRoots = [.certificates([TLSConfigurationTest.cert1])]
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        // The server sets `certificateVerification` to `optionalVerification`; handshake should succeed when the client
+        // hasn't presented any certs
+        serverConfig.certificateVerification = .optionalVerification
+        serverConfig.trustRoots = .default
+
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    func testMutualValidationWithCertVerificationOptionalError_PeerCertNotTrusted() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateChain = [.certificate(TLSConfigurationTest.cert2)]
+        clientConfig.privateKey = .privateKey(TLSConfigurationTest.key2)
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .default
+        clientConfig.additionalTrustRoots = [.certificates([TLSConfigurationTest.cert1])]
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.certificateVerification = .optionalVerification
+        serverConfig.trustRoots = .default
+        // The server doesn't trust any additional roots; the cert presented by the client will not be trusted
+        serverConfig.additionalTrustRoots = []
+
+        try assertPostHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContainsAnyOf: ["SSLV3_ALERT_CERTIFICATE_UNKNOWN", "TLSV1_ALERT_UNKNOWN_CA"]
+        )
+    }
+
+    func testMutualValidationWithCertVerificationOptionalSuccess_PeerCertTrusted() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateChain = [.certificate(TLSConfigurationTest.cert2)]
+        clientConfig.privateKey = .privateKey(TLSConfigurationTest.key2)
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .default
+        clientConfig.additionalTrustRoots = [.certificates([TLSConfigurationTest.cert1])]
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.certificateVerification = .optionalVerification
+        serverConfig.trustRoots = .default
+        // The server trusts the cert presented by the client; we expect a successful handshake
+        serverConfig.additionalTrustRoots = [.certificates([TLSConfigurationTest.cert2])]
+
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
     func testMutualValidationRequiresClientCertificatePreTLS13() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.maximumTLSVersion = .tlsv12

@@ -600,6 +600,51 @@ extension NIOSSLContext {
 
 // Configuring certificate verification
 extension NIOSSLContext {
+    fileprivate enum VerificationMode {
+        case peerCertificateRequired
+        case peerCertificatesOptional
+    }
+
+    fileprivate static func setupVerification(
+        _ context: OpaquePointer,
+        _ sendCANames: Bool,
+        _ trustRoots: NIOSSLTrustRoots?,
+        _ additionalTrustRoots: [NIOSSLAdditionalTrustRoots],
+        _ verificationMode: VerificationMode
+    ) throws {
+        switch verificationMode {
+        case .peerCertificateRequired:
+            CNIOBoringSSL_SSL_CTX_set_verify(context, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, nil)
+        case .peerCertificatesOptional:
+            CNIOBoringSSL_SSL_CTX_set_verify(context, SSL_VERIFY_PEER, nil)
+        }
+
+        // Also, set TRUSTED_FIRST to work around dumb clients that don't know what they're doing and send
+        // untrusted root certs. X509_VERIFY_PARAM will or-in the flags, so we don't need to load them first.
+        // This is get0 so we can just ignore the pointer, we don't have an owned ref.
+        let trustParams = CNIOBoringSSL_SSL_CTX_get0_param(context)!
+        CNIOBoringSSL_X509_VERIFY_PARAM_set_flags(trustParams, CUnsignedLong(X509_V_FLAG_TRUSTED_FIRST))
+
+        func configureTrustRoots(trustRoots: NIOSSLTrustRoots) throws {
+            switch trustRoots {
+            case .default:
+                try NIOSSLContext.platformDefaultConfiguration(context: context)
+            case .file(let path):
+                try NIOSSLContext.loadVerifyLocations(path, context: context, sendCANames: sendCANames)
+            case .certificates(let certs):
+                for cert in certs {
+                    try NIOSSLContext.addRootCertificate(cert, context: context)
+                    // Add the CA name from the trust root
+                    if sendCANames {
+                        try NIOSSLContext.addCACertificateNameToList(context: context, certificate: cert)
+                    }
+                }
+            }
+        }
+        try configureTrustRoots(trustRoots: trustRoots ?? .default)
+        for root in additionalTrustRoots { try configureTrustRoots(trustRoots: .init(from: root)) }
+    }
+
     private static func configureCertificateValidation(
         context: OpaquePointer,
         verification: CertificateVerification,
@@ -610,34 +655,11 @@ extension NIOSSLContext {
         // If validation is turned on, set the trust roots and turn on cert validation.
         switch verification {
         case .fullVerification, .noHostnameVerification:
-            CNIOBoringSSL_SSL_CTX_set_verify(context, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, nil)
-
-            // Also, set TRUSTED_FIRST to work around dumb clients that don't know what they're doing and send
-            // untrusted root certs. X509_VERIFY_PARAM will or-in the flags, so we don't need to load them first.
-            // This is get0 so we can just ignore the pointer, we don't have an owned ref.
-            let trustParams = CNIOBoringSSL_SSL_CTX_get0_param(context)!
-            CNIOBoringSSL_X509_VERIFY_PARAM_set_flags(trustParams, CUnsignedLong(X509_V_FLAG_TRUSTED_FIRST))
-
-            func configureTrustRoots(trustRoots: NIOSSLTrustRoots) throws {
-                switch trustRoots {
-                case .default:
-                    try NIOSSLContext.platformDefaultConfiguration(context: context)
-                case .file(let path):
-                    try NIOSSLContext.loadVerifyLocations(path, context: context, sendCANames: sendCANames)
-                case .certificates(let certs):
-                    for cert in certs {
-                        try NIOSSLContext.addRootCertificate(cert, context: context)
-                        // Add the CA name from the trust root
-                        if sendCANames {
-                            try NIOSSLContext.addCACertificateNameToList(context: context, certificate: cert)
-                        }
-                    }
-                }
+            try setupVerification(context, sendCANames, trustRoots, additionalTrustRoots, .peerCertificateRequired)
+        case .none(let opts):
+            if opts.validatePresentedCertificates {
+                try setupVerification(context, sendCANames, trustRoots, additionalTrustRoots, .peerCertificatesOptional)
             }
-            try configureTrustRoots(trustRoots: trustRoots ?? .default)
-            for root in additionalTrustRoots { try configureTrustRoots(trustRoots: .init(from: root)) }
-        default:
-            break
         }
     }
 
