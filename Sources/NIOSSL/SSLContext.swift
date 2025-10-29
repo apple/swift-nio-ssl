@@ -605,7 +605,13 @@ extension NIOSSLContext {
         case peerCertificatesOptional
     }
 
-    fileprivate static func setupVerification(_ context: OpaquePointer, _ sendCANames: Bool, _ trustRoots: NIOSSLTrustRoots?, _ additionalTrustRoots: [NIOSSLAdditionalTrustRoots], _ verificationMode: VerificationMode) throws {
+    fileprivate static func setupVerification(
+        _ context: OpaquePointer,
+        _ sendCANames: Bool,
+        _ trustRoots: NIOSSLTrustRoots?,
+        _ additionalTrustRoots: [NIOSSLAdditionalTrustRoots],
+        _ verificationMode: VerificationMode
+    ) throws {
         switch verificationMode {
         case .peerCertificateRequired:
             CNIOBoringSSL_SSL_CTX_set_verify(context, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, nil)
@@ -618,7 +624,7 @@ extension NIOSSLContext {
         // This is get0 so we can just ignore the pointer, we don't have an owned ref.
         let trustParams = CNIOBoringSSL_SSL_CTX_get0_param(context)!
         CNIOBoringSSL_X509_VERIFY_PARAM_set_flags(trustParams, CUnsignedLong(X509_V_FLAG_TRUSTED_FIRST))
-        
+
         func configureTrustRoots(trustRoots: NIOSSLTrustRoots) throws {
             switch trustRoots {
             case .default:
@@ -638,7 +644,7 @@ extension NIOSSLContext {
         try configureTrustRoots(trustRoots: trustRoots ?? .default)
         for root in additionalTrustRoots { try configureTrustRoots(trustRoots: .init(from: root)) }
     }
-    
+
     private static func configureCertificateValidation(
         context: OpaquePointer,
         verification: CertificateVerification,

@@ -173,11 +173,13 @@ public enum CertificateVerification: Sendable {
         /// While the peer does not have to give you certificates,
         /// they can optionally be verified if the peer offers them.
         public var validatePresentedCertificates: Bool
+
         fileprivate init() {
             // Backwards-compatible
             self.validatePresentedCertificates = false
         }
     }
+
     /// Usable through ``none`` and ``optionalVerification``.
     case none(NoneOptions)
 
@@ -191,7 +193,6 @@ public enum CertificateVerification: Sendable {
 }
 
 extension CertificateVerification {
-
     /// Certificates will be validated if they are presented by the peer, i.e., if the peer presents
     /// certificates they must pass validation. However, if the peer does not present certificates,
     /// the connection will be accepted.
