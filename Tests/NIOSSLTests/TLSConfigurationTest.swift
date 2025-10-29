@@ -552,7 +552,7 @@ class TLSConfigurationTest: XCTestCase {
         )
     }
 
-    func testMutualValidationWithCertVerificationOptionalSuccess_NoClientCert() throws {
+    func testMutualValidationWithCertVerificationOptionalSuccess_NoPeerCert() throws {
         // The client doesn't present a cert chain
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.certificateVerification = .noHostnameVerification
@@ -571,7 +571,7 @@ class TLSConfigurationTest: XCTestCase {
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
 
-    func testMutualValidationWithCertVerificationOptionalError_ClientCertNotTrusted() throws {
+    func testMutualValidationWithCertVerificationOptionalError_PeerCertNotTrusted() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.certificateChain = [.certificate(TLSConfigurationTest.cert2)]
         clientConfig.privateKey = .privateKey(TLSConfigurationTest.key2)
@@ -595,7 +595,7 @@ class TLSConfigurationTest: XCTestCase {
         )
     }
 
-    func testMutualValidationWithCertVerificationOptionalSuccess_ClientCertTrusted() throws {
+    func testMutualValidationWithCertVerificationOptionalSuccess_PeerCertTrusted() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.certificateChain = [.certificate(TLSConfigurationTest.cert2)]
         clientConfig.privateKey = .privateKey(TLSConfigurationTest.key2)

@@ -2600,7 +2600,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertNoThrow(try handshakeCompletePromise.futureResult.wait())
     }
 
-    func testMacOSConnectionFailsIfServerVerificationOptionalAndClientPresentsUntrustedCert() throws {
+    func testMacOSConnectionFailsIfServerVerificationOptionalAndPeerPresentsUntrustedCert() throws {
         // This test checks that when setting verification to `.optionalVerification`, a peer cannot successfully
         // connect when they present an untrusted certificate. On macOS, this exercises the SecTrust validation backend,
         // as `serverConfig.trustRoots` is set to `.default` (see the behavioral matrix in
@@ -2655,7 +2655,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertThrowsError(try handshakeCompletePromise.futureResult.wait())
     }
 
-    func testMacOSConnectionSuccessfulIfServerVerificationOptionalAndClientPresentsTrustedCert() throws {
+    func testMacOSConnectionSuccessfulIfServerVerificationOptionalAndPeerPresentsTrustedCert() throws {
         // This test checks that when setting verification to `.optionalVerification`, a peer cannot successfully
         // connect when they present an untrusted certificate. On macOS, this exercises the SecTrust validation backend,
         // as `serverConfig.trustRoots` is set to `.default` and the client cert is registered under
@@ -2712,7 +2712,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertNoThrow(try handshakeCompletePromise.futureResult.wait())
     }
 
-    func testMacOSConnectionSuccessfulIfServerVerificationOptionalAndNoClientCert() throws {
+    func testMacOSConnectionSuccessfulIfServerVerificationOptionalAndNoPeerCert() throws {
         // This test checks that when setting verification to `.optionalVerification`, a peer can successfully connect
         // when they don't present any certificate. On macOS, this exercises the SecTrust validation backend, as
         // `serverConfig.trustRoots` is set to `.default` (see the behavioral matrix in
