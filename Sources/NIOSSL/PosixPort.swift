@@ -30,6 +30,9 @@ import Musl
 import Glibc
 #elseif canImport(Android)
 import Android
+#elseif os(Windows)
+import ucrt
+import WinSDK
 #else
 #error("unsupported os")
 #endif
@@ -41,12 +44,14 @@ internal typealias FILEPointer = UnsafeMutablePointer<FILE>
 #endif
 
 private let sysFopen = fopen
-private let sysMlock = mlock
-private let sysMunlock = munlock
 private let sysFclose = fclose
 private let sysStat = { @Sendable in stat($0, $1) }
+#if !os(Windows)
+private let sysMlock = mlock
+private let sysMunlock = munlock
 private let sysLstat = lstat
 private let sysReadlink = readlink
+#endif
 
 // MARK:- Copied code from SwiftNIO
 private func isUnacceptableErrno(_ code: CInt) -> Bool {
@@ -65,7 +70,11 @@ internal func wrapSyscall<T: FixedWidthInteger>(where function: String = #functi
     while true {
         let res = try body()
         if res == -1 {
+            #if os(Windows)
+            let err = Int32(bitPattern: GetLastError())
+            #else
             let err = errno
+            #endif
             if err == EINTR {
                 continue
             }
@@ -84,7 +93,11 @@ internal func wrapErrorIsNullReturnCall<T>(
 ) throws -> T {
     while true {
         guard let res = try body() else {
+            #if os(Windows)
+            let err = Int32(bitPattern: GetLastError())
+            #else
             let err = errno
+            #endif
             if err == EINTR {
                 continue
             }
@@ -113,6 +126,7 @@ internal enum Posix {
         }
     }
 
+    #if !os(Windows)
     @inline(never)
     internal static func readlink(
         path: UnsafePointer<Int8>,
@@ -123,6 +137,7 @@ internal enum Posix {
             sysReadlink(path, buf, bufSize)
         }
     }
+    #endif
 
     @inline(never)
     @discardableResult
@@ -132,6 +147,7 @@ internal enum Posix {
         }
     }
 
+    #if !os(Windows)
     @inline(never)
     @discardableResult
     internal static func lstat(path: UnsafePointer<Int8>, buf: UnsafeMutablePointer<stat>) throws -> Int32 {
@@ -155,4 +171,5 @@ internal enum Posix {
             sysMunlock(addr, len)
         }
     }
+    #endif
 }
