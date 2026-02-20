@@ -28,7 +28,8 @@ let benchmarks = {
             metrics: defaultMetrics,
             scalingFactor: .kilo,
             maxDuration: .seconds(10_000_000),
-            maxIterations: 10
+            maxIterations: 10,
+            thresholds: [.mallocCountTotal: .init(absolute: [.p90: 50])]
         )
     ) { benchmark in
         try runSimpleHandshake(
@@ -42,7 +43,8 @@ let benchmarks = {
             metrics: defaultMetrics,
             scalingFactor: .kilo,
             maxDuration: .seconds(10_000_000),
-            maxIterations: 10
+            maxIterations: 10,
+            thresholds: [.mallocCountTotal: .init(absolute: [.p90: 50])]
         )
     ) { benchmark in
         try runManyWrites(
