@@ -69,7 +69,7 @@ public struct NIOSSLPKCS12Bundle: Hashable {
 
         for idx in 0..<certStackSize {
             guard let stackCertPtr = CNIOBoringSSL_sk_X509_value(caCerts, idx) else {
-                preconditionFailure("Unable to get cert \(idx) from stack \(String(describing: caCerts))")
+                preconditionFailure("Unable to get cert \(idx) from stack")
             }
             certs.append(NIOSSLCertificate.fromUnsafePointer(takingOwnership: stackCertPtr))
         }
