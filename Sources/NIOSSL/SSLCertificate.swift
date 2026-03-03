@@ -24,6 +24,8 @@ import Musl
 import Glibc
 #elseif canImport(Bionic)
 import Bionic
+#elseif os(Windows)
+import WinSDK
 #else
 #error("unsupported os")
 #endif
@@ -427,7 +429,7 @@ extension NIOSSLCertificate {
         var dataPtr: UnsafeMutablePointer<CChar>? = nil
         let length = CNIOBoringSSL_BIO_get_mem_data(bio, &dataPtr)
 
-        guard let bytes = dataPtr.map({ UnsafeRawBufferPointer(start: $0, count: length) }) else {
+        guard let bytes = dataPtr.map({ UnsafeRawBufferPointer(start: $0, count: .init(length)) }) else {
             fatalError("Failed to map bytes from a certificate")
         }
 
