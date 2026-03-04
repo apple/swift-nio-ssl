@@ -727,6 +727,232 @@ final class CustomPrivateKeyTests: XCTestCase {
         )
     }
 
+    func testSwitchFromNativeKeyToCustomKeyViaOverride() throws {
+        // Cert A + native key A for the initial server config.
+        let (certA, nativeKeyA) = generateSelfSignedCert(keygenFunction: {
+            generateECPrivateKey(curveNID: NID_X9_62_prime256v1)
+        })
+
+        // Cert B + key B for the override identity.
+        let (certB, nativeKeyB) = generateSelfSignedCert(keygenFunction: {
+            generateECPrivateKey(curveNID: NID_X9_62_prime256v1)
+        })
+        let derivedKeyB = CustomPKEY(from: nativeKeyB)
+
+        let b2b = BackToBackEmbeddedChannel()
+        let customKey = CustomKeyImmediateResult(
+            derivedKeyB,
+            signatureAlgorithms: [.ecdsaSecp256R1Sha256],
+            expectedChannel: b2b.server
+        )
+
+        // Client trusts the override cert (cert B), not the initial cert (cert A).
+        let clientContext = self.configuredClientContext(trustRoot: certB)
+
+        // Server initial config uses cert A + native key A.
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(certA)],
+            privateKey: .privateKey(nativeKeyA)
+        )
+        // Override with cert B + custom key B.
+        serverConfig.sslContextCallback = { _, promise in
+            var `override` = NIOSSLContextConfigurationOverride()
+            override.certificateChain = [.certificate(certB)]
+            override.privateKey = .privateKey(NIOSSLPrivateKey(customPrivateKey: customKey))
+            promise.succeed(`override`)
+        }
+        let serverContext = try NIOSSLContext(configuration: serverConfig)
+
+        XCTAssertNoThrow(
+            try b2b.client.pipeline.syncOperations.addHandlers(
+                [
+                    try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"),
+                    HandshakeCompletedHandler(),
+                ]
+            )
+        )
+        XCTAssertNoThrow(
+            try b2b.server.pipeline.syncOperations.addHandlers(
+                [NIOSSLServerHandler(context: serverContext), HandshakeCompletedHandler()]
+            )
+        )
+
+        XCTAssertNoThrow(try b2b.connectInMemory())
+        XCTAssertEqual(customKey.signCallCount, 1)
+        XCTAssertTrue(b2b.client.handshakeSucceeded)
+        XCTAssertTrue(b2b.server.handshakeSucceeded)
+    }
+
+    func testCustomKeyDecryptViaSSLContextCallbackOverride() throws {
+        // Same as testSwitchFromNativeKeyToCustomKeyViaOverride but forces TLS 1.2
+        // with RSA key exchange so BoringSSL hits the decrypt callback instead of sign.
+        let (certA, nativeKeyA) = generateSelfSignedCert()
+        let (certB, nativeKeyB) = generateSelfSignedCert()
+        let derivedKeyB = CustomPKEY(from: nativeKeyB)
+
+        let b2b = BackToBackEmbeddedChannel()
+        let customKey = CustomKeyImmediateResult(
+            derivedKeyB,
+            signatureAlgorithms: [.rsaPkcs1Sha256],
+            expectedChannel: b2b.server
+        )
+
+        let clientContext = self.configuredClientContext(
+            trustRoot: certB,
+            maxTLSVersion: .tlsv12,
+            cipherSuites: [.TLS_RSA_WITH_AES_128_GCM_SHA256]
+        )
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(certA)],
+            privateKey: .privateKey(nativeKeyA)
+        )
+        serverConfig.sslContextCallback = { _, promise in
+            var `override` = NIOSSLContextConfigurationOverride()
+            override.certificateChain = [.certificate(certB)]
+            override.privateKey = .privateKey(NIOSSLPrivateKey(customPrivateKey: customKey))
+            promise.succeed(`override`)
+        }
+        let serverContext = try NIOSSLContext(configuration: serverConfig)
+
+        XCTAssertNoThrow(
+            try b2b.client.pipeline.syncOperations.addHandlers(
+                [
+                    try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"),
+                    HandshakeCompletedHandler(),
+                ]
+            )
+        )
+        XCTAssertNoThrow(
+            try b2b.server.pipeline.syncOperations.addHandlers(
+                [NIOSSLServerHandler(context: serverContext), HandshakeCompletedHandler()]
+            )
+        )
+
+        XCTAssertNoThrow(try b2b.connectInMemory())
+        XCTAssertEqual(customKey.signCallCount, 0)
+        XCTAssertEqual(customKey.decryptCallCount, 1)
+        XCTAssertTrue(b2b.client.handshakeSucceeded)
+        XCTAssertTrue(b2b.server.handshakeSucceeded)
+    }
+
+    func testClientCustomKeyViaSSLContextCallbackOverride() throws {
+        // mTLS: client starts with no cert/key, sslContextCallback provides a custom key.
+        let (clientCert, clientNativeKey) = generateSelfSignedCert(keygenFunction: {
+            generateECPrivateKey(curveNID: NID_X9_62_prime256v1)
+        })
+        let clientDerivedKey = CustomPKEY(from: clientNativeKey)
+
+        let (serverCert, serverKey) = generateSelfSignedCert(keygenFunction: {
+            generateECPrivateKey(curveNID: NID_X9_62_prime256v1)
+        })
+
+        let b2b = BackToBackEmbeddedChannel()
+        let customKey = CustomKeyImmediateResult(
+            clientDerivedKey,
+            signatureAlgorithms: [.ecdsaSecp256R1Sha256],
+            expectedChannel: b2b.client
+        )
+
+        // Client starts with no cert/key; the override provides them.
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([serverCert])
+        clientConfig.sslContextCallback = { _, promise in
+            var `override` = NIOSSLContextConfigurationOverride()
+            override.certificateChain = [.certificate(clientCert)]
+            override.privateKey = .privateKey(NIOSSLPrivateKey(customPrivateKey: customKey))
+            promise.succeed(`override`)
+        }
+        let clientContext = try NIOSSLContext(configuration: clientConfig)
+
+        // Server requires client certificate (mTLS).
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(serverCert)],
+            privateKey: .privateKey(serverKey)
+        )
+        serverConfig.certificateVerification = .noHostnameVerification
+        serverConfig.trustRoots = .certificates([clientCert])
+        let serverContext = try NIOSSLContext(configuration: serverConfig)
+
+        XCTAssertNoThrow(
+            try b2b.client.pipeline.syncOperations.addHandlers(
+                [
+                    try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"),
+                    HandshakeCompletedHandler(),
+                ]
+            )
+        )
+        XCTAssertNoThrow(
+            try b2b.server.pipeline.syncOperations.addHandlers(
+                [NIOSSLServerHandler(context: serverContext), HandshakeCompletedHandler()]
+            )
+        )
+
+        XCTAssertNoThrow(try b2b.connectInMemory())
+        XCTAssertEqual(customKey.signCallCount, 1)
+        XCTAssertEqual(customKey.decryptCallCount, 0)
+        XCTAssertTrue(b2b.client.handshakeSucceeded)
+        XCTAssertTrue(b2b.server.handshakeSucceeded)
+    }
+
+    func testSwitchFromCustomKeyToNativeKeyViaOverride() throws {
+        // Server initial config uses cert A + custom key A.
+        // The override switches to cert B + native key B.
+        let (certA, nativeKeyA) = generateSelfSignedCert(keygenFunction: {
+            generateECPrivateKey(curveNID: NID_X9_62_prime256v1)
+        })
+        let derivedKeyA = CustomPKEY(from: nativeKeyA)
+
+        let (certB, nativeKeyB) = generateSelfSignedCert(keygenFunction: {
+            generateECPrivateKey(curveNID: NID_X9_62_prime256v1)
+        })
+
+        let b2b = BackToBackEmbeddedChannel()
+        let customKey = CustomKeyImmediateResult(
+            derivedKeyA,
+            signatureAlgorithms: [.ecdsaSecp256R1Sha256],
+            expectedChannel: b2b.server
+        )
+
+        // Client trusts the override cert (cert B).
+        let clientContext = self.configuredClientContext(trustRoot: certB)
+
+        // Server initial config uses cert A + custom key A.
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(certA)],
+            privateKey: .privateKey(NIOSSLPrivateKey(customPrivateKey: customKey))
+        )
+        serverConfig.sslContextCallback = { _, promise in
+            var `override` = NIOSSLContextConfigurationOverride()
+            override.certificateChain = [.certificate(certB)]
+            override.privateKey = .privateKey(nativeKeyB)
+            promise.succeed(`override`)
+        }
+        let serverContext = try NIOSSLContext(configuration: serverConfig)
+
+        XCTAssertNoThrow(
+            try b2b.client.pipeline.syncOperations.addHandlers(
+                [
+                    try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"),
+                    HandshakeCompletedHandler(),
+                ]
+            )
+        )
+        XCTAssertNoThrow(
+            try b2b.server.pipeline.syncOperations.addHandlers(
+                [NIOSSLServerHandler(context: serverContext), HandshakeCompletedHandler()]
+            )
+        )
+
+        XCTAssertNoThrow(try b2b.connectInMemory())
+        // The custom key should NOT have been called.
+        // Assume native sign was called because the handshake succeeded.
+        XCTAssertEqual(customKey.signCallCount, 0)
+        XCTAssertTrue(b2b.client.handshakeSucceeded)
+        XCTAssertTrue(b2b.server.handshakeSucceeded)
+    }
+
     func testDERBytes_DefaultImplementation_ReturnsEmptyArray() throws {
         let customKey = CustomKeyWithoutDERBytes()
         let key = NIOSSLPrivateKey(customPrivateKey: customKey)
