@@ -245,7 +245,7 @@ extension NIOSSLPKCS12Bundle {
 
         var dataPtr: UnsafeMutablePointer<CChar>? = nil
         let length = CNIOBoringSSL_BIO_get_mem_data(bio, &dataPtr)
-        guard let bytes = dataPtr.map({ UnsafeMutableRawBufferPointer(start: $0, count: length) }) else {
+        guard let bytes = dataPtr.map({ UnsafeMutableRawBufferPointer(start: $0, count: .init(length)) }) else {
             fatalError("Failed to get bytes from private key")
         }
 
@@ -269,11 +269,19 @@ extension Collection where Element == UInt8 {
             bufferPtr.deallocate()
         }
 
+        #if os(Windows)
+        // TODO: throw an error on failure
+        VirtualLock(bufferPtr.baseAddress!, UInt64(bufferPtr.count))
+        defer {
+            VirtualUnlock(bufferPtr.baseAddress!, UInt64(bufferPtr.count))
+        }
+        #else
         try Posix.mlock(addr: bufferPtr.baseAddress!, len: bufferPtr.count)
         defer {
             // If munlock fails take out the process.
             try! Posix.munlock(addr: bufferPtr.baseAddress!, len: bufferPtr.count)
         }
+        #endif
 
         let (_, nextIndex) = bufferPtr.initialize(from: self)
         assert(nextIndex == (bufferPtr.endIndex - 1))
