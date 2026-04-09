@@ -15,6 +15,10 @@
 import CNIOLinux
 import NIOCore
 
+#if canImport(CNIOOpenBSD)
+import CNIOOpenBSD
+#endif
+
 #if canImport(Darwin)
 import Darwin.C
 #elseif canImport(Musl)
