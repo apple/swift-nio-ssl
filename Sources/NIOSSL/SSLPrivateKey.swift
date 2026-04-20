@@ -382,7 +382,7 @@ extension NIOSSLPrivateKey {
         var dataPtr: UnsafeMutablePointer<CChar>? = nil
         let length = CNIOBoringSSL_BIO_get_mem_data(bio, &dataPtr)
 
-        guard let bytes = dataPtr.map({ UnsafeRawBufferPointer(start: $0, count: length) }) else {
+        guard let bytes = dataPtr.map({ UnsafeRawBufferPointer(start: $0, count: .init(length)) }) else {
             fatalError("Failed to map bytes from a private key")
         }
 

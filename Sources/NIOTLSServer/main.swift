@@ -43,7 +43,9 @@ let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
 let bootstrap = ServerBootstrap(group: group)
     // Specify backlog and enable SO_REUSEADDR for the server itself
     .serverChannelOption(ChannelOptions.backlog, value: 256)
+    #if !os(Windows)
     .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+    #endif
 
     // Set the handlers that are applied to the accepted channels.
     .childChannelInitializer { channel in
@@ -53,8 +55,10 @@ let bootstrap = ServerBootstrap(group: group)
     }
 
     // Enable TCP_NODELAY and SO_REUSEADDR for the accepted Channels
+    #if !os(Windows)
     .childChannelOption(ChannelOptions.socket(IPPROTO_TCP, TCP_NODELAY), value: 1)
     .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+    #endif
 
 defer {
     try! group.syncShutdownGracefully()
