@@ -2647,12 +2647,11 @@ class NIOSSLIntegrationTest: XCTestCase {
             connectingTo: serverChannel.localAddress!,
             serverHostname: "localhost"
         )
-        defer {
-            XCTAssertNoThrow(try clientChannel.close().wait())
-        }
 
         // The handshake should fail: certificate verification is optional and the client hasn't presented any certs.
         XCTAssertThrowsError(try handshakeCompletePromise.futureResult.wait())
+        // Wait for the client channel to close as a result of the certificate verification error.
+        XCTAssertNoThrow(try clientChannel.closeFuture.wait())
     }
 
     func testMacOSConnectionSuccessfulIfServerVerificationOptionalAndPeerPresentsTrustedCert() throws {
