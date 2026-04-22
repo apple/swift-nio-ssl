@@ -54,7 +54,7 @@ func ipv6Supported() throws -> Bool {
     do {
         _ = try SocketAddress.makeAddressResolvingHost("2001:db8::1", port: 443)
         return true
-    } catch SocketAddressError.unknown {
+    } catch is SocketAddressError.UnknownHost {
         return false
     }
 }
