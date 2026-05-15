@@ -313,7 +313,7 @@ public struct TLSConfiguration {
     public var cipherSuites: String = defaultCipherSuites
 
     /// TLS curves supported by this handler. Passing `nil` means that a built-in set of curves will be used.
-    public var curves: [NIOTLSCurve]? = [.x25519_MLKEM768, .x25519, .secp384r1]
+    public var curves: [NIOTLSCurve]?
 
     /// Public property used to set the internal ``cipherSuites`` from ``NIOTLSCipher``.
     public var cipherSuiteValues: [NIOTLSCipher] {

@@ -33,6 +33,14 @@ import Android
 // actually create any object that uses BoringSSL.
 internal let boringSSLIsInitialized: Bool = initializeBoringSSL()
 
+/// BoringSSL's default groups, mirrored here so we can supplement them with
+/// post-quantum key exchange when the user has not expressed a preference.
+private let boringSSLDefaultGroups: [UInt16] = [
+    NIOTLSCurve.x25519.rawValue,
+    NIOTLSCurve.secp256r1.rawValue,
+    NIOTLSCurve.secp384r1.rawValue,
+]
+
 internal enum FileSystemObject {
     case directory
     case file
@@ -339,17 +347,18 @@ public final class NIOSSLContext {
         precondition(1 == returnCode)
 
         // Curves list.
-        if let curves = configuration.curves {
-            returnCode =
-                curves
-                .map { $0.rawValue }
-                .withUnsafeBufferPointer { algo in
-                    CNIOBoringSSL_SSL_CTX_set1_group_ids(context, algo.baseAddress, algo.count)
-                }
-            if returnCode != 1 {
-                let errorStack = BoringSSLError.buildErrorStack()
-                throw BoringSSLError.unknownError(errorStack)
+        // When the user has not expressed a preference, we supplement BoringSSL's
+        // default groups with x25519_MLKEM768 for post-quantum key exchange.
+        let groupIDs = configuration.curves.map { $0.map { $0.rawValue } }
+            ?? [NIOTLSCurve.x25519_MLKEM768.rawValue] + boringSSLDefaultGroups
+        returnCode =
+            groupIDs
+            .withUnsafeBufferPointer { algo in
+                CNIOBoringSSL_SSL_CTX_set1_group_ids(context, algo.baseAddress, algo.count)
             }
+        if returnCode != 1 {
+            let errorStack = BoringSSLError.buildErrorStack()
+            throw BoringSSLError.unknownError(errorStack)
         }
 
         // Set the PSK Client Configuration callback.
