@@ -349,7 +349,8 @@ public final class NIOSSLContext {
         // Curves list.
         // When the user has not expressed a preference, we supplement BoringSSL's
         // default groups with x25519_MLKEM768 for post-quantum key exchange.
-        let groupIDs = configuration.curves.map { $0.map { $0.rawValue } }
+        let groupIDs = 
+            configuration.curves.map { $0.map { $0.rawValue } }
             ?? [NIOTLSCurve.x25519_MLKEM768.rawValue] + boringSSLDefaultGroups
         returnCode =
             groupIDs
