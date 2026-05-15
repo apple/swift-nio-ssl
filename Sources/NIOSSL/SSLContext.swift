@@ -12,10 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import NIOCore
-
 @_implementationOnly import CNIOBoringSSL
 @_implementationOnly import CNIOBoringSSLShims
+import NIOCore
 
 #if canImport(Darwin)
 import Darwin.C
