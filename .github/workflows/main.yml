@@ -57,8 +57,9 @@ jobs:
         with:
             runner_pool: nightly
             build_scheme: swift-nio-ssl-Package
-            xcode_16_2_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
-            xcode_16_3_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
+            swift_6_1_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
+            swift_6_2_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
+            swift_6_3_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
 
     static-sdk:
         name: Static SDK
