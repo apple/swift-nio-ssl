@@ -41,6 +41,18 @@ private let boringSSLDefaultGroups: [UInt16] = [
     NIOTLSCurve.secp384r1.rawValue,
 ]
 
+/// Returns the group IDs to configure on a context for the given curves preference.
+///
+/// When the user has expressed a preference (a non-nil array), it is honoured exactly.
+/// Otherwise, we supplement BoringSSL's default groups with x25519_MLKEM768 to enable
+/// post-quantum hybrid key exchange by default.
+private func resolveGroupIDs(for curves: [NIOTLSCurve]?) -> [UInt16] {
+    if let curves = curves {
+        return curves.map { $0.rawValue }
+    }
+    return [NIOTLSCurve.x25519_MLKEM768.rawValue] + boringSSLDefaultGroups
+}
+
 internal enum FileSystemObject {
     case directory
     case file
@@ -347,11 +359,7 @@ public final class NIOSSLContext {
         precondition(1 == returnCode)
 
         // Curves list.
-        // When the user has not expressed a preference, we supplement BoringSSL's
-        // default groups with x25519_MLKEM768 for post-quantum key exchange.
-        let groupIDs =
-            configuration.curves.map { $0.map { $0.rawValue } }
-            ?? [NIOTLSCurve.x25519_MLKEM768.rawValue] + boringSSLDefaultGroups
+        let groupIDs = resolveGroupIDs(for: configuration.curves)
         returnCode =
             groupIDs
             .withUnsafeBufferPointer { algo in
