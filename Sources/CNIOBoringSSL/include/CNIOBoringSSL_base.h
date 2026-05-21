@@ -12,6 +12,39 @@
 
 #define BORINGSSL_PREFIX CNIOBoringSSL
 
+// On Windows, prevent conflicts between winsock.h and winsock2.h
+// Also prevent min/max macro conflicts with std::numeric_limits
+#if defined(_WIN32) || defined(_WIN64)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef _WINSOCKAPI_
+#define _WINSOCKAPI_  // Prevent winsock.h from being included
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
+// Undefine Windows CryptoAPI macros that conflict with BoringSSL types
+// wincrypt.h defines these as LPCSTR constants for CertGetNameString
+#ifdef X509_NAME
+#undef X509_NAME
+#endif
+#ifdef X509_EXTENSIONS
+#undef X509_EXTENSIONS
+#endif
+#ifdef X509_CERT_PAIR
+#undef X509_CERT_PAIR
+#endif
+#ifdef X509_NAME_VALUE
+#undef X509_NAME_VALUE
+#endif
+#ifdef PKCS7_SIGNER_INFO
+#undef PKCS7_SIGNER_INFO
+#endif
+#endif
 
 // This file should be the first included by all BoringSSL headers.
 

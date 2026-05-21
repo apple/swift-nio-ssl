@@ -115,18 +115,18 @@ static void NTAPI thread_local_destructor(PVOID module, DWORD reason,
 //
 // Force a reference to _tls_used to make the linker create the TLS directory
 // if it's not already there. (E.g. if __declspec(thread) is not used). Force
-// a reference to p_thread_callback_boringssl to prevent whole program
+// a reference to CNIOBoringSSL_p_thread_callback_boringssl to prevent whole program
 // optimization from discarding the variable.
 //
-// Note, in the prefixed build, |p_thread_callback_boringssl| may be a macro.
+// Note, in the prefixed build, |CNIOBoringSSL_p_thread_callback_boringssl| may be a macro.
 #define STRINGIFY(x) #x
 #define EXPAND_AND_STRINGIFY(x) STRINGIFY(x)
 #ifdef _WIN64
 __pragma(comment(linker, "/INCLUDE:_tls_used")) __pragma(comment(
-    linker, "/INCLUDE:" EXPAND_AND_STRINGIFY(p_thread_callback_boringssl)))
+    linker, "/INCLUDE:" EXPAND_AND_STRINGIFY(CNIOBoringSSL_p_thread_callback_boringssl)))
 #else
 __pragma(comment(linker, "/INCLUDE:__tls_used")) __pragma(comment(
-    linker, "/INCLUDE:_" EXPAND_AND_STRINGIFY(p_thread_callback_boringssl)))
+    linker, "/INCLUDE:_" EXPAND_AND_STRINGIFY(CNIOBoringSSL_p_thread_callback_boringssl)))
 #endif
 
 // .CRT$XLA to .CRT$XLZ is an array of PIMAGE_TLS_CALLBACK pointers that are
@@ -141,7 +141,7 @@ __pragma(comment(linker, "/INCLUDE:__tls_used")) __pragma(comment(
 //
 // See VC\crt\src\tlssup.c for reference.
 
-// The linker must not discard p_thread_callback_boringssl. (We force a
+// The linker must not discard CNIOBoringSSL_p_thread_callback_boringssl. (We force a
 // reference to this variable with a linker /INCLUDE:symbol pragma to ensure
 // that.) If this variable is discarded, the OnThreadExit function will never
 // be called.
@@ -153,10 +153,10 @@ __pragma(comment(linker, "/INCLUDE:__tls_used")) __pragma(comment(
     // When defining a const variable, it must have external linkage to be sure
     // the linker doesn't discard it.
 extern "C" {
-  extern const PIMAGE_TLS_CALLBACK p_thread_callback_boringssl;
+  extern const PIMAGE_TLS_CALLBACK CNIOBoringSSL_p_thread_callback_boringssl;
 }
 // clang-format on
-const PIMAGE_TLS_CALLBACK p_thread_callback_boringssl = thread_local_destructor;
+const PIMAGE_TLS_CALLBACK CNIOBoringSSL_p_thread_callback_boringssl = thread_local_destructor;
 // Reset the default section.
 #pragma const_seg()
 
@@ -165,10 +165,10 @@ const PIMAGE_TLS_CALLBACK p_thread_callback_boringssl = thread_local_destructor;
 #pragma data_seg(".CRT$XLC")
     // clang-format off
 extern "C" {
-  extern PIMAGE_TLS_CALLBACK p_thread_callback_boringssl;
+  extern PIMAGE_TLS_CALLBACK CNIOBoringSSL_p_thread_callback_boringssl;
 }
 // clang-format on
-PIMAGE_TLS_CALLBACK p_thread_callback_boringssl = thread_local_destructor;
+PIMAGE_TLS_CALLBACK CNIOBoringSSL_p_thread_callback_boringssl = thread_local_destructor;
 // Reset the default section.
 #pragma data_seg()
 

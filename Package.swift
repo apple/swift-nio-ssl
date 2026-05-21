@@ -83,6 +83,8 @@ let package = Package(
                 .define("_GNU_SOURCE"),
                 .define("_POSIX_C_SOURCE", to: "200112L"),
                 .define("_DARWIN_C_SOURCE"),
+                // Disable assembly on Windows as SPM doesn't support .S files on Windows
+                .define("OPENSSL_NO_ASM", .when(platforms: [.windows])),
             ]
         ),
         .target(

@@ -24,6 +24,9 @@ import Musl
 import Glibc
 #elseif canImport(Android)
 import Android
+#elseif os(Windows)
+import ucrt
+import WinSDK
 #else
 #error("unsupported os")
 #endif
@@ -45,8 +48,8 @@ internal enum FileSystemObject {
             return nil
         }
 
-        #if os(Android) && arch(arm)
-        return (statObj.st_mode & UInt32(S_IFDIR)) != 0 ? .directory : .file
+        #if (os(Android) && arch(arm)) || os(Windows)
+        return (UInt32(statObj.st_mode) & UInt32(S_IFDIR)) != 0 ? .directory : .file
         #else
         return (statObj.st_mode & S_IFDIR) != 0 ? .directory : .file
         #endif
@@ -788,12 +791,14 @@ extension NIOSSLContext {
 
         // Check if the element is a symlink. If it is not, return false.
         var buffer = stat()
+        #if !os(Windows) // Windows has no symlinks
         let _ = try Posix.lstat(path: path, buf: &buffer)
         // Check the mode to make sure this is a symlink
         #if os(Android) && arch(arm)
         if (buffer.st_mode & UInt32(S_IFMT)) != UInt32(S_IFLNK) { return false }
         #else
         if (buffer.st_mode & S_IFMT) != S_IFLNK { return false }
+        #endif
         #endif
 
         // Return true at this point because the file format is considered to be in rehash format and a symlink.
@@ -919,16 +924,35 @@ internal class DirectoryContents: Sequence, IteratorProtocol {
     // Otherwise an OpaquePointer needs to be used to account for the non-defined type in glibc.
     #if canImport(Darwin)
     let dir: UnsafeMutablePointer<DIR>
+    #elseif os(Windows)
+    var fileData = WIN32_FIND_DATA()
+    var dir: HANDLE? = nil
     #else
     let dir: OpaquePointer
     #endif
 
     init(path: String) {
         self.path = path
+        #if os(Windows)
+        self.dir = FindFirstFileA(path, &fileData)
+        #else
         self.dir = opendir(path)!
+        #endif
     }
 
     func next() -> String? {
+        #if os(Windows)
+        if dir != INVALID_HANDLE_VALUE  {
+            let name = withUnsafePointer(to: &fileData.cFileName) { ptr in
+                // Pointers to homogeneous tuples in Swift are always bound to both the tuple type and the element type,
+                // so the assumption below is safe.
+                let elementPointer = UnsafeRawPointer(ptr).assumingMemoryBound(to: CChar.self)
+                return String(cString: elementPointer)
+            }
+            FindNextFileA(dir, &fileData)
+            return self.path + name
+        }
+        #else
         if let dirent: UnsafeMutablePointer<dirent> = readdir(self.dir) {
             let name = withUnsafePointer(to: &dirent.pointee.d_name) { (ptr) -> String in
                 // Pointers to homogeneous tuples in Swift are always bound to both the tuple type and the element type,
@@ -938,11 +962,16 @@ internal class DirectoryContents: Sequence, IteratorProtocol {
             }
             return self.path + name
         }
+        #endif
         return nil
     }
 
     deinit {
+        #if os(Windows)
+        FindClose(dir)
+        #else
         closedir(dir)
+        #endif
     }
 }
 

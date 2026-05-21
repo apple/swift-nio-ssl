@@ -14,6 +14,7 @@
 
 ; 32-bit Windows adds underscores to C functions, while 64-bit Windows does not.
 %ifidn __OUTPUT_FORMAT__, win32
+%xdefine _p_thread_callback_boringssl BORINGSSL_PREFIX %+ _p_thread_callback_boringssl
 %xdefine _ACCESS_DESCRIPTION_free _ %+ BORINGSSL_PREFIX %+ _ACCESS_DESCRIPTION_free
 %xdefine _ACCESS_DESCRIPTION_new _ %+ BORINGSSL_PREFIX %+ _ACCESS_DESCRIPTION_new
 %xdefine _AES_CMAC _ %+ BORINGSSL_PREFIX %+ _AES_CMAC
@@ -3994,6 +3995,7 @@
 %xdefine _x509v3_hex_to_bytes _ %+ BORINGSSL_PREFIX %+ _x509v3_hex_to_bytes
 %xdefine _x509v3_looks_like_dns_name _ %+ BORINGSSL_PREFIX %+ _x509v3_looks_like_dns_name
 %else
+%xdefine p_thread_callback_boringssl BORINGSSL_PREFIX %+ _p_thread_callback_boringssl
 %xdefine ACCESS_DESCRIPTION_free BORINGSSL_PREFIX %+ _ACCESS_DESCRIPTION_free
 %xdefine ACCESS_DESCRIPTION_new BORINGSSL_PREFIX %+ _ACCESS_DESCRIPTION_new
 %xdefine AES_CMAC BORINGSSL_PREFIX %+ _AES_CMAC
