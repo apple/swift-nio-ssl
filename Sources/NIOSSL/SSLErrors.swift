@@ -87,6 +87,37 @@ public enum NIOSSLError: Error {
     case unableToValidateCertificate
     case cannotFindPeerIP
     case readInInvalidTLSState
+    /// The TLS connection was closed without a `close_notify` alert being sent or received first.
+    ///
+    /// This is known as an *unclean shutdown*. It is reported when the underlying transport (for
+    /// example, the TCP connection) reaches EOF or is otherwise closed before the TLS layer has
+    /// exchanged the `close_notify` alerts that signal an orderly, *clean* shutdown.
+    ///
+    /// The purpose of the `close_notify` alert is to defend against *truncation attacks*. An active
+    /// attacker who can inject TCP segments may forge a connection close to convince a peer that the
+    /// byte stream has ended, even though the sender did not intend to stop sending. The
+    /// `close_notify` alert lets the TLS layer distinguish a deliberate, authenticated close from
+    /// such a forged one.
+    ///
+    /// Whether an unclean shutdown is a problem depends entirely on the application protocol layered
+    /// on top of TLS, and specifically on whether the application protocol has its own way of
+    /// telling the receiver that a message is complete:
+    ///
+    /// - If the application protocol carries its own in-band length or framing information, a
+    ///   truncation attack is detectable at the application layer, so an unclean shutdown that
+    ///   occurs after a complete, well-framed message is safe to ignore.
+    /// - If the application protocol instead relies on the connection closing to signal the end of a
+    ///   message (EOF framing), a truncation attack is undetectable, so an unclean shutdown must be
+    ///   treated as an error.
+    ///
+    /// Some common examples:
+    ///
+    /// | Application protocol                                | Unclean shutdown               |
+    /// | -------------------------------------------------- | ------------------------------ |
+    /// | HTTP/2                                             | Safe to ignore (always framed) |
+    /// | WebSocket                                          | Safe to ignore (always framed) |
+    /// | HTTP/1.1 with `Content-Length` or chunked encoding | Safe to ignore (framed)        |
+    /// | HTTP/1 with EOF framing                            | _NOT_ safe to ignore           |
     case uncleanShutdown
 }
 
