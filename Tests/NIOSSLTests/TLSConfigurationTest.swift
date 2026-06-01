@@ -1222,7 +1222,7 @@ class TLSConfigurationTest: XCTestCase {
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
 
-    func testDefaultCurvesExcludePQ() throws {
+    func testDefaultCurvesIncludePQ() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.curves = [.x25519_MLKEM768]
         clientConfig.certificateVerification = .noHostnameVerification
@@ -1233,11 +1233,7 @@ class TLSConfigurationTest: XCTestCase {
             privateKey: .privateKey(TLSConfigurationTest.key1)
         )
         serverConfig.certificateVerification = .none
-        try assertHandshakeError(
-            withClientConfig: clientConfig,
-            andServerConfig: serverConfig,
-            errorTextContains: "ALERT_HANDSHAKE_FAILURE"
-        )
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
 
     func testUnknownCurveValuesFail() throws {
@@ -1250,6 +1246,25 @@ class TLSConfigurationTest: XCTestCase {
                 "Error \(error) does not contain UNSUPPORTED_ELLIPTIC_CURVE"
             )
         }
+    }
+
+    func testExplicitClassicalCurvesExcludePQ() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.curves = [.x25519_MLKEM768]
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.curves = [.x25519, .secp256r1, .secp384r1]
+        serverConfig.certificateVerification = .none
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContains: "ALERT_HANDSHAKE_FAILURE"
+        )
     }
 
     func testCompatibleCipherSuite() throws {
