@@ -63,13 +63,28 @@ jobs:
 
     macos-tests:
         name: macOS tests
-        uses: apple/swift-nio/.github/workflows/macos_tests.yml@main
-        with:
-            runner_pool: general
-            build_scheme: swift-nio-ssl-Package
-            swift_6_1_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
-            swift_6_2_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
-            swift_6_3_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
+        # Runs on GitHub-hosted macOS runners on this fork. The upstream job uses
+        # Apple's self-hosted runner pool, which is unavailable here. Restore the
+        # block below (and delete the runs-on/steps) if accepted upstream.
+        # uses: apple/swift-nio/.github/workflows/macos_tests.yml@main
+        # with:
+        #     runner_pool: general
+        #     build_scheme: swift-nio-ssl-Package
+        #     swift_6_1_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
+        #     swift_6_2_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
+        #     swift_6_3_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
+        runs-on: macos-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  persist-credentials: false
+            - name: Select latest Xcode
+              run: sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -n 1)"
+            - name: Swift version
+              run: swift --version
+            - name: Build and test
+              run: swift test
 
     static-sdk:
         name: Static SDK

@@ -559,6 +559,15 @@ public final class NIOSSLContext {
         return conn
     }
 
+    /// Creates a new BoringSSL `SSL` handle from this context's `SSL_CTX`, for
+    /// use by the QUIC TLS handshake driver. Unlike ``createConnection()``, this
+    /// returns a bare handle with no `BIO` attached: QUIC drives the handshake
+    /// directly (RFC 9001) rather than through the record layer. The caller owns
+    /// the returned handle and is responsible for freeing it.
+    internal func createQUICSSLHandle() -> OpaquePointer? {
+        CNIOBoringSSL_SSL_new(self.sslContext)
+    }
+
     fileprivate func alpnSelectCallback(offeredProtocols: UnsafeBufferPointer<UInt8>) -> (index: Int, length: Int)? {
         for possibility in configuration.encodedApplicationProtocols {
             let match = possibility.withUnsafeBufferPointer {
