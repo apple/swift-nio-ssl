@@ -26,8 +26,6 @@ private final class CollectingQUICDelegate: NIOSSLQUICDelegate {
     var readSecrets: [NIOTLSEncryptionLevel: [UInt8]] = [:]
     var writeSecrets: [NIOTLSEncryptionLevel: [UInt8]] = [:]
     var cipherSuites: [NIOTLSEncryptionLevel: UInt16] = [:]
-    var alerts: [(level: NIOTLSEncryptionLevel, alert: UInt8)] = []
-    var flushCount = 0
 
     func setReadSecret(level: NIOTLSEncryptionLevel, cipherSuite: UInt16, secret: [UInt8]) {
         self.readSecrets[level] = secret
@@ -42,14 +40,6 @@ private final class CollectingQUICDelegate: NIOSSLQUICDelegate {
     func writeHandshakeData(level: NIOTLSEncryptionLevel, _ data: [UInt8]) {
         self.outgoing.append((level, data))
     }
-
-    func flushFlight() {
-        self.flushCount += 1
-    }
-
-    func sendAlert(level: NIOTLSEncryptionLevel, alert: UInt8) {
-        self.alerts.append((level, alert))
-    }
 }
 
 final class NIOSSLQUICHandshakeTests: XCTestCase {
@@ -57,24 +47,30 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
     private static let clientTransportParameters: [UInt8] = [0x01, 0x02, 0x03, 0x04]
     private static let serverTransportParameters: [UInt8] = [0x0a, 0x0b, 0x0c, 0x0d, 0x0e]
 
-    private func makeServerContext() throws -> NIOSSLContext {
+    private func makeServerContext(
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> NIOSSLContext {
         let (certificate, privateKey) = generateSelfSignedCert()
         var configuration = TLSConfiguration.makeServerConfiguration(
             certificateChain: [.certificate(certificate)],
             privateKey: .privateKey(privateKey)
         )
         configuration.applicationProtocols = [Self.alpn]
-        return try NIOSSLContext(configuration: configuration)
+        return try assertNoThrowWithValue(NIOSSLContext(configuration: configuration), file: file, line: line)
     }
 
-    private func makeClientContext() throws -> NIOSSLContext {
+    private func makeClientContext(
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> NIOSSLContext {
         var configuration = TLSConfiguration.makeClientConfiguration()
         // F1 exercises the handshake mechanism, not certificate verification:
         // the raw QUIC SSL object has no SSLConnection for NIOSSL's verify
         // callback to use, so verification is wired up in a later milestone.
         configuration.certificateVerification = .none
         configuration.applicationProtocols = [Self.alpn]
-        return try NIOSSLContext(configuration: configuration)
+        return try assertNoThrowWithValue(NIOSSLContext(configuration: configuration), file: file, line: line)
     }
 
     /// Hands each buffered flight from `delegate` to `peer` at the level it was
@@ -103,17 +99,21 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         let clientDelegate = CollectingQUICDelegate()
         let serverDelegate = CollectingQUICDelegate()
 
-        let client = try NIOSSLQUICHandshake(
-            context: self.makeClientContext(),
-            role: .client,
-            localTransportParameters: Self.clientTransportParameters,
-            delegate: clientDelegate
+        let client = try assertNoThrowWithValue(
+            NIOSSLQUICHandshake(
+                context: try self.makeClientContext(),
+                role: .client,
+                localTransportParameters: Self.clientTransportParameters,
+                delegate: clientDelegate
+            )
         )
-        let server = try NIOSSLQUICHandshake(
-            context: self.makeServerContext(),
-            role: .server,
-            localTransportParameters: Self.serverTransportParameters,
-            delegate: serverDelegate
+        let server = try assertNoThrowWithValue(
+            NIOSSLQUICHandshake(
+                context: try self.makeServerContext(),
+                role: .server,
+                localTransportParameters: Self.serverTransportParameters,
+                delegate: serverDelegate
+            )
         )
 
         // Pump the handshake: the client emits its ClientHello, then each side
@@ -136,8 +136,6 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
 
         XCTAssertEqual(clientState, .complete, "client did not complete in \(rounds) rounds")
         XCTAssertEqual(serverState, .complete, "server did not complete in \(rounds) rounds")
-        XCTAssertEqual(clientDelegate.alerts.count, 0, "unexpected client alerts: \(clientDelegate.alerts)")
-        XCTAssertEqual(serverDelegate.alerts.count, 0, "unexpected server alerts: \(serverDelegate.alerts)")
 
         // ALPN was negotiated.
         XCTAssertEqual(client.negotiatedApplicationProtocol, Self.alpn)
@@ -170,14 +168,16 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
 
     func testHandshakeWithoutPeerDataWantsMoreData() throws {
         let serverDelegate = CollectingQUICDelegate()
-        let server = try NIOSSLQUICHandshake(
-            context: self.makeServerContext(),
-            role: .server,
-            localTransportParameters: Self.serverTransportParameters,
-            delegate: serverDelegate
+        let server = try assertNoThrowWithValue(
+            NIOSSLQUICHandshake(
+                context: try self.makeServerContext(),
+                role: .server,
+                localTransportParameters: Self.serverTransportParameters,
+                delegate: serverDelegate
+            )
         )
         // A server with no ClientHello yet cannot make progress.
-        XCTAssertEqual(try server.advance(), .wantsMoreData)
+        XCTAssertEqual(try assertNoThrowWithValue(server.advance()), .wantsMoreData)
         XCTAssertNil(server.peerTransportParameters)
         XCTAssertNil(server.negotiatedApplicationProtocol)
     }

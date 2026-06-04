@@ -24,9 +24,13 @@ public enum NIOSSLQUICRole: Sendable, Hashable {
 /// A QUIC implementation provides one of these to drive packet protection and
 /// to carry handshake bytes in CRYPTO frames (RFC 9001). All methods are invoked
 /// synchronously from within ``NIOSSLQUICHandshake/provideHandshakeData(level:_:)``
-/// and ``NIOSSLQUICHandshake/advance()``; none of the byte buffers handed to the
-/// delegate remain valid after the call returns, so a delegate that needs to
-/// retain them must copy.
+/// and ``NIOSSLQUICHandshake/advance()``.
+///
+/// Two outputs are deliberately *not* delegate methods. Handshake flights are
+/// bounded by the call that produces them, so there is no flush callback: the
+/// QUIC layer sends whatever was written once `advance()` returns. TLS alerts
+/// are always fatal in QUIC, so they surface as a thrown ``NIOSSLQUICError``
+/// rather than a callback.
 ///
 /// > Warning: The `secret` values are key material. Do not log them.
 public protocol NIOSSLQUICDelegate: AnyObject {
@@ -46,12 +50,4 @@ public protocol NIOSSLQUICDelegate: AnyObject {
     /// Provides handshake bytes that must be sent to the peer in CRYPTO frames
     /// at `level`.
     func writeHandshakeData(level: NIOTLSEncryptionLevel, _ data: [UInt8])
-
-    /// Signals a flight boundary: handshake data provided since the last flush
-    /// may now be sent.
-    func flushFlight()
-
-    /// Signals that the handshake produced a fatal TLS alert, which the QUIC
-    /// layer should surface as a CONNECTION_CLOSE frame (RFC 9001 § 4.8).
-    func sendAlert(level: NIOTLSEncryptionLevel, alert: UInt8)
 }

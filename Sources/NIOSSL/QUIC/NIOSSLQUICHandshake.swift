@@ -50,6 +50,11 @@ public final class NIOSSLQUICHandshake {
     /// is typically also its delegate, so a strong reference would cycle.
     private weak var delegate: (any NIOSSLQUICDelegate)?
 
+    /// The TLS alert BoringSSL last asked to send, captured from its `send_alert`
+    /// callback. Surfaced as a thrown ``NIOSSLQUICError`` from the next handshake
+    /// step (alerts are always fatal in QUIC).
+    private var pendingAlert: UInt8?
+
     /// Creates a QUIC TLS handshake.
     ///
     /// - Parameters:
@@ -124,7 +129,8 @@ public final class NIOSSLQUICHandshake {
     ///
     /// - Returns: ``State/complete`` once the handshake has finished, or
     ///   ``State/wantsMoreData`` if it is blocked waiting for more peer data.
-    /// - Throws: ``NIOSSLError/handshakeFailed(_:)`` on a fatal handshake error.
+    /// - Throws: ``NIOSSLQUICError`` carrying the TLS alert if the handshake
+    ///   raised one, otherwise ``NIOSSLError/handshakeFailed(_:)``.
     @discardableResult
     public func advance() throws -> State {
         let rc = CNIOBoringSSL_SSL_do_handshake(self.ssl)
@@ -137,7 +143,7 @@ public final class NIOSSLQUICHandshake {
         case .wantRead, .wantWrite:
             return .wantsMoreData
         default:
-            throw NIOSSLError.handshakeFailed(error)
+            throw self.failure(error)
         }
     }
 
@@ -149,8 +155,18 @@ public final class NIOSSLQUICHandshake {
         guard rc == 1 else {
             let result = CNIOBoringSSL_SSL_get_error(self.ssl, rc)
             let error = BoringSSLError.fromSSLGetErrorResult(result)!
-            throw NIOSSLError.handshakeFailed(error)
+            throw self.failure(error)
         }
+    }
+
+    /// The error to throw from a failed handshake step: the TLS alert the
+    /// handshake raised, if any (alerts are always fatal in QUIC), otherwise the
+    /// underlying BoringSSL error.
+    private func failure(_ error: BoringSSLError) -> any Error {
+        if let alert = self.pendingAlert {
+            return NIOSSLQUICError.tlsAlert(alert)
+        }
+        return NIOSSLError.handshakeFailed(error)
     }
 
     /// The peer's encoded QUIC transport parameters, available once the peer's
@@ -214,16 +230,11 @@ public final class NIOSSLQUICHandshake {
         return true
     }
 
-    fileprivate func handleFlushFlight() -> Bool {
-        guard let delegate = self.delegate else { return false }
-        delegate.flushFlight()
-        return true
-    }
-
-    fileprivate func handleSendAlert(level: ssl_encryption_level_t, alert: UInt8) -> Bool {
-        guard let delegate = self.delegate else { return false }
-        delegate.sendAlert(level: NIOTLSEncryptionLevel(level), alert: alert)
-        return true
+    /// Records the TLS alert BoringSSL wishes to send. In QUIC, alerts are
+    /// always fatal; the alert is surfaced as a thrown ``NIOSSLQUICError`` from
+    /// the next handshake step rather than as a delegate callback.
+    fileprivate func recordAlert(_ alert: UInt8) {
+        self.pendingAlert = alert
     }
 }
 
@@ -278,13 +289,14 @@ private nonisolated(unsafe) let quicMethodPointer: UnsafePointer<SSL_QUIC_METHOD
                 )
                 return (ok ?? false) ? 1 : 0
             },
-            flush_flight: { ssl in
-                let ok = NIOSSLQUICHandshake.from(ssl: ssl)?.handleFlushFlight()
-                return (ok ?? false) ? 1 : 0
+            flush_flight: { _ in
+                // A flight is bounded by the call that produced it; the QUIC
+                // layer flushes after `advance()` returns. No-op.
+                1
             },
-            send_alert: { ssl, level, alert in
-                let ok = NIOSSLQUICHandshake.from(ssl: ssl)?.handleSendAlert(level: level, alert: alert)
-                return (ok ?? false) ? 1 : 0
+            send_alert: { ssl, _, alert in
+                NIOSSLQUICHandshake.from(ssl: ssl)?.recordAlert(alert)
+                return 1
             }
         )
     )
