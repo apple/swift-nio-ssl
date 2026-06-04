@@ -54,16 +54,25 @@ jobs:
 
     macos-tests:
         name: macOS tests
-        # Runs on GitHub-hosted macOS runners on this fork. The upstream job uses
-        # Apple's self-hosted runner pool, which is unavailable here. Restore the
-        # block below (and delete the runs-on/steps) if accepted upstream.
-        # uses: apple/swift-nio/.github/workflows/macos_tests.yml@main
-        # with:
-        #     runner_pool: nightly
-        #     build_scheme: swift-nio-ssl-Package
-        #     swift_6_1_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
-        #     swift_6_2_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
-        #     swift_6_3_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
+        # Upstream runs macOS tests on Apple's self-hosted runner pool, which is
+        # only reachable in the apple org. Gate on the org so this job runs as
+        # upstream intends once merged, and is skipped on the fork (which runs
+        # macos-test-fork instead).
+        if: ${{ github.repository_owner == 'apple' }}
+        uses: apple/swift-nio/.github/workflows/macos_tests.yml@main
+        with:
+            runner_pool: nightly
+            build_scheme: swift-nio-ssl-Package
+            swift_6_1_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
+            swift_6_2_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
+            swift_6_3_build_arguments_override: "-Xswiftc -Xfrontend -Xswiftc -require-explicit-sendable"
+
+    macos-test-fork:
+        name: macOS tests (fork)
+        # A fork has no access to Apple's self-hosted runner pool, so it runs
+        # macOS tests on GitHub-hosted runners. Skipped in the apple org, where
+        # macos-tests runs instead.
+        if: ${{ github.repository_owner != 'apple' }}
         runs-on: macos-latest
         steps:
             - name: Checkout repository
