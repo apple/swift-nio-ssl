@@ -163,7 +163,11 @@ public final class NIOSSLQUICHandshake {
     /// handshake raised, if any (alerts are always fatal in QUIC), otherwise the
     /// underlying BoringSSL error.
     private func failure(_ error: BoringSSLError) -> any Error {
+        // Consume the alert: a fatal alert ends the handshake, but post-handshake
+        // processing can fail later for unrelated reasons, and a stale alert must
+        // not masquerade as that failure's cause.
         if let alert = self.pendingAlert {
+            self.pendingAlert = nil
             return NIOSSLQUICError.tlsAlert(alert)
         }
         return NIOSSLError.handshakeFailed(error)
