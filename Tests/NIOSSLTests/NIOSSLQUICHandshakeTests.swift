@@ -166,6 +166,39 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         }
     }
 
+    func testMalformedPeerDataRaisesFatalAlert() throws {
+        // The send_alert trampoline and NIOSSLQUICError.tlsAlert have no other
+        // coverage: a complete handshake message of the wrong type in place of
+        // the ServerHello makes the client raise a fatal alert, which surfaces
+        // as the thrown error (alerts are always fatal in QUIC; the QUIC layer
+        // maps them to CONNECTION_CLOSE). The message must be complete — the
+        // four-byte header below says type 0x14, one-byte body — because an
+        // incomplete one would just buffer awaiting the rest.
+        let delegate = CollectingQUICDelegate()
+        let client = try assertNoThrowWithValue(
+            NIOSSLQUICHandshake(
+                context: try self.makeClientContext(),
+                role: .client,
+                localTransportParameters: Self.clientTransportParameters,
+                delegate: delegate
+            )
+        )
+        XCTAssertEqual(try client.advance(), .wantsMoreData)
+
+        var garbage = ByteBuffer()
+        garbage.writeBytes([0x14, 0x00, 0x00, 0x01, 0x00])
+        try client.provideHandshakeData(level: .initial, garbage)
+        XCTAssertThrowsError(try client.advance()) { error in
+            guard case .tlsAlert(let alert)? = error as? NIOSSLQUICError else {
+                XCTFail("expected NIOSSLQUICError.tlsAlert, got \(error)")
+                return
+            }
+            // The exact description depends on how BoringSSL classifies the
+            // garbage; what matters is that an alert was raised and surfaced.
+            XCTAssertNotEqual(alert, 0)
+        }
+    }
+
     func testHandshakeWithoutPeerDataWantsMoreData() throws {
         let serverDelegate = CollectingQUICDelegate()
         let server = try assertNoThrowWithValue(
