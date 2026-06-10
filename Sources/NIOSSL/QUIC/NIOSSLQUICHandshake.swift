@@ -28,7 +28,9 @@ import NIOCore
 /// ``NIOSSLQUICDelegate`` to receive the handshake's outputs. Then drive it:
 /// call ``advance()`` to make progress, feed peer CRYPTO bytes with
 /// ``provideHandshakeData(level:_:)``, and repeat until ``advance()`` returns
-/// ``State/complete``.
+/// ``State/complete``. The same two calls keep working after completion:
+/// application-level CRYPTO carries post-handshake messages (NewSessionTicket,
+/// KeyUpdate), which ``advance()`` then processes.
 ///
 /// > Note: This type is not thread-safe. Use it from a single, consistent
 /// > execution context (typically a connection's event loop).
@@ -127,12 +129,30 @@ public final class NIOSSLQUICHandshake {
     /// Advances the handshake, invoking the delegate as secrets become
     /// available and handshake bytes are produced.
     ///
+    /// Before completion this drives the TLS 1.3 handshake; after completion it
+    /// processes any buffered post-handshake messages, such as NewSessionTicket
+    /// and KeyUpdate, provided at the application level (RFC 9001 § 4.1.3). The
+    /// caller drives both phases the same way: feed CRYPTO bytes, call
+    /// ``advance()``.
+    ///
     /// - Returns: ``State/complete`` once the handshake has finished, or
     ///   ``State/wantsMoreData`` if it is blocked waiting for more peer data.
     /// - Throws: ``NIOSSLQUICError`` carrying the TLS alert if the handshake
     ///   raised one, otherwise ``NIOSSLError/handshakeFailed(_:)``.
     @discardableResult
     public func advance() throws -> State {
+        // Once the handshake is out of its initial state, progress means
+        // draining buffered post-handshake messages: BoringSSL routes those
+        // through SSL_process_quic_post_handshake, not SSL_do_handshake.
+        guard CNIOBoringSSL_SSL_in_init(self.ssl) == 1 else {
+            let rc = CNIOBoringSSL_SSL_process_quic_post_handshake(self.ssl)
+            guard rc == 1 else {
+                let result = CNIOBoringSSL_SSL_get_error(self.ssl, rc)
+                let error = BoringSSLError.fromSSLGetErrorResult(result)!
+                throw self.failure(error)
+            }
+            return .complete
+        }
         let rc = CNIOBoringSSL_SSL_do_handshake(self.ssl)
         if rc == 1 {
             return .complete
@@ -143,18 +163,6 @@ public final class NIOSSLQUICHandshake {
         case .wantRead, .wantWrite:
             return .wantsMoreData
         default:
-            throw self.failure(error)
-        }
-    }
-
-    /// Processes post-handshake TLS messages provided via
-    /// ``provideHandshakeData(level:_:)`` at the application level, such as
-    /// NewSessionTicket and KeyUpdate (RFC 9001 § 4.1.3).
-    public func processPostHandshakeMessages() throws {
-        let rc = CNIOBoringSSL_SSL_process_quic_post_handshake(self.ssl)
-        guard rc == 1 else {
-            let result = CNIOBoringSSL_SSL_get_error(self.ssl, rc)
-            let error = BoringSSLError.fromSSLGetErrorResult(result)!
             throw self.failure(error)
         }
     }

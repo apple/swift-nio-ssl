@@ -199,6 +199,57 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         }
     }
 
+    func testAdvanceProcessesPostHandshakeMessages() throws {
+        // A TLS 1.3 server sends NewSessionTickets right after the handshake;
+        // in QUIC they arrive as application-level CRYPTO. After completion,
+        // advance() must route them through SSL_process_quic_post_handshake
+        // (feeding them and calling SSL_do_handshake would silently buffer
+        // them forever).
+        let clientDelegate = CollectingQUICDelegate()
+        let serverDelegate = CollectingQUICDelegate()
+        let client = try assertNoThrowWithValue(
+            NIOSSLQUICHandshake(
+                context: try self.makeClientContext(),
+                role: .client,
+                localTransportParameters: Self.clientTransportParameters,
+                delegate: clientDelegate
+            )
+        )
+        let server = try assertNoThrowWithValue(
+            NIOSSLQUICHandshake(
+                context: try self.makeServerContext(),
+                role: .server,
+                localTransportParameters: Self.serverTransportParameters,
+                delegate: serverDelegate
+            )
+        )
+        var clientState = try client.advance()
+        var serverState = NIOSSLQUICHandshake.State.wantsMoreData
+        var rounds = 0
+        while rounds < 50, clientState != .complete || serverState != .complete {
+            rounds += 1
+            let toServer = try self.feed(from: clientDelegate, into: server)
+            if toServer.moved { serverState = toServer.state }
+            let toClient = try self.feed(from: serverDelegate, into: client)
+            if toClient.moved { clientState = toClient.state }
+            if !toServer.moved, !toClient.moved { break }
+        }
+        XCTAssertEqual(clientState, .complete)
+        XCTAssertEqual(serverState, .complete)
+
+        // The pump above already ferried any post-handshake flight the server
+        // produced (its NewSessionTickets) into the client, where the
+        // post-completion advance() processed it without error. Prove the
+        // post-handshake path also rejects bad input: a complete handshake
+        // message of a bogus type must throw from advance(). (An incomplete
+        // message would just buffer: the four-byte header below says type 0x20,
+        // one-byte body, so the message is whole and gets parsed.)
+        var bogus = ByteBuffer()
+        bogus.writeBytes([0x20, 0x00, 0x00, 0x01, 0x00])
+        try client.provideHandshakeData(level: .application, bogus)
+        XCTAssertThrowsError(try client.advance())
+    }
+
     func testHandshakeWithoutPeerDataWantsMoreData() throws {
         let serverDelegate = CollectingQUICDelegate()
         let server = try assertNoThrowWithValue(
