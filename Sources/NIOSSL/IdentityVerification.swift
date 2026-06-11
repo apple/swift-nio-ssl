@@ -315,6 +315,10 @@ private struct AnalysedCertificateHostname {
             let (wildcardLabel, remainingComponents) = baseName.splitAroundIndex(firstPeriodIndex)
             let (targetFirstLabel, targetRemainingComponents) = target.splitAroundIndex(firstPeriodIndexForName)
 
+            guard !targetFirstLabel.prefix(4).caseInsensitiveElementsEqual(asciiIDNAIdentifier) else {
+                return false
+            }
+
             guard remainingComponents.caseInsensitiveElementsEqual(targetRemainingComponents) else {
                 // Wildcard is irrelevant, the remaining components don't match.
                 return false

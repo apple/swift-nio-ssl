@@ -293,6 +293,41 @@ class IdentityVerificationTest: XCTestCase {
         XCTAssertTrue(matched)
     }
 
+    private static let partialWildcardEncodedIDNAttackCert = """
+        -----BEGIN CERTIFICATE-----
+        MIIDHTCCAgWgAwIBAgIUI2eI+nPJ7N+stqd7yiyMCXl9rE4wDQYJKoZIhvcNAQEL
+        BQAwIDEeMBwGA1UEAwwVcGFydGlhbC13aWxkY2FyZC10ZXN0MCAXDTI2MDUwMjA2
+        NTMxNloYDzIxMjYwNDA4MDY1MzE2WjAgMR4wHAYDVQQDDBVwYXJ0aWFsLXdpbGRj
+        YXJkLXRlc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCvKRD8uJoa
+        OXOlQ1D/xNX4VG9NPkh3yRK1ljON3xyrNqoXUNDwoC0YvzyPorpYiyGxPO5HpsfQ
+        uLvcLSynpom6E/4GKlnk4XMXV3+s+tHwuAIDS/50KigDaZ7CqYvvBZyiBgCuAfBw
+        df/TAOHTbLX6ii12aJ9h/u8NYxI2yHYuGzrvfx6Ncuw9/ytyNgmw045Hd4o0DPji
+        pwhy2C5n7c7vba1KimgzDaDw//Hj2c79gEZTqxxhLeYiTyL43WryScT2x1EHEecf
+        NUFC054e605tQ7W7p7bo6Ic+YSFWhA8oaV1Gq2w3zjWQIRabYAZdYtVcybzMz6Ir
+        CiD9qa0ySHZPAgMBAAGjTTBLMB8GA1UdEQQYMBaCFCotNXdhbzFvLmV4YW1wbGUu
+        Y29tMAkGA1UdEwQCMAAwHQYDVR0OBBYEFAKGYfki9PLNY/HBn7BcPyHT79ShMA0G
+        CSqGSIb3DQEBCwUAA4IBAQCg8IqWYR8TbfzwiWIG4MBqbaf3acxH0x7KDv5mzrd6
+        uZcxHn3z31Rj6CIZ5FTsCl76xP3RBK5FnKHfh3bQ9neOxPg3Od+TJWcLxT3y5rsd
+        HT6hOwVwOyMILur/eKa7nZMlsO2JLpLvtA4gHtzaM1oePSaBjDkgrYRz/+Kebwv7
+        0kyBERowQB9VnhVeXiyOoBEurM3giOdgKk14AnzCGKcnRanXm4qyB4A+FNmNI61d
+        BFMkrH5bLzQ6wgqbXyBkwUkaphU7Cy2b6mdZHiIjd/0XVTJ9QAHGmOVF8ySjAIZA
+        I0V15hkkmOT9flggzSiafRAZ5fqR7sXe/amTZpf2Enbw
+        -----END CERTIFICATE-----
+        """
+
+    func testDoesNotMatchPartialWildcardConstructingEncodedIDNALabel() throws {
+        let cert = try NIOSSLCertificate(
+            bytes: .init(Self.partialWildcardEncodedIDNAttackCert.utf8),
+            format: .pem
+        )
+        let matched = try validIdentityForService(
+            serverHostname: "xn--rksmrgs-5wao1o.example.com",
+            socketAddress: try .init(unixDomainSocketPath: "/path"),
+            leafCertificate: cert
+        )
+        XCTAssertFalse(matched)
+    }
+
     func testDoesNotMatchSANWithEmbeddedNULL() throws {
         let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
 
