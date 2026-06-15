@@ -63,12 +63,18 @@ public final class NIOSSLQUICHandshake {
     ///   - context: a configured TLS context supplying certificates, trust,
     ///     verification, ALPN, and SNI.
     ///   - role: whether this endpoint is the client or the server.
+    ///   - serverHostname: for a client, the server name to send in the TLS SNI
+    ///     extension and, under ``CertificateVerification/fullVerification``, to
+    ///     require in the peer certificate (RFC 6125). Must be a DNS name, not
+    ///     an IP address; `nil` sends no SNI and performs no hostname check.
+    ///     Ignored for a server.
     ///   - localTransportParameters: this endpoint's QUIC transport parameters,
     ///     already encoded (RFC 9000 § 18). They are carried in a TLS extension.
     ///   - delegate: receives the handshake's outputs.
     public init(
         context: NIOSSLContext,
         role: NIOSSLQUICRole,
+        serverHostname: String? = nil,
         localTransportParameters: [UInt8],
         delegate: any NIOSSLQUICDelegate
     ) throws {
@@ -92,6 +98,13 @@ public final class NIOSSLQUICHandshake {
         switch role {
         case .client:
             CNIOBoringSSL_SSL_set_connect_state(ssl)
+            if let serverHostname {
+                try Self.useServerHostname(
+                    serverHostname,
+                    on: ssl,
+                    verification: context.configuration.certificateVerification
+                )
+            }
         case .server:
             CNIOBoringSSL_SSL_set_accept_state(ssl)
         }
@@ -107,6 +120,28 @@ public final class NIOSSLQUICHandshake {
 
     deinit {
         CNIOBoringSSL_SSL_free(self.ssl)
+    }
+
+    /// Sends `serverHostname` in the TLS SNI extension and, under
+    /// ``CertificateVerification/fullVerification``, requires it to match the
+    /// peer certificate. Chain verification is inherited from the `SSL_CTX`;
+    /// `SSL_set1_host` adds the name check BoringSSL otherwise skips (RFC 6125).
+    /// The name must be a DNS name: SNI cannot carry an IP address, so one is
+    /// rejected before either call.
+    private static func useServerHostname(
+        _ serverHostname: String,
+        on ssl: OpaquePointer,
+        verification: CertificateVerification
+    ) throws {
+        try serverHostname.validateSNIServerName()
+        guard serverHostname.withCString({ CNIOBoringSSL_SSL_set_tlsext_host_name(ssl, $0) }) == 1 else {
+            throw NIOSSLError.handshakeFailed(.sslError(BoringSSLError.buildErrorStack()))
+        }
+        if case .fullVerification = verification {
+            guard serverHostname.withCString({ CNIOBoringSSL_SSL_set1_host(ssl, $0) }) == 1 else {
+                throw NIOSSLError.handshakeFailed(.sslError(BoringSSLError.buildErrorStack()))
+            }
+        }
     }
 
     /// Feeds handshake bytes received from the peer in a CRYPTO frame at `level`

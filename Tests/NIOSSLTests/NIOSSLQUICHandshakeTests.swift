@@ -265,4 +265,167 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         XCTAssertNil(server.peerTransportParameters)
         XCTAssertNil(server.negotiatedApplicationProtocol)
     }
+
+    // MARK: Certificate and hostname verification
+
+    /// A server context built from a specific certificate and key, so a client
+    /// can be configured to trust that exact certificate.
+    private func makeServerContext(
+        certificate: NIOSSLCertificate,
+        privateKey: NIOSSLPrivateKey,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> NIOSSLContext {
+        var configuration = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(certificate)],
+            privateKey: .privateKey(privateKey)
+        )
+        configuration.applicationProtocols = [Self.alpn]
+        return try assertNoThrowWithValue(NIOSSLContext(configuration: configuration), file: file, line: line)
+    }
+
+    /// A client context with the given verification policy, optionally trusting
+    /// `certificate` as its sole root.
+    private func makeClientContext(
+        verification: CertificateVerification,
+        trusting certificate: NIOSSLCertificate? = nil,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> NIOSSLContext {
+        var configuration = TLSConfiguration.makeClientConfiguration()
+        configuration.certificateVerification = verification
+        if let certificate {
+            configuration.trustRoots = .certificates([certificate])
+        }
+        configuration.applicationProtocols = [Self.alpn]
+        return try assertNoThrowWithValue(NIOSSLContext(configuration: configuration), file: file, line: line)
+    }
+
+    /// Pumps a client/server handshake to completion, rethrowing any error a
+    /// side raises (e.g. a verification failure surfacing as a fatal alert).
+    private func pump(
+        client: NIOSSLQUICHandshake,
+        clientDelegate: CollectingQUICDelegate,
+        server: NIOSSLQUICHandshake,
+        serverDelegate: CollectingQUICDelegate
+    ) throws -> (client: NIOSSLQUICHandshake.State, server: NIOSSLQUICHandshake.State) {
+        var clientState = try client.advance()
+        var serverState = NIOSSLQUICHandshake.State.wantsMoreData
+        var rounds = 0
+        while rounds < 50, clientState != .complete || serverState != .complete {
+            rounds += 1
+            let toServer = try self.feed(from: clientDelegate, into: server)
+            if toServer.moved { serverState = toServer.state }
+            let toClient = try self.feed(from: serverDelegate, into: client)
+            if toClient.moved { clientState = toClient.state }
+            if !toServer.moved, !toClient.moved { break }
+        }
+        return (clientState, serverState)
+    }
+
+    /// Drives a handshake between a verifying client and a server presenting the
+    /// generated self-signed certificate (`CN=localhost`, SAN `DNS:localhost`),
+    /// rethrowing whatever the client raises.
+    private func runVerifyingHandshake(
+        verification: CertificateVerification,
+        trustingServerCertificate: Bool,
+        serverHostname: String?
+    ) throws -> NIOSSLQUICHandshake.State {
+        let (certificate, privateKey) = generateSelfSignedCert()
+        let clientDelegate = CollectingQUICDelegate()
+        let serverDelegate = CollectingQUICDelegate()
+        let client = try NIOSSLQUICHandshake(
+            context: try self.makeClientContext(
+                verification: verification,
+                trusting: trustingServerCertificate ? certificate : nil
+            ),
+            role: .client,
+            serverHostname: serverHostname,
+            localTransportParameters: Self.clientTransportParameters,
+            delegate: clientDelegate
+        )
+        let server = try NIOSSLQUICHandshake(
+            context: try self.makeServerContext(certificate: certificate, privateKey: privateKey),
+            role: .server,
+            localTransportParameters: Self.serverTransportParameters,
+            delegate: serverDelegate
+        )
+        return try self.pump(
+            client: client,
+            clientDelegate: clientDelegate,
+            server: server,
+            serverDelegate: serverDelegate
+        ).client
+    }
+
+    func testFullVerificationWithMatchingHostnameCompletes() throws {
+        // Trusted certificate, matching name: chain and hostname both pass.
+        let state = try assertNoThrowWithValue(
+            self.runVerifyingHandshake(
+                verification: .fullVerification,
+                trustingServerCertificate: true,
+                serverHostname: "localhost"
+            )
+        )
+        XCTAssertEqual(state, .complete)
+    }
+
+    func testFullVerificationRejectsHostnameMismatch() throws {
+        // Trusted certificate, wrong name: SSL_set1_host fails the handshake.
+        XCTAssertThrowsError(
+            try self.runVerifyingHandshake(
+                verification: .fullVerification,
+                trustingServerCertificate: true,
+                serverHostname: "wrong.example.com"
+            )
+        ) { error in
+            guard case .tlsAlert = error as? NIOSSLQUICError else {
+                XCTFail("expected NIOSSLQUICError.tlsAlert, got \(error)")
+                return
+            }
+        }
+    }
+
+    func testFullVerificationRejectsUntrustedCertificate() throws {
+        // Matching name, but the self-signed certificate is not trusted: chain
+        // verification (inherited from the SSL_CTX) fails the handshake.
+        XCTAssertThrowsError(
+            try self.runVerifyingHandshake(
+                verification: .fullVerification,
+                trustingServerCertificate: false,
+                serverHostname: "localhost"
+            )
+        ) { error in
+            guard case .tlsAlert = error as? NIOSSLQUICError else {
+                XCTFail("expected NIOSSLQUICError.tlsAlert, got \(error)")
+                return
+            }
+        }
+    }
+
+    func testNoHostnameVerificationAllowsMismatch() throws {
+        // Trusted certificate, wrong name: the chain is checked but the name is
+        // not, so SNI is set without SSL_set1_host and the handshake completes.
+        let state = try assertNoThrowWithValue(
+            self.runVerifyingHandshake(
+                verification: .noHostnameVerification,
+                trustingServerCertificate: true,
+                serverHostname: "wrong.example.com"
+            )
+        )
+        XCTAssertEqual(state, .complete)
+    }
+
+    func testIPAddressServerHostnameIsRejected() throws {
+        // SNI cannot carry an IP address; the handshake init rejects it up front.
+        XCTAssertThrowsError(
+            try NIOSSLQUICHandshake(
+                context: try self.makeClientContext(verification: .fullVerification),
+                role: .client,
+                serverHostname: "127.0.0.1",
+                localTransportParameters: Self.clientTransportParameters,
+                delegate: CollectingQUICDelegate()
+            )
+        )
+    }
 }
