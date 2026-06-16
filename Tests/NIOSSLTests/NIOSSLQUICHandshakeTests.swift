@@ -138,8 +138,8 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         XCTAssertEqual(serverState, .complete, "server did not complete in \(rounds) rounds")
 
         // ALPN was negotiated.
-        XCTAssertEqual(client.negotiatedApplicationProtocol, Self.alpn)
-        XCTAssertEqual(server.negotiatedApplicationProtocol, Self.alpn)
+        XCTAssertEqual(client.negotiatedProtocol, Self.alpn)
+        XCTAssertEqual(server.negotiatedProtocol, Self.alpn)
 
         // Transport parameters round-tripped through the TLS extension.
         XCTAssertEqual(client.peerTransportParameters, Self.serverTransportParameters)
@@ -263,7 +263,7 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         // A server with no ClientHello yet cannot make progress.
         XCTAssertEqual(try assertNoThrowWithValue(server.advance()), .wantsMoreData)
         XCTAssertNil(server.peerTransportParameters)
-        XCTAssertNil(server.negotiatedApplicationProtocol)
+        XCTAssertNil(server.negotiatedProtocol)
     }
 
     // MARK: Certificate and hostname verification

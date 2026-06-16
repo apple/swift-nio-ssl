@@ -228,7 +228,10 @@ public final class NIOSSLQUICHandshake {
 
     /// The application protocol negotiated via ALPN, or `nil` if none was
     /// negotiated.
-    public var negotiatedApplicationProtocol: String? {
+    ///
+    /// Named to match `TLSUserEvent.handshakeCompleted(negotiatedProtocol:)`,
+    /// which carries the same ALPN result for the record-based TLS path.
+    public var negotiatedProtocol: String? {
         var pointer: UnsafePointer<UInt8>? = nil
         var length: UInt32 = 0
         CNIOBoringSSL_SSL_get0_alpn_selected(self.ssl, &pointer, &length)
