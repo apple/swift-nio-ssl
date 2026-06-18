@@ -15,6 +15,12 @@
 @_implementationOnly import CNIOBoringSSL
 import NIOCore
 
+/// Whether a QUIC TLS handshake acts as the client or the server.
+public enum NIOSSLQUICRole: Sendable, Hashable {
+    case client
+    case server
+}
+
 /// Drives a single QUIC TLS 1.3 handshake (RFC 9001).
 ///
 /// QUIC does not run TLS over the record layer; it feeds the TLS handshake
@@ -23,12 +29,13 @@ import NIOCore
 /// encryption level. A `NIOSSLQUICHandshake` wraps that state machine.
 ///
 /// Create one from a configured ``NIOSSLContext`` (which supplies the
-/// certificates, trust roots, verification policy, ALPN protocols, and SNI),
-/// supply your encoded QUIC transport parameters, and provide a
-/// ``NIOSSLQUICDelegate`` to receive the handshake's outputs. Then drive it:
-/// call ``advance()`` to make progress, feed peer CRYPTO bytes with
+/// certificates, trust roots, verification policy, ALPN protocols, and SNI) and
+/// supply your encoded QUIC transport parameters. Then drive it: call
+/// ``advance()`` to make progress, drain what it produced — the traffic secrets
+/// with ``drainSecrets()`` and the handshake bytes to send with
+/// ``drainHandshakeData()`` — feed peer CRYPTO bytes with
 /// ``provideHandshakeData(level:_:)``, and repeat until ``advance()`` returns
-/// ``State/complete``. The same two calls keep working after completion:
+/// ``State/complete``. The same calls keep working after completion:
 /// application-level CRYPTO carries post-handshake messages (NewSessionTicket,
 /// KeyUpdate), which ``advance()`` then processes.
 ///
@@ -43,14 +50,44 @@ public final class NIOSSLQUICHandshake {
         case complete
     }
 
+    /// A traffic secret the handshake produced, drained with ``drainSecrets()``
+    /// ([RFC 9001 § 5.1](https://datatracker.ietf.org/doc/html/rfc9001#section-5.1)).
+    /// One value per secret BoringSSL installs: the read and write directions
+    /// are reported separately, and may arrive in different ``advance()`` calls.
+    ///
+    /// > Warning: ``bytes`` is key material. Do not log it.
+    public struct Secret: Sendable {
+        /// Whether the secret decrypts received packets or protects sent ones.
+        public enum Direction: Sendable, Hashable {
+            case read
+            case write
+        }
+
+        /// The encryption level the secret applies to.
+        public var level: NIOTLSEncryptionLevel
+        /// The negotiated cipher suite, as its IANA-assigned identifier
+        /// (e.g. `0x1301` for `TLS_AES_128_GCM_SHA256`).
+        public var cipherSuite: UInt16
+        /// Whether this is the read (decryption) or write (encryption) secret.
+        public var direction: Direction
+        /// The traffic secret, from which packet protection keys are derived.
+        public var bytes: [UInt8]
+    }
+
     private let ssl: OpaquePointer
 
     /// Held to keep the underlying `SSL_CTX` alive for this handshake's lifetime.
     private let context: NIOSSLContext
 
-    /// The delegate is held weakly: the QUIC connection that owns this handshake
-    /// is typically also its delegate, so a strong reference would cycle.
-    private weak var delegate: (any NIOSSLQUICDelegate)?
+    /// Traffic secrets BoringSSL produced since the last ``drainSecrets()``,
+    /// stashed by the `set_read_secret` / `set_write_secret` callbacks for the
+    /// caller to drain after ``advance()`` (RFC 9001 § 5.1).
+    private var pendingSecrets: [Secret] = []
+
+    /// Handshake bytes BoringSSL produced since the last ``drainHandshakeData()``,
+    /// stashed by the `add_handshake_data` callback for the caller to send in
+    /// CRYPTO frames at their level (RFC 9001 § 4.1.3).
+    private var pendingHandshakeData: [(level: NIOTLSEncryptionLevel, data: [UInt8])] = []
 
     /// The TLS alert BoringSSL last asked to send, captured from its `send_alert`
     /// callback. Surfaced as a thrown ``NIOSSLQUICError`` from the next handshake
@@ -70,20 +107,17 @@ public final class NIOSSLQUICHandshake {
     ///     Ignored for a server.
     ///   - localTransportParameters: this endpoint's QUIC transport parameters,
     ///     already encoded (RFC 9000 § 18). They are carried in a TLS extension.
-    ///   - delegate: receives the handshake's outputs.
     public init(
         context: NIOSSLContext,
         role: NIOSSLQUICRole,
         serverHostname: String? = nil,
-        localTransportParameters: [UInt8],
-        delegate: any NIOSSLQUICDelegate
+        localTransportParameters: [UInt8]
     ) throws {
         guard let ssl = context.createQUICSSLHandle() else {
             throw NIOSSLError.handshakeFailed(.sslError(BoringSSLError.buildErrorStack()))
         }
         self.ssl = ssl
         self.context = context
-        self.delegate = delegate
 
         // Recover `self` inside the C callbacks via ex_data, mirroring
         // SSLConnection. The reference is unowned: the SSL object never outlives
@@ -216,6 +250,30 @@ public final class NIOSSLQUICHandshake {
         return NIOSSLError.handshakeFailed(error)
     }
 
+    /// Removes and returns the traffic secrets the handshake produced since the
+    /// last call, in the order BoringSSL installed them
+    /// ([RFC 9001 § 5.1](https://datatracker.ietf.org/doc/html/rfc9001#section-5.1)).
+    /// Drain after each ``advance()`` (and after ``provideHandshakeData(level:_:)``,
+    /// which advances): a secret applies before packets at its level are
+    /// processed or sent, so install it before driving the handshake further.
+    ///
+    /// - Returns: the secrets produced since the last drain, possibly empty.
+    public func drainSecrets() -> [Secret] {
+        defer { self.pendingSecrets.removeAll(keepingCapacity: true) }
+        return self.pendingSecrets
+    }
+
+    /// Removes and returns the handshake bytes the handshake produced since the
+    /// last call, each tagged with the encryption level it must be sent at in a
+    /// CRYPTO frame ([RFC 9001 § 4.1.3](https://datatracker.ietf.org/doc/html/rfc9001#section-4.1.3)),
+    /// in the order produced. Drain after each ``advance()``.
+    ///
+    /// - Returns: the flights produced since the last drain, possibly empty.
+    public func drainHandshakeData() -> [(level: NIOTLSEncryptionLevel, data: [UInt8])] {
+        defer { self.pendingHandshakeData.removeAll(keepingCapacity: true) }
+        return self.pendingHandshakeData
+    }
+
     /// The peer's encoded QUIC transport parameters, available once the peer's
     /// TLS extension has been received, or `nil` otherwise.
     public var peerTransportParameters: [UInt8]? {
@@ -248,7 +306,7 @@ public final class NIOSSLQUICHandshake {
         return Unmanaged<NIOSSLQUICHandshake>.fromOpaque(raw).takeUnretainedValue()
     }
 
-    // MARK: Delegate dispatch (called from the C trampolines)
+    // MARK: Output capture (called from the C trampolines)
 
     fileprivate func handleSecret(
         level: ssl_encryption_level_t,
@@ -259,15 +317,19 @@ public final class NIOSSLQUICHandshake {
     ) -> Bool {
         // BoringSSL always supplies the negotiated cipher alongside a secret; a
         // null cipher is a broken contract, so fail the callback loudly.
-        guard let delegate = self.delegate, let secret, let cipher else { return false }
+        guard let secret, let cipher else { return false }
+        // Copy the key material out of the callback immediately; the caller
+        // drains it after `advance()` returns.
         let bytes = Array(UnsafeBufferPointer(start: secret, count: secretLength))
         let cipherSuite = CNIOBoringSSL_SSL_CIPHER_get_protocol_id(cipher)
-        let mapped = NIOTLSEncryptionLevel(level)
-        if isRead {
-            delegate.setReadSecret(level: mapped, cipherSuite: cipherSuite, secret: bytes)
-        } else {
-            delegate.setWriteSecret(level: mapped, cipherSuite: cipherSuite, secret: bytes)
-        }
+        self.pendingSecrets.append(
+            Secret(
+                level: NIOTLSEncryptionLevel(level),
+                cipherSuite: cipherSuite,
+                direction: isRead ? .read : .write,
+                bytes: bytes
+            )
+        )
         return true
     }
 
@@ -276,9 +338,9 @@ public final class NIOSSLQUICHandshake {
         data: UnsafePointer<UInt8>?,
         length: Int
     ) -> Bool {
-        guard let delegate = self.delegate, let data else { return false }
+        guard let data else { return false }
         let bytes = Array(UnsafeBufferPointer(start: data, count: length))
-        delegate.writeHandshakeData(level: NIOTLSEncryptionLevel(level), bytes)
+        self.pendingHandshakeData.append((NIOTLSEncryptionLevel(level), bytes))
         return true
     }
 

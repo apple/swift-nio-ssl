@@ -17,28 +17,45 @@ import XCTest
 
 @testable import NIOSSL
 
-/// Collects the outputs a `NIOSSLQUICHandshake` hands to its delegate so a test
-/// can shuttle handshake bytes to the peer and inspect the negotiated secrets.
-private final class CollectingQUICDelegate: NIOSSLQUICDelegate {
+/// Drives one `NIOSSLQUICHandshake` and accumulates what it drains after each
+/// `advance()`, so a test can shuttle handshake bytes to the peer and inspect
+/// the negotiated secrets. The pull-model stand-in for what a collecting
+/// delegate used to do.
+private final class Endpoint {
+    let handshake: NIOSSLQUICHandshake
     /// Handshake bytes the endpoint wants to send, tagged with their level, in
-    /// the order they were produced.
+    /// the order they were produced; consumed by `feed(from:into:)`.
     var outgoing: [(level: NIOTLSEncryptionLevel, bytes: [UInt8])] = []
     var readSecrets: [NIOTLSEncryptionLevel: [UInt8]] = [:]
     var writeSecrets: [NIOTLSEncryptionLevel: [UInt8]] = [:]
     var cipherSuites: [NIOTLSEncryptionLevel: UInt16] = [:]
 
-    func setReadSecret(level: NIOTLSEncryptionLevel, cipherSuite: UInt16, secret: [UInt8]) {
-        self.readSecrets[level] = secret
-        self.cipherSuites[level] = cipherSuite
+    init(_ handshake: NIOSSLQUICHandshake) {
+        self.handshake = handshake
     }
 
-    func setWriteSecret(level: NIOTLSEncryptionLevel, cipherSuite: UInt16, secret: [UInt8]) {
-        self.writeSecrets[level] = secret
-        self.cipherSuites[level] = cipherSuite
+    var negotiatedProtocol: String? { self.handshake.negotiatedProtocol }
+    var peerTransportParameters: [UInt8]? { self.handshake.peerTransportParameters }
+
+    func provideHandshakeData(level: NIOTLSEncryptionLevel, _ buffer: ByteBuffer) throws {
+        try self.handshake.provideHandshakeData(level: level, buffer)
     }
 
-    func writeHandshakeData(level: NIOTLSEncryptionLevel, _ data: [UInt8]) {
-        self.outgoing.append((level, data))
+    /// Advances the handshake, then drains what it produced into the collectors.
+    @discardableResult
+    func advance() throws -> NIOSSLQUICHandshake.State {
+        let state = try self.handshake.advance()
+        for secret in self.handshake.drainSecrets() {
+            switch secret.direction {
+            case .read: self.readSecrets[secret.level] = secret.bytes
+            case .write: self.writeSecrets[secret.level] = secret.bytes
+            }
+            self.cipherSuites[secret.level] = secret.cipherSuite
+        }
+        for flight in self.handshake.drainHandshakeData() {
+            self.outgoing.append((flight.level, flight.data))
+        }
+        return state
     }
 }
 
@@ -73,19 +90,19 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         return try assertNoThrowWithValue(NIOSSLContext(configuration: configuration), file: file, line: line)
     }
 
-    /// Hands each buffered flight from `delegate` to `peer` at the level it was
+    /// Hands each buffered flight from `source` to `peer` at the level it was
     /// produced, advancing the peer after every flight so its read encryption
     /// level keeps pace (BoringSSL rejects data provided ahead of its current
     /// read level). Returns whether any bytes were transferred and the peer's
     /// resulting state.
     private func feed(
-        from delegate: CollectingQUICDelegate,
-        into peer: NIOSSLQUICHandshake
+        from source: Endpoint,
+        into peer: Endpoint
     ) throws -> (moved: Bool, state: NIOSSLQUICHandshake.State) {
         var moved = false
         var state = NIOSSLQUICHandshake.State.wantsMoreData
-        while !delegate.outgoing.isEmpty {
-            let flight = delegate.outgoing.removeFirst()
+        while !source.outgoing.isEmpty {
+            let flight = source.outgoing.removeFirst()
             var buffer = ByteBuffer()
             buffer.writeBytes(flight.bytes)
             try peer.provideHandshakeData(level: flight.level, buffer)
@@ -96,23 +113,22 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
     }
 
     func testClientServerHandshakeCompletes() throws {
-        let clientDelegate = CollectingQUICDelegate()
-        let serverDelegate = CollectingQUICDelegate()
-
-        let client = try assertNoThrowWithValue(
-            NIOSSLQUICHandshake(
-                context: try self.makeClientContext(),
-                role: .client,
-                localTransportParameters: Self.clientTransportParameters,
-                delegate: clientDelegate
+        let client = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeClientContext(),
+                    role: .client,
+                    localTransportParameters: Self.clientTransportParameters
+                )
             )
         )
-        let server = try assertNoThrowWithValue(
-            NIOSSLQUICHandshake(
-                context: try self.makeServerContext(),
-                role: .server,
-                localTransportParameters: Self.serverTransportParameters,
-                delegate: serverDelegate
+        let server = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeServerContext(),
+                    role: .server,
+                    localTransportParameters: Self.serverTransportParameters
+                )
             )
         )
 
@@ -125,10 +141,10 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         var rounds = 0
         while rounds < 50 {
             rounds += 1
-            let toServer = try self.feed(from: clientDelegate, into: server)
+            let toServer = try self.feed(from: client, into: server)
             serverState = toServer.state
             if clientState == .complete, serverState == .complete { break }
-            let toClient = try self.feed(from: serverDelegate, into: client)
+            let toClient = try self.feed(from: server, into: client)
             clientState = toClient.state
             if clientState == .complete, serverState == .complete { break }
             if !toServer.moved, !toClient.moved { break }
@@ -148,21 +164,21 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         // The two endpoints derived matching traffic secrets: each side's read
         // secret equals the peer's write secret at the same encryption level.
         for level in [NIOTLSEncryptionLevel.handshake, .application] {
-            XCTAssertNotNil(clientDelegate.writeSecrets[level], "no client write secret at \(level)")
-            XCTAssertNotNil(serverDelegate.writeSecrets[level], "no server write secret at \(level)")
+            XCTAssertNotNil(client.writeSecrets[level], "no client write secret at \(level)")
+            XCTAssertNotNil(server.writeSecrets[level], "no server write secret at \(level)")
             XCTAssertEqual(
-                clientDelegate.writeSecrets[level],
-                serverDelegate.readSecrets[level],
+                client.writeSecrets[level],
+                server.readSecrets[level],
                 "client write != server read at \(level)"
             )
             XCTAssertEqual(
-                clientDelegate.readSecrets[level],
-                serverDelegate.writeSecrets[level],
+                client.readSecrets[level],
+                server.writeSecrets[level],
                 "client read != server write at \(level)"
             )
             // A nonzero cipher suite was reported and agreed upon.
-            XCTAssertEqual(clientDelegate.cipherSuites[level], serverDelegate.cipherSuites[level])
-            XCTAssertNotEqual(clientDelegate.cipherSuites[level], 0)
+            XCTAssertEqual(client.cipherSuites[level], server.cipherSuites[level])
+            XCTAssertNotEqual(client.cipherSuites[level], 0)
         }
     }
 
@@ -174,13 +190,13 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         // maps them to CONNECTION_CLOSE). The message must be complete — the
         // four-byte header below says type 0x14, one-byte body — because an
         // incomplete one would just buffer awaiting the rest.
-        let delegate = CollectingQUICDelegate()
-        let client = try assertNoThrowWithValue(
-            NIOSSLQUICHandshake(
-                context: try self.makeClientContext(),
-                role: .client,
-                localTransportParameters: Self.clientTransportParameters,
-                delegate: delegate
+        let client = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeClientContext(),
+                    role: .client,
+                    localTransportParameters: Self.clientTransportParameters
+                )
             )
         )
         XCTAssertEqual(try client.advance(), .wantsMoreData)
@@ -205,22 +221,22 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         // advance() must route them through SSL_process_quic_post_handshake
         // (feeding them and calling SSL_do_handshake would silently buffer
         // them forever).
-        let clientDelegate = CollectingQUICDelegate()
-        let serverDelegate = CollectingQUICDelegate()
-        let client = try assertNoThrowWithValue(
-            NIOSSLQUICHandshake(
-                context: try self.makeClientContext(),
-                role: .client,
-                localTransportParameters: Self.clientTransportParameters,
-                delegate: clientDelegate
+        let client = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeClientContext(),
+                    role: .client,
+                    localTransportParameters: Self.clientTransportParameters
+                )
             )
         )
-        let server = try assertNoThrowWithValue(
-            NIOSSLQUICHandshake(
-                context: try self.makeServerContext(),
-                role: .server,
-                localTransportParameters: Self.serverTransportParameters,
-                delegate: serverDelegate
+        let server = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeServerContext(),
+                    role: .server,
+                    localTransportParameters: Self.serverTransportParameters
+                )
             )
         )
         var clientState = try client.advance()
@@ -228,9 +244,9 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         var rounds = 0
         while rounds < 50, clientState != .complete || serverState != .complete {
             rounds += 1
-            let toServer = try self.feed(from: clientDelegate, into: server)
+            let toServer = try self.feed(from: client, into: server)
             if toServer.moved { serverState = toServer.state }
-            let toClient = try self.feed(from: serverDelegate, into: client)
+            let toClient = try self.feed(from: server, into: client)
             if toClient.moved { clientState = toClient.state }
             if !toServer.moved, !toClient.moved { break }
         }
@@ -251,13 +267,13 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
     }
 
     func testHandshakeWithoutPeerDataWantsMoreData() throws {
-        let serverDelegate = CollectingQUICDelegate()
-        let server = try assertNoThrowWithValue(
-            NIOSSLQUICHandshake(
-                context: try self.makeServerContext(),
-                role: .server,
-                localTransportParameters: Self.serverTransportParameters,
-                delegate: serverDelegate
+        let server = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeServerContext(),
+                    role: .server,
+                    localTransportParameters: Self.serverTransportParameters
+                )
             )
         )
         // A server with no ClientHello yet cannot make progress.
@@ -304,19 +320,17 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
     /// Pumps a client/server handshake to completion, rethrowing any error a
     /// side raises (e.g. a verification failure surfacing as a fatal alert).
     private func pump(
-        client: NIOSSLQUICHandshake,
-        clientDelegate: CollectingQUICDelegate,
-        server: NIOSSLQUICHandshake,
-        serverDelegate: CollectingQUICDelegate
+        client: Endpoint,
+        server: Endpoint
     ) throws -> (client: NIOSSLQUICHandshake.State, server: NIOSSLQUICHandshake.State) {
         var clientState = try client.advance()
         var serverState = NIOSSLQUICHandshake.State.wantsMoreData
         var rounds = 0
         while rounds < 50, clientState != .complete || serverState != .complete {
             rounds += 1
-            let toServer = try self.feed(from: clientDelegate, into: server)
+            let toServer = try self.feed(from: client, into: server)
             if toServer.moved { serverState = toServer.state }
-            let toClient = try self.feed(from: serverDelegate, into: client)
+            let toClient = try self.feed(from: server, into: client)
             if toClient.moved { clientState = toClient.state }
             if !toServer.moved, !toClient.moved { break }
         }
@@ -332,30 +346,25 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         serverHostname: String?
     ) throws -> NIOSSLQUICHandshake.State {
         let (certificate, privateKey) = generateSelfSignedCert()
-        let clientDelegate = CollectingQUICDelegate()
-        let serverDelegate = CollectingQUICDelegate()
-        let client = try NIOSSLQUICHandshake(
-            context: try self.makeClientContext(
-                verification: verification,
-                trusting: trustingServerCertificate ? certificate : nil
-            ),
-            role: .client,
-            serverHostname: serverHostname,
-            localTransportParameters: Self.clientTransportParameters,
-            delegate: clientDelegate
+        let client = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: try self.makeClientContext(
+                    verification: verification,
+                    trusting: trustingServerCertificate ? certificate : nil
+                ),
+                role: .client,
+                serverHostname: serverHostname,
+                localTransportParameters: Self.clientTransportParameters
+            )
         )
-        let server = try NIOSSLQUICHandshake(
-            context: try self.makeServerContext(certificate: certificate, privateKey: privateKey),
-            role: .server,
-            localTransportParameters: Self.serverTransportParameters,
-            delegate: serverDelegate
+        let server = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: try self.makeServerContext(certificate: certificate, privateKey: privateKey),
+                role: .server,
+                localTransportParameters: Self.serverTransportParameters
+            )
         )
-        return try self.pump(
-            client: client,
-            clientDelegate: clientDelegate,
-            server: server,
-            serverDelegate: serverDelegate
-        ).client
+        return try self.pump(client: client, server: server).client
     }
 
     func testFullVerificationWithMatchingHostnameCompletes() throws {
@@ -423,8 +432,7 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
                 context: try self.makeClientContext(verification: .fullVerification),
                 role: .client,
                 serverHostname: "127.0.0.1",
-                localTransportParameters: Self.clientTransportParameters,
-                delegate: CollectingQUICDelegate()
+                localTransportParameters: Self.clientTransportParameters
             )
         )
     }
