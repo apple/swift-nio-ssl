@@ -29,6 +29,14 @@ private final class Endpoint {
     var readSecrets: [NIOTLSEncryptionLevel: [UInt8]] = [:]
     var writeSecrets: [NIOTLSEncryptionLevel: [UInt8]] = [:]
     var cipherSuites: [NIOTLSEncryptionLevel: UInt16] = [:]
+    /// A custom certificate verifier. When set, `advance()` resolves a
+    /// `wantsCertificateVerify` park inline by calling this with the peer chain
+    /// and feeding its verdict back through `resumeVerification(_:)`. `nil`
+    /// leaves the park surfaced for the caller to inspect.
+    var verify: (([NIOSSLCertificate]) -> NIOSSLVerificationResult)?
+    /// The peer chain last handed to `verify`, recorded so a test can assert
+    /// what the application saw.
+    var verifiedChain: [NIOSSLCertificate]?
 
     init(_ handshake: NIOSSLQUICHandshake) {
         self.handshake = handshake
@@ -41,10 +49,26 @@ private final class Endpoint {
         try self.handshake.provideHandshakeData(level: level, buffer)
     }
 
-    /// Advances the handshake, then drains what it produced into the collectors.
+    /// Advances the handshake, draining what each step produces into the
+    /// collectors. If a `verify` provider is set, a `wantsCertificateVerify`
+    /// park is resolved inline — record the chain, supply the verdict, advance
+    /// again — so the pump treats custom verification as a single step.
     @discardableResult
     func advance() throws -> NIOSSLQUICHandshake.State {
-        let state = try self.handshake.advance()
+        var state = try self.handshake.advance()
+        self.drain()
+        while case .wantsCertificateVerify(let chain) = state, let verify = self.verify {
+            self.verifiedChain = chain
+            self.handshake.resumeVerification(verify(chain))
+            state = try self.handshake.advance()
+            self.drain()
+        }
+        return state
+    }
+
+    /// Moves the secrets and handshake bytes the last `advance()` produced out
+    /// of the handshake and into the collectors.
+    private func drain() {
         for secret in self.handshake.drainSecrets() {
             switch secret.direction {
             case .read: self.readSecrets[secret.level] = secret.bytes
@@ -55,7 +79,6 @@ private final class Endpoint {
         for flight in self.handshake.drainHandshakeData() {
             self.outgoing.append((flight.level, flight.data))
         }
-        return state
     }
 }
 
@@ -435,5 +458,101 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
                 localTransportParameters: Self.clientTransportParameters
             )
         )
+    }
+
+    // MARK: Custom certificate verification
+
+    /// A client that hands the peer chain to `verify` instead of verifying it
+    /// built-in, paired with a server presenting the generated self-signed
+    /// certificate. The client context trusts nothing and the server hostname,
+    /// when given, need not match the certificate — under custom verification
+    /// the verifier owns both trust and the name check.
+    private func makeCustomVerifyingPair(
+        serverHostname: String?,
+        verify: @escaping ([NIOSSLCertificate]) -> NIOSSLVerificationResult
+    ) throws -> (client: Endpoint, server: Endpoint, certificate: NIOSSLCertificate) {
+        let (certificate, privateKey) = generateSelfSignedCert()
+        let client = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: try self.makeClientContext(verification: .none),
+                role: .client,
+                serverHostname: serverHostname,
+                localTransportParameters: Self.clientTransportParameters,
+                customCertificateVerification: true
+            )
+        )
+        client.verify = verify
+        let server = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: try self.makeServerContext(certificate: certificate, privateKey: privateKey),
+                role: .server,
+                localTransportParameters: Self.serverTransportParameters
+            )
+        )
+        return (client, server, certificate)
+    }
+
+    func testCustomVerificationOwnsTrustAndCompletes() throws {
+        // The application's verdict replaces both the SSL_CTX trust check and the
+        // built-in name check: a client trusting nothing, sending a hostname that
+        // does not match the certificate, still completes when the verifier
+        // approves the chain. The chain it saw is the server's leaf certificate.
+        let (client, server, certificate) = try self.makeCustomVerifyingPair(
+            serverHostname: "wrong.example.com",
+            verify: { _ in .certificateVerified }
+        )
+        let (clientState, serverState) = try self.pump(client: client, server: server)
+        XCTAssertEqual(clientState, .complete)
+        XCTAssertEqual(serverState, .complete)
+        XCTAssertEqual(client.verifiedChain?.first, certificate)
+    }
+
+    func testCustomVerificationRejectionFailsHandshake() throws {
+        // A `.failed` verdict becomes ssl_verify_invalid, which fails the
+        // handshake with a fatal certificate alert — surfaced, like any QUIC
+        // alert, as a thrown NIOSSLQUICError.tlsAlert.
+        let (client, server, _) = try self.makeCustomVerifyingPair(
+            serverHostname: "localhost",
+            verify: { _ in .failed }
+        )
+        XCTAssertThrowsError(try self.pump(client: client, server: server)) { error in
+            guard case .tlsAlert = error as? NIOSSLQUICError else {
+                XCTFail("expected NIOSSLQUICError.tlsAlert, got \(error)")
+                return
+            }
+        }
+        // The chain reached the verifier before the verdict was rendered.
+        XCTAssertNotNil(client.verifiedChain)
+        XCTAssertFalse(client.verifiedChain?.isEmpty ?? true)
+    }
+
+    func testDefaultLeavesVerificationToTheContext() throws {
+        // Without customCertificateVerification the handshake never parks for the
+        // application: the verifier is left untouched and the context's policy
+        // (.none here) decides. A verify closure wired up anyway must never run.
+        let (certificate, privateKey) = generateSelfSignedCert()
+        let client = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: try self.makeClientContext(verification: .none),
+                role: .client,
+                serverHostname: "localhost",
+                localTransportParameters: Self.clientTransportParameters
+            )
+        )
+        client.verify = { _ in
+            XCTFail("custom verifier ran without customCertificateVerification")
+            return .certificateVerified
+        }
+        let server = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: try self.makeServerContext(certificate: certificate, privateKey: privateKey),
+                role: .server,
+                localTransportParameters: Self.serverTransportParameters
+            )
+        )
+        let (clientState, serverState) = try self.pump(client: client, server: server)
+        XCTAssertEqual(clientState, .complete)
+        XCTAssertEqual(serverState, .complete)
+        XCTAssertNil(client.verifiedChain)
     }
 }

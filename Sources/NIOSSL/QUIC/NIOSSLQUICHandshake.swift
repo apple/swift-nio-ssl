@@ -48,6 +48,11 @@ public final class NIOSSLQUICHandshake {
         case wantsMoreData
         /// The handshake has completed successfully.
         case complete
+        /// BoringSSL paused the handshake for the application to evaluate the
+        /// peer's certificate chain (RFC 9001 § 4), surfaced only when
+        /// `customCertificateVerification` was requested. Supply the verdict with
+        /// ``resumeVerification(_:)``, then call ``advance()`` again.
+        case wantsCertificateVerify([NIOSSLCertificate])
     }
 
     /// A traffic secret the handshake produced, drained with ``drainSecrets()``
@@ -94,6 +99,20 @@ public final class NIOSSLQUICHandshake {
     /// step (alerts are always fatal in QUIC).
     private var pendingAlert: UInt8?
 
+    /// The custom certificate-verification handshake, live only when
+    /// `customCertificateVerification` was requested. `idle` until BoringSSL's
+    /// custom-verify callback first fires (it stashes the chain and parks at
+    /// `pending`); a verdict from ``resumeVerification(_:)`` moves it to
+    /// `verified` / `failed`, which the callback reports to BoringSSL on the next
+    /// ``advance()``.
+    private enum Verification {
+        case idle
+        case pending([NIOSSLCertificate])
+        case verified
+        case failed
+    }
+    private var verification: Verification = .idle
+
     /// Creates a QUIC TLS handshake.
     ///
     /// - Parameters:
@@ -107,11 +126,20 @@ public final class NIOSSLQUICHandshake {
     ///     Ignored for a server.
     ///   - localTransportParameters: this endpoint's QUIC transport parameters,
     ///     already encoded (RFC 9000 § 18). They are carried in a TLS extension.
+    ///   - customCertificateVerification: for a client, hand the peer's
+    ///     certificate chain to the application instead of verifying it built-in
+    ///     (RFC 9001 § 4): the handshake parks at ``State/wantsCertificateVerify(_:)``
+    ///     and ``resumeVerification(_:)`` supplies the verdict. The application
+    ///     then owns trust evaluation *and* the hostname check, replacing the
+    ///     `SSL_CTX` verification and the `serverHostname` name check (SNI is
+    ///     still sent). Default `false` leaves verification unchanged. Ignored for
+    ///     a server.
     public init(
         context: NIOSSLContext,
         role: NIOSSLQUICRole,
         serverHostname: String? = nil,
-        localTransportParameters: [UInt8]
+        localTransportParameters: [UInt8],
+        customCertificateVerification: Bool = false
     ) throws {
         guard let ssl = context.createQUICSSLHandle() else {
             throw NIOSSLError.handshakeFailed(.sslError(BoringSSLError.buildErrorStack()))
@@ -132,12 +160,20 @@ public final class NIOSSLQUICHandshake {
         switch role {
         case .client:
             CNIOBoringSSL_SSL_set_connect_state(ssl)
+            // SNI is sent whenever a hostname is present: the server needs it to
+            // select a certificate, independent of how the chain is verified.
             if let serverHostname {
-                try Self.useServerHostname(
-                    serverHostname,
-                    on: ssl,
-                    verification: context.configuration.certificateVerification
-                )
+                try Self.sendServerNameIndication(serverHostname, on: ssl)
+            }
+            if customCertificateVerification {
+                // The application owns verification, so force VERIFY_PEER (the
+                // callback must fire even when the context's mode is `.none`) and
+                // skip the built-in name check — the callback owns that too.
+                Self.installCustomVerify(on: ssl)
+            } else if let serverHostname,
+                case .fullVerification = context.configuration.certificateVerification
+            {
+                try Self.requireServerHostname(serverHostname, on: ssl)
             }
         case .server:
             CNIOBoringSSL_SSL_set_accept_state(ssl)
@@ -156,25 +192,36 @@ public final class NIOSSLQUICHandshake {
         CNIOBoringSSL_SSL_free(self.ssl)
     }
 
-    /// Sends `serverHostname` in the TLS SNI extension and, under
-    /// ``CertificateVerification/fullVerification``, requires it to match the
-    /// peer certificate. Chain verification is inherited from the `SSL_CTX`;
-    /// `SSL_set1_host` adds the name check BoringSSL otherwise skips (RFC 6125).
-    /// The name must be a DNS name: SNI cannot carry an IP address, so one is
-    /// rejected before either call.
-    private static func useServerHostname(
-        _ serverHostname: String,
-        on ssl: OpaquePointer,
-        verification: CertificateVerification
-    ) throws {
+    /// Sends `serverHostname` in the TLS SNI extension so the server can select a
+    /// certificate. The name must be a DNS name: SNI cannot carry an IP address,
+    /// so one is rejected here.
+    private static func sendServerNameIndication(_ serverHostname: String, on ssl: OpaquePointer) throws {
         try serverHostname.validateSNIServerName()
         guard serverHostname.withCString({ CNIOBoringSSL_SSL_set_tlsext_host_name(ssl, $0) }) == 1 else {
             throw NIOSSLError.handshakeFailed(.sslError(BoringSSLError.buildErrorStack()))
         }
-        if case .fullVerification = verification {
-            guard serverHostname.withCString({ CNIOBoringSSL_SSL_set1_host(ssl, $0) }) == 1 else {
-                throw NIOSSLError.handshakeFailed(.sslError(BoringSSLError.buildErrorStack()))
+    }
+
+    /// Requires the peer certificate to match `serverHostname` (RFC 6125), the
+    /// name check BoringSSL otherwise skips; chain verification is inherited from
+    /// the `SSL_CTX`. Used on the built-in path only — a custom verifier owns the
+    /// name check itself.
+    private static func requireServerHostname(_ serverHostname: String, on ssl: OpaquePointer) throws {
+        guard serverHostname.withCString({ CNIOBoringSSL_SSL_set1_host(ssl, $0) }) == 1 else {
+            throw NIOSSLError.handshakeFailed(.sslError(BoringSSLError.buildErrorStack()))
+        }
+    }
+
+    /// Installs the custom-verify callback that parks the handshake so the
+    /// application can evaluate the peer chain (RFC 9001 § 4). `SSL_VERIFY_PEER`
+    /// forces the callback to run regardless of the context's verify mode, since
+    /// opting in means the application owns trust evaluation entirely.
+    private static func installCustomVerify(on ssl: OpaquePointer) {
+        CNIOBoringSSL_SSL_set_custom_verify(ssl, SSL_VERIFY_PEER) { ssl, _ in
+            guard let handshake = NIOSSLQUICHandshake.from(ssl: ssl) else {
+                return ssl_verify_invalid
             }
+            return handshake.customVerify()
         }
     }
 
@@ -195,8 +242,8 @@ public final class NIOSSLQUICHandshake {
         }
     }
 
-    /// Advances the handshake, invoking the delegate as secrets become
-    /// available and handshake bytes are produced.
+    /// Advances the handshake; drain the traffic secrets and handshake bytes it
+    /// produces with ``drainSecrets()`` and ``drainHandshakeData()``.
     ///
     /// Before completion this drives the TLS 1.3 handshake; after completion it
     /// processes any buffered post-handshake messages, such as NewSessionTicket
@@ -204,8 +251,10 @@ public final class NIOSSLQUICHandshake {
     /// caller drives both phases the same way: feed CRYPTO bytes, call
     /// ``advance()``.
     ///
-    /// - Returns: ``State/complete`` once the handshake has finished, or
-    ///   ``State/wantsMoreData`` if it is blocked waiting for more peer data.
+    /// - Returns: ``State/complete`` once the handshake has finished,
+    ///   ``State/wantsMoreData`` if it is blocked waiting for more peer data, or
+    ///   ``State/wantsCertificateVerify(_:)`` if a custom verifier must rule on
+    ///   the peer chain before it can continue.
     /// - Throws: ``NIOSSLQUICError`` carrying the TLS alert if the handshake
     ///   raised one, otherwise ``NIOSSLError/handshakeFailed(_:)``.
     @discardableResult
@@ -231,6 +280,15 @@ public final class NIOSSLQUICHandshake {
         switch error {
         case .wantRead, .wantWrite:
             return .wantsMoreData
+        case .wantCertificateVerify:
+            // The custom-verify callback parked the handshake and stashed the
+            // peer chain; surface it for the application to rule on.
+            guard case .pending(let chain) = self.verification else {
+                // The callback always records `.pending` before returning retry,
+                // so this is unreachable; fail loudly rather than mask a bug.
+                throw self.failure(error)
+            }
+            return .wantsCertificateVerify(chain)
         default:
             throw self.failure(error)
         }
@@ -272,6 +330,43 @@ public final class NIOSSLQUICHandshake {
     public func drainHandshakeData() -> [(level: NIOTLSEncryptionLevel, data: [UInt8])] {
         defer { self.pendingHandshakeData.removeAll(keepingCapacity: true) }
         return self.pendingHandshakeData
+    }
+
+    /// Supplies the verdict for the chain surfaced by ``State/wantsCertificateVerify(_:)``
+    /// (RFC 9001 § 4). The next ``advance()`` resumes the handshake on
+    /// `.certificateVerified`, or fails it with the TLS certificate alert on
+    /// `.failed`. Calling this outside the `.wantsCertificateVerify` state, or
+    /// more than once for it, is a programmer error.
+    ///
+    /// - Parameter result: the application's verdict on the peer chain.
+    public func resumeVerification(_ result: NIOSSLVerificationResult) {
+        guard case .pending = self.verification else {
+            preconditionFailure("resumeVerification(_:) called without a pending .wantsCertificateVerify state")
+        }
+        switch result {
+        case .certificateVerified: self.verification = .verified
+        case .failed: self.verification = .failed
+        }
+    }
+
+    /// The custom-verify callback's state machine (RFC 9001 § 4): on the first
+    /// call it stashes the peer chain and parks (`ssl_verify_retry`); while a
+    /// verdict is pending it keeps parking; once ``resumeVerification(_:)`` has
+    /// recorded one it reports `ssl_verify_ok` / `ssl_verify_invalid`. This
+    /// mirrors the record path's `CustomVerifyManager.process(on:)`, minus the
+    /// promise.
+    fileprivate func customVerify() -> ssl_verify_result_t {
+        switch self.verification {
+        case .idle:
+            self.verification = .pending((try? SSLConnection.peerCertificateChain(fromSSL: self.ssl)) ?? [])
+            return ssl_verify_retry
+        case .pending:
+            return ssl_verify_retry
+        case .verified:
+            return ssl_verify_ok
+        case .failed:
+            return ssl_verify_invalid
+        }
     }
 
     /// The peer's encoded QUIC transport parameters, available once the peer's
