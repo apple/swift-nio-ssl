@@ -21,19 +21,19 @@ public enum NIOSSLQUICRole: Sendable, Hashable {
     case server
 }
 
-/// Drives a single QUIC TLS 1.3 handshake (RFC 9001).
+/// Drives a single QUIC TLS 1.3 handshake ([RFC 9001](https://datatracker.ietf.org/doc/html/rfc9001)).
 ///
 /// QUIC does not run TLS over the record layer; it feeds the TLS handshake
 /// bytes it receives in CRYPTO frames into the handshake and consumes the
-/// handshake's outputs — traffic secrets and handshake bytes to send — per
+/// handshake's outputs—traffic secrets and handshake bytes to send—per
 /// encryption level. A `NIOSSLQUICHandshake` wraps that state machine.
 ///
 /// Create one from a configured ``NIOSSLContext`` (which supplies the
 /// certificates, trust roots, verification policy, ALPN protocols, and SNI) and
 /// supply your encoded QUIC transport parameters. Then drive it: call
-/// ``advance()`` to make progress, drain what it produced — the traffic secrets
+/// ``advance()`` to make progress, drain what it produced—the traffic secrets
 /// with ``drainSecrets()`` and the handshake bytes to send with
-/// ``drainHandshakeData()`` — feed peer CRYPTO bytes with
+/// ``drainHandshakeData()``—feed peer CRYPTO bytes with
 /// ``provideHandshakeData(level:_:)``, and repeat until ``advance()`` returns
 /// ``State/complete``. The same calls keep working after completion:
 /// application-level CRYPTO carries post-handshake messages (NewSessionTicket,
@@ -49,7 +49,7 @@ public final class NIOSSLQUICHandshake {
         /// The handshake has completed successfully.
         case complete
         /// BoringSSL paused the handshake for the application to evaluate the
-        /// peer's certificate chain (RFC 9001 § 4), surfaced only when
+        /// peer's certificate chain ([RFC 9001 § 4](https://datatracker.ietf.org/doc/html/rfc9001#section-4)), surfaced only when
         /// `customCertificateVerification` was requested. Supply the verdict with
         /// ``resumeVerification(_:)``, then call ``advance()`` again.
         case wantsCertificateVerify([NIOSSLCertificate])
@@ -86,12 +86,12 @@ public final class NIOSSLQUICHandshake {
 
     /// Traffic secrets BoringSSL produced since the last ``drainSecrets()``,
     /// stashed by the `set_read_secret` / `set_write_secret` callbacks for the
-    /// caller to drain after ``advance()`` (RFC 9001 § 5.1).
+    /// caller to drain after ``advance()`` ([RFC 9001 § 5.1](https://datatracker.ietf.org/doc/html/rfc9001#section-5.1)).
     private var pendingSecrets: [Secret] = []
 
     /// Handshake bytes BoringSSL produced since the last ``drainHandshakeData()``,
     /// stashed by the `add_handshake_data` callback for the caller to send in
-    /// CRYPTO frames at their level (RFC 9001 § 4.1.3).
+    /// CRYPTO frames at their level ([RFC 9001 § 4.1.3](https://datatracker.ietf.org/doc/html/rfc9001#section-4.1.3)).
     private var pendingHandshakeData: [(level: NIOTLSEncryptionLevel, data: [UInt8])] = []
 
     /// The TLS alert BoringSSL last asked to send, captured from its `send_alert`
@@ -125,15 +125,20 @@ public final class NIOSSLQUICHandshake {
     ///     an IP address; `nil` sends no SNI and performs no hostname check.
     ///     Ignored for a server.
     ///   - localTransportParameters: this endpoint's QUIC transport parameters,
-    ///     already encoded (RFC 9000 § 18). They are carried in a TLS extension.
-    ///   - customCertificateVerification: for a client, hand the peer's
-    ///     certificate chain to the application instead of verifying it built-in
-    ///     (RFC 9001 § 4): the handshake parks at ``State/wantsCertificateVerify(_:)``
-    ///     and ``resumeVerification(_:)`` supplies the verdict. The application
-    ///     then owns trust evaluation *and* the hostname check, replacing the
-    ///     `SSL_CTX` verification and the `serverHostname` name check (SNI is
-    ///     still sent). Default `false` leaves verification unchanged. Ignored for
-    ///     a server.
+    ///     already encoded ([RFC 9000 § 18](https://datatracker.ietf.org/doc/html/rfc9000#section-18)). They are carried in a TLS extension.
+    ///   - customCertificateVerification: hand the peer's certificate chain to
+    ///     the application instead of verifying it built-in ([RFC 9001 § 4](https://datatracker.ietf.org/doc/html/rfc9001#section-4)): the
+    ///     handshake parks at ``State/wantsCertificateVerify(_:)`` and
+    ///     ``resumeVerification(_:)`` supplies the verdict. For a client, the
+    ///     application then owns trust evaluation *and* the hostname check,
+    ///     replacing the `SSL_CTX` verification and the `serverHostname` name
+    ///     check (SNI is still sent). For a server, the handshake requests the
+    ///     client's certificate and verifies it the same way; whether a client
+    ///     *must* present one follows the context's
+    ///     ``TLSConfiguration/certificateVerification`` (`.fullVerification` /
+    ///     `.noHostnameVerification` require it, `.none` leaves it optional—a
+    ///     client that sends none then surfaces an empty chain for the application
+    ///     to rule on). Default `false` leaves verification unchanged.
     public init(
         context: NIOSSLContext,
         role: NIOSSLQUICRole,
@@ -168,7 +173,9 @@ public final class NIOSSLQUICHandshake {
             if customCertificateVerification {
                 // The application owns verification, so force VERIFY_PEER (the
                 // callback must fire even when the context's mode is `.none`) and
-                // skip the built-in name check — the callback owns that too.
+                // skip the built-in name check—the callback owns that too. The
+                // default leaves the client certificate unrequired, which is moot:
+                // a server always presents one.
                 Self.installCustomVerify(on: ssl)
             } else if let serverHostname,
                 case .fullVerification = context.configuration.certificateVerification
@@ -177,6 +184,14 @@ public final class NIOSSLQUICHandshake {
             }
         case .server:
             CNIOBoringSSL_SSL_set_accept_state(ssl)
+            if customCertificateVerification {
+                // Mutual TLS ([RFC 9001 § 4](https://datatracker.ietf.org/doc/html/rfc9001#section-4)): request the client's certificate and
+                // hand its chain to the application, the same park/resume the
+                // client uses for the server's. The verification mode carries
+                // whether a client *must* present one; the trust decision itself
+                // is the application's.
+                Self.installCustomVerify(on: ssl, verification: context.configuration.certificateVerification)
+            }
         }
 
         let transportParametersResult = localTransportParameters.withUnsafeBufferPointer {
@@ -204,7 +219,7 @@ public final class NIOSSLQUICHandshake {
 
     /// Requires the peer certificate to match `serverHostname` (RFC 6125), the
     /// name check BoringSSL otherwise skips; chain verification is inherited from
-    /// the `SSL_CTX`. Used on the built-in path only — a custom verifier owns the
+    /// the `SSL_CTX`. Used on the built-in path only—a custom verifier owns the
     /// name check itself.
     private static func requireServerHostname(_ serverHostname: String, on ssl: OpaquePointer) throws {
         guard serverHostname.withCString({ CNIOBoringSSL_SSL_set1_host(ssl, $0) }) == 1 else {
@@ -213,11 +228,34 @@ public final class NIOSSLQUICHandshake {
     }
 
     /// Installs the custom-verify callback that parks the handshake so the
-    /// application can evaluate the peer chain (RFC 9001 § 4). `SSL_VERIFY_PEER`
+    /// application can evaluate the peer chain ([RFC 9001 § 4](https://datatracker.ietf.org/doc/html/rfc9001#section-4)). `SSL_VERIFY_PEER`
     /// forces the callback to run regardless of the context's verify mode, since
-    /// opting in means the application owns trust evaluation entirely.
-    private static func installCustomVerify(on ssl: OpaquePointer) {
-        CNIOBoringSSL_SSL_set_custom_verify(ssl, SSL_VERIFY_PEER) { ssl, _ in
+    /// opting in means the application owns trust evaluation entirely. On a server
+    /// it also makes the handshake request the client's certificate. Only the
+    /// require-vs-optional bit is read from `verification`: `.fullVerification` /
+    /// `.noHostnameVerification` add `SSL_VERIFY_FAIL_IF_NO_PEER_CERT`, so a client
+    /// that sends none fails the handshake before the callback (mandatory mutual
+    /// TLS); `.none` leaves it optional, reaching the callback with an empty chain.
+    /// The trust decision itself is the application's, so the rest of the mode is
+    /// not used.
+    ///
+    /// - Parameters:
+    ///   - ssl: the handshake's `SSL` object.
+    ///   - verification: the context's verification mode, consulted only for the
+    ///     require bit. Defaults to `.none` (optional), always right for a client
+    ///     (a server presents its certificate unconditionally).
+    private static func installCustomVerify(
+        on ssl: OpaquePointer,
+        verification: CertificateVerification = .none
+    ) {
+        let mode =
+            switch verification {
+            case .fullVerification, .noHostnameVerification:
+                SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT
+            case .none:
+                SSL_VERIFY_PEER
+            }
+        CNIOBoringSSL_SSL_set_custom_verify(ssl, mode) { ssl, _ in
             guard let handshake = NIOSSLQUICHandshake.from(ssl: ssl) else {
                 return ssl_verify_invalid
             }
@@ -226,7 +264,7 @@ public final class NIOSSLQUICHandshake {
     }
 
     /// Feeds handshake bytes received from the peer in a CRYPTO frame at `level`
-    /// into the handshake (RFC 9001 § 4.1.3).
+    /// into the handshake ([RFC 9001 § 4.1.3](https://datatracker.ietf.org/doc/html/rfc9001#section-4.1.3)).
     public func provideHandshakeData(level: NIOTLSEncryptionLevel, _ data: ByteBuffer) throws {
         guard data.readableBytes > 0 else { return }
         let result = data.withUnsafeReadableBytes { raw -> Int32 in
@@ -247,7 +285,7 @@ public final class NIOSSLQUICHandshake {
     ///
     /// Before completion this drives the TLS 1.3 handshake; after completion it
     /// processes any buffered post-handshake messages, such as NewSessionTicket
-    /// and KeyUpdate, provided at the application level (RFC 9001 § 4.1.3). The
+    /// and KeyUpdate, provided at the application level ([RFC 9001 § 4.1.3](https://datatracker.ietf.org/doc/html/rfc9001#section-4.1.3)). The
     /// caller drives both phases the same way: feed CRYPTO bytes, call
     /// ``advance()``.
     ///
@@ -333,7 +371,7 @@ public final class NIOSSLQUICHandshake {
     }
 
     /// Supplies the verdict for the chain surfaced by ``State/wantsCertificateVerify(_:)``
-    /// (RFC 9001 § 4). The next ``advance()`` resumes the handshake on
+    /// ([RFC 9001 § 4](https://datatracker.ietf.org/doc/html/rfc9001#section-4)). The next ``advance()`` resumes the handshake on
     /// `.certificateVerified`, or fails it with the TLS certificate alert on
     /// `.failed`. Calling this outside the `.wantsCertificateVerify` state, or
     /// more than once for it, is a programmer error.
@@ -349,7 +387,7 @@ public final class NIOSSLQUICHandshake {
         }
     }
 
-    /// The custom-verify callback's state machine (RFC 9001 § 4): on the first
+    /// The custom-verify callback's state machine ([RFC 9001 § 4](https://datatracker.ietf.org/doc/html/rfc9001#section-4)): on the first
     /// call it stashes the peer chain and parks (`ssl_verify_retry`); while a
     /// verdict is pending it keeps parking; once ``resumeVerification(_:)`` has
     /// recorded one it reports `ssl_verify_ok` / `ssl_verify_invalid`. This

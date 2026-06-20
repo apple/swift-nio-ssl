@@ -51,8 +51,8 @@ private final class Endpoint {
 
     /// Advances the handshake, draining what each step produces into the
     /// collectors. If a `verify` provider is set, a `wantsCertificateVerify`
-    /// park is resolved inline — record the chain, supply the verdict, advance
-    /// again — so the pump treats custom verification as a single step.
+    /// park is resolved inline—record the chain, supply the verdict, advance
+    /// again—so the pump treats custom verification as a single step.
     @discardableResult
     func advance() throws -> NIOSSLQUICHandshake.State {
         var state = try self.handshake.advance()
@@ -210,8 +210,8 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         // coverage: a complete handshake message of the wrong type in place of
         // the ServerHello makes the client raise a fatal alert, which surfaces
         // as the thrown error (alerts are always fatal in QUIC; the QUIC layer
-        // maps them to CONNECTION_CLOSE). The message must be complete — the
-        // four-byte header below says type 0x14, one-byte body — because an
+        // maps them to CONNECTION_CLOSE). The message must be complete—the
+        // four-byte header below says type 0x14, one-byte body—because an
         // incomplete one would just buffer awaiting the rest.
         let client = Endpoint(
             try assertNoThrowWithValue(
@@ -465,7 +465,7 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
     /// A client that hands the peer chain to `verify` instead of verifying it
     /// built-in, paired with a server presenting the generated self-signed
     /// certificate. The client context trusts nothing and the server hostname,
-    /// when given, need not match the certificate — under custom verification
+    /// when given, need not match the certificate—under custom verification
     /// the verifier owns both trust and the name check.
     private func makeCustomVerifyingPair(
         serverHostname: String?,
@@ -509,7 +509,7 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
 
     func testCustomVerificationRejectionFailsHandshake() throws {
         // A `.failed` verdict becomes ssl_verify_invalid, which fails the
-        // handshake with a fatal certificate alert — surfaced, like any QUIC
+        // handshake with a fatal certificate alert—surfaced, like any QUIC
         // alert, as a thrown NIOSSLQUICError.tlsAlert.
         let (client, server, _) = try self.makeCustomVerifyingPair(
             serverHostname: "localhost",
@@ -554,5 +554,217 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         XCTAssertEqual(clientState, .complete)
         XCTAssertEqual(serverState, .complete)
         XCTAssertNil(client.verifiedChain)
+    }
+
+    // MARK: Mutual TLS (a server verifying the client)
+
+    /// A client context that presents `certificate` as its own certificate for
+    /// mutual TLS (RFC 9001 § 4), verifying the server with `.none`.
+    private func makeClientContext(
+        presenting certificate: NIOSSLCertificate,
+        privateKey: NIOSSLPrivateKey,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> NIOSSLContext {
+        var configuration = TLSConfiguration.makeClientConfiguration()
+        configuration.certificateVerification = .none
+        configuration.certificateChain = [.certificate(certificate)]
+        configuration.privateKey = .privateKey(privateKey)
+        configuration.applicationProtocols = [Self.alpn]
+        return try assertNoThrowWithValue(NIOSSLContext(configuration: configuration), file: file, line: line)
+    }
+
+    func testMutualTLSServerVerifiesClientCertificate() throws {
+        // customCertificateVerification on a server makes it request the client's
+        // certificate (RFC 9001 § 4); the client presents one, and the server's
+        // verifier approves it and is handed the client's chain.
+        let (clientCertificate, clientKey) = generateSelfSignedCert()
+        let client = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeClientContext(presenting: clientCertificate, privateKey: clientKey),
+                    role: .client,
+                    serverHostname: "localhost",
+                    localTransportParameters: Self.clientTransportParameters
+                )
+            )
+        )
+        let server = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeServerContext(),
+                    role: .server,
+                    localTransportParameters: Self.serverTransportParameters,
+                    customCertificateVerification: true
+                )
+            )
+        )
+        server.verify = { _ in .certificateVerified }
+        let (clientState, serverState) = try self.pump(client: client, server: server)
+        XCTAssertEqual(clientState, .complete)
+        XCTAssertEqual(serverState, .complete)
+        XCTAssertEqual(server.verifiedChain?.first, clientCertificate)
+    }
+
+    func testMutualTLSServerRejectsClientCertificate() throws {
+        // A `.failed` verdict on the client's chain fails the handshake with the
+        // certificate alert, the mirror of the client-side rejection.
+        let (clientCertificate, clientKey) = generateSelfSignedCert()
+        let client = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeClientContext(presenting: clientCertificate, privateKey: clientKey),
+                    role: .client,
+                    serverHostname: "localhost",
+                    localTransportParameters: Self.clientTransportParameters
+                )
+            )
+        )
+        let server = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeServerContext(),
+                    role: .server,
+                    localTransportParameters: Self.serverTransportParameters,
+                    customCertificateVerification: true
+                )
+            )
+        )
+        server.verify = { _ in .failed }
+        XCTAssertThrowsError(try self.pump(client: client, server: server)) { error in
+            guard case .tlsAlert = error as? NIOSSLQUICError else {
+                XCTFail("expected NIOSSLQUICError.tlsAlert, got \(error)")
+                return
+            }
+        }
+        // The client's chain reached the server's verifier before the verdict.
+        XCTAssertNotNil(server.verifiedChain)
+        XCTAssertFalse(server.verifiedChain?.isEmpty ?? true)
+    }
+
+    func testMutualTLSOptionalClientSendsNoCertificate() throws {
+        // Client authentication is optional (no SSL_VERIFY_FAIL_IF_NO_PEER_CERT):
+        // a client that presents no certificate still completes the handshake.
+        let client = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeClientContext(),
+                    role: .client,
+                    serverHostname: "localhost",
+                    localTransportParameters: Self.clientTransportParameters
+                )
+            )
+        )
+        let server = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeServerContext(),
+                    role: .server,
+                    localTransportParameters: Self.serverTransportParameters,
+                    customCertificateVerification: true
+                )
+            )
+        )
+        // With optional client auth, BoringSSL does not consult the verifier when
+        // the client presents no certificate, so a server cannot reject an
+        // anonymous client through `verify`—the handshake simply completes.
+        var verifierRan = false
+        server.verify = { _ in
+            verifierRan = true
+            return .certificateVerified
+        }
+        let (clientState, serverState) = try self.pump(client: client, server: server)
+        XCTAssertEqual(clientState, .complete)
+        XCTAssertEqual(serverState, .complete)
+        XCTAssertFalse(verifierRan, "optional client auth: no certificate means the verifier is not consulted")
+        XCTAssertNil(server.verifiedChain)
+    }
+
+    /// A server context that requires the client to present a certificate
+    /// (`certificateVerification` mapping to `SSL_VERIFY_FAIL_IF_NO_PEER_CERT`).
+    /// A trust root is set so the context builds; the custom verifier overrides
+    /// the built-in chain check regardless.
+    private func makeRequiringServerContext(
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws -> NIOSSLContext {
+        let (certificate, privateKey) = generateSelfSignedCert()
+        var configuration = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(certificate)],
+            privateKey: .privateKey(privateKey)
+        )
+        configuration.certificateVerification = .fullVerification
+        configuration.trustRoots = .certificates([certificate])
+        configuration.applicationProtocols = [Self.alpn]
+        return try assertNoThrowWithValue(NIOSSLContext(configuration: configuration), file: file, line: line)
+    }
+
+    func testMutualTLSRequiredRejectsClientWithoutCertificate() throws {
+        // certificateVerification .fullVerification requires the client to present
+        // a certificate: a client that sends none fails the handshake before the
+        // verifier runs (SSL_VERIFY_FAIL_IF_NO_PEER_CERT).
+        let client = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeClientContext(),
+                    role: .client,
+                    serverHostname: "localhost",
+                    localTransportParameters: Self.clientTransportParameters
+                )
+            )
+        )
+        var verifierRan = false
+        let server = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeRequiringServerContext(),
+                    role: .server,
+                    localTransportParameters: Self.serverTransportParameters,
+                    customCertificateVerification: true
+                )
+            )
+        )
+        server.verify = { _ in
+            verifierRan = true
+            return .certificateVerified
+        }
+        XCTAssertThrowsError(try self.pump(client: client, server: server)) { error in
+            guard case .tlsAlert = error as? NIOSSLQUICError else {
+                XCTFail("expected NIOSSLQUICError.tlsAlert, got \(error)")
+                return
+            }
+        }
+        XCTAssertFalse(verifierRan, "a missing required client certificate fails before the verifier")
+    }
+
+    func testMutualTLSRequiredCompletesWithClientCertificate() throws {
+        // With the client presenting a certificate, a requiring server verifies it
+        // through the same park/resume and completes.
+        let (clientCertificate, clientKey) = generateSelfSignedCert()
+        let client = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeClientContext(presenting: clientCertificate, privateKey: clientKey),
+                    role: .client,
+                    serverHostname: "localhost",
+                    localTransportParameters: Self.clientTransportParameters
+                )
+            )
+        )
+        let server = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeRequiringServerContext(),
+                    role: .server,
+                    localTransportParameters: Self.serverTransportParameters,
+                    customCertificateVerification: true
+                )
+            )
+        )
+        server.verify = { _ in .certificateVerified }
+        let (clientState, serverState) = try self.pump(client: client, server: server)
+        XCTAssertEqual(clientState, .complete)
+        XCTAssertEqual(serverState, .complete)
+        XCTAssertEqual(server.verifiedChain?.first, clientCertificate)
     }
 }
