@@ -83,6 +83,18 @@ let package = Package(
                 .define("_GNU_SOURCE"),
                 .define("_POSIX_C_SOURCE", to: "200112L"),
                 .define("_DARWIN_C_SOURCE"),
+                // Recent Windows SDKs (e.g. 10.0.26100) make <windows.h> pull in headers
+                // whose symbols collide with BoringSSL's: the legacy <winsock.h> (vs the
+                // <winsock2.h> BoringSSL includes), the min()/max() macros, and <wincrypt.h>
+                // (X509_NAME, X509_EXTENSIONS, X509_CERT_PAIR). Suppress just those.
+                .define("_WINSOCKAPI_", .when(platforms: [.windows])),
+                .define("NOMINMAX", .when(platforms: [.windows])),
+                .define("NOCRYPT", .when(platforms: [.windows])),
+            ],
+            cxxSettings: [
+                .define("_WINSOCKAPI_", .when(platforms: [.windows])),
+                .define("NOMINMAX", .when(platforms: [.windows])),
+                .define("NOCRYPT", .when(platforms: [.windows])),
             ]
         ),
         .target(

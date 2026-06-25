@@ -33,6 +33,25 @@ import Android
 // actually create any object that uses BoringSSL.
 internal let boringSSLIsInitialized: Bool = initializeBoringSSL()
 
+/// Default groups used when the user has not expressed a preference.
+///
+/// This is BoringSSL's default group list (x25519, secp256r1, secp384r1) with
+/// x25519_MLKEM768 prepended to enable post-quantum hybrid key exchange by default.
+private let defaultGroups: [UInt16] = [
+    NIOTLSCurve.x25519_MLKEM768.rawValue,
+    NIOTLSCurve.x25519.rawValue,
+    NIOTLSCurve.secp256r1.rawValue,
+    NIOTLSCurve.secp384r1.rawValue,
+]
+
+/// Returns the group IDs to configure on a context for the given curves preference.
+///
+/// When the user has expressed a preference (a non-nil array), it is honoured exactly.
+/// Otherwise, the default groups are used.
+private func resolveGroupIDs(for curves: [NIOTLSCurve]?) -> [UInt16] {
+    curves?.map { $0.rawValue } ?? defaultGroups
+}
+
 internal enum FileSystemObject {
     case directory
     case file
@@ -339,17 +358,15 @@ public final class NIOSSLContext {
         precondition(1 == returnCode)
 
         // Curves list.
-        if let curves = configuration.curves {
-            returnCode =
-                curves
-                .map { $0.rawValue }
-                .withUnsafeBufferPointer { algo in
-                    CNIOBoringSSL_SSL_CTX_set1_group_ids(context, algo.baseAddress, algo.count)
-                }
-            if returnCode != 1 {
-                let errorStack = BoringSSLError.buildErrorStack()
-                throw BoringSSLError.unknownError(errorStack)
+        let groupIDs = resolveGroupIDs(for: configuration.curves)
+        returnCode =
+            groupIDs
+            .withUnsafeBufferPointer { algo in
+                CNIOBoringSSL_SSL_CTX_set1_group_ids(context, algo.baseAddress, algo.count)
             }
+        if returnCode != 1 {
+            let errorStack = BoringSSLError.buildErrorStack()
+            throw BoringSSLError.unknownError(errorStack)
         }
 
         // Set the PSK Client Configuration callback.
