@@ -741,7 +741,7 @@ extension NIOSSLContext {
         // Platform default trust is configured differently in different places.
         // On Linux, we use our searched heuristics to guess about where the platform trust store is.
         // On Darwin, we use a custom callback that is set later, in createConnection
-        #if os(Linux)
+        #if os(Linux) || os(FreeBSD)
         let result = rootCAFilePath.withCString { rootCAFilePointer in
             rootCADirectoryPath.withCString { rootCADirectoryPointer in
                 CNIOBoringSSL_SSL_CTX_load_verify_locations(context, rootCAFilePointer, rootCADirectoryPointer)
