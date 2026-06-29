@@ -2,7 +2,7 @@
 //
 // This source file is part of the SwiftNIO open source project
 //
-// Copyright (c) 2019-2021 Apple Inc. and the SwiftNIO project authors
+// Copyright (c) 2026 Apple Inc. and the SwiftNIO project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if os(Linux)
+#if os(FreeBSD)
 /// The path to the root CA bundle file.
 ///
 /// May be nil if we could not find the root CA bundle file.
@@ -23,26 +23,22 @@ internal let rootCAFilePath: String? = locateRootCAFile()
 /// May be nil if we could not find the root CA bundle directory.
 internal let rootCADirectoryPath: String? = locateRootCADirectory()
 
-/// This is a list of root CA file search paths. This list contains paths as validated against several distributions.
-/// If you are attempting to use SwiftNIO SSL on a platform that is not covered here and certificate validation is
-/// failing, please open a pull request that adds the appropriate search path.
+/// This is a list of root CA file search paths.
+///
+/// FreeBSD ships the trust store via the security/ca_root_nss port, and the base system carries a
+/// bundle at /etc/ssl/cert.pem (14+). If you are aware of another location, please open a pull request.
 private let rootCAFileSearchPaths = [
-    "/etc/ssl/certs/ca-certificates.crt",  // Ubuntu, Debian, Arch, Alpine,
-    "/etc/pki/tls/certs/ca-bundle.crt",  // Fedora
+    "/usr/local/etc/ssl/cert.pem",  // openssl / ca_root_nss (LibreSSL-style default)
+    "/etc/ssl/cert.pem",  // base system (14+)
+    "/usr/local/share/certs/ca-root-nss.crt",  // ca_root_nss port bundle
 ]
 
 /// This is a list of root CA directory search paths.
-///
-/// This list contains paths as validated against several distributions. If you are aware of a CA bundle on a specific distribution
-/// that is not present here, please open a pull request that adds the appropriate search path.
-/// Some distributions do not ship CA directories: as such, it is not a problem if a distribution that is present in rootCAFileSearchPaths
-/// is not present in this list.
 private let rootCADirectorySearchPaths = [
-    "/etc/ssl/certs"  // Ubuntu, Debian, Arch, Alpine
+    "/usr/local/share/certs"  // ca_root_nss port
 ]
 
 private func locateRootCAFile() -> String? {
-    // We need to find the root CA file. We have a list of search paths: let's use them.
     rootCAFileSearchPaths.first(where: { FileSystemObject.pathType(path: $0) == .file })
 }
 
