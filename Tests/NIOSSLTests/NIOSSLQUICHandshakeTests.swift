@@ -37,6 +37,14 @@ private final class Endpoint {
     /// The peer chain last handed to `verify`, recorded so a test can assert
     /// what the application saw.
     var verifiedChain: [NIOSSLCertificate]?
+    /// A transport-parameter selector. When set, `advance()` resolves a
+    /// `wantsTransportParameters` park inline by calling this with the peer's
+    /// encoded parameters and feeding its decision back through
+    /// `resumeTransportParameters(_:)`. `nil` leaves the park surfaced.
+    var selectTransportParameters: (([UInt8]) -> NIOSSLQUICHandshake.TransportParametersDecision)?
+    /// The peer parameters last handed to `selectTransportParameters`, recorded
+    /// so a test can assert what the application saw.
+    var selectedFromPeer: [UInt8]?
 
     init(_ handshake: NIOSSLQUICHandshake) {
         self.handshake = handshake
@@ -50,16 +58,27 @@ private final class Endpoint {
     }
 
     /// Advances the handshake, draining what each step produces into the
-    /// collectors. If a `verify` provider is set, a `wantsCertificateVerify`
-    /// park is resolved inline—record the chain, supply the verdict, advance
-    /// again—so the pump treats custom verification as a single step.
+    /// collectors. A `wantsCertificateVerify` or `wantsTransportParameters` park
+    /// is resolved inline when its provider is set—record the input, supply the
+    /// verdict or decision, advance again—so the pump treats each as a single
+    /// step. A park with no provider is surfaced for the caller to inspect.
     @discardableResult
     func advance() throws -> NIOSSLQUICHandshake.State {
         var state = try self.handshake.advance()
         self.drain()
-        while case .wantsCertificateVerify(let chain) = state, let verify = self.verify {
-            self.verifiedChain = chain
-            self.handshake.resumeVerification(verify(chain))
+        loop: while true {
+            switch state {
+            case .wantsCertificateVerify(let chain):
+                guard let verify = self.verify else { break loop }
+                self.verifiedChain = chain
+                self.handshake.resumeVerification(verify(chain))
+            case .wantsTransportParameters(let peer):
+                guard let select = self.selectTransportParameters else { break loop }
+                self.selectedFromPeer = peer
+                self.handshake.resumeTransportParameters(select(peer))
+            default:
+                break loop
+            }
             state = try self.handshake.advance()
             self.drain()
         }
@@ -86,6 +105,9 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
     private static let alpn = "h3"
     private static let clientTransportParameters: [UInt8] = [0x01, 0x02, 0x03, 0x04]
     private static let serverTransportParameters: [UInt8] = [0x0a, 0x0b, 0x0c, 0x0d, 0x0e]
+    /// A distinct set a selection hook returns, to tell it apart from the default
+    /// `serverTransportParameters` on the wire.
+    private static let chosenTransportParameters: [UInt8] = [0xf0, 0xf1, 0xf2]
 
     private func makeServerContext(
         file: StaticString = #filePath,
@@ -766,5 +788,142 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         XCTAssertEqual(clientState, .complete)
         XCTAssertEqual(serverState, .complete)
         XCTAssertEqual(server.verifiedChain?.first, clientCertificate)
+    }
+
+    // MARK: Transport parameter selection (a server choosing after the ClientHello)
+
+    /// A client paired with a server that selects its transport parameters with
+    /// `select` after seeing the client's (RFC 9000 § 7.4). The client trusts
+    /// nothing and verification is off—this exercises the selection seam, not
+    /// certificate handling.
+    private func makeSelectingPair(
+        select: @escaping ([UInt8]) -> NIOSSLQUICHandshake.TransportParametersDecision
+    ) throws -> (client: Endpoint, server: Endpoint) {
+        let client = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeClientContext(),
+                    role: .client,
+                    localTransportParameters: Self.clientTransportParameters
+                )
+            )
+        )
+        let server = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeServerContext(),
+                    role: .server,
+                    localTransportParameters: Self.serverTransportParameters,
+                    selectsTransportParameters: true
+                )
+            )
+        )
+        server.selectTransportParameters = select
+        return (client, server)
+    }
+
+    func testTransportParameterSelectionChoosesAfterSeeingPeer() throws {
+        // The hook is handed the client's offer and returns a different set; the
+        // chosen value, not the configured default, reaches the wire—the client
+        // reads back exactly what the hook returned.
+        let (client, server) = try self.makeSelectingPair(
+            select: { _ in .parameters(Self.chosenTransportParameters) }
+        )
+        let (clientState, serverState) = try self.pump(client: client, server: server)
+        XCTAssertEqual(clientState, .complete)
+        XCTAssertEqual(serverState, .complete)
+        // The hook saw the client's parameters as its input (§ 7.4).
+        XCTAssertEqual(server.selectedFromPeer, Self.clientTransportParameters)
+        // The client received the chosen set, not the server's configured default.
+        XCTAssertEqual(client.peerTransportParameters, Self.chosenTransportParameters)
+        XCTAssertNotEqual(client.peerTransportParameters, Self.serverTransportParameters)
+    }
+
+    func testTransportParameterSelectionEchoingDefaultCompletes() throws {
+        // Returning the default unchanged is a valid choice: the resume path sets
+        // it and the handshake completes, the client reading back the default.
+        let (client, server) = try self.makeSelectingPair(
+            select: { _ in .parameters(Self.serverTransportParameters) }
+        )
+        let (clientState, serverState) = try self.pump(client: client, server: server)
+        XCTAssertEqual(clientState, .complete)
+        XCTAssertEqual(serverState, .complete)
+        XCTAssertEqual(client.peerTransportParameters, Self.serverTransportParameters)
+    }
+
+    func testTransportParameterSelectionAbortFailsHandshake() throws {
+        // A `.abort` decision makes the cert_cb return zero, which fails the
+        // server's handshake—surfaced as a thrown error from its advance().
+        let (client, server) = try self.makeSelectingPair(select: { _ in .abort })
+        XCTAssertThrowsError(try self.pump(client: client, server: server))
+        // The hook still saw the client's offer before deciding to abort.
+        XCTAssertEqual(server.selectedFromPeer, Self.clientTransportParameters)
+    }
+
+    func testTransportParameterSelectionOffAdvertisesConfiguredParameters() throws {
+        // Without selectsTransportParameters the server never parks: the
+        // configured parameters reach the wire and a selector wired up anyway
+        // must never run (the park is the only thing that would call it).
+        let client = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeClientContext(),
+                    role: .client,
+                    localTransportParameters: Self.clientTransportParameters
+                )
+            )
+        )
+        let server = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeServerContext(),
+                    role: .server,
+                    localTransportParameters: Self.serverTransportParameters
+                )
+            )
+        )
+        server.selectTransportParameters = { _ in
+            XCTFail("selector ran without selectsTransportParameters")
+            return .parameters(Self.chosenTransportParameters)
+        }
+        let (clientState, serverState) = try self.pump(client: client, server: server)
+        XCTAssertEqual(clientState, .complete)
+        XCTAssertEqual(serverState, .complete)
+        XCTAssertEqual(client.peerTransportParameters, Self.serverTransportParameters)
+        XCTAssertNil(server.selectedFromPeer)
+    }
+
+    func testTransportParameterSelectionIgnoredForClient() throws {
+        // Selection is server-only: a client built with selectsTransportParameters
+        // never parks (its parameters ship in the first flight, before any peer),
+        // so its configured parameters reach the wire unchanged.
+        let client = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeClientContext(),
+                    role: .client,
+                    localTransportParameters: Self.clientTransportParameters,
+                    selectsTransportParameters: true
+                )
+            )
+        )
+        client.selectTransportParameters = { _ in
+            XCTFail("a client must not park for transport-parameter selection")
+            return .parameters(Self.chosenTransportParameters)
+        }
+        let server = Endpoint(
+            try assertNoThrowWithValue(
+                NIOSSLQUICHandshake(
+                    context: try self.makeServerContext(),
+                    role: .server,
+                    localTransportParameters: Self.serverTransportParameters
+                )
+            )
+        )
+        let (clientState, serverState) = try self.pump(client: client, server: server)
+        XCTAssertEqual(clientState, .complete)
+        XCTAssertEqual(serverState, .complete)
+        XCTAssertEqual(server.peerTransportParameters, Self.clientTransportParameters)
+        XCTAssertNil(client.selectedFromPeer)
     }
 }

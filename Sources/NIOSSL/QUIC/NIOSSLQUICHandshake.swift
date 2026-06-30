@@ -53,6 +53,28 @@ public final class NIOSSLQUICHandshake {
         /// `customCertificateVerification` was requested. Supply the verdict with
         /// ``resumeVerification(_:)``, then call ``advance()`` again.
         case wantsCertificateVerify([NIOSSLCertificate])
+        /// BoringSSL paused the server's handshake at certificate selection so
+        /// the application can choose the QUIC transport parameters to advertise
+        /// after seeing the client's ([RFC 9000 § 7.4](https://datatracker.ietf.org/doc/html/rfc9000#section-7.4)),
+        /// surfaced only when `selectsTransportParameters` was requested. The
+        /// associated value is the peer's encoded transport parameters (the
+        /// selection's input), the same bytes ``peerTransportParameters`` returns.
+        /// Supply the chosen parameters with ``resumeTransportParameters(_:)``,
+        /// then call ``advance()`` again.
+        case wantsTransportParameters(peer: [UInt8])
+    }
+
+    /// The application's choice of transport parameters for the
+    /// ``State/wantsTransportParameters(peer:)`` park, supplied to
+    /// ``resumeTransportParameters(_:)``.
+    public enum TransportParametersDecision: Sendable, Hashable {
+        /// Advertise these encoded transport parameters
+        /// ([RFC 9000 § 18](https://datatracker.ietf.org/doc/html/rfc9000#section-18)),
+        /// replacing the default supplied at construction.
+        case parameters([UInt8])
+        /// Abandon the selection and fail the handshake: the application could
+        /// not produce parameters. The next ``advance()`` throws.
+        case abort
     }
 
     /// A traffic secret the handshake produced, drained with ``drainSecrets()``
@@ -113,6 +135,22 @@ public final class NIOSSLQUICHandshake {
     }
     private var verification: Verification = .idle
 
+    /// The transport-parameter selection handshake, live only on a server when
+    /// `selectsTransportParameters` was requested. `idle` until BoringSSL's
+    /// certificate-selection callback first fires (it stashes the peer's encoded
+    /// parameters and parks at `pending`); a decision from
+    /// ``resumeTransportParameters(_:)`` moves it to `selected` / `failed`, which
+    /// the callback acts on at the next ``advance()`` — `selected` resets the
+    /// parameters to advertise and resumes, `failed` aborts the handshake. Mirrors
+    /// ``Verification``, the custom-verify state machine.
+    private enum TransportParameterSelection {
+        case idle
+        case pending([UInt8])
+        case selected([UInt8])
+        case failed
+    }
+    private var transportParameterSelection: TransportParameterSelection = .idle
+
     /// Creates a QUIC TLS handshake.
     ///
     /// - Parameters:
@@ -139,12 +177,22 @@ public final class NIOSSLQUICHandshake {
     ///     `.noHostnameVerification` require it, `.none` leaves it optional—a
     ///     client that sends none then surfaces an empty chain for the application
     ///     to rule on). Default `false` leaves verification unchanged.
+    ///   - selectsTransportParameters: for a server, pause at certificate
+    ///     selection so the application can choose the transport parameters to
+    ///     advertise after seeing the client's ([RFC 9000 § 7.4](https://datatracker.ietf.org/doc/html/rfc9000#section-7.4)):
+    ///     the handshake parks at ``State/wantsTransportParameters(peer:)`` with
+    ///     the client's encoded parameters, and ``resumeTransportParameters(_:)``
+    ///     supplies the chosen value, which replaces `localTransportParameters` on
+    ///     the wire. Ignored for a client, which sends its parameters in its first
+    ///     flight with no peer to adapt to. Default `false` advertises
+    ///     `localTransportParameters` unchanged.
     public init(
         context: NIOSSLContext,
         role: NIOSSLQUICRole,
         serverHostname: String? = nil,
         localTransportParameters: [UInt8],
-        customCertificateVerification: Bool = false
+        customCertificateVerification: Bool = false,
+        selectsTransportParameters: Bool = false
     ) throws {
         guard let ssl = context.createQUICSSLHandle() else {
             throw NIOSSLError.handshakeFailed(.sslError(BoringSSLError.buildErrorStack()))
@@ -191,6 +239,15 @@ public final class NIOSSLQUICHandshake {
                 // whether a client *must* present one; the trust decision itself
                 // is the application's.
                 Self.installCustomVerify(on: ssl, verification: context.configuration.certificateVerification)
+            }
+            if selectsTransportParameters {
+                // Pause at certificate selection (RFC 9000 § 7.4): the cert_cb
+                // fires after the ClientHello's extensions are parsed—so the
+                // peer's transport parameters are readable—but before the
+                // EncryptedExtensions flight, so resetting ours still reaches the
+                // wire. Independent of custom verification, which parks later (on
+                // the client's certificate) with a different SSL_get_error code.
+                Self.installTransportParameterSelection(on: ssl)
             }
         }
 
@@ -263,6 +320,25 @@ public final class NIOSSLQUICHandshake {
         }
     }
 
+    /// Installs the certificate-selection callback that parks the server's
+    /// handshake so the application can choose the transport parameters to
+    /// advertise after seeing the peer's ([RFC 9000 § 7.4](https://datatracker.ietf.org/doc/html/rfc9000#section-7.4)).
+    /// `cert_cb` is the one BoringSSL seam that runs after the ClientHello's
+    /// extensions are parsed yet before the server's flight is produced, so the
+    /// peer's parameters are readable and ours are still settable. The callback
+    /// returns one to resume, zero to fail the handshake, or a negative number to
+    /// pause it (`SSL_get_error` then reports `SSL_ERROR_WANT_X509_LOOKUP`).
+    private static func installTransportParameterSelection(on ssl: OpaquePointer) {
+        CNIOBoringSSL_SSL_set_cert_cb(
+            ssl,
+            { ssl, _ in
+                guard let handshake = NIOSSLQUICHandshake.from(ssl: ssl) else { return 0 }
+                return handshake.selectCertificate()
+            },
+            nil
+        )
+    }
+
     /// Feeds handshake bytes received from the peer in a CRYPTO frame at `level`
     /// into the handshake ([RFC 9001 § 4.1.3](https://datatracker.ietf.org/doc/html/rfc9001#section-4.1.3)).
     public func provideHandshakeData(level: NIOTLSEncryptionLevel, _ data: ByteBuffer) throws {
@@ -327,6 +403,17 @@ public final class NIOSSLQUICHandshake {
                 throw self.failure(error)
             }
             return .wantsCertificateVerify(chain)
+        case .wantX509Lookup:
+            // The certificate-selection callback parked the handshake and stashed
+            // the peer's transport parameters; surface them for the application to
+            // choose from. Reached only when `selectsTransportParameters` is on, so
+            // `cert_cb` is the only installed pause source for this error.
+            guard case .pending(let peer) = self.transportParameterSelection else {
+                // The callback always records `.pending` before returning pause,
+                // so this is unreachable; fail loudly rather than mask a bug.
+                throw self.failure(error)
+            }
+            return .wantsTransportParameters(peer: peer)
         default:
             throw self.failure(error)
         }
@@ -387,6 +474,27 @@ public final class NIOSSLQUICHandshake {
         }
     }
 
+    /// Supplies the transport parameters for the park surfaced by
+    /// ``State/wantsTransportParameters(peer:)`` ([RFC 9000 § 7.4](https://datatracker.ietf.org/doc/html/rfc9000#section-7.4)).
+    /// On ``TransportParametersDecision/parameters(_:)`` the next ``advance()``
+    /// resets the parameters to advertise and resumes the handshake; on
+    /// ``TransportParametersDecision/abort`` it fails the handshake. Calling this
+    /// outside the `.wantsTransportParameters` state, or more than once for it, is
+    /// a programmer error.
+    ///
+    /// - Parameter decision: the parameters to advertise, or `.abort` to fail.
+    public func resumeTransportParameters(_ decision: TransportParametersDecision) {
+        guard case .pending = self.transportParameterSelection else {
+            preconditionFailure(
+                "resumeTransportParameters(_:) called without a pending .wantsTransportParameters state"
+            )
+        }
+        switch decision {
+        case .parameters(let encoded): self.transportParameterSelection = .selected(encoded)
+        case .abort: self.transportParameterSelection = .failed
+        }
+    }
+
     /// The custom-verify callback's state machine ([RFC 9001 § 4](https://datatracker.ietf.org/doc/html/rfc9001#section-4)): on the first
     /// call it stashes the peer chain and parks (`ssl_verify_retry`); while a
     /// verdict is pending it keeps parking; once ``resumeVerification(_:)`` has
@@ -404,6 +512,32 @@ public final class NIOSSLQUICHandshake {
             return ssl_verify_ok
         case .failed:
             return ssl_verify_invalid
+        }
+    }
+
+    /// The certificate-selection callback's state machine ([RFC 9000 § 7.4](https://datatracker.ietf.org/doc/html/rfc9000#section-7.4)):
+    /// on the first call it stashes the peer's encoded transport parameters and
+    /// parks (returns a negative number); while a decision is pending it keeps
+    /// parking; once ``resumeTransportParameters(_:)`` has recorded one it either
+    /// resets the parameters to advertise and resumes (`1`) or fails the handshake
+    /// (`0`). The selection rides `cert_cb` only to read and reset the transport
+    /// parameters; it never overrides BoringSSL's certificate, so the resume path
+    /// returns `1` and lets the configured certificate stand. Mirrors
+    /// ``customVerify()``.
+    fileprivate func selectCertificate() -> CInt {
+        switch self.transportParameterSelection {
+        case .idle:
+            self.transportParameterSelection = .pending(self.peerTransportParameters ?? [])
+            return -1
+        case .pending:
+            return -1
+        case .selected(let encoded):
+            let result = encoded.withUnsafeBufferPointer { buffer in
+                CNIOBoringSSL_SSL_set_quic_transport_params(self.ssl, buffer.baseAddress, buffer.count)
+            }
+            return result == 1 ? 1 : 0
+        case .failed:
+            return 0
         }
     }
 
