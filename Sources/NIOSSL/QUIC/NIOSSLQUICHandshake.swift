@@ -39,6 +39,10 @@ public enum NIOSSLQUICRole: Sendable, Hashable {
 /// application-level CRYPTO carries post-handshake messages (NewSessionTicket,
 /// KeyUpdate), which ``advance()`` then processes.
 ///
+/// To resume a later connection, offer a session captured with
+/// ``drainNewSessions()`` as the ``Resumption`` at init, optionally sending
+/// 0-RTT early data over it (RFC 9001 § 4.6).
+///
 /// > Note: This type is not thread-safe. Use it from a single, consistent
 /// > execution context (typically a connection's event loop).
 public final class NIOSSLQUICHandshake {
@@ -62,6 +66,12 @@ public final class NIOSSLQUICHandshake {
         /// Supply the chosen parameters with ``resumeTransportParameters(_:)``,
         /// then call ``advance()`` again.
         case wantsTransportParameters(peer: [UInt8])
+        /// The server rejected the 0-RTT early data the client offered via
+        /// ``Resumption/offerEarlyData(session:)``. ``advance()`` has already reset
+        /// the TLS state; the caller must discard whatever it sent as 0-RTT and
+        /// retransmit it after the handshake completes, then call ``advance()``
+        /// again to drive the full handshake ([RFC 9001 § 4.6.1](https://datatracker.ietf.org/doc/html/rfc9001#section-4.6.1)).
+        case earlyDataRejected
     }
 
     /// The application's choice of transport parameters for the
@@ -101,6 +111,35 @@ public final class NIOSSLQUICHandshake {
         public var bytes: [UInt8]
     }
 
+    /// How this handshake resumes a prior TLS session, and whether it uses 0-RTT
+    /// early data ([RFC 9001 § 4.6](https://datatracker.ietf.org/doc/html/rfc9001#section-4.6)).
+    ///
+    /// The cases are role-shaped: a client offers a stored session (from a peer's
+    /// earlier ``drainNewSessions()``) and may send 0-RTT over it, while a server
+    /// enables acceptance of 0-RTT bound to a context. 0-RTT requires a resumed
+    /// session—the early-data secret is derived from the session's resumption
+    /// secret—so the session it rides is carried inside
+    /// ``offerEarlyData(session:)``: there is no way to ask for early data
+    /// without one.
+    public enum Resumption: Sendable, Hashable {
+        /// No resumption. A client performs a full handshake. A server still
+        /// resumes 1-RTT transparently—it validates the client's ticket with its
+        /// own key—but accepts no 0-RTT.
+        case none
+        /// Client: resume `session` with a 1-RTT handshake and no early data.
+        /// Ignored by a server.
+        case resume(session: [UInt8])
+        /// Client: resume `session` and send 0-RTT early data over it. Whether the
+        /// server accepted is reported by ``earlyDataAccepted`` after completion; a
+        /// rejection surfaces as ``State/earlyDataRejected``. Ignored by a server.
+        case offerEarlyData(session: [UInt8])
+        /// Server: accept 0-RTT bound to `context`—the transport parameters plus
+        /// any application state the ticket was minted under, which the offered
+        /// ticket must match or 0-RTT is refused (resumption still succeeds). Must
+        /// be non-empty. Ignored by a client.
+        case acceptEarlyData(context: [UInt8])
+    }
+
     private let ssl: OpaquePointer
 
     /// Held to keep the underlying `SSL_CTX` alive for this handshake's lifetime.
@@ -115,6 +154,11 @@ public final class NIOSSLQUICHandshake {
     /// stashed by the `add_handshake_data` callback for the caller to send in
     /// CRYPTO frames at their level ([RFC 9001 § 4.1.3](https://datatracker.ietf.org/doc/html/rfc9001#section-4.1.3)).
     private var pendingHandshakeData: [(level: NIOTLSEncryptionLevel, data: [UInt8])] = []
+
+    /// Sessions BoringSSL delivered to the new-session callback since the last
+    /// ``drainNewSessions()``, each serialized (`SSL_SESSION_to_bytes`) for the
+    /// client to persist and later offer via ``Resumption`` ([RFC 8446 § 4.6.1](https://datatracker.ietf.org/doc/html/rfc8446#section-4.6.1)).
+    private var pendingSessions: [[UInt8]] = []
 
     /// The TLS alert BoringSSL last asked to send, captured from its `send_alert`
     /// callback. Surfaced as a thrown ``NIOSSLQUICError`` from the next handshake
@@ -157,13 +201,13 @@ public final class NIOSSLQUICHandshake {
     ///   - context: a configured TLS context supplying certificates, trust,
     ///     verification, ALPN, and SNI.
     ///   - role: whether this endpoint is the client or the server.
+    ///   - localTransportParameters: this endpoint's QUIC transport parameters,
+    ///     already encoded ([RFC 9000 § 18](https://datatracker.ietf.org/doc/html/rfc9000#section-18)). They are carried in a TLS extension.
     ///   - serverHostname: for a client, the server name to send in the TLS SNI
     ///     extension and, under ``CertificateVerification/fullVerification``, to
     ///     require in the peer certificate (RFC 6125). Must be a DNS name, not
     ///     an IP address; `nil` sends no SNI and performs no hostname check.
     ///     Ignored for a server.
-    ///   - localTransportParameters: this endpoint's QUIC transport parameters,
-    ///     already encoded ([RFC 9000 § 18](https://datatracker.ietf.org/doc/html/rfc9000#section-18)). They are carried in a TLS extension.
     ///   - customCertificateVerification: hand the peer's certificate chain to
     ///     the application instead of verifying it built-in ([RFC 9001 § 4](https://datatracker.ietf.org/doc/html/rfc9001#section-4)): the
     ///     handshake parks at ``State/wantsCertificateVerify(_:)`` and
@@ -186,13 +230,19 @@ public final class NIOSSLQUICHandshake {
     ///     the wire. Ignored for a client, which sends its parameters in its first
     ///     flight with no peer to adapt to. Default `false` advertises
     ///     `localTransportParameters` unchanged.
+    ///   - resumption: whether to resume a prior TLS session and whether to send
+    ///     0-RTT early data ([RFC 9001 § 4.6](https://datatracker.ietf.org/doc/html/rfc9001#section-4.6)); defaults to
+    ///     ``Resumption/none``, a full handshake. A client captures the fresh
+    ///     tickets a server issues via ``drainNewSessions()`` regardless of this
+    ///     value.
     public init(
         context: NIOSSLContext,
         role: NIOSSLQUICRole,
-        serverHostname: String? = nil,
         localTransportParameters: [UInt8],
+        serverHostname: String? = nil,
         customCertificateVerification: Bool = false,
-        selectsTransportParameters: Bool = false
+        selectsTransportParameters: Bool = false,
+        resumption: Resumption = .none
     ) throws {
         guard let ssl = context.createQUICSSLHandle() else {
             throw NIOSSLError.handshakeFailed(.sslError(BoringSSLError.buildErrorStack()))
@@ -258,6 +308,14 @@ public final class NIOSSLQUICHandshake {
         guard transportParametersResult == 1 else {
             throw NIOSSLError.handshakeFailed(.sslError(BoringSSLError.buildErrorStack()))
         }
+
+        if role == .client {
+            // A client captures the session tickets the server issues after the
+            // handshake (RFC 8446 § 4.6.1) so the caller can persist them with
+            // drainNewSessions() and resume a later connection.
+            Self.enableSessionCapture(onContextOf: ssl)
+        }
+        try Self.apply(resumption, ssl: ssl)
     }
 
     deinit {
@@ -339,6 +397,67 @@ public final class NIOSSLQUICHandshake {
         )
     }
 
+    /// Enables the client session cache on the handshake's `SSL_CTX` and installs
+    /// the new-session callback, so the tickets the server issues are captured for
+    /// ``drainNewSessions()``. Both are `SSL_CTX`-scoped, so this affects every
+    /// handshake on the same ``NIOSSLContext``. The callback is inert for a
+    /// non-QUIC `SSL` (it carries no handshake in its ex_data), so a QUIC-only
+    /// context is unaffected; a context shared with the record TLS path would have
+    /// its own new-session callback overwritten.
+    private static func enableSessionCapture(onContextOf ssl: OpaquePointer) {
+        guard let context = CNIOBoringSSL_SSL_get_SSL_CTX(ssl) else { return }
+        CNIOBoringSSL_SSL_CTX_set_session_cache_mode(
+            context,
+            SSL_SESS_CACHE_CLIENT | SSL_SESS_CACHE_NO_INTERNAL_STORE
+        )
+        CNIOBoringSSL_SSL_CTX_sess_set_new_cb(context, quicNewSessionCallback)
+    }
+
+    /// Applies the ``Resumption`` choice before the handshake begins: a client
+    /// offers its session and, for 0-RTT, enables early data; a server enables
+    /// early data and binds acceptance to its context. The cases are role-shaped
+    /// but not role-checked—one aimed at the other role degrades to a safe no-op
+    /// (a session on a server is ignored; early data with no session yields no
+    /// 0-RTT).
+    private static func apply(_ resumption: Resumption, ssl: OpaquePointer) throws {
+        switch resumption {
+        case .none:
+            break
+        case .resume(let session):
+            try Self.setSession(session, on: ssl)
+        case .offerEarlyData(let session):
+            try Self.setSession(session, on: ssl)
+            CNIOBoringSSL_SSL_set_early_data_enabled(ssl, 1)
+        case .acceptEarlyData(let context):
+            CNIOBoringSSL_SSL_set_early_data_enabled(ssl, 1)
+            context.withUnsafeBufferPointer { buffer in
+                _ = CNIOBoringSSL_SSL_set_quic_early_data_context(ssl, buffer.baseAddress, buffer.count)
+            }
+        }
+    }
+
+    /// Deserializes a stored session and offers it for resumption
+    /// (`SSL_set_session`). Unparseable bytes or a refused session throw—storage
+    /// corruption is a fault, not something to resume past. An expired or
+    /// server-unknown ticket parses cleanly and is declined at handshake time
+    /// instead, leaving ``sessionReused`` false.
+    private static func setSession(_ session: [UInt8], on ssl: OpaquePointer) throws {
+        let sslSession = session.withUnsafeBufferPointer { buffer in
+            CNIOBoringSSL_SSL_SESSION_from_bytes(
+                buffer.baseAddress,
+                buffer.count,
+                CNIOBoringSSL_SSL_get_SSL_CTX(ssl)
+            )
+        }
+        guard let sslSession else {
+            throw NIOSSLError.handshakeFailed(.sslError(BoringSSLError.buildErrorStack()))
+        }
+        defer { CNIOBoringSSL_SSL_SESSION_free(sslSession) }
+        guard CNIOBoringSSL_SSL_set_session(ssl, sslSession) == 1 else {
+            throw NIOSSLError.handshakeFailed(.sslError(BoringSSLError.buildErrorStack()))
+        }
+    }
+
     /// Feeds handshake bytes received from the peer in a CRYPTO frame at `level`
     /// into the handshake ([RFC 9001 § 4.1.3](https://datatracker.ietf.org/doc/html/rfc9001#section-4.1.3)).
     public func provideHandshakeData(level: NIOTLSEncryptionLevel, _ data: ByteBuffer) throws {
@@ -390,6 +509,13 @@ public final class NIOSSLQUICHandshake {
             return .complete
         }
         let result = CNIOBoringSSL_SSL_get_error(self.ssl, rc)
+        if result == SSL_ERROR_EARLY_DATA_REJECTED {
+            // The server refused the 0-RTT the client offered. Reset the TLS
+            // state so the handshake completes in full; the caller discards its
+            // 0-RTT and retransmits at 1-RTT (RFC 9001 § 4.6.1).
+            CNIOBoringSSL_SSL_reset_early_data_reject(self.ssl)
+            return .earlyDataRejected
+        }
         let error = BoringSSLError.fromSSLGetErrorResult(result)!
         switch error {
         case .wantRead, .wantWrite:
@@ -455,6 +581,18 @@ public final class NIOSSLQUICHandshake {
     public func drainHandshakeData() -> [(level: NIOTLSEncryptionLevel, data: [UInt8])] {
         defer { self.pendingHandshakeData.removeAll(keepingCapacity: true) }
         return self.pendingHandshakeData
+    }
+
+    /// Removes and returns the TLS session tickets the server issued since the
+    /// last call, each serialized for the caller to persist and later offer as a
+    /// ``Resumption`` ([RFC 8446 § 4.6.1](https://datatracker.ietf.org/doc/html/rfc8446#section-4.6.1)). A TLS 1.3 server sends these
+    /// after the handshake, so drain after the ``advance()`` calls that follow
+    /// ``State/complete``, not only during the handshake.
+    ///
+    /// - Returns: the sessions captured since the last drain, possibly empty.
+    public func drainNewSessions() -> [[UInt8]] {
+        defer { self.pendingSessions.removeAll(keepingCapacity: true) }
+        return self.pendingSessions
     }
 
     /// Supplies the verdict for the chain surfaced by ``State/wantsCertificateVerify(_:)``
@@ -564,6 +702,20 @@ public final class NIOSSLQUICHandshake {
         return String(decoding: UnsafeBufferPointer(start: pointer, count: Int(length)), as: UTF8.self)
     }
 
+    /// Whether this handshake resumed a prior TLS session—an abbreviated
+    /// handshake via a pre-shared key—rather than a full one. Meaningful once
+    /// ``advance()`` has returned ``State/complete``.
+    public var sessionReused: Bool {
+        CNIOBoringSSL_SSL_session_reused(self.ssl) == 1
+    }
+
+    /// Whether the peer accepted the 0-RTT early data this handshake offered via
+    /// ``Resumption/offerEarlyData(session:)`` ([RFC 9001 § 4.6.1](https://datatracker.ietf.org/doc/html/rfc9001#section-4.6.1)). Meaningful
+    /// once the handshake completes; always false when no early data was offered.
+    public var earlyDataAccepted: Bool {
+        CNIOBoringSSL_SSL_early_data_accepted(self.ssl) == 1
+    }
+
     /// Recovers the handshake associated with an `SSL` object inside a C
     /// callback.
     fileprivate static func from(ssl: OpaquePointer?) -> NIOSSLQUICHandshake? {
@@ -609,6 +761,19 @@ public final class NIOSSLQUICHandshake {
         let bytes = Array(UnsafeBufferPointer(start: data, count: length))
         self.pendingHandshakeData.append((NIOTLSEncryptionLevel(level), bytes))
         return true
+    }
+
+    /// Serializes a session BoringSSL delivered to the new-session callback and
+    /// stashes it for ``drainNewSessions()``. Called from the C trampoline, which
+    /// has already null-checked the session.
+    fileprivate func captureSession(_ session: OpaquePointer) {
+        var out: UnsafeMutablePointer<UInt8>? = nil
+        var outLength = 0
+        guard CNIOBoringSSL_SSL_SESSION_to_bytes(session, &out, &outLength) == 1, let out else {
+            return
+        }
+        defer { CNIOBoringSSL_OPENSSL_free(out) }
+        self.pendingSessions.append(Array(UnsafeBufferPointer(start: out, count: outLength)))
     }
 
     /// Records the TLS alert BoringSSL wishes to send. In QUIC, alerts are
@@ -683,3 +848,15 @@ private nonisolated(unsafe) let quicMethodPointer: UnsafePointer<SSL_QUIC_METHOD
     )
     return UnsafePointer(pointer)
 }()
+
+/// The new-session callback installed on a client `SSL_CTX` by
+/// ``NIOSSLQUICHandshake``. BoringSSL invokes it with each session the server
+/// issues; it recovers the handshake from the `SSL`'s ex_data and stashes the
+/// serialized session for ``NIOSSLQUICHandshake/drainNewSessions()``. It returns
+/// zero: the bytes are copied out, so BoringSSL keeps ownership of the session
+/// and frees it. Inert for a non-QUIC `SSL`, which carries no handshake.
+private let quicNewSessionCallback: @convention(c) (OpaquePointer?, OpaquePointer?) -> Int32 = { ssl, session in
+    guard let session, let handshake = NIOSSLQUICHandshake.from(ssl: ssl) else { return 0 }
+    handshake.captureSession(session)
+    return 0
+}

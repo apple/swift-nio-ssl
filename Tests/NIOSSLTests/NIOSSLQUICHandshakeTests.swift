@@ -398,8 +398,8 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
                     trusting: trustingServerCertificate ? certificate : nil
                 ),
                 role: .client,
-                serverHostname: serverHostname,
-                localTransportParameters: Self.clientTransportParameters
+                localTransportParameters: Self.clientTransportParameters,
+                serverHostname: serverHostname
             )
         )
         let server = Endpoint(
@@ -476,8 +476,8 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
             try NIOSSLQUICHandshake(
                 context: try self.makeClientContext(verification: .fullVerification),
                 role: .client,
-                serverHostname: "127.0.0.1",
-                localTransportParameters: Self.clientTransportParameters
+                localTransportParameters: Self.clientTransportParameters,
+                serverHostname: "127.0.0.1"
             )
         )
     }
@@ -498,8 +498,8 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
             try NIOSSLQUICHandshake(
                 context: try self.makeClientContext(verification: .none),
                 role: .client,
-                serverHostname: serverHostname,
                 localTransportParameters: Self.clientTransportParameters,
+                serverHostname: serverHostname,
                 customCertificateVerification: true
             )
         )
@@ -557,8 +557,8 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
             try NIOSSLQUICHandshake(
                 context: try self.makeClientContext(verification: .none),
                 role: .client,
-                serverHostname: "localhost",
-                localTransportParameters: Self.clientTransportParameters
+                localTransportParameters: Self.clientTransportParameters,
+                serverHostname: "localhost"
             )
         )
         client.verify = { _ in
@@ -606,8 +606,8 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
                 NIOSSLQUICHandshake(
                     context: try self.makeClientContext(presenting: clientCertificate, privateKey: clientKey),
                     role: .client,
-                    serverHostname: "localhost",
-                    localTransportParameters: Self.clientTransportParameters
+                    localTransportParameters: Self.clientTransportParameters,
+                    serverHostname: "localhost"
                 )
             )
         )
@@ -637,8 +637,8 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
                 NIOSSLQUICHandshake(
                     context: try self.makeClientContext(presenting: clientCertificate, privateKey: clientKey),
                     role: .client,
-                    serverHostname: "localhost",
-                    localTransportParameters: Self.clientTransportParameters
+                    localTransportParameters: Self.clientTransportParameters,
+                    serverHostname: "localhost"
                 )
             )
         )
@@ -672,8 +672,8 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
                 NIOSSLQUICHandshake(
                     context: try self.makeClientContext(),
                     role: .client,
-                    serverHostname: "localhost",
-                    localTransportParameters: Self.clientTransportParameters
+                    localTransportParameters: Self.clientTransportParameters,
+                    serverHostname: "localhost"
                 )
             )
         )
@@ -730,8 +730,8 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
                 NIOSSLQUICHandshake(
                     context: try self.makeClientContext(),
                     role: .client,
-                    serverHostname: "localhost",
-                    localTransportParameters: Self.clientTransportParameters
+                    localTransportParameters: Self.clientTransportParameters,
+                    serverHostname: "localhost"
                 )
             )
         )
@@ -768,8 +768,8 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
                 NIOSSLQUICHandshake(
                     context: try self.makeClientContext(presenting: clientCertificate, privateKey: clientKey),
                     role: .client,
-                    serverHostname: "localhost",
-                    localTransportParameters: Self.clientTransportParameters
+                    localTransportParameters: Self.clientTransportParameters,
+                    serverHostname: "localhost"
                 )
             )
         )
@@ -925,5 +925,86 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         XCTAssertEqual(serverState, .complete)
         XCTAssertEqual(server.peerTransportParameters, Self.clientTransportParameters)
         XCTAssertNil(client.selectedFromPeer)
+    }
+
+    // MARK: Session resumption
+
+    /// Runs a full handshake and returns a session ticket the server issued,
+    /// captured on the client via ``drainNewSessions()``—the input to a later
+    /// resuming handshake.
+    private func resumableSession(
+        clientContext: NIOSSLContext,
+        serverContext: NIOSSLContext
+    ) throws -> [UInt8] {
+        let client = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: clientContext,
+                role: .client,
+                localTransportParameters: Self.clientTransportParameters
+            )
+        )
+        let server = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: serverContext,
+                role: .server,
+                localTransportParameters: Self.serverTransportParameters
+            )
+        )
+        let (clientState, serverState) = try self.pump(client: client, server: server)
+        XCTAssertEqual(clientState, .complete)
+        XCTAssertEqual(serverState, .complete)
+        XCTAssertFalse(client.handshake.sessionReused, "the first handshake should be full, not resumed")
+        // The server's NewSessionTicket flight follows the handshake; the pump
+        // ferries it, but flush any straggler to the client to be safe.
+        var sessions = client.handshake.drainNewSessions()
+        var rounds = 0
+        while sessions.isEmpty, rounds < 5, !server.outgoing.isEmpty {
+            rounds += 1
+            _ = try self.feed(from: server, into: client)
+            sessions.append(contentsOf: client.handshake.drainNewSessions())
+        }
+        return try XCTUnwrap(sessions.first, "server issued no resumable session")
+    }
+
+    func testSessionResumptionReusesTheSession() throws {
+        // A ticket from a first handshake, offered on a second, yields an
+        // abbreviated (resumed) handshake (RFC 8446 § 2.2). The contexts are
+        // reused so the client's session cache and the server's ticket key persist.
+        let clientContext = try self.makeClientContext()
+        let serverContext = try self.makeServerContext()
+        let session = try self.resumableSession(clientContext: clientContext, serverContext: serverContext)
+
+        let client = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: clientContext,
+                role: .client,
+                localTransportParameters: Self.clientTransportParameters,
+                resumption: .resume(session: session)
+            )
+        )
+        let server = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: serverContext,
+                role: .server,
+                localTransportParameters: Self.serverTransportParameters
+            )
+        )
+        let (clientState, serverState) = try self.pump(client: client, server: server)
+        XCTAssertEqual(clientState, .complete)
+        XCTAssertEqual(serverState, .complete)
+        XCTAssertTrue(client.handshake.sessionReused, "the second handshake did not resume the session")
+    }
+
+    func testResumingWithCorruptSessionThrows() throws {
+        // Unparseable session bytes are storage corruption, not something to
+        // resume past: the initializer throws rather than silently continue.
+        XCTAssertThrowsError(
+            try NIOSSLQUICHandshake(
+                context: try self.makeClientContext(),
+                role: .client,
+                localTransportParameters: Self.clientTransportParameters,
+                resumption: .resume(session: [0x00, 0x01, 0x02, 0x03])
+            )
+        )
     }
 }
