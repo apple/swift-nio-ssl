@@ -1007,4 +1007,77 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
             )
         )
     }
+
+    /// A ticket the issuing server minted with early data enabled, captured on the
+    /// client—the input to a 0-RTT resuming handshake.
+    private func earlyDataSession(
+        clientContext: NIOSSLContext,
+        serverContext: NIOSSLContext,
+        earlyDataContext: [UInt8]
+    ) throws -> [UInt8] {
+        let client = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: clientContext,
+                role: .client,
+                localTransportParameters: Self.clientTransportParameters
+            )
+        )
+        let server = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: serverContext,
+                role: .server,
+                localTransportParameters: Self.serverTransportParameters,
+                resumption: .acceptEarlyData(context: earlyDataContext)
+            )
+        )
+        let (clientState, serverState) = try self.pump(client: client, server: server)
+        XCTAssertEqual(clientState, .complete)
+        XCTAssertEqual(serverState, .complete)
+        var sessions = client.handshake.drainNewSessions()
+        var rounds = 0
+        while sessions.isEmpty, rounds < 5, !server.outgoing.isEmpty {
+            rounds += 1
+            _ = try self.feed(from: server, into: client)
+            sessions.append(contentsOf: client.handshake.drainNewSessions())
+        }
+        return try XCTUnwrap(sessions.first, "server issued no resumable session")
+    }
+
+    func testOfferedEarlyDataIsAccepted() throws {
+        // A ticket minted with early data enabled, offered with 0-RTT on a second
+        // handshake whose server accepts the same context, is accepted end to end:
+        // both sides report `earlyDataAccepted` (RFC 9001 § 4.6). The contexts are
+        // reused so the client's session cache and the server's ticket key persist.
+        let clientContext = try self.makeClientContext()
+        let serverContext = try self.makeServerContext()
+        let earlyDataContext = Array("nioquic".utf8)
+        let session = try self.earlyDataSession(
+            clientContext: clientContext,
+            serverContext: serverContext,
+            earlyDataContext: earlyDataContext
+        )
+
+        let client = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: clientContext,
+                role: .client,
+                localTransportParameters: Self.clientTransportParameters,
+                resumption: .offerEarlyData(session: session)
+            )
+        )
+        let server = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: serverContext,
+                role: .server,
+                localTransportParameters: Self.serverTransportParameters,
+                resumption: .acceptEarlyData(context: earlyDataContext)
+            )
+        )
+        let (clientState, serverState) = try self.pump(client: client, server: server)
+        XCTAssertEqual(clientState, .complete)
+        XCTAssertEqual(serverState, .complete)
+        XCTAssertTrue(client.handshake.sessionReused, "the second handshake did not resume the session")
+        XCTAssertTrue(client.handshake.earlyDataAccepted, "the client did not see its 0-RTT accepted")
+        XCTAssertTrue(server.handshake.earlyDataAccepted, "the server did not accept the offered 0-RTT")
+    }
 }
