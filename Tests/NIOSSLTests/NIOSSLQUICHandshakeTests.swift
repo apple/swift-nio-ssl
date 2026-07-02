@@ -1080,4 +1080,27 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         XCTAssertTrue(client.handshake.earlyDataAccepted, "the client did not see its 0-RTT accepted")
         XCTAssertTrue(server.handshake.earlyDataAccepted, "the server did not accept the offered 0-RTT")
     }
+
+    func testOfferedEarlyDataStaysInHandshakeUntilConfirmed() throws {
+        // A client that offers 0-RTT reaches SSL_do_handshake == 1 as soon as it
+        // may send early data, while the handshake is still in flight: advance()
+        // must report .wantsMoreData, not .complete, so a driver keeps advancing
+        // to consume the server's confirmation (RFC 9001 § 4.6.1). Reporting
+        // completion here would strand the 0-RTT unconfirmed.
+        let clientContext = try self.makeClientContext()
+        let serverContext = try self.makeServerContext()
+        let earlyDataContext = Array("nioquic".utf8)
+        let session = try self.earlyDataSession(
+            clientContext: clientContext,
+            serverContext: serverContext,
+            earlyDataContext: earlyDataContext
+        )
+        let client = try NIOSSLQUICHandshake(
+            context: clientContext,
+            role: .client,
+            localTransportParameters: Self.clientTransportParameters,
+            resumption: .offerEarlyData(session: session)
+        )
+        XCTAssertEqual(try client.advance(), .wantsMoreData)
+    }
 }

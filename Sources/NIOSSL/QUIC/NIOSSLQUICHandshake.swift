@@ -506,6 +506,16 @@ public final class NIOSSLQUICHandshake {
         }
         let rc = CNIOBoringSSL_SSL_do_handshake(self.ssl)
         if rc == 1 {
+            // A client that offered 0-RTT reaches SSL_do_handshake == 1 as soon as
+            // it may send early data, while SSL_in_early_data() is still true and
+            // the handshake is not yet complete: the server confirms or rejects the
+            // 0-RTT in its response (RFC 9001 § 4.6.1). Report completion only once
+            // the client has left the early-data state, so a driver keeps advancing
+            // to consume that response instead of stopping short and never learning
+            // whether its 0-RTT was accepted.
+            if CNIOBoringSSL_SSL_in_early_data(self.ssl) == 1 {
+                return .wantsMoreData
+            }
             return .complete
         }
         let result = CNIOBoringSSL_SSL_get_error(self.ssl, rc)
