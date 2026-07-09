@@ -1933,6 +1933,57 @@ class TLSConfigurationTest: XCTestCase {
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
 
+    func testTLSPSKClientIdentityLengthBoundary() throws {
+        // BoringSSL's client handshake gives the callback a `char identity[PSK_MAX_IDENTITY_LEN + 1]` buffer and passes
+        // its full size as `max_identity_len`, reserving the final byte for the NUL terminator.  An identity of exactly
+        // `max_identity_len` bytes fills the buffer with no room for the NUL and must be rejected.
+
+        func makeClientConfig(identity: String) -> TLSConfiguration {
+            var config = TLSConfiguration.makeClientConfiguration()
+            config.certificateVerification = .none
+            config.minimumTLSVersion = .tlsv1
+            config.maximumTLSVersion = .tlsv12
+            config.pskHint = "clientPskHint"
+            let provider: NIOPSKClientIdentityProvider = {
+                (_: PSKClientContext) -> PSKClientIdentityResponse in
+                var psk = NIOSSLSecureBytes()
+                psk.append("hello".utf8)
+                return PSKClientIdentityResponse(key: psk, identity: identity)
+            }
+            config.pskClientProvider = provider
+            return config
+        }
+
+        func makeServerConfig(expectedIdentity: String) -> TLSConfiguration {
+            var config = TLSConfiguration.makePreSharedKeyConfiguration()
+            config.minimumTLSVersion = .tlsv1
+            config.maximumTLSVersion = .tlsv12
+            config.pskHint = "serverPskHint"
+            let provider: NIOPSKServerIdentityProvider = {
+                (context: PSKServerContext) -> PSKServerIdentityResponse in
+                XCTAssertEqual(context.clientIdentity, expectedIdentity)
+                var psk = NIOSSLSecureBytes()
+                psk.append("hello".utf8)
+                return PSKServerIdentityResponse(key: psk)
+            }
+            config.pskServerProvider = provider
+            return config
+        }
+
+        let maxValidIdentity = String(repeating: "A", count: Int(PSK_MAX_IDENTITY_LEN))
+        try assertHandshakeSucceeded(
+            withClientConfig: makeClientConfig(identity: maxValidIdentity),
+            andServerConfig: makeServerConfig(expectedIdentity: maxValidIdentity)
+        )
+
+        let overlongIdentity = String(repeating: "A", count: Int(PSK_MAX_IDENTITY_LEN + 1))
+        try assertHandshakeError(
+            withClientConfig: makeClientConfig(identity: overlongIdentity),
+            andServerConfig: makeServerConfig(expectedIdentity: overlongIdentity),
+            errorTextContains: "PSK_IDENTITY_NOT_FOUND"
+        )
+    }
+
     func testTLSPSKWithPinnedCiphers() throws {
         // This test ensures that PSK-TLS is supported with pinned ciphers.
         let pskClientProvider: NIOPSKClientIdentityProvider = {

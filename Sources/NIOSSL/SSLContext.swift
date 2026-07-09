@@ -233,15 +233,16 @@ private func clientPSKCallback(
     let clientPSK = pskIdentity.key  // Key from the callback
     let clientIdentity = pskIdentity.identity
 
-    // Use max_identity_len so it does not trigger an overrun.
-    if clientIdentity.utf8.isEmpty || clientIdentity.utf8.count > max_identity_len {
+    // BoringSSL passes `max_identity_len` as the full size of its `identity` buffer (`PSK_MAX_IDENTITY_LEN` + 1),
+    // which includes capacity for the NUL terminator, so we reject any identity that would clobber the terminator.
+    if clientIdentity.utf8.isEmpty || clientIdentity.utf8.count > max_identity_len - 1 {
         return 0
     }
 
     // Map the output identity from the one passed back from the callback.
     // This helps populate the server callback for the key exchange.
-    let _ = clientIdentity.withCString { ptr in
-        memcpy(unwrappedIdentity, ptr, clientIdentity.utf8.count)
+    clientIdentity.utf8CString.withUnsafeBufferPointer { buffer in
+        _ = memcpy(unwrappedIdentity, buffer.baseAddress!, buffer.count)
     }
 
     if clientPSK.isEmpty || clientPSK.count > max_psk_len {
