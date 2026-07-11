@@ -19,4 +19,15 @@ public enum NIOSSLQUICError: Error, Hashable, Sendable {
     /// QUIC layer maps this to a CONNECTION_CLOSE frame with error code
     /// `0x0100 | alert` (RFC 9001 § 4.8).
     case tlsAlert(UInt8)
+
+    /// The handshake failed because the peer broke a rule QUIC layers on TLS,
+    /// rather than TLS itself: CRYPTO data at a previously installed encryption
+    /// level extending past previously received data, or left unconsumed when
+    /// keys for a higher level arrived (RFC 9001 § 4.1.3); a post-handshake TLS
+    /// message QUIC forbids, such as CertificateRequest (§ 4.4); a
+    /// NewSessionTicket whose early_data extension is not 0xffffffff (§ 4.6.1);
+    /// or a ClientHello using TLS compatibility mode (§ 8.4). RFC 9001 requires
+    /// the QUIC layer to close such connections with PROTOCOL_VIOLATION (0x0a)
+    /// rather than the `0x0100 | alert` mapping above.
+    case protocolViolation
 }

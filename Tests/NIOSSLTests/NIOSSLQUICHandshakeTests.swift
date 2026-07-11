@@ -1103,4 +1103,190 @@ final class NIOSSLQUICHandshakeTests: XCTestCase {
         )
         XCTAssertEqual(try client.advance(), .wantsMoreData)
     }
+
+    // MARK: QUIC protocol violations (RFC 9001 §§ 4.1.3, 4.4, 4.6.1, 8.4)
+
+    /// Runs a fresh client/server handshake to completion and returns the pair,
+    /// ready for post-handshake input.
+    private func completedPair() throws -> (client: Endpoint, server: Endpoint) {
+        let client = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: try self.makeClientContext(),
+                role: .client,
+                localTransportParameters: Self.clientTransportParameters
+            )
+        )
+        let server = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: try self.makeServerContext(),
+                role: .server,
+                localTransportParameters: Self.serverTransportParameters
+            )
+        )
+        let (clientState, serverState) = try self.pump(client: client, server: server)
+        XCTAssertEqual(clientState, .complete)
+        XCTAssertEqual(serverState, .complete)
+        return (client, server)
+    }
+
+    func testStaleEncryptionLevelDataIsAProtocolViolation() throws {
+        // Data at a previously installed encryption level that extends past
+        // previously received data must surface as a protocol violation, not a
+        // TLS failure (RFC 9001 § 4.1.3): the QUIC layer closes with
+        // PROTOCOL_VIOLATION, not a CRYPTO_ERROR. SSL_provide_quic_data rejects
+        // it with SSL_R_WRONG_ENCRYPTION_LEVEL_RECEIVED.
+        let (_, server) = try self.completedPair()
+        var stale = ByteBuffer()
+        stale.writeBytes([0x01, 0x00, 0x00, 0x08])
+        XCTAssertThrowsError(try server.provideHandshakeData(level: .initial, stale)) { error in
+            XCTAssertEqual(error as? NIOSSLQUICError, .protocolViolation)
+        }
+    }
+
+    func testUnconsumedLowerLevelDataIsAProtocolViolation() throws {
+        // Data from a previous encryption level that TLS has not consumed when
+        // it moves on is a protocol violation (RFC 9001 § 4.1.3). A truncated
+        // extra message after the ClientHello stays buffered and unconsumed
+        // (a complete one would be parsed and rejected on its own terms), so
+        // BoringSSL fails the flight-end check with SSL_R_EXCESS_HANDSHAKE_DATA.
+        let client = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: try self.makeClientContext(),
+                role: .client,
+                localTransportParameters: Self.clientTransportParameters
+            )
+        )
+        let server = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: try self.makeServerContext(),
+                role: .server,
+                localTransportParameters: Self.serverTransportParameters
+            )
+        )
+        XCTAssertEqual(try client.advance(), .wantsMoreData)
+        let clientHello = try XCTUnwrap(client.outgoing.first, "client produced no ClientHello")
+        XCTAssertEqual(clientHello.level, .initial)
+        var buffer = ByteBuffer()
+        buffer.writeBytes(clientHello.bytes)
+        // A truncated trailing message: the header declares a 16-byte body but
+        // only one byte follows.
+        buffer.writeBytes([0x01, 0x00, 0x00, 0x10, 0xaa])
+        try server.provideHandshakeData(level: .initial, buffer)
+        XCTAssertThrowsError(try server.advance()) { error in
+            XCTAssertEqual(error as? NIOSSLQUICError, .protocolViolation)
+        }
+    }
+
+    func testPostHandshakeCertificateRequestIsAProtocolViolation() throws {
+        // A server must not send a post-handshake CertificateRequest in QUIC,
+        // and a client must treat one as a protocol violation (RFC 9001 § 4.4).
+        // The four-byte header says type 0x0d (CertificateRequest), empty body,
+        // so the message is complete and gets rejected rather than buffered.
+        let (client, _) = try self.completedPair()
+        var certificateRequest = ByteBuffer()
+        certificateRequest.writeBytes([0x0d, 0x00, 0x00, 0x00])
+        try client.provideHandshakeData(level: .application, certificateRequest)
+        XCTAssertThrowsError(try client.advance()) { error in
+            XCTAssertEqual(error as? NIOSSLQUICError, .protocolViolation)
+        }
+    }
+
+    func testPostHandshakeKeyUpdateKeepsTheAlertMapping() throws {
+        // A KeyUpdate is also forbidden in QUIC, but RFC 9001 § 6 names the
+        // unexpected_message CRYPTO_ERROR (0x010a) for it, not
+        // PROTOCOL_VIOLATION: it must keep the alert mapping. The body is one
+        // byte, update_not_requested.
+        let (client, _) = try self.completedPair()
+        var keyUpdate = ByteBuffer()
+        keyUpdate.writeBytes([0x18, 0x00, 0x00, 0x01, 0x00])
+        try client.provideHandshakeData(level: .application, keyUpdate)
+        XCTAssertThrowsError(try client.advance()) { error in
+            XCTAssertEqual(error as? NIOSSLQUICError, .tlsAlert(10))
+        }
+    }
+
+    /// A NewSessionTicket message carrying an early_data extension with the
+    /// given max_early_data_size, otherwise minimal but well-formed.
+    private func newSessionTicket(maxEarlyDataSize: UInt32) -> [UInt8] {
+        var body: [UInt8] = []
+        body.append(contentsOf: [0x00, 0x00, 0x0e, 0x10])  // ticket_lifetime: 3600
+        body.append(contentsOf: [0x00, 0x00, 0x00, 0x00])  // ticket_age_add
+        body.append(contentsOf: [0x01, 0x00])  // ticket_nonce: one zero byte
+        body.append(contentsOf: [0x00, 0x04, 0x01, 0x02, 0x03, 0x04])  // ticket
+        // extensions: early_data (0x002a) carrying max_early_data_size
+        body.append(contentsOf: [0x00, 0x08, 0x00, 0x2a, 0x00, 0x04])
+        body.append(UInt8(truncatingIfNeeded: maxEarlyDataSize >> 24))
+        body.append(UInt8(truncatingIfNeeded: maxEarlyDataSize >> 16))
+        body.append(UInt8(truncatingIfNeeded: maxEarlyDataSize >> 8))
+        body.append(UInt8(truncatingIfNeeded: maxEarlyDataSize))
+        return [0x04, 0x00, 0x00, UInt8(body.count)] + body
+    }
+
+    func testNewSessionTicketWithBoundedEarlyDataIsAProtocolViolation() throws {
+        // A QUIC server's NewSessionTicket must carry early_data as 0xffffffff
+        // if at all; a client must treat any other value as a protocol
+        // violation (RFC 9001 § 4.6.1). BoringSSL rejects it with an
+        // illegal_parameter alert, which must not surface as a CRYPTO_ERROR.
+        let (client, _) = try self.completedPair()
+        var ticket = ByteBuffer()
+        ticket.writeBytes(self.newSessionTicket(maxEarlyDataSize: 0x0400))
+        try client.provideHandshakeData(level: .application, ticket)
+        XCTAssertThrowsError(try client.advance()) { error in
+            XCTAssertEqual(error as? NIOSSLQUICError, .protocolViolation)
+        }
+    }
+
+    func testNewSessionTicketWithUnboundedEarlyDataIsAccepted() throws {
+        // The control for the previous test: the same ticket with early_data of
+        // exactly 0xffffffff processes cleanly (RFC 9001 § 4.6.1), proving the
+        // classification does not swallow well-formed tickets.
+        let (client, _) = try self.completedPair()
+        var ticket = ByteBuffer()
+        ticket.writeBytes(self.newSessionTicket(maxEarlyDataSize: 0xffff_ffff))
+        try client.provideHandshakeData(level: .application, ticket)
+        XCTAssertNoThrow(try client.advance())
+    }
+
+    func testCompatibilityModeClientHelloIsAProtocolViolation() throws {
+        // A client must not use TLS compatibility mode in QUIC; a server should
+        // treat a ClientHello with a non-empty legacy_session_id as a protocol
+        // violation (RFC 9001 § 8.4). A real ClientHello is patched to carry a
+        // 32-byte session id: the length byte sits after the four-byte message
+        // header, the two-byte legacy_version, and the 32-byte random.
+        let client = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: try self.makeClientContext(),
+                role: .client,
+                localTransportParameters: Self.clientTransportParameters
+            )
+        )
+        XCTAssertEqual(try client.advance(), .wantsMoreData)
+        let clientHello = try XCTUnwrap(client.outgoing.first, "client produced no ClientHello")
+        let bytes = clientHello.bytes
+        XCTAssertEqual(bytes[0], 0x01, "not a ClientHello")
+        XCTAssertEqual(bytes[38], 0x00, "expected an empty legacy_session_id")
+        let bodyLength = ((Int(bytes[1]) << 16) | (Int(bytes[2]) << 8) | Int(bytes[3])) + 32
+        var patched: [UInt8] = [bytes[0]]
+        patched.append(UInt8(truncatingIfNeeded: bodyLength >> 16))
+        patched.append(UInt8(truncatingIfNeeded: bodyLength >> 8))
+        patched.append(UInt8(truncatingIfNeeded: bodyLength))
+        patched.append(contentsOf: bytes[4..<38])
+        patched.append(0x20)
+        patched.append(contentsOf: [UInt8](repeating: 0xab, count: 32))
+        patched.append(contentsOf: bytes[39...])
+
+        let server = Endpoint(
+            try NIOSSLQUICHandshake(
+                context: try self.makeServerContext(),
+                role: .server,
+                localTransportParameters: Self.serverTransportParameters
+            )
+        )
+        var buffer = ByteBuffer()
+        buffer.writeBytes(patched)
+        try server.provideHandshakeData(level: .initial, buffer)
+        XCTAssertThrowsError(try server.advance()) { error in
+            XCTAssertEqual(error as? NIOSSLQUICError, .protocolViolation)
+        }
+    }
 }

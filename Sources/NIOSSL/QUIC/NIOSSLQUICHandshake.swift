@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 @_implementationOnly import CNIOBoringSSL
+@_implementationOnly import CNIOBoringSSLShims
 import NIOCore
 
 /// Whether a QUIC TLS handshake acts as the client or the server.
@@ -471,7 +472,14 @@ public final class NIOSSLQUICHandshake {
             )
         }
         guard result == 1 else {
-            throw NIOSSLError.handshakeFailed(.sslError(BoringSSLError.buildErrorStack()))
+            // SSL_provide_quic_data rejects data at a previously installed
+            // encryption level that extends past previously received data,
+            // which QUIC closes with PROTOCOL_VIOLATION (RFC 9001 § 4.1.3).
+            let error = BoringSSLError.sslError(BoringSSLError.buildErrorStack())
+            if Self.isQUICProtocolViolation(error, alert: nil, postHandshake: false) {
+                throw NIOSSLQUICError.protocolViolation
+            }
+            throw NIOSSLError.handshakeFailed(error)
         }
     }
 
@@ -488,8 +496,10 @@ public final class NIOSSLQUICHandshake {
     ///   ``State/wantsMoreData`` if it is blocked waiting for more peer data, or
     ///   ``State/wantsCertificateVerify(_:)`` if a custom verifier must rule on
     ///   the peer chain before it can continue.
-    /// - Throws: ``NIOSSLQUICError`` carrying the TLS alert if the handshake
-    ///   raised one, otherwise ``NIOSSLError/handshakeFailed(_:)``.
+    /// - Throws: ``NIOSSLQUICError/protocolViolation`` if the peer broke a rule
+    ///   QUIC layers on TLS, ``NIOSSLQUICError/tlsAlert(_:)`` carrying the TLS
+    ///   alert if the handshake raised one, otherwise
+    ///   ``NIOSSLError/handshakeFailed(_:)``.
     @discardableResult
     public func advance() throws -> State {
         // Once the handshake is out of its initial state, progress means
@@ -500,7 +510,7 @@ public final class NIOSSLQUICHandshake {
             guard rc == 1 else {
                 let result = CNIOBoringSSL_SSL_get_error(self.ssl, rc)
                 let error = BoringSSLError.fromSSLGetErrorResult(result)!
-                throw self.failure(error)
+                throw self.failure(error, postHandshake: true)
             }
             return .complete
         }
@@ -555,18 +565,74 @@ public final class NIOSSLQUICHandshake {
         }
     }
 
-    /// The error to throw from a failed handshake step: the TLS alert the
-    /// handshake raised, if any (alerts are always fatal in QUIC), otherwise the
-    /// underlying BoringSSL error.
-    private func failure(_ error: BoringSSLError) -> any Error {
+    /// The error to throw from a failed handshake step: a QUIC protocol
+    /// violation BoringSSL detected, else the TLS alert the handshake raised,
+    /// if any (alerts are always fatal in QUIC), otherwise the underlying
+    /// BoringSSL error.
+    private func failure(_ error: BoringSSLError, postHandshake: Bool = false) -> any Error {
         // Consume the alert: a fatal alert ends the handshake, but post-handshake
         // processing can fail later for unrelated reasons, and a stale alert must
         // not masquerade as that failure's cause.
-        if let alert = self.pendingAlert {
-            self.pendingAlert = nil
+        let alert = self.pendingAlert
+        self.pendingAlert = nil
+        if Self.isQUICProtocolViolation(error, alert: alert, postHandshake: postHandshake) {
+            return NIOSSLQUICError.protocolViolation
+        }
+        if let alert {
             return NIOSSLQUICError.tlsAlert(alert)
         }
         return NIOSSLError.handshakeFailed(error)
+    }
+
+    /// Whether a failed handshake step broke a rule QUIC layers on TLS rather
+    /// than TLS itself, which RFC 9001 requires the QUIC layer to close with
+    /// PROTOCOL_VIOLATION (0x0a) instead of the `0x0100 | alert` mapping
+    /// (RFC 9001 § 4.8). BoringSSL already enforces these QUIC-specific rules;
+    /// this recognizes the reason codes its checks record:
+    ///
+    /// - `SSL_R_WRONG_ENCRYPTION_LEVEL_RECEIVED`: CRYPTO data at a previously
+    ///   installed encryption level extending past previously received data
+    ///   (RFC 9001 § 4.1.3, from `SSL_provide_quic_data`).
+    /// - `SSL_R_EXCESS_HANDSHAKE_DATA`: unconsumed lower-level data left behind
+    ///   when the handshake moves past it (RFC 9001 § 4.1.3).
+    /// - `SSL_R_UNEXPECTED_COMPATIBILITY_MODE`: a ClientHello with a non-empty
+    ///   legacy_session_id (RFC 9001 § 8.4).
+    /// - `SSL_R_UNEXPECTED_MESSAGE`, post-handshake only: a TLS message QUIC
+    ///   forbids after the handshake, such as CertificateRequest (RFC 9001
+    ///   § 4.4). A post-handshake KeyUpdate records
+    ///   `SSL_R_TOO_MANY_KEY_UPDATES` instead and keeps the unexpected_message
+    ///   alert mapping (RFC 9001 § 6).
+    /// - `SSL_R_DECODE_ERROR` with an illegal_parameter alert, post-handshake
+    ///   only: BoringSSL's check that a NewSessionTicket's early_data extension
+    ///   is 0xffffffff (RFC 9001 § 4.6.1). A genuinely undecodable ticket
+    ///   raises the decode_error alert and keeps the alert mapping.
+    private static func isQUICProtocolViolation(
+        _ error: BoringSSLError,
+        alert: UInt8?,
+        postHandshake: Bool
+    ) -> Bool {
+        guard case .sslError(let stack) = error else {
+            return false
+        }
+        return stack.contains { entry in
+            guard let packed = entry.packedError,
+                CNIOBoringSSLShims_ERR_GET_LIB(packed) == ERR_LIB_SSL
+            else {
+                return false
+            }
+            switch CNIOBoringSSLShims_ERR_GET_REASON(packed) {
+            case SSL_R_WRONG_ENCRYPTION_LEVEL_RECEIVED, SSL_R_EXCESS_HANDSHAKE_DATA:
+                return true
+            case SSL_R_UNEXPECTED_COMPATIBILITY_MODE:
+                return true
+            case SSL_R_UNEXPECTED_MESSAGE:
+                return postHandshake
+            case SSL_R_DECODE_ERROR:
+                return postHandshake && alert == UInt8(SSL_AD_ILLEGAL_PARAMETER)
+            default:
+                return false
+            }
+        }
     }
 
     /// Removes and returns the traffic secrets the handshake produced since the
