@@ -541,24 +541,16 @@ func pemToDer(_ pem: String) -> Data {
 // This function generates a random number suitable for use in an X509
 // serial field. This needs to be a positive number less than 2^159
 // (such that it will fit into 20 ASN.1 bytes).
-// This also needs to be portable across operating systems, and the easiest
-// way to do that is to use either getentropy() or read from urandom. Sadly
-// we need to support old Linuxes which may not possess getentropy as a syscall
-// (and definitely don't support it in glibc), so we need to read from urandom.
-// In the future we should just use getentropy and be happy.
+// This also needs to be portable across operating systems, so we simply ask
+// BoringSSL's CSPRNG, which works everywhere (including Windows, which has
+// no /dev/urandom).
 func randomSerialNumber() -> ASN1_INTEGER {
     let bytesToRead = 20
-    let fd = open("/dev/urandom", O_RDONLY)
-    precondition(fd != -1)
-    defer {
-        close(fd)
-    }
-
     var readBytes = Array.init(repeating: UInt8(0), count: bytesToRead)
-    let readCount = readBytes.withUnsafeMutableBytes {
-        read(fd, $0.baseAddress, bytesToRead)
+    let rc = readBytes.withUnsafeMutableBytes {
+        CNIOBoringSSL_RAND_bytes($0.baseAddress!.assumingMemoryBound(to: UInt8.self), $0.count)
     }
-    precondition(readCount == bytesToRead)
+    precondition(rc == 1)
 
     // Our 20-byte number needs to be converted into an integer. This is
     // too big for Swift's numbers, but BoringSSL can handle it fine.
