@@ -43,7 +43,17 @@ internal typealias FILEPointer = OpaquePointer
 internal typealias FILEPointer = UnsafeMutablePointer<FILE>
 #endif
 
+#if os(Windows)
+// fopen is marked deprecated on Windows; fopen_s is the supported spelling. It
+// reports failure through errno just like fopen does.
+private let sysFopen: @Sendable (UnsafePointer<CChar>?, UnsafePointer<CChar>?) -> FILEPointer? = { path, mode in
+    var file: FILEPointer? = nil
+    _ = fopen_s(&file, path, mode)
+    return file
+}
+#else
 private let sysFopen = fopen
+#endif
 private let sysFclose = fclose
 private let sysStat = { @Sendable in stat($0, $1) }
 #if !os(Windows)
@@ -60,6 +70,20 @@ private var currentErrno: CInt {
     _errno().pointee
     #else
     errno
+    #endif
+}
+
+private func errnoDescription(_ err: CInt) -> String {
+    #if os(Windows)
+    // strerror is marked deprecated on Windows; strerror_s is the supported spelling.
+    withUnsafeTemporaryAllocation(of: CChar.self, capacity: 95) { buffer in
+        guard strerror_s(buffer.baseAddress, buffer.count, err) == 0 else {
+            return "Unknown error: \(err)"
+        }
+        return String(cString: buffer.baseAddress!)
+    }
+    #else
+    String(cString: strerror(err)!)
     #endif
 }
 
@@ -84,7 +108,7 @@ internal func wrapSyscall<T: FixedWidthInteger>(where function: String = #functi
             if err == EINTR {
                 continue
             }
-            assert(!isUnacceptableErrno(err), "unacceptable errno \(err) \(strerror(err)!)")
+            assert(!isUnacceptableErrno(err), "unacceptable errno \(err) \(errnoDescription(err))")
             throw IOError(errnoCode: err, reason: function)
         }
         return res
@@ -103,7 +127,7 @@ internal func wrapErrorIsNullReturnCall<T>(
             if err == EINTR {
                 continue
             }
-            assert(!isUnacceptableErrno(err), "unacceptable errno \(err) \(strerror(err)!)")
+            assert(!isUnacceptableErrno(err), "unacceptable errno \(err) \(errnoDescription(err))")
             throw IOError(errnoCode: err, reason: errorReason())
         }
         return res

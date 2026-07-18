@@ -677,7 +677,7 @@ class NIOSSLIntegrationTest: XCTestCase {
     static func keyInFile(key: NIOSSLPrivateKey, passphrase: String) throws -> String {
         let fileName = try makeTemporaryFile(fileExtension: ".pem")
         let tempFile = open(fileName, O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0o644)
-        precondition(tempFile > 1, String(cString: strerror(errno)))
+        precondition(tempFile > 1, errnoDescription(errno))
         let fileBio = CNIOBoringSSL_BIO_new_fp(fdopen(tempFile, "w+"), BIO_CLOSE)
         precondition(fileBio != nil)
 
@@ -709,7 +709,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         let tempFile = fileName.withCString { ptr in
             open(ptr, O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0o644)
         }
-        precondition(tempFile > 1, String(cString: strerror(errno)))
+        precondition(tempFile > 1, errnoDescription(errno))
         let fileBio = CNIOBoringSSL_BIO_new_fp(fdopen(tempFile, "w+"), BIO_CLOSE)
         precondition(fileBio != nil)
 

@@ -19,6 +19,40 @@ import NIOEmbedded
 
 @testable import NIOSSL
 
+#if os(Windows)
+import ucrt
+
+// Non-deprecated spellings of the CRT's POSIX-named functions, so that the many
+// call sites in this module compile without deprecation warnings on Windows.
+@discardableResult
+func unlink(_ path: String) -> CInt {
+    path.withCString { _unlink($0) }
+}
+
+@discardableResult
+func unlink(_ path: UnsafePointer<CChar>) -> CInt {
+    _unlink(path)
+}
+
+func fdopen(_ fd: CInt, _ mode: String) -> UnsafeMutablePointer<FILE>? {
+    mode.withCString { _fdopen(fd, $0) }
+}
+#endif
+
+func errnoDescription(_ err: CInt) -> String {
+    #if os(Windows)
+    // strerror is marked deprecated on Windows; strerror_s is the supported spelling.
+    return withUnsafeTemporaryAllocation(of: CChar.self, capacity: 95) { buffer in
+        guard strerror_s(buffer.baseAddress, buffer.count, err) == 0 else {
+            return "Unknown error: \(err)"
+        }
+        return String(cString: buffer.baseAddress!)
+    }
+    #else
+    return String(cString: strerror(err)!)
+    #endif
+}
+
 let samplePemCert = """
     -----BEGIN CERTIFICATE-----
     MIIGGzCCBAOgAwIBAgIJAJ/X0Fo0ynmEMA0GCSqGSIb3DQEBCwUAMIGjMQswCQYD
