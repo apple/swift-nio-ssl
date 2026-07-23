@@ -36,6 +36,25 @@ import WinSDK
 // actually create any object that uses BoringSSL.
 internal let boringSSLIsInitialized: Bool = initializeBoringSSL()
 
+/// Default groups used when the user has not expressed a preference.
+///
+/// This is BoringSSL's default group list (x25519, secp256r1, secp384r1) with
+/// x25519_MLKEM768 prepended to enable post-quantum hybrid key exchange by default.
+private let defaultGroups: [UInt16] = [
+    NIOTLSCurve.x25519_MLKEM768.rawValue,
+    NIOTLSCurve.x25519.rawValue,
+    NIOTLSCurve.secp256r1.rawValue,
+    NIOTLSCurve.secp384r1.rawValue,
+]
+
+/// Returns the group IDs to configure on a context for the given curves preference.
+///
+/// When the user has expressed a preference (a non-nil array), it is honoured exactly.
+/// Otherwise, the default groups are used.
+private func resolveGroupIDs(for curves: [NIOTLSCurve]?) -> [UInt16] {
+    curves?.map { $0.rawValue } ?? defaultGroups
+}
+
 internal enum FileSystemObject {
     case directory
     case file
@@ -48,8 +67,11 @@ internal enum FileSystemObject {
             return nil
         }
 
-        #if (os(Android) && arch(arm)) || os(Windows)
-        return (UInt32(statObj.st_mode) & UInt32(S_IFDIR)) != 0 ? .directory : .file
+        #if os(Android) && arch(arm)
+        return (statObj.st_mode & UInt32(S_IFDIR)) != 0 ? .directory : .file
+        #elseif os(Windows)
+        // st_mode is CUnsignedShort on Windows while S_IFDIR is CInt.
+        return (CInt(statObj.st_mode) & S_IFDIR) != 0 ? .directory : .file
         #else
         return (statObj.st_mode & S_IFDIR) != 0 ? .directory : .file
         #endif
@@ -217,15 +239,16 @@ private func clientPSKCallback(
     let clientPSK = pskIdentity.key  // Key from the callback
     let clientIdentity = pskIdentity.identity
 
-    // Use max_identity_len so it does not trigger an overrun.
-    if clientIdentity.utf8.isEmpty || clientIdentity.utf8.count > max_identity_len {
+    // BoringSSL passes `max_identity_len` as the full size of its `identity` buffer (`PSK_MAX_IDENTITY_LEN` + 1),
+    // which includes capacity for the NUL terminator, so we reject any identity that would clobber the terminator.
+    if clientIdentity.utf8.isEmpty || clientIdentity.utf8.count > max_identity_len - 1 {
         return 0
     }
 
     // Map the output identity from the one passed back from the callback.
     // This helps populate the server callback for the key exchange.
-    let _ = clientIdentity.withCString { ptr in
-        memcpy(unwrappedIdentity, ptr, clientIdentity.utf8.count)
+    clientIdentity.utf8CString.withUnsafeBufferPointer { buffer in
+        _ = memcpy(unwrappedIdentity, buffer.baseAddress!, buffer.count)
     }
 
     if clientPSK.isEmpty || clientPSK.count > max_psk_len {
@@ -342,17 +365,15 @@ public final class NIOSSLContext {
         precondition(1 == returnCode)
 
         // Curves list.
-        if let curves = configuration.curves {
-            returnCode =
-                curves
-                .map { $0.rawValue }
-                .withUnsafeBufferPointer { algo in
-                    CNIOBoringSSL_SSL_CTX_set1_group_ids(context, algo.baseAddress, algo.count)
-                }
-            if returnCode != 1 {
-                let errorStack = BoringSSLError.buildErrorStack()
-                throw BoringSSLError.unknownError(errorStack)
+        let groupIDs = resolveGroupIDs(for: configuration.curves)
+        returnCode =
+            groupIDs
+            .withUnsafeBufferPointer { algo in
+                CNIOBoringSSL_SSL_CTX_set1_group_ids(context, algo.baseAddress, algo.count)
             }
+        if returnCode != 1 {
+            let errorStack = BoringSSLError.buildErrorStack()
+            throw BoringSSLError.unknownError(errorStack)
         }
 
         // Set the PSK Client Configuration callback.
@@ -727,7 +748,7 @@ extension NIOSSLContext {
         // Platform default trust is configured differently in different places.
         // On Linux, we use our searched heuristics to guess about where the platform trust store is.
         // On Darwin, we use a custom callback that is set later, in createConnection
-        #if os(Linux)
+        #if os(Linux) || os(FreeBSD)
         let result = rootCAFilePath.withCString { rootCAFilePointer in
             rootCADirectoryPath.withCString { rootCADirectoryPointer in
                 CNIOBoringSSL_SSL_CTX_load_verify_locations(context, rootCAFilePointer, rootCADirectoryPointer)
@@ -790,8 +811,11 @@ extension NIOSSLContext {
         else { return false }
 
         // Check if the element is a symlink. If it is not, return false.
+        #if os(Windows)
+        // Windows has no symlinks in the c_rehash sense (`openssl rehash` creates plain
+        // copies there), so any entry whose name matches the rehash format is accepted.
+        #else
         var buffer = stat()
-        #if !os(Windows) // Windows has no symlinks
         let _ = try Posix.lstat(path: path, buf: &buffer)
         // Check the mode to make sure this is a symlink
         #if os(Android) && arch(arm)
@@ -922,11 +946,14 @@ internal class DirectoryContents: Sequence, IteratorProtocol {
     let path: String
     // Used to account between the differences of DIR being defined on Darwin.
     // Otherwise an OpaquePointer needs to be used to account for the non-defined type in glibc.
-    #if canImport(Darwin)
+    #if os(Windows)
+    // On Windows the search handle already holds the first entry when it is opened,
+    // so the find data is read before each FindNextFileW call. A nil handle means
+    // the directory is exhausted (or could not be opened at all).
+    private var dir: HANDLE?
+    private var findData = WIN32_FIND_DATAW()
+    #elseif canImport(Darwin)
     let dir: UnsafeMutablePointer<DIR>
-    #elseif os(Windows)
-    var fileData = WIN32_FIND_DATA()
-    var dir: HANDLE? = nil
     #else
     let dir: OpaquePointer
     #endif
@@ -934,41 +961,60 @@ internal class DirectoryContents: Sequence, IteratorProtocol {
     init(path: String) {
         self.path = path
         #if os(Windows)
-        self.dir = FindFirstFileA(path, &fileData)
+        // The path prefixes each returned entry unchanged (see next()), so it is expected
+        // to end in a path separator, which makes this a search pattern for the
+        // directory's contents.
+        let handle = (path + "*").withCString(encodedAs: UTF16.self) {
+            FindFirstFileW($0, &self.findData)
+        }
+        self.dir = handle == INVALID_HANDLE_VALUE ? nil : handle
         #else
         self.dir = opendir(path)!
         #endif
     }
 
     func next() -> String? {
-        #if os(Windows)
-        if dir != INVALID_HANDLE_VALUE  {
-            let name = withUnsafePointer(to: &fileData.cFileName) { ptr in
-                // Pointers to homogeneous tuples in Swift are always bound to both the tuple type and the element type,
-                // so the assumption below is safe.
-                let elementPointer = UnsafeRawPointer(ptr).assumingMemoryBound(to: CChar.self)
-                return String(cString: elementPointer)
-            }
-            FindNextFileA(dir, &fileData)
-            return self.path + name
+        guard let name = self.nextEntryName() else {
+            return nil
         }
+        return self.path + name
+    }
+
+    /// Returns the file name of the next directory entry, or nil once all entries were returned.
+    private func nextEntryName() -> String? {
+        #if os(Windows)
+        guard let dir = self.dir else {
+            return nil
+        }
+        let name = withUnsafePointer(to: self.findData.cFileName) { (ptr) -> String in
+            // Pointers to homogeneous tuples in Swift are always bound to both the tuple type and the element type,
+            // so the assumption below is safe.
+            let elementPointer = UnsafeRawPointer(ptr).assumingMemoryBound(to: WCHAR.self)
+            return String(decodingCString: elementPointer, as: UTF16.self)
+        }
+        if !FindNextFileW(dir, &self.findData) {
+            FindClose(dir)
+            self.dir = nil
+        }
+        return name
         #else
-        if let dirent: UnsafeMutablePointer<dirent> = readdir(self.dir) {
-            let name = withUnsafePointer(to: &dirent.pointee.d_name) { (ptr) -> String in
-                // Pointers to homogeneous tuples in Swift are always bound to both the tuple type and the element type,
-                // so the assumption below is safe.
-                let elementPointer = UnsafeRawPointer(ptr).assumingMemoryBound(to: CChar.self)
-                return String(cString: elementPointer)
-            }
-            return self.path + name
+        guard let dirent: UnsafeMutablePointer<dirent> = readdir(self.dir) else {
+            return nil
+        }
+        return withUnsafePointer(to: &dirent.pointee.d_name) { (ptr) -> String in
+            // Pointers to homogeneous tuples in Swift are always bound to both the tuple type and the element type,
+            // so the assumption below is safe.
+            let elementPointer = UnsafeRawPointer(ptr).assumingMemoryBound(to: CChar.self)
+            return String(cString: elementPointer)
         }
         #endif
-        return nil
     }
 
     deinit {
         #if os(Windows)
-        FindClose(dir)
+        if let dir = self.dir {
+            FindClose(dir)
+        }
         #else
         closedir(dir)
         #endif

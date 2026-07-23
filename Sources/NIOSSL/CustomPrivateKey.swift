@@ -137,7 +137,8 @@ internal struct AnyNIOSSLCustomPrivateKey: NIOSSLCustomPrivateKey, Hashable {
 
 extension SSLConnection {
     fileprivate var customKey: NIOSSLCustomPrivateKey? {
-        guard case .some(.privateKey(let key)) = self.parentContext.configuration.privateKey,
+        let source = self.currentOverride?.privateKey ?? self.parentContext.configuration.privateKey
+        guard case .some(.privateKey(let key)) = source,
             case .custom(let customKey) = key.representation
         else {
             return nil

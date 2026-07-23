@@ -19,6 +19,40 @@ import NIOEmbedded
 
 @testable import NIOSSL
 
+#if os(Windows)
+import ucrt
+
+// Non-deprecated spellings of the CRT's POSIX-named functions, so that the many
+// call sites in this module compile without deprecation warnings on Windows.
+@discardableResult
+func unlink(_ path: String) -> CInt {
+    path.withCString { _unlink($0) }
+}
+
+@discardableResult
+func unlink(_ path: UnsafePointer<CChar>) -> CInt {
+    _unlink(path)
+}
+
+func fdopen(_ fd: CInt, _ mode: String) -> UnsafeMutablePointer<FILE>? {
+    mode.withCString { _fdopen(fd, $0) }
+}
+#endif
+
+func errnoDescription(_ err: CInt) -> String {
+    #if os(Windows)
+    // strerror is marked deprecated on Windows; strerror_s is the supported spelling.
+    return withUnsafeTemporaryAllocation(of: CChar.self, capacity: 95) { buffer in
+        guard strerror_s(buffer.baseAddress, buffer.count, err) == 0 else {
+            return "Unknown error: \(err)"
+        }
+        return String(cString: buffer.baseAddress!)
+    }
+    #else
+    return String(cString: strerror(err)!)
+    #endif
+}
+
 let samplePemCert = """
     -----BEGIN CERTIFICATE-----
     MIIGGzCCBAOgAwIBAgIJAJ/X0Fo0ynmEMA0GCSqGSIb3DQEBCwUAMIGjMQswCQYD
@@ -541,24 +575,16 @@ func pemToDer(_ pem: String) -> Data {
 // This function generates a random number suitable for use in an X509
 // serial field. This needs to be a positive number less than 2^159
 // (such that it will fit into 20 ASN.1 bytes).
-// This also needs to be portable across operating systems, and the easiest
-// way to do that is to use either getentropy() or read from urandom. Sadly
-// we need to support old Linuxes which may not possess getentropy as a syscall
-// (and definitely don't support it in glibc), so we need to read from urandom.
-// In the future we should just use getentropy and be happy.
+// This also needs to be portable across operating systems, so we simply ask
+// BoringSSL's CSPRNG, which works everywhere (including Windows, which has
+// no /dev/urandom).
 func randomSerialNumber() -> ASN1_INTEGER {
     let bytesToRead = 20
-    let fd = open("/dev/urandom", O_RDONLY)
-    precondition(fd != -1)
-    defer {
-        close(fd)
-    }
-
     var readBytes = Array.init(repeating: UInt8(0), count: bytesToRead)
-    let readCount = readBytes.withUnsafeMutableBytes {
-        read(fd, $0.baseAddress, bytesToRead)
+    let rc = readBytes.withUnsafeMutableBytes {
+        CNIOBoringSSL_RAND_bytes($0.baseAddress!.assumingMemoryBound(to: UInt8.self), $0.count)
     }
-    precondition(readCount == bytesToRead)
+    precondition(rc == 1)
 
     // Our 20-byte number needs to be converted into an integer. This is
     // too big for Swift's numbers, but BoringSSL can handle it fine.

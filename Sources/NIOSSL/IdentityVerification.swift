@@ -24,6 +24,7 @@ import Glibc
 #elseif canImport(Android)
 import Android
 #elseif os(Windows)
+import ucrt
 import WinSDK
 #else
 #error("unsupported os")
@@ -316,6 +317,10 @@ private struct AnalysedCertificateHostname {
             // the empty string is a prefix and suffix of all strings.
             let (wildcardLabel, remainingComponents) = baseName.splitAroundIndex(firstPeriodIndex)
             let (targetFirstLabel, targetRemainingComponents) = target.splitAroundIndex(firstPeriodIndexForName)
+
+            guard !targetFirstLabel.prefix(4).caseInsensitiveElementsEqual(asciiIDNAIdentifier) else {
+                return false
+            }
 
             guard remainingComponents.caseInsensitiveElementsEqual(targetRemainingComponents) else {
                 // Wildcard is irrelevant, the remaining components don't match.

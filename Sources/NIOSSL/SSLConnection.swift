@@ -54,6 +54,7 @@ internal final class SSLConnection {
     internal var customVerificationManager: CustomVerifyManager?
     internal var customPrivateKeyResult: Result<ByteBuffer, Error>?
     internal var customContextManager: CustomContextManager?
+    internal var currentOverride: NIOSSLContextConfigurationOverride?
 
     /// Whether certificate hostnames should be validated.
     var validateHostnames: Bool {
@@ -414,6 +415,7 @@ internal final class SSLConnection {
         /// created by these callbacks.
         self.verificationCallback = nil
         self.customVerificationManager = nil
+        self.currentOverride = nil
 
         // Also drop the reference to the parent channel handler, which is a trivial reference cycle.
         self.parentHandler = nil
@@ -511,6 +513,8 @@ extension SSLConnection {
         if let pkey = changes.privateKey {
             try connection.usePrivateKeySource(pkey)
         }
+
+        self.currentOverride = changes
     }
 }
 

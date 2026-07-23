@@ -25,7 +25,7 @@ import Glibc
 #elseif canImport(Android)
 import Android
 #elseif os(Windows)
-import ucrt
+import WinSDK
 #else
 #error("unsupported os")
 #endif
@@ -53,11 +53,26 @@ public struct _SubjectAlternativeNames {
                 fatalError("Unexpected null pointer when unwrapping SAN value")
             }
 
-            let contents = UnsafeBufferPointer(
-                start: CNIOBoringSSL_ASN1_STRING_get0_data(name.pointee.d.ia5),
-                count: Int(CNIOBoringSSL_ASN1_STRING_length(name.pointee.d.ia5))
-            )
-            return .init(nameType: .init(name.pointee.type), contents: .init(collection: self, buffer: contents))
+            let type = _SubjectAlternativeName.NameType(name.pointee.type)
+            let buffer: UnsafeBufferPointer<UInt8>
+
+            switch type {
+            case .dnsName, .ipAddress, .uri, .email:
+                // These are the string-shaped GeneralName types whose `d` union member is an
+                // ASN1_STRING (dNSName/rfc822Name/URI are ASN1_IA5STRING, iPAddress is
+                // ASN1_OCTET_STRING), so reading it as an ASN1_STRING is safe.
+                buffer = UnsafeBufferPointer(
+                    start: CNIOBoringSSL_ASN1_STRING_get0_data(name.pointee.d.ia5),
+                    count: Int(CNIOBoringSSL_ASN1_STRING_length(name.pointee.d.ia5))
+                )
+            default:
+                // Every other type (otherName, x400Address, directoryName, ediPartyName,
+                // registeredID) has a non-ASN1_STRING `d` union member. Reinterpreting it as an
+                // ASN1_STRING would take the base pointer and length from unrelated memory — a heap
+                // out-of-bounds read — so expose no contents.
+                buffer = UnsafeBufferPointer(start: nil, count: 0)
+            }
+            return _SubjectAlternativeName(nameType: type, contents: .init(collection: self, buffer: buffer))
         }
 
         deinit {
@@ -210,12 +225,7 @@ extension _SubjectAlternativeName.IPAddress: CustomStringConvertible {
         var address = address
         var dest: [CChar] = Array(repeating: 0, count: Self.ipv4AddressLength)
         dest.withUnsafeMutableBufferPointer { pointer in
-            #if os(Windows)
-            let size = pointer.count
-            #else
-            let size = socklen_t(pointer.count)
-            #endif
-            let result = inet_ntop(AF_INET, &address, pointer.baseAddress!, size)
+            let result = inet_ntop(AF_INET, &address, pointer.baseAddress!, Self.bufferSize(pointer.count))
             precondition(
                 result != nil,
                 "The IP address was invalid. This should never happen as we're within the IP address struct."
@@ -228,12 +238,7 @@ extension _SubjectAlternativeName.IPAddress: CustomStringConvertible {
         var address = address
         var dest: [CChar] = Array(repeating: 0, count: Self.ipv6AddressLength)
         dest.withUnsafeMutableBufferPointer { pointer in
-            #if os(Windows)
-            let size = pointer.count
-            #else
-            let size = socklen_t(pointer.count)
-            #endif
-            let result = inet_ntop(AF_INET6, &address, pointer.baseAddress!, size)
+            let result = inet_ntop(AF_INET6, &address, pointer.baseAddress!, Self.bufferSize(pointer.count))
             precondition(
                 result != nil,
                 "The IP address was invalid. This should never happen as we're within the IP address struct."
@@ -241,4 +246,11 @@ extension _SubjectAlternativeName.IPAddress: CustomStringConvertible {
         }
         return String(cString: &dest)
     }
+
+    #if os(Windows)
+    // inet_ntop takes the buffer size as size_t on Windows and as socklen_t elsewhere.
+    static private func bufferSize(_ count: Int) -> Int { count }
+    #else
+    static private func bufferSize(_ count: Int) -> socklen_t { socklen_t(count) }
+    #endif
 }

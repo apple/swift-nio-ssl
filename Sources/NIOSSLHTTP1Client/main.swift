@@ -106,9 +106,7 @@ tlsConfiguration.renegotiationSupport = .once
 let sslContext = try! NIOSSLContext(configuration: tlsConfiguration)
 
 let bootstrap = ClientBootstrap(group: eventLoopGroup)
-    #if !os(Windows)
-    .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
-    #endif
+    .channelOption(.socketOption(.so_reuseaddr), value: 1)
     .channelInitializer { channel in
         channel.eventLoop.makeCompletedFuture {
             let openSslHandler = try NIOSSLClientHandler(context: sslContext, serverHostname: url.host)

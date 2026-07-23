@@ -24,7 +24,7 @@ import Glibc
 #elseif canImport(Bionic)
 import Bionic
 #elseif os(Windows)
-import WinSDK
+import ucrt
 #else
 #error("unsupported os")
 #endif

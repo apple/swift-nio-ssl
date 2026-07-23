@@ -14,6 +14,7 @@
 
 @_implementationOnly import CNIOBoringSSL
 @preconcurrency import Dispatch
+import Foundation
 import NIOConcurrencyHelpers
 import NIOCore
 import NIOEmbedded
@@ -1084,7 +1085,7 @@ class TLSConfigurationTest: XCTestCase {
 
         // We now sleep a short time to let everything catch up and the runtime catch any exclusivity violation.
         // 10ms is fine.
-        usleep(10_000)
+        Thread.sleep(forTimeInterval: 0.01)
 
         // Great, signal the sempahore twice to un-wedge everything and wait for everything to exit.
         semaphore.signal()
@@ -1222,7 +1223,7 @@ class TLSConfigurationTest: XCTestCase {
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
 
-    func testDefaultCurvesExcludePQ() throws {
+    func testDefaultCurvesIncludePQ() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.curves = [.x25519_MLKEM768]
         clientConfig.certificateVerification = .noHostnameVerification
@@ -1233,11 +1234,7 @@ class TLSConfigurationTest: XCTestCase {
             privateKey: .privateKey(TLSConfigurationTest.key1)
         )
         serverConfig.certificateVerification = .none
-        try assertHandshakeError(
-            withClientConfig: clientConfig,
-            andServerConfig: serverConfig,
-            errorTextContains: "ALERT_HANDSHAKE_FAILURE"
-        )
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
 
     func testUnknownCurveValuesFail() throws {
@@ -1250,6 +1247,25 @@ class TLSConfigurationTest: XCTestCase {
                 "Error \(error) does not contain UNSUPPORTED_ELLIPTIC_CURVE"
             )
         }
+    }
+
+    func testExplicitClassicalCurvesExcludePQ() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.curves = [.x25519_MLKEM768]
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.curves = [.x25519, .secp256r1, .secp384r1]
+        serverConfig.certificateVerification = .none
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContains: "ALERT_HANDSHAKE_FAILURE"
+        )
     }
 
     func testCompatibleCipherSuite() throws {
@@ -1916,6 +1932,57 @@ class TLSConfigurationTest: XCTestCase {
         serverConfig.pskServerProvider = pskServerProvider
         serverConfig.pskHint = "serverPskHint"
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    func testTLSPSKClientIdentityLengthBoundary() throws {
+        // BoringSSL's client handshake gives the callback a `char identity[PSK_MAX_IDENTITY_LEN + 1]` buffer and passes
+        // its full size as `max_identity_len`, reserving the final byte for the NUL terminator.  An identity of exactly
+        // `max_identity_len` bytes fills the buffer with no room for the NUL and must be rejected.
+
+        func makeClientConfig(identity: String) -> TLSConfiguration {
+            var config = TLSConfiguration.makeClientConfiguration()
+            config.certificateVerification = .none
+            config.minimumTLSVersion = .tlsv1
+            config.maximumTLSVersion = .tlsv12
+            config.pskHint = "clientPskHint"
+            let provider: NIOPSKClientIdentityProvider = {
+                (_: PSKClientContext) -> PSKClientIdentityResponse in
+                var psk = NIOSSLSecureBytes()
+                psk.append("hello".utf8)
+                return PSKClientIdentityResponse(key: psk, identity: identity)
+            }
+            config.pskClientProvider = provider
+            return config
+        }
+
+        func makeServerConfig(expectedIdentity: String) -> TLSConfiguration {
+            var config = TLSConfiguration.makePreSharedKeyConfiguration()
+            config.minimumTLSVersion = .tlsv1
+            config.maximumTLSVersion = .tlsv12
+            config.pskHint = "serverPskHint"
+            let provider: NIOPSKServerIdentityProvider = {
+                (context: PSKServerContext) -> PSKServerIdentityResponse in
+                XCTAssertEqual(context.clientIdentity, expectedIdentity)
+                var psk = NIOSSLSecureBytes()
+                psk.append("hello".utf8)
+                return PSKServerIdentityResponse(key: psk)
+            }
+            config.pskServerProvider = provider
+            return config
+        }
+
+        let maxValidIdentity = String(repeating: "A", count: Int(PSK_MAX_IDENTITY_LEN))
+        try assertHandshakeSucceeded(
+            withClientConfig: makeClientConfig(identity: maxValidIdentity),
+            andServerConfig: makeServerConfig(expectedIdentity: maxValidIdentity)
+        )
+
+        let overlongIdentity = String(repeating: "A", count: Int(PSK_MAX_IDENTITY_LEN + 1))
+        try assertHandshakeError(
+            withClientConfig: makeClientConfig(identity: overlongIdentity),
+            andServerConfig: makeServerConfig(expectedIdentity: overlongIdentity),
+            errorTextContains: "PSK_IDENTITY_NOT_FOUND"
+        )
     }
 
     func testTLSPSKWithPinnedCiphers() throws {

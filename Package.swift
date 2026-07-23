@@ -1,4 +1,4 @@
-// swift-tools-version:6.0
+// swift-tools-version:6.1
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the SwiftNIO open source project
@@ -32,7 +32,7 @@ import PackageDescription
 func generateDependencies() -> [Package.Dependency] {
     if Context.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         return [
-            .package(url: "https://github.com/apple/swift-nio.git", from: "2.80.0")
+            .package(url: "https://github.com/apple/swift-nio.git", from: "2.98.0")
         ]
     } else {
         return [
@@ -83,7 +83,26 @@ let package = Package(
                 .define("_GNU_SOURCE"),
                 .define("_POSIX_C_SOURCE", to: "200112L"),
                 .define("_DARWIN_C_SOURCE"),
-                // Disable assembly on Windows as SPM doesn't support .S files on Windows
+                // Recent Windows SDKs (e.g. 10.0.26100) make <windows.h> pull in headers
+                // whose symbols collide with BoringSSL's: the legacy <winsock.h> (vs the
+                // <winsock2.h> BoringSSL includes), the min()/max() macros, and <wincrypt.h>
+                // (X509_NAME, X509_EXTENSIONS, X509_CERT_PAIR). Suppress just those.
+                .define("_WINSOCKAPI_", .when(platforms: [.windows])),
+                .define("NOMINMAX", .when(platforms: [.windows])),
+                .define("NOCRYPT", .when(platforms: [.windows])),
+                // Silence the CRT's "consider using fopen_s" style deprecation warnings
+                // for the vendored sources.
+                .define("_CRT_SECURE_NO_WARNINGS", .when(platforms: [.windows])),
+                // The vendored assembly is only generated for ELF and Mach-O targets (and
+                // SwiftPM cannot build the NASM sources BoringSSL uses for Windows), so the
+                // C code must not reference the assembly implementations on Windows.
+                .define("OPENSSL_NO_ASM", .when(platforms: [.windows])),
+            ],
+            cxxSettings: [
+                .define("_WINSOCKAPI_", .when(platforms: [.windows])),
+                .define("NOMINMAX", .when(platforms: [.windows])),
+                .define("NOCRYPT", .when(platforms: [.windows])),
+                .define("_CRT_SECURE_NO_WARNINGS", .when(platforms: [.windows])),
                 .define("OPENSSL_NO_ASM", .when(platforms: [.windows])),
             ]
         ),

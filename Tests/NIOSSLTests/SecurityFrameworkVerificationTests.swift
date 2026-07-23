@@ -232,49 +232,49 @@ extension SecurityFrameworkVerificationTests {
         #if canImport(Darwin)
         // All certs here are PEM format, with the leading/trailing lines stripped.
 
-        // Not Valid Before: 11 Sep 2025 18:37:53 GMT
-        // Not Valid After: 18 Mar 2026 19:05:15 GMT
+        // Not Valid Before: 11 Feb 2026 17:44:10 GMT
+        // Not Valid After: 8 Aug 2026 17:30:10 GMT
         let leaf = """
-            MIIHejCCBmKgAwIBAgIQa1mxOs8ltXgPIYFXuZ6CtDANBgkqhkiG9w0BAQsFADBR
+            MIIHeDCCBmCgAwIBAgIQCiKs5C/HH0Y/lT7wtag/DDANBgkqhkiG9w0BAQsFADBR
             MQswCQYDVQQGEwJVUzETMBEGA1UEChMKQXBwbGUgSW5jLjEtMCsGA1UEAxMkQXBw
-            bGUgUHVibGljIEVWIFNlcnZlciBSU0EgQ0EgMSAtIEcxMB4XDTI1MDkxMTE4Mzc1
-            M1oXDTI2MDMxODE5MDUxNVowgccxHTAbBgNVBA8MFFByaXZhdGUgT3JnYW5pemF0
+            bGUgUHVibGljIEVWIFNlcnZlciBSU0EgQ0EgMSAtIEcxMB4XDTI2MDIxMTE3NDQx
+            MFoXDTI2MDgxODE3MzAxMFowgccxHTAbBgNVBA8MFFByaXZhdGUgT3JnYW5pemF0
             aW9uMRMwEQYLKwYBBAGCNzwCAQMTAlVTMRswGQYLKwYBBAGCNzwCAQIMCkNhbGlm
             b3JuaWExETAPBgNVBAUTCEMwODA2NTkyMQswCQYDVQQGEwJVUzETMBEGA1UECAwK
             Q2FsaWZvcm5pYTESMBAGA1UEBwwJQ3VwZXJ0aW5vMRMwEQYDVQQKDApBcHBsZSBJ
             bmMuMRYwFAYDVQQDDA13d3cuYXBwbGUuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOC
-            AQ8AMIIBCgKCAQEA3FYHDgJ3x/g6l3wPpFaNjWQmOH0Vlwfbao/ffmVNzBa6j4R/
-            Z8GsNcdGg5XbweX/S1YMMqS2up9VWVp/EVtoWDi9bXnAef+JzdLHCrpj1+3YlYdC
-            GoRMBwW14k7s6IO63XaPx53rEVnGu4kUVj8Pz7oWuRNalausVSFXakBX64uZJ3hQ
-            J5HgjF8jt2D1qxJ4ve4HmSPQPvZDvYEhTAUyA85HzV3sfLM87IUcaJTasSFAZSgA
-            PcOZrfsxQr0exRcH0nQi2ypiwp26LmFIlunsDqO6Kn9kK0HG036BuA+O1wNzuoHQ
-            TzLFx6vg8MCoWhcQ95a2Ah3arGRvvblbqBj1EQIDAQABo4ID1TCCA9EwDAYDVR0T
+            AQ8AMIIBCgKCAQEAk90vvxbvjCycmnxqzhVhARxSD3lFU14ECmveg1JJkfWV2tQc
+            kiQjakUx3i5o4oF5BX94TgKHfbQ4CDeNkkTdgiE8c5d1SyQ30OKMmu5Png+MBtyU
+            ERTYE6789ZQSX7Qj4YeZUMnBTB0gF3F0dSNI1gtEi6O0DusC6OkA+kStocebvib9
+            9VLqCJ7tTDmJGJBQqBIICVTFJrnUOLBrxrW6wYg8t4bieeaWo6aCDgMORyXYEi6s
+            8QYAVt6ELDmfY3tIK4pQxx2EWOUDAeczIFqx0PtA4csnFOU84OT6DAYZBrcrtahB
+            snW9n2wx1EzvMrnYhuDJPY7dwMJIH1jFIAZLMwIDAQABo4ID0zCCA88wDAYDVR0T
             AQH/BAIwADAfBgNVHSMEGDAWgBTTvcE8oM81uTTF1NvaEA5M3mr+WDB6BggrBgEF
             BQcBAQRuMGwwMgYIKwYBBQUHMAKGJmh0dHA6Ly9jZXJ0cy5hcHBsZS5jb20vYXBl
             dnNyc2ExZzEuZGVyMDYGCCsGAQUFBzABhipodHRwOi8vb2NzcC5hcHBsZS5jb20v
-            b2NzcDAzLWFwZXZzcnNhMWcxMDEwPAYDVR0RBDUwM4INd3d3LmFwcGxlLmNvbYIQ
-            aW1hZ2VzLmFwcGxlLmNvbYIQd3d3LmFwcGxlLmNvbS5jbjBgBgNVHSAEWTBXMEgG
+            b2NzcDAzLWFwZXZzcnNhMWcxMDEwPAYDVR0RBDUwM4IQaW1hZ2VzLmFwcGxlLmNv
+            bYINd3d3LmFwcGxlLmNvbYIQd3d3LmFwcGxlLmNvbS5jbjBgBgNVHSAEWTBXMEgG
             BWeBDAEBMD8wPQYIKwYBBQUHAgEWMWh0dHBzOi8vd3d3LmFwcGxlLmNvbS9jZXJ0
             aWZpY2F0ZWF1dGhvcml0eS9wdWJsaWMwCwYJYIZIAYb9bAIBMBMGA1UdJQQMMAoG
             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
-            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
+            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
             """
 
         // Not Valid Before: 29 Apr 2020 12:55:34 GMT
