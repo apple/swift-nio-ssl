@@ -1521,7 +1521,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertTrue(actualErrors.first is CustomUserError)
     }
 
-    // rdar://177743664 — A server built with `.optionalVerification` and an additional
+    // A server built with `.optionalVerification` and an additional
     // peer certificate verification callback must not crash when a client completes the
     // handshake without presenting a certificate. With the bug present, the server hits a
     // `preconditionFailure` in `doHandshakeStep` (getPeerCertificate() returns nil) and the
