@@ -1521,6 +1521,69 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertTrue(actualErrors.first is CustomUserError)
     }
 
+    // rdar://177743664 — A server built with `.optionalVerification` and an additional
+    // peer certificate verification callback must not crash when a client completes the
+    // handshake without presenting a certificate. With the bug present, the server hits a
+    // `preconditionFailure` in `doHandshakeStep` (getPeerCertificate() returns nil) and the
+    // entire process aborts, giving any unauthenticated client a remote DoS primitive.
+    func testOptionalVerificationWithAdditionalCallbackAndNoClientCertificateDoesNotCrash() throws {
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        // Server: `.optionalVerification` (requests but does not require a client cert) plus
+        // an additional peer-certificate verification callback.
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+            privateKey: .privateKey(NIOSSLIntegrationTest.key)
+        )
+        serverConfig.certificateVerification = .optionalVerification
+        serverConfig.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
+        let serverCtx = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
+
+        // Client presents no certificate of its own.
+        let clientCtx = try configuredClientContext()
+
+        let serverChannel = try assertNoThrowWithValue(
+            ServerBootstrap(group: group)
+                .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+                .childChannelInitializer { channel in
+                    channel.eventLoop.makeCompletedFuture {
+                        let handler = NIOSSLServerHandler._makeSSLServerHandler(
+                            context: serverCtx,
+                            additionalPeerCertificateVerificationCallback: { _, channel in
+                                channel.eventLoop.makeSucceededFuture(())
+                            }
+                        )
+                        try channel.pipeline.syncOperations.addHandler(handler)
+                    }
+                }
+                .bind(host: "127.0.0.1", port: 0).wait()
+        )
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let clientChannel = try clientTLSChannel(
+            context: clientCtx,
+            preHandlers: [],
+            postHandlers: [],
+            group: group,
+            connectingTo: serverChannel.localAddress!,
+            serverHostname: "localhost"
+        )
+        defer {
+            XCTAssertNoThrow(try? clientChannel.close().wait())
+        }
+
+        // Drive the handshake to completion. With the bug present the server process aborts
+        // here; post-fix this must complete or fail gracefully without crashing the process.
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        _ = try? clientChannel.writeAndFlush(originalBuffer).wait()
+    }
+
     func testFlushWhileAdditionalValidationIsInProgressDoesNotActuallyFlush() throws {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {

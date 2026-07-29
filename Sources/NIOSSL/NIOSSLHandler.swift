@@ -375,17 +375,16 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
                 return
             }
 
-            if let additionalPeerCertificateVerificationCallback = self.additionalPeerCertificateVerificationCallback {
+            // Only run the additional peer certificate verification callback if the peer
+            // actually presented a certificate. Under `.optionalVerification` a peer may
+            // legally complete the handshake without presenting one, in which case
+            // `getPeerCertificate()` returns nil; there is nothing to verify, so we skip the
+            // callback and accept the connection, consistent with `.optionalVerification`'s
+            // semantics.
+            if let additionalPeerCertificateVerificationCallback = self.additionalPeerCertificateVerificationCallback,
+                let peerCertificate = connection.getPeerCertificate()
+            {
                 state = .additionalVerification
-                guard let peerCertificate = connection.getPeerCertificate() else {
-                    preconditionFailure(
-                        """
-                            Couldn't get peer certificate after chain verification was successful.
-                            This should be impossible as we have a precondition during creation of this handler that requires certificate verification.
-                            Please file an issue.
-                        """
-                    )
-                }
                 additionalPeerCertificateVerificationCallback(peerCertificate, context.channel)
                     .hop(to: context.eventLoop)
                     .assumeIsolated()
