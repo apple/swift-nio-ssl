@@ -628,7 +628,8 @@ func addExtension(x509: OpaquePointer, nid: CInt, value: String) {
 }
 
 func generateSelfSignedCert(
-    keygenFunction: () -> OpaquePointer = generateRSAPrivateKey
+    keygenFunction: () -> OpaquePointer = generateRSAPrivateKey,
+    keyUsage: String? = nil
 ) -> (NIOSSLCertificate, NIOSSLPrivateKey) {
     let pkey = keygenFunction()
     let x = CNIOBoringSSL_X509_new()!
@@ -675,6 +676,9 @@ func generateSelfSignedCert(
     addExtension(x509: x, nid: NID_subject_key_identifier, value: "hash")
     addExtension(x509: x, nid: NID_subject_alt_name, value: "DNS:localhost")
     addExtension(x509: x, nid: NID_ext_key_usage, value: "critical,serverAuth,clientAuth")
+    if let keyUsage = keyUsage {
+        addExtension(x509: x, nid: NID_key_usage, value: keyUsage)
+    }
 
     CNIOBoringSSL_X509_sign(x, pkey, CNIOBoringSSL_EVP_sha256())
 
