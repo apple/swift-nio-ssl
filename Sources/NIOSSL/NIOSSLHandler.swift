@@ -832,6 +832,17 @@ extension NIOSSLHandler {
     public var peerValidatedCertificateChain: ValidatedCertificateChain? {
         self.connection.customVerificationManager?.verificationMetadata?.validatedCertificateChain
     }
+
+    /// Export connection-specific keying material from the negotiated TLS session.
+    ///
+    /// This variable **is not thread-safe**: you **must** call it from the correct event loop thread.
+    public func exportKeyingMaterial(
+        label: String,
+        context: [UInt8]?,
+        outputByteCount: Int
+    ) throws -> NIOSSLSecureBytes {
+        try self.connection.exportKeyingMaterial(label: label, context: context, outputByteCount: outputByteCount)
+    }
 }
 
 extension Channel {
@@ -855,6 +866,17 @@ extension Channel {
             $0.peerValidatedCertificateChain
         }
     }
+
+    /// API to export keying material from the negotiated TLS session off the `Channel`. See ``NIOSSLHandler/exportKeyingMaterial``.
+    public func nioSSL_exportKeyingMaterial(
+        label: String,
+        context: [UInt8]?,
+        outputByteCount: Int
+    ) -> EventLoopFuture<NIOSSLSecureBytes> {
+        self.pipeline.handler(type: NIOSSLHandler.self).flatMapThrowing {
+            try $0.exportKeyingMaterial(label: label, context: context, outputByteCount: outputByteCount)
+        }
+    }
 }
 
 extension ChannelPipeline.SynchronousOperations {
@@ -874,6 +896,16 @@ extension ChannelPipeline.SynchronousOperations {
     public func nioSSL_peerValidatedCertificateChain() throws -> ValidatedCertificateChain? {
         let handler = try self.handler(type: NIOSSLHandler.self)
         return handler.peerValidatedCertificateChain
+    }
+
+    /// API to export keying material from the negotiated TLS session. See ``NIOSSLHandler/exportKeyingMaterial``.
+    public func nioSSL_exportKeyingMaterial(
+        label: String,
+        context: [UInt8]?,
+        outputByteCount: Int
+    ) throws -> NIOSSLSecureBytes {
+        let handler = try self.handler(type: NIOSSLHandler.self)
+        return try handler.exportKeyingMaterial(label: label, context: context, outputByteCount: outputByteCount)
     }
 }
 
