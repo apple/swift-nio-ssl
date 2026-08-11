@@ -743,16 +743,7 @@ extension NIOSSLContext {
         // On Linux, we use our searched heuristics to guess about where the platform trust store is.
         // On Darwin, we use a custom callback that is set later, in createConnection
         #if os(Linux) || os(FreeBSD)
-        let result = rootCAFilePath.withCString { rootCAFilePointer in
-            rootCADirectoryPath.withCString { rootCADirectoryPointer in
-                CNIOBoringSSL_SSL_CTX_load_verify_locations(context, rootCAFilePointer, rootCADirectoryPointer)
-            }
-        }
-
-        if result == 0 {
-            let errorStack = BoringSSLError.buildErrorStack()
-            throw BoringSSLError.unknownError(errorStack)
-        }
+        try platformDefaultConfiguration(context: context, rootCAFile: rootCAFilePath, rootCADirectory: rootCADirectoryPath)
         #elseif os(Android)
         let result = rootCADirectoryPath.withCString { rootCADirectoryPointer in
             CNIOBoringSSL_SSL_CTX_load_verify_locations(context, nil, rootCADirectoryPointer)
@@ -764,6 +755,38 @@ extension NIOSSLContext {
         }
         #endif
     }
+
+    #if os(Linux) || os(FreeBSD)
+    /// Loads the platform default trust store into the given context, using
+    /// the provided search paths and falling back to BoringSSL's defaults.
+    ///
+    /// Internal, rather than private, to allow testing the fallback path.
+    static func platformDefaultConfiguration(
+        context: OpaquePointer,
+        rootCAFile: String?,
+        rootCADirectory: String?
+    ) throws {
+        var result = rootCAFile.withCString { rootCAFilePointer in
+            rootCADirectory.withCString { rootCADirectoryPointer in
+                CNIOBoringSSL_SSL_CTX_load_verify_locations(context, rootCAFilePointer, rootCADirectoryPointer)
+            }
+        }
+
+        if result == 0 {
+            // The hardcoded search paths only cover FHS-style system
+            // layouts. On systems that keep the trust store elsewhere (for
+            // example minimal container images or non-standard prefixes),
+            // fall back to BoringSSL's defaults, which also respect the
+            // SSL_CERT_FILE and SSL_CERT_DIR environment variables.
+            result = CNIOBoringSSL_SSL_CTX_set_default_verify_paths(context)
+        }
+
+        if result == 0 {
+            let errorStack = BoringSSLError.buildErrorStack()
+            throw BoringSSLError.unknownError(errorStack)
+        }
+    }
+    #endif
 
     private static func setKeylogCallback(context: OpaquePointer) throws {
         CNIOBoringSSL_SSL_CTX_set_keylog_callback(context) { (ssl, linePointer) in
