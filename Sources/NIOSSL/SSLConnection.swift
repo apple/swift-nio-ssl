@@ -406,6 +406,41 @@ internal final class SSLConnection {
         return NIOSSLCertificate.fromUnsafePointer(takingOwnership: certPtr)
     }
 
+    /// Export connection specific keying information for application use.
+    ///
+    /// On connections negotiated using TLS versions before 1.3, setting the value of context to `nil` omits
+    /// the context from the derivation input entirely, while passing an empty array marks the context as
+    /// zero length - resulting in a difference in output. On TLS 1.3 connections context is always hashed,
+    /// subsequently `nil` and an empty array result in the same output.
+    func exportKeyingMaterial(label: String, context: [UInt8]?, outputByteCount: Int) throws -> NIOSSLSecureBytes {
+        CNIOBoringSSL_ERR_clear_error()
+
+        let useContext: CInt = context != nil ? 1 : 0
+        let material = try NIOSSLSecureBytes(unsafeUninitializedCapacity: outputByteCount) { buffer, initializedCount in
+            let out = buffer.baseAddress?.assumingMemoryBound(to: UInt8.self)
+            let rc = label.withCString { labelPtr in
+                (context ?? []).withUnsafeBufferPointer { contextPtr in
+                    CNIOBoringSSL_SSL_export_keying_material(
+                        self.ssl,
+                        out,
+                        outputByteCount,
+                        labelPtr,
+                        label.utf8.count,
+                        contextPtr.baseAddress,
+                        contextPtr.count,
+                        useContext
+                    )
+                }
+            }
+            guard rc == 1 else {
+                let errorStack = BoringSSLError.buildErrorStack()
+                throw BoringSSLError.unableToExportKeyingMaterial(errorStack)
+            }
+            initializedCount = outputByteCount
+        }
+        return material
+    }
+
     /// Drops persistent connection state.
     ///
     /// Must only be called when the connection is no longer needed. The rest of this object
