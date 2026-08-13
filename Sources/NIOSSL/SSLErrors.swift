@@ -87,6 +87,24 @@ public enum NIOSSLError: Error {
     case unableToValidateCertificate
     case cannotFindPeerIP
     case readInInvalidTLSState
+    /// The TLS connection closed without a `close_notify` alert.
+    ///
+    /// TLS authenticates application data, but TCP FIN and RST packets are not authenticated.
+    /// A well behaved peer sends an encrypted `close_notify` so the other side can distinguish a
+    /// genuine close from a truncation attack. This error is reported when the TCP connection ends
+    /// without that alert (a ragged EOF).
+    ///
+    /// Whether this is a security problem depends on the application protocol:
+    ///
+    /// - HTTP/2 and WebSocket are always framed, so this error is safe to ignore.
+    /// - HTTP/1.1 with a `Content-Length` header or `Transfer-Encoding: chunked` is also framed,
+    ///   so this error is safe to ignore.
+    /// - HTTP/1 with EOF framing (neither `Content-Length` nor chunked encoding) is not safe to
+    ///   ignore: the message ends at connection close, so a truncation attack cannot be told apart
+    ///   from a complete response.
+    ///
+    /// NIOSSL reports this error because it does not know which protocol you are speaking.
+    /// Higher level clients that understand framing can suppress it except for EOF framed HTTP/1.
     case uncleanShutdown
 }
 
