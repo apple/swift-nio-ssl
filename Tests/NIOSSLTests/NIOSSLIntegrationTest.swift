@@ -1522,7 +1522,6 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertTrue(actualErrors.first is CustomUserError)
     }
 
-    //
     func testOptionalVerificationWithAdditionalCallbackAndNoClientCertificateDoesNotCrash() throws {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
