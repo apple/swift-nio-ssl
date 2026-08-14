@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_implementationOnly import CNIOBoringSSL
 @preconcurrency import Dispatch
 import NIOConcurrencyHelpers
 import NIOCore
@@ -19,8 +20,6 @@ import NIOEmbedded
 import NIOPosix
 import NIOTLS
 import XCTest
-
-@_implementationOnly import CNIOBoringSSL
 
 @testable import NIOSSL
 
