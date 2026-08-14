@@ -12,14 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_implementationOnly import CNIOBoringSSL
 import Crypto
 import Foundation
 import NIOCore
 import NIOEmbedded
-internal import SwiftASN1
-internal import X509
-
-@_implementationOnly import CNIOBoringSSL
+import SwiftASN1
+import X509
 
 @testable import NIOSSL
 
