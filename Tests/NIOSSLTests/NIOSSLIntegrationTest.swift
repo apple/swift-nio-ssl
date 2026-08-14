@@ -1562,10 +1562,11 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try serverChannel.close().wait())
         }
 
+        let eventHandler = EventRecorderHandler<TLSUserEvent>()
         let clientChannel = try clientTLSChannel(
             context: clientCtx,
             preHandlers: [],
-            postHandlers: [],
+            postHandlers: [eventHandler],
             group: group,
             connectingTo: serverChannel.localAddress!,
             serverHostname: "localhost"
@@ -1574,11 +1575,16 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try? clientChannel.close().wait())
         }
 
-        // Drive the handshake to completion. With the bug present the server process aborts
-        // here; post-fix this must complete or fail gracefully without crashing the process.
         var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
         originalBuffer.writeString("Hello")
-        _ = try? clientChannel.writeAndFlush(originalBuffer).wait()
+        let writeFuture = clientChannel.writeAndFlush(originalBuffer)
+        writeFuture.whenComplete { _ in
+            XCTAssertEqual(
+                eventHandler.events[..<3],
+                [.Registered, .Active, .UserEvent(.handshakeCompleted(negotiatedProtocol: nil))]
+            )
+        }
+        try writeFuture.wait()
     }
 
     // A server that *requires* a client certificate (`.fullVerification`) and has an additional
