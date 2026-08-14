@@ -32,11 +32,13 @@ import PackageDescription
 func generateDependencies() -> [Package.Dependency] {
     if Context.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         return [
-            .package(url: "https://github.com/apple/swift-nio.git", from: "2.98.0")
+            .package(url: "https://github.com/apple/swift-nio.git", from: "2.98.0"),
+            .package(url: "https://github.com/apple/swift-certificates.git", from: "1.19.4"),
         ]
     } else {
         return [
-            .package(path: "../swift-nio")
+            .package(path: "../swift-nio"),
+            .package(path: "../swift-certificates"),
         ]
     }
 }
@@ -165,6 +167,7 @@ let package = Package(
                 .product(name: "NIOEmbedded", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOTLS", package: "swift-nio"),
+                .product(name: "X509", package: "swift-certificates"),
             ],
             swiftSettings: strictConcurrencySettings
         ),

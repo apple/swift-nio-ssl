@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import CNIOBoringSSL
 @preconcurrency import Dispatch
 import NIOConcurrencyHelpers
 import NIOCore
@@ -20,6 +19,8 @@ import NIOEmbedded
 import NIOPosix
 import NIOTLS
 import XCTest
+
+@_implementationOnly import CNIOBoringSSL
 
 @testable import NIOSSL
 
@@ -429,15 +430,15 @@ class TLSConfigurationTest: XCTestCase {
         leafCert: NIOSSLCertificate, leafKey: NIOSSLPrivateKey,
         clientCert: NIOSSLCertificate, clientKey: NIOSSLPrivateKey
     ) {
-        let leaf = try NIOSSLCertificate(bytes: .init(leafCertificateForTLSIssuedFromCustomCARoot.utf8), format: .pem)
-        let leaf_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForLeafCertificate.utf8), format: .pem)
+        let leaf = try NIOSSLCertificate(bytes: .init(customChain.serverLeafCertificatePEM.utf8), format: .pem)
+        let leaf_privateKey = try NIOSSLPrivateKey(bytes: .init(customChain.serverPrivateKeyPEM.utf8), format: .pem)
 
         let client_cert = try NIOSSLCertificate(
-            bytes: .init(leafCertificateForClientAuthenticationIssuedFromCustomCARoot.utf8),
+            bytes: .init(customChain.clientLeafCertificatePEM.utf8),
             format: .pem
         )
-        let client_privateKey = try NIOSSLPrivateKey.init(
-            bytes: .init(privateKeyForClientAuthentication.utf8),
+        let client_privateKey = try NIOSSLPrivateKey(
+            bytes: .init(customChain.clientPrivateKeyPEM.utf8),
             format: .pem
         )
         return (leaf, leaf_privateKey, client_cert, client_privateKey)
@@ -764,7 +765,7 @@ class TLSConfigurationTest: XCTestCase {
 
     func testFullVerificationWithCANamesFromCertificate() throws {
         // Custom certificates for TLS and client authentication.
-        let root = try NIOSSLCertificate(bytes: .init(customCARoot.utf8), format: .pem)
+        let root = try NIOSSLCertificate(bytes: .init(customChain.rootPEM.utf8), format: .pem)
 
         let digitalIdentities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
 
@@ -839,7 +840,7 @@ class TLSConfigurationTest: XCTestCase {
         // Custom certificates for TLS and client authentication.
         // In this test create the root certificate in the tmp directory and use it here to send the CA names.
         // This exercised the loadVerifyLocations file code path out in SSLContext
-        let rootPath = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem")
+        let rootPath = try dumpToFile(data: .init(customChain.rootPEM.utf8), fileExtension: ".pem")
 
         let digitalIdentities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
 
@@ -915,7 +916,11 @@ class TLSConfigurationTest: XCTestCase {
         // Use the test name as the directory name in the temporary directory.
         let testName = String("\(#function)".dropLast(2))
         // Create 2 PEM based certs
-        let rootCAPathOne = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem", customPath: testName)
+        let rootCAPathOne = try dumpToFile(
+            data: .init(customChain.rootPEM.utf8),
+            fileExtension: ".pem",
+            customPath: testName
+        )
         let rootCAPathTwo = try dumpToFile(
             data: .init(secondaryRootCertificateForClientAuthentication.utf8),
             fileExtension: ".pem",
@@ -1004,7 +1009,11 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertFalse(acceptablePathAndRehashFormatButNoSymlink)
 
         // Test actual symlink
-        let rootCAPathOne = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem", customPath: testName)
+        let rootCAPathOne = try dumpToFile(
+            data: .init(customChain.rootPEM.utf8),
+            fileExtension: ".pem",
+            customPath: testName
+        )
         let rehashSymlinkName = getRehashFilename(path: rootCAPathOne, testName: testName, numericExtension: 0)
 
         // Extract just the filename of the newly create certs in the tmp directory.
