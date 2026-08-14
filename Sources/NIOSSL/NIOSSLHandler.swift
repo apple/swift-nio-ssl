@@ -375,23 +375,33 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
                 return
             }
 
-            // Only run the additional peer certificate verification callback if the peer
-            // actually presented a certificate. Under `.optionalVerification` a peer may
-            // legally complete the handshake without presenting one, in which case
-            // `getPeerCertificate()` returns nil; there is nothing to verify, so we skip the
-            // callback and accept the connection, consistent with `.optionalVerification`'s
-            // semantics.
-            if let additionalPeerCertificateVerificationCallback = self.additionalPeerCertificateVerificationCallback,
-                let peerCertificate = connection.getPeerCertificate()
-            {
-                state = .additionalVerification
-                additionalPeerCertificateVerificationCallback(peerCertificate, context.channel)
-                    .hop(to: context.eventLoop)
-                    .assumeIsolated()
-                    .whenComplete { result in
-                        self.completedAdditionalPeerCertificateVerification(result: result)
-                    }
-                return
+            if let additionalPeerCertificateVerificationCallback = self.additionalPeerCertificateVerificationCallback {
+                if let peerCertificate = connection.getPeerCertificate() {
+                    state = .additionalVerification
+                    additionalPeerCertificateVerificationCallback(peerCertificate, context.channel)
+                        .hop(to: context.eventLoop)
+                        .assumeIsolated()
+                        .whenComplete { result in
+                            self.completedAdditionalPeerCertificateVerification(result: result)
+                        }
+                    return
+                } else if self.connection.parentContext.configuration.certificateVerification.requiresPeerCertificate {
+                    // The peer presented no certificate even though verification required one.
+                    // BoringSSL sets `SSL_VERIFY_FAIL_IF_NO_PEER_CERT` for these modes, so it
+                    // should have failed the handshake before reaching `.complete`; this branch
+                    // should be unreachable. If it ever is reached we must fail closed rather
+                    // than accept an unauthenticated peer or silently skip the callback.
+                    assertionFailure(
+                        "Reached handshake completion with no peer certificate despite required certificate verification."
+                    )
+                    let error = NIOSSLError.noCertificateToValidate
+                    context.fireErrorCaught(error)
+                    channelClose(context: context, reason: error)
+                    return
+                }
+                // Otherwise verification is optional and the peer presented no certificate: there
+                // is nothing to verify, so we skip the callback and accept the connection,
+                // consistent with `.optionalVerification`'s semantics.
             }
 
             state = .active
