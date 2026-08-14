@@ -1647,13 +1647,6 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertNoThrow(try? clientChannel.close().wait())
         }
 
-        // The client can flush 0.5-RTT data before the server's rejection alert arrives, so the
-        // write is best-effort. The reliable signal is that the server rejects the certificate-less
-        // client and tears the connection down.
-        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
-        originalBuffer.writeString("Hello")
-        _ = try? clientChannel.writeAndFlush(originalBuffer).wait()
-
         // Wait for the connection to be torn down as a result of the failed handshake.
         try clientChannel.closeFuture.wait()
 
