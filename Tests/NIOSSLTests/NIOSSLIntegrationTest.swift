@@ -12,13 +12,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_implementationOnly import CNIOBoringSSL
 import NIOConcurrencyHelpers
 import NIOCore
 import NIOEmbedded
 import NIOPosix
 import NIOTLS
 import XCTest
+
+@_implementationOnly import CNIOBoringSSL
 
 @testable import NIOSSL
 
@@ -1521,7 +1522,7 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertTrue(actualErrors.first is CustomUserError)
     }
 
-    // 
+    //
     func testOptionalVerificationWithAdditionalCallbackAndNoClientCertificateDoesNotCrash() throws {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
