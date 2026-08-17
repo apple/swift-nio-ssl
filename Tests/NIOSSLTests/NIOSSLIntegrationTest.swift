@@ -1272,6 +1272,19 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertNoThrow(try closePromise.futureResult.wait())
     }
 
+    func testPlaintextReadBufferCanHoldTwoRecords() throws {
+        let context = try configuredSSLContext()
+        let handler = try NIOSSLClientHandler(context: context, serverHostname: nil)
+        let channel = EmbeddedChannel()
+        defer {
+            XCTAssertNoThrow(try channel.finish())
+        }
+
+        try channel.pipeline.syncOperations.addHandler(handler)
+
+        XCTAssertEqual(handler._testOnly_plaintextReadBufferCapacity, 2 * SSL_MAX_RECORD_SIZE)
+    }
+
     func testAddingTlsToActiveChannelStillHandshakes() throws {
         let context = try configuredSSLContext()
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
