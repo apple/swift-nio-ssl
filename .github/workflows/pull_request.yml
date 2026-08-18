@@ -27,6 +27,36 @@ jobs:
             # which the build system adds internally for dependencies.
             linux_nightly_main_arguments_override: "--explicit-target-dependency-import-check error -Xswiftc -require-explicit-sendable"
 
+    construct-windows-build-matrix:
+        name: Construct Windows build matrix
+        runs-on: ubuntu-latest
+        outputs:
+            windows-build-matrix: '${{ steps.generate-matrix.outputs.windows-build-matrix }}'
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
+              with:
+                  persist-credentials: false
+            - id: generate-matrix
+              run: echo "windows-build-matrix=$(curl -s --retry 3 https://raw.githubusercontent.com/apple/swift-nio/main/scripts/generate_matrix.sh | bash)" >> "$GITHUB_OUTPUT"
+              env:
+                  MATRIX_LINUX_6_0_ENABLED: false
+                  MATRIX_LINUX_6_1_ENABLED: false
+                  MATRIX_LINUX_6_2_ENABLED: false
+                  MATRIX_LINUX_6_3_ENABLED: false
+                  MATRIX_LINUX_NIGHTLY_NEXT_ENABLED: false
+                  MATRIX_LINUX_NIGHTLY_MAIN_ENABLED: false
+                  MATRIX_WINDOWS_6_3_ENABLED: true
+                  MATRIX_WINDOWS_COMMAND: "swift build"
+
+    windows-build:
+        name: Windows build
+        needs: construct-windows-build-matrix
+        uses: apple/swift-nio/.github/workflows/swift_test_matrix.yml@main
+        with:
+            name: "Windows build"
+            matrix_string: '${{ needs.construct-windows-build-matrix.outputs.windows-build-matrix }}'
+
     construct-integration-test-matrix:
         name: Construct integration matrix
         runs-on: ubuntu-latest
