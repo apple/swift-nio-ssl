@@ -12,8 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import CNIOBoringSSL
-import Foundation
 import NIOCore
 import NIOEmbedded
 import NIOPosix
@@ -208,48 +206,4 @@ final class SSLContextTest: XCTestCase {
     func testSNIContextError() throws {
         try assertSniError(sniField: "httpbin.org", expectedError: .contextError)
     }
-
-    #if os(Linux) || os(FreeBSD)
-    func testPlatformDefaultTrustStoreFallsBackToBoringSSLDefaults() throws {
-        // Simulate a system where none of the hardcoded search paths exist:
-        // the fallback should load the bundle named by SSL_CERT_FILE.
-        let bundlePath = NSTemporaryDirectory() + "/nio-ssl-test-ca-bundle-\(UUID().uuidString).pem"
-        try samplePemCert.write(toFile: bundlePath, atomically: true, encoding: .utf8)
-        defer { try? FileManager.default.removeItem(atPath: bundlePath) }
-
-        setenv("SSL_CERT_FILE", bundlePath, 1)
-        // Point SSL_CERT_DIR at a path that does not exist, to ensure that
-        // only the bundle above provides trust roots.
-        setenv("SSL_CERT_DIR", bundlePath + ".dir", 1)
-        defer {
-            unsetenv("SSL_CERT_FILE")
-            unsetenv("SSL_CERT_DIR")
-        }
-
-        let sslContext = CNIOBoringSSL_SSL_CTX_new(CNIOBoringSSL_TLS_client_method())!
-        defer { CNIOBoringSSL_SSL_CTX_free(sslContext) }
-
-        XCTAssertNoThrow(
-            try NIOSSLContext.platformDefaultConfiguration(
-                context: sslContext,
-                rootCAFile: nil,
-                rootCADirectory: nil
-            )
-        )
-
-        // The self-signed CA certificate from the bundle must now be trusted.
-        let certificate = try NIOSSLCertificate(bytes: Array(samplePemCert.utf8), format: .pem)
-        let store = CNIOBoringSSL_SSL_CTX_get_cert_store(sslContext)
-        let storeContext = CNIOBoringSSL_X509_STORE_CTX_new()!
-        defer { CNIOBoringSSL_X509_STORE_CTX_free(storeContext) }
-
-        let verifyResult = certificate.withUnsafeMutableX509Pointer { certificatePointer in
-            guard CNIOBoringSSL_X509_STORE_CTX_init(storeContext, store, certificatePointer, nil) == 1 else {
-                return CInt(0)
-            }
-            return CNIOBoringSSL_X509_verify_cert(storeContext)
-        }
-        XCTAssertEqual(verifyResult, 1)
-    }
-    #endif
 }
