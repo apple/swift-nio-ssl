@@ -110,6 +110,7 @@ public enum BoringSSLError: Error {
     case unknownError(NIOBoringSSLErrorStack)
     case invalidSNIName(NIOBoringSSLErrorStack)
     case failedToSetALPN(NIOBoringSSLErrorStack)
+    case unableToExportKeyingMaterial(NIOBoringSSLErrorStack)
 }
 
 extension BoringSSLError: Equatable {}
