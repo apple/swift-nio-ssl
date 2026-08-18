@@ -13,9 +13,12 @@
 //===----------------------------------------------------------------------===//
 
 @_implementationOnly import CNIOBoringSSL
+import Crypto
 import Foundation
 import NIOCore
 import NIOEmbedded
+import SwiftASN1
+import X509
 
 @testable import NIOSSL
 
@@ -338,157 +341,93 @@ let sampleDerCertSPKI = Array(
     )!
 )
 
-// Custom Root for the certificates below.
-// For example the following two certificates were issued from customCARoot:
-// 1. leafCertificateForTLSIssuedFromCustomCARoot (Used for TLS)
-// 2. leafCertificateForClientAuthenticationIssuedFromCustomCARoot (Used for client authentication)
-//    The client authentication certificate contains the Extension for  Client Authentication.
-//    Which is required for testing with the CertificateVerification case of .fullVerification.
-//
-// The certs from the custom root expire once a year, so here are the instructions
-// for when they expire again around August 14, 2026:
-//
-// 1. New custom CA:
-// - openssl genpkey -algorithm RSA -out ca_key.pem
-// - openssl req -x509 -new -key ca_key.pem -sha256 -days 1024 -out ca.pem -subj "/CN=ca"
-//
-// 2. New server cert:
-// - openssl genpkey -algorithm RSA -out server_key.pem
-// - openssl req -new -key server_key.pem -out server.csr -subj "/CN=localhost"
-// - openssl x509 -req -in server.csr -CA ca.pem -CAkey ca_key.pem -CAcreateserial -out server.pem -days 365 -sha256
-//
-// 3. New client cert:
-// - openssl genpkey -algorithm RSA -out client_key.pem
-// - now create a file called client_ext.cnf with the contents:
-// ```
-// [ v3_req ]
-// # Extensions for client authentication
-// extendedKeyUsage = clientAuth
-// ```
-// - openssl req -new -key client_key.pem -out client.csr -subj "/CN=localhost"
-// - openssl x509 -req -in client.csr -CA ca.pem -CAkey ca_key.pem -CAcreateserial -out client.pem -days 365 -sha256 -extfile client_ext.cnf -extensions v3_req
-//
-// Then, copy the contents of the files into the literal strings below.
-let customCARoot = """
-    -----BEGIN CERTIFICATE-----
-    MIICljCCAX4CCQDV3NUC6QWiyDANBgkqhkiG9w0BAQsFADANMQswCQYDVQQDDAJj
-    YTAeFw0yNTA4MTQxMjM5NTZaFw0yODA2MDMxMjM5NTZaMA0xCzAJBgNVBAMMAmNh
-    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA9MqFE9SHDnw3Cw5hOQuP
-    gycdKyw3njytnfrRsDSRDEZDplitFmbm4DckrFwfG2xo9WXkiUZhR8JFiqnuc7gc
-    Q0vtmEipoJA21t/nWtL9z0OHx8ngYTFBA72s7UocLw/5+y27CsuoamCR8br1Opxy
-    JrPBihUzJzTJJ8gSPvzFyyg0dnoGswe+68GawPJmgmAzae7Yc/dqEeFYDUpb743P
-    C6uirnw8rE/eLH6doLXoXGHhC0K8thfrny15n20ozMag7FDF0UdWpsfbhX6BINTf
-    5sR3teCPz+QZ8D4zkoSqf1Oeif5LsmKdtBuE8w+kgRZs+i/WwLSm70DpIfNeuu9r
-    7wIDAQABMA0GCSqGSIb3DQEBCwUAA4IBAQDd06g6Tk1lTg4IVUKNZ86P2HXDK0V3
-    WFngU2Vsh5P+s7DHe+VFV6qE8AIs3E0OIYbmRPOm2ZRMTASVevTt+yLFs95txmid
-    tjmQwD52QN3ivUTQTWvpaM8yJcji2qvPVn291ZrIGBsRF/stMlkSHDwhP+p+TQa8
-    gv9LcWiTR40x/4eyC61fe8elS6vVBENJlXk91SyFSzpTnW3BElUZteaofiU26kXA
-    SHbJxyRhp5xFVpxYUKGjVl0H7sHQn0NDN3wpqy4kBX8dPCEVe3IlBYG8xE/TfRAr
-    4bqP3ub5/HAabeyheEpljPehFVC65OIGHzfHBluqeEAvIm7vXaWGbwOI
-    -----END CERTIFICATE-----
-    """
+/// A certificate chain for tests.
+struct TestChain {
+    let rootPEM: String
 
-let leafCertificateForTLSIssuedFromCustomCARoot = """
-    -----BEGIN CERTIFICATE-----
-    MIICnTCCAYUCCQDDQzp6nuhApzANBgkqhkiG9w0BAQsFADANMQswCQYDVQQDDAJj
-    YTAeFw0yNTA4MTQxMjM5NTZaFw0yNjA4MTQxMjM5NTZaMBQxEjAQBgNVBAMMCWxv
-    Y2FsaG9zdDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALLJKEReHVQT
-    ltlOLEyn1Rgr+WwgzoBuLREUcdrvDFfe/75ClnadOkYcIcXNakvUiTQMHyEUXZ6Z
-    dKI+98Igmcwn9xpd7Jab8S+Z+AXzVg88xMdEWC4rufITG9CSGFBKQdolv8DEGY+I
-    qQMCHzBDi7oMGmmXOugIPqMUgvCYAJ/bncn6bfeWIBjXxtRxJ8Jj6++3G6IvT4gx
-    g/zIdWAf2snPQItZEm6cZZMV9bwjIgxPdxK/GEAzG8rsV7m0zPpgvDS+2waf/NXw
-    uItAcJWUm/ylQCZ7fUv11T9LwfWpItNu7GuLzD5NI1mpNLAbm1W8FWr98GtPzTiV
-    4GCglAomjokCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAoTejnBrluy6NK+5425an
-    yPS51CzRK+o8hBg2YQ6jzioexSeRXW/ivBkKB7j+iMNkVuRpzzLTA3Wz5+OvJQyI
-    itGpVhLngaAaTBBBhga/cPejaBZKNCRTeXXSe/nMSAJhjO0XaZcyUESDq2rH+m81
-    LUrqfjNOZW8w7zustKJq+QqY+jEiRAzmbL1hPoDlasromZ1+6TsOM71AgAyLoKgA
-    Utj/VMlOKzAUyH+z/fPzXDM9nslfLqMnhMcD9vIWi0noypYoyrcaIATkhCjNRGXH
-    PvWooCpurD7+JL7imZfT8x+6lp1XI86pC6FG+JTcObBRqvdLpQRMY4chE8G/FS18
-    qA==
-    -----END CERTIFICATE-----
-    """
+    let serverLeafCertificatePEM: String
+    let serverPrivateKeyPEM: String
 
-let privateKeyForLeafCertificate = """
-    -----BEGIN PRIVATE KEY-----
-    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCyyShEXh1UE5bZ
-    TixMp9UYK/lsIM6Abi0RFHHa7wxX3v++QpZ2nTpGHCHFzWpL1Ik0DB8hFF2emXSi
-    PvfCIJnMJ/caXeyWm/EvmfgF81YPPMTHRFguK7nyExvQkhhQSkHaJb/AxBmPiKkD
-    Ah8wQ4u6DBpplzroCD6jFILwmACf253J+m33liAY18bUcSfCY+vvtxuiL0+IMYP8
-    yHVgH9rJz0CLWRJunGWTFfW8IyIMT3cSvxhAMxvK7Fe5tMz6YLw0vtsGn/zV8LiL
-    QHCVlJv8pUAme31L9dU/S8H1qSLTbuxri8w+TSNZqTSwG5tVvBVq/fBrT804leBg
-    oJQKJo6JAgMBAAECggEABQtJ2IvzNeELm3vqIguGJpVvBw7x5Iu3N8kk4TFnXr9K
-    5dpJFnWfJEU86rC98/++EzrYUf2aGpRnxwARy2dSD4F9JkBKIYGqz1X/umNAJVPo
-    lVqnRj4zk9HYMg09JF7D9tyjyVN/CR6o7g3MRXdSZOBcimga4FsDMWStwQ34zom+
-    mnwiau/yxOt2GReRmw3ioOlorUbtJ64uU/yYjHgplfM/BMq2TCqx15wgwDTLNyLs
-    Xidh8ksG2qBbESEcvGSisarz2CXkDaaAVYLjQPsE2z6tzLYX+S1nSnbNUM1H9QZF
-    ipJ9AB7g+f9vRQvAYzrvLIIa2SIDQUTRT/XLw59+UQKBgQDW9miB+oEMANvZw6lq
-    p7PlI9m6l1/MFvhTC5upXnhchmVGiuSTpSDazgUHRgy1wHBRk1PwIPsTaURZEUAs
-    nxe4+3/Ft3FqfITNngnKNS/OCCiXQ7ysDbvLLZ2ADbOohZ8Lb2/hNm7lOain4CdE
-    2qC1Vkb/9vWmm3dhM91Pb/bJFQKBgQDU6rpdGE6TxAytKXiV1fJjuf/Fvb9BLXkn
-    x+0sOO/liKnyPj4SHjePb14jcU4F2cRa7hPHY1dw9i//j17oa7Wvsb/pi06qOg3o
-    /I0Txdea1EqsBCCb5qwPWT+GfspQT3EZN+qwGpN26GzsAGj+bVsCAonkg71eO6NU
-    1sSw0JAkpQKBgBbXkDtflx7jaHk3ZWVD9MXAjX5aX3+cYT7R2PSiaT/LuC9Kywc1
-    YMxfYAFp3CfkDwtcEGtP1d42LWEZiCw1q5uofedQmuip2qLOzFOEW1QVYdrRA9d0
-    jiQE8NuOmSyrJj9c1BKmahpJijZshz+1y6X5SQoh//B4TLMzg6zRRPQRAoGBAK2R
-    QCU9+GhrDG5o/T0gML1tVf0r5mpKmJZ+W3COZbn3A5tPdCgu69oIznQUHKeWU4RQ
-    ylzjNdgHSS+K/7J2g6DbRPgssQ8Bzm8c2iDBSjaUUt8RakfM7nyAo9GPMHvxluAY
-    /j9bGtV3ObvVxcGLAgKMcT6QymG0Ojyh66u8CZVlAoGARoGc28exX64y1+E4QA56
-    29cu7tN8YIdegV+qIN5OVzWWDco5BxAGFUrjlP0i5S8STBncdchhbu/97xplmREC
-    OW0ct2fwce8+OTFzM9TXpzsLToliL2MLfM1H2bM1lY1xA4QtQudY/Xh+5YyotmNI
-    fhsXm4WK1YTrkD3bSxNpzUE=
-    -----END PRIVATE KEY-----
-    """
+    let clientLeafCertificatePEM: String
+    let clientPrivateKeyPEM: String
 
-let leafCertificateForClientAuthenticationIssuedFromCustomCARoot = """
-    -----BEGIN CERTIFICATE-----
-    MIICuzCCAaOgAwIBAgIJAMNDOnqe6ECoMA0GCSqGSIb3DQEBCwUAMA0xCzAJBgNV
-    BAMMAmNhMB4XDTI1MDgxNDEyMzk1NloXDTI2MDgxNDEyMzk1NlowFDESMBAGA1UE
-    AwwJbG9jYWxob3N0MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyGvt
-    9RAdndCEsZVMUvRoQ0vusQikqozTC/s5O6o6JK9M/u3NvSjywBNHtORqbuPFR3Ct
-    9X/kdoH9sPAQdCzTmDBdzktV7I2M2t94NcqsLw3k7904XtSwjXtITF7wR2zgZLjZ
-    pXGjgg5ajpifLeOIT6NJo2q8qnuPf6E21dLk6jt3Mv76opfO7CoVNwEuSEEa/RWi
-    IKjsjaCJ1rDaUEd9GTBXF3UoQCK1sYFRpIuZpaizAZxOO6emxqwF1OJDgoAXMrHw
-    e7nWc28ntOSI3W3bkQx0oVS02uHiEvMxF4HDZes2d0kR+2SiOfivTyZQsAVA7N0A
-    Z5qlfllFe9+5Nn/hiQIDAQABoxcwFTATBgNVHSUEDDAKBggrBgEFBQcDAjANBgkq
-    hkiG9w0BAQsFAAOCAQEA0blksL3YrmTnfPeh342jCnNUK9fg6cVXV+W6jccHJ7/g
-    en5t+50VJ4R4NvEhCdx87mrPbozWfpPzE9OifeM+qrljXitajZtblGe2Xv0j3pWP
-    Lx6ulfPSVY2Ss6Yr5O6aTovLR3QHHuud+Bw//J3s1DNpVphbB6GmLSBDx+UHf7wd
-    p4FjrGJj0JrUDzX28s2v/SNhph9AhEgYu9xStrJBn38cao/Ww5rjhQkNATghLlmA
-    4ljvGb5PQcKo16gkW99gbTziyPIJ97m1+7KGIJGSIixmwZK1NIlN8pf3rJuAak4K
-    Un7Y0TKn8oackbntmk7NYlaL6u3m4JzZp2nSCJ3QTA==
-    -----END CERTIFICATE-----
-    """
+    fileprivate init() {
+        let root = try! Self.makeRootCertificate()
+        let serverCert = try! Self.makeLeafCertificate(issuer: root, for: .serverAuth)
+        let clientCert = try! Self.makeLeafCertificate(issuer: root, for: .clientAuth)
 
-let privateKeyForClientAuthentication = """
-    -----BEGIN PRIVATE KEY-----
-    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDIa+31EB2d0ISx
-    lUxS9GhDS+6xCKSqjNML+zk7qjokr0z+7c29KPLAE0e05Gpu48VHcK31f+R2gf2w
-    8BB0LNOYMF3OS1XsjYza33g1yqwvDeTv3The1LCNe0hMXvBHbOBkuNmlcaOCDlqO
-    mJ8t44hPo0mjaryqe49/oTbV0uTqO3cy/vqil87sKhU3AS5IQRr9FaIgqOyNoInW
-    sNpQR30ZMFcXdShAIrWxgVGki5mlqLMBnE47p6bGrAXU4kOCgBcysfB7udZzbye0
-    5IjdbduRDHShVLTa4eIS8zEXgcNl6zZ3SRH7ZKI5+K9PJlCwBUDs3QBnmqV+WUV7
-    37k2f+GJAgMBAAECggEAQhPLbVt12D0SMpY9hrAL2/wh4v4thAlP34hhUzmJV+Tv
-    5rCyfyYL+qWgo5QXPx4bQbV1tRYIVcX/xSEw24yX6novwz71Qjtc8CBzOpDqec0D
-    6M0vs5w95Td7G6rFX1cXGD4Vi8VOmidvVcod2PxGSbNVKOqc7zwzkGmvcYnJbSu+
-    XRThz03SqY6s0Jp0lKWvewTuPG6YzOlCeKlMGbxShE5zhEcGdjhND0J+Q6EUynOc
-    9tINUakrnwIo80WaPeXIk1/eCneCJ+STdTeCIfsY/X564yHwkIrzQ4So+anZ+pCW
-    lZtZnsy3DdpAoP0vDUwbcsJUNtoLDFc3JiU/e/z7nQKBgQDsoHcjero1mNufZlp5
-    vCGuGblMB5cOceFB0X/oTdkqLwt1+5i/ytOIFI2ZAxzJvVa/wMbsExb5XbeD66l/
-    pzFj3EFymafv1Mc7k+EqBI13OBUR9udBa/CpYwZwYuxiuLPERo9Cn3UniRKU0IQb
-    MaQFAkOapS9fOwVrd8DPz8dhswKBgQDY1KC18Yv9fvBPvnwoKLb7zWbFeg9CH4/B
-    IbA7OtWWkjhoLew6bQGzYeIVzUpElJXetCNgkwB71fWcHRwHDXvDx+QHU/JOgp1o
-    tpg/nCoiZPyL79vjy1Cr2y7MsRckLP2dOFI4WrwerzmB/vxA3LAoG60i+FYXZkm0
-    NG6nOjC50wKBgGw0oOZ/i8FQqjXFJ2B9sGUd7EchPWlkmB5x/+yqFMGei74jFGG4
-    DW0wAORUsQhr5cyACjcQL7ROr8nKrVLrkMFaii8upsYcZhMPd6qwNEStR61UW8Hl
-    60J6PwqLog8u6T27Cm3r3zX6D54vkAmjdJ65v1JrcTM6GStgsrIVENbTAoGAA6p0
-    nR7cUwjWX0LFLpihn1g1qJkLsP5/m7BKHnY8LjOCqKA+Ii69nJ7HB79UxhwM/Jrn
-    DjbuByny4RTM6IGd2g2DGWyd6B3lM2QC5vBo9fPnISaI/SzuzDkEbYmA7qekEghl
-    u3YtQAeOXVhGQ4J3p/Xv02uHaRXdoSJRzJn7QOkCgYEAxvn8bj0CCczRrFBHALYV
-    /4p1VRq3xIKFwDOUP42Xu1Bj5ETuVeEsnTN40VwTlvZRv1Gr6zImqcIgs03QPR2F
-    +nCAt3FPsQfM+CFO3gxiir9ycLmij8sEwfqr68nQLQ+zzwEgrMU50h6IZRUGk2BJ
-    /0/E9r/0VwPQn5CZSt7NQvQ=
-    -----END PRIVATE KEY-----
-    """
+        self.rootPEM = try! root.certificate.serializeAsPEM().pemString
+
+        self.serverLeafCertificatePEM = try! serverCert.certificate.serializeAsPEM().pemString
+        self.serverPrivateKeyPEM = try! serverCert.key.serializeAsPEM().pemString
+
+        self.clientLeafCertificatePEM = try! clientCert.certificate.serializeAsPEM().pemString
+        self.clientPrivateKeyPEM = try! clientCert.key.serializeAsPEM().pemString
+    }
+
+    private struct CertificateKeyPair {
+        let certificate: Certificate
+        let key: Certificate.PrivateKey
+    }
+
+    private static func makeRootCertificate() throws -> CertificateKeyPair {
+        let privateKey = P256.Signing.PrivateKey()
+        let key = Certificate.PrivateKey(privateKey)
+
+        let subjectName = try DistinguishedName { CommonName("ca") }
+        let issuerName = subjectName
+
+        let now = Date()
+
+        let cert = try Certificate(
+            version: .v3,
+            serialNumber: Certificate.SerialNumber(),
+            publicKey: key.publicKey,
+            notValidBefore: now.addingTimeInterval(-1),
+            notValidAfter: now.addingTimeInterval(60 * 60 * 24 * 1024),  // 1024 days
+            issuer: subjectName,
+            subject: issuerName,
+            signatureAlgorithm: .ecdsaWithSHA256,
+            extensions: try Certificate.Extensions {
+                Critical(BasicConstraints.isCertificateAuthority(maxPathLength: nil))
+                Critical(KeyUsage(keyCertSign: true))
+            },
+            issuerPrivateKey: key
+        )
+
+        return CertificateKeyPair(certificate: cert, key: key)
+    }
+
+    private static func makeLeafCertificate(
+        issuer: CertificateKeyPair,
+        for usage: ExtendedKeyUsage.Usage
+    ) throws -> CertificateKeyPair {
+        let privateKey = P256.Signing.PrivateKey()
+        let key = Certificate.PrivateKey(privateKey)
+
+        let now = Date()
+
+        let clientLeaf = try Certificate(
+            version: .v3,
+            serialNumber: Certificate.SerialNumber(),
+            publicKey: key.publicKey,
+            notValidBefore: now.addingTimeInterval(-1),
+            notValidAfter: now.addingTimeInterval(60 * 60 * 24 * 365),  // 1 year
+            issuer: issuer.certificate.subject,
+            subject: try DistinguishedName { CommonName("localhost") },
+            signatureAlgorithm: .ecdsaWithSHA256,
+            extensions: try Certificate.Extensions {
+                BasicConstraints.notCertificateAuthority
+                try ExtendedKeyUsage([usage])
+            },
+            issuerPrivateKey: issuer.key
+        )
+
+        return CertificateKeyPair(certificate: clientLeaf, key: key)
+    }
+}
+
+let customChain = TestChain()
 
 // This is a root certificate used to setup and test sending CA names to
 // a client during client authentication.

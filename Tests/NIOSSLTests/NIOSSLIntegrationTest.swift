@@ -1521,6 +1521,139 @@ class NIOSSLIntegrationTest: XCTestCase {
         XCTAssertTrue(actualErrors.first is CustomUserError)
     }
 
+    func testOptionalVerificationWithAdditionalCallbackAndNoClientCertificateDoesNotCrash() throws {
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        // Server: `.optionalVerification` (requests but does not require a client cert) plus
+        // an additional peer-certificate verification callback.
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+            privateKey: .privateKey(NIOSSLIntegrationTest.key)
+        )
+        serverConfig.certificateVerification = .optionalVerification
+        serverConfig.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
+        let serverCtx = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
+
+        // Client presents no certificate of its own.
+        let clientCtx = try configuredClientContext()
+
+        let serverChannel = try assertNoThrowWithValue(
+            ServerBootstrap(group: group)
+                .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+                .childChannelInitializer { channel in
+                    channel.eventLoop.makeCompletedFuture {
+                        let handler = NIOSSLServerHandler._makeSSLServerHandler(
+                            context: serverCtx,
+                            additionalPeerCertificateVerificationCallback: { _, channel in
+                                channel.eventLoop.makeSucceededFuture(())
+                            }
+                        )
+                        try channel.pipeline.syncOperations.addHandler(handler)
+                    }
+                }
+                .bind(host: "127.0.0.1", port: 0).wait()
+        )
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let eventHandler = EventRecorderHandler<TLSUserEvent>()
+        let clientChannel = try clientTLSChannel(
+            context: clientCtx,
+            preHandlers: [],
+            postHandlers: [eventHandler],
+            group: group,
+            connectingTo: serverChannel.localAddress!,
+            serverHostname: "localhost"
+        )
+        defer {
+            XCTAssertNoThrow(try? clientChannel.close().wait())
+        }
+
+        var originalBuffer = clientChannel.allocator.buffer(capacity: 5)
+        originalBuffer.writeString("Hello")
+        let writeFuture = clientChannel.writeAndFlush(originalBuffer)
+        writeFuture.whenComplete { _ in
+            XCTAssertEqual(
+                eventHandler.events[..<3],
+                [.Registered, .Active, .UserEvent(.handshakeCompleted(negotiatedProtocol: nil))]
+            )
+        }
+        try writeFuture.wait()
+    }
+
+    // A server that *requires* a client certificate (`.fullVerification`) and has an additional
+    // peer certificate verification callback must reject a client that presents no certificate,
+    // and must never invoke the callback for such a connection. BoringSSL enforces this with
+    // `SSL_VERIFY_FAIL_IF_NO_PEER_CERT` before the handshake completes; this test guards against a
+    // regression that would fail open (accept the connection and/or skip the callback) instead.
+    func testFullVerificationWithAdditionalCallbackRejectsClientWithNoCertificate() throws {
+        let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        defer {
+            XCTAssertNoThrow(try group.syncShutdownGracefully())
+        }
+
+        // Server: `.fullVerification` (requires a client cert) plus an additional
+        // peer-certificate verification callback.
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(NIOSSLIntegrationTest.cert)],
+            privateKey: .privateKey(NIOSSLIntegrationTest.key)
+        )
+        serverConfig.certificateVerification = .fullVerification
+        serverConfig.trustRoots = .certificates([NIOSSLIntegrationTest.cert])
+        let serverCtx = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
+
+        // Client presents no certificate of its own.
+        let clientCtx = try configuredClientContext()
+
+        let callbackInvoked = NIOLockedValueBox(false)
+        let errorHandler = ErrorCatcher<Error>()
+
+        let serverChannel = try assertNoThrowWithValue(
+            ServerBootstrap(group: group)
+                .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
+                .childChannelInitializer { channel in
+                    channel.eventLoop.makeCompletedFuture {
+                        let handler = NIOSSLServerHandler._makeSSLServerHandler(
+                            context: serverCtx,
+                            additionalPeerCertificateVerificationCallback: { _, channel in
+                                callbackInvoked.withLockedValue { $0 = true }
+                                return channel.eventLoop.makeSucceededFuture(())
+                            }
+                        )
+                        try channel.pipeline.syncOperations.addHandler(handler)
+                    }
+                }
+                .bind(host: "127.0.0.1", port: 0).wait()
+        )
+        defer {
+            XCTAssertNoThrow(try serverChannel.close().wait())
+        }
+
+        let clientChannel = try clientTLSChannel(
+            context: clientCtx,
+            preHandlers: [],
+            postHandlers: [errorHandler],
+            group: group,
+            connectingTo: serverChannel.localAddress!,
+            serverHostname: "localhost"
+        )
+        defer {
+            XCTAssertNoThrow(try? clientChannel.close().wait())
+        }
+
+        // Wait for the connection to be torn down as a result of the failed handshake.
+        try clientChannel.closeFuture.wait()
+
+        // The handshake must have failed on the client, and the server's additional verification
+        // callback must never run when no certificate was presented.
+        XCTAssertFalse(errorHandler.errors.isEmpty)
+        XCTAssertFalse(callbackInvoked.withLockedValue { $0 })
+    }
+
     func testFlushWhileAdditionalValidationIsInProgressDoesNotActuallyFlush() throws {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         defer {
