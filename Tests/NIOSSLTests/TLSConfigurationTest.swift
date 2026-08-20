@@ -90,6 +90,16 @@ class TLSConfigurationTest: XCTestCase {
     static let cert2 = TLSConfigurationTest._certAndKey2.0
     static let key2 = TLSConfigurationTest._certAndKey2.1
 
+    /// An RSA leaf whose keyUsage extension allows encipherment but not signing, which is the shape
+    /// of certificate that trips BoringSSL's RSA keyUsage consistency check on the TLS 1.2 ECDHE_RSA path.
+    /// `keyCertSign` is present only so the certificate can also act as its own trust root in these
+    /// tests. What matters is the absence of `digitalSignature`.
+    static let _keyEnciphermentOnlyCertAndKey = generateSelfSignedCert(
+        keyUsage: "critical,keyEncipherment,dataEncipherment,keyCertSign"
+    )
+    static let keyEnciphermentOnlyCert = TLSConfigurationTest._keyEnciphermentOnlyCertAndKey.0
+    static let keyEnciphermentOnlyKey = TLSConfigurationTest._keyEnciphermentOnlyCertAndKey.1
+
     func assertHandshakeError(
         withClientConfig clientConfig: TLSConfiguration,
         andServerConfig serverConfig: TLSConfiguration,
@@ -2430,6 +2440,67 @@ class TLSConfigurationTest: XCTestCase {
             andServerConfig: serverConfig,
             errorTextContainsAnyOf: ["ALERT_UNKNOWN_CA", "ALERT_CERTIFICATE_UNKNOWN"]
         )
+    }
+
+    private func keyEnciphermentOnlyConfigs() -> (client: TLSConfiguration, server: TLSConfiguration) {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.maximumTLSVersion = .tlsv12
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.keyEnciphermentOnlyCert])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.keyEnciphermentOnlyCert)],
+            privateKey: .privateKey(TLSConfigurationTest.keyEnciphermentOnlyKey)
+        )
+        serverConfig.maximumTLSVersion = .tlsv12
+
+        return (clientConfig, serverConfig)
+    }
+
+    func testRSAKeyUsageIsEnforcedByDefault() throws {
+        // The negotiated ECDHE_RSA suite signs the handshake, so a leaf that only permits
+        // keyEncipherment is rejected. This is the default and is not affected by
+        // certificateVerification, which is why the trust roots below let the chain validate.
+        let (clientConfig, serverConfig) = self.keyEnciphermentOnlyConfigs()
+        XCTAssertTrue(clientConfig.enforceRSAKeyUsage)
+
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContains: "KEY_USAGE_BIT_INCORRECT"
+        )
+    }
+
+    func testRSAKeyUsageEnforcementCanBeDisabled() throws {
+        var (clientConfig, serverConfig) = self.keyEnciphermentOnlyConfigs()
+        clientConfig.enforceRSAKeyUsage = false
+
+        try assertHandshakeSucceededInMemory(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    func testRSAKeyUsageEnforcementIsStillAppliedToServers() throws {
+        // The setting is client-only in BoringSSL, so a server that opts out still behaves normally.
+        var (clientConfig, serverConfig) = self.keyEnciphermentOnlyConfigs()
+        serverConfig.enforceRSAKeyUsage = false
+
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContains: "KEY_USAGE_BIT_INCORRECT"
+        )
+    }
+
+    func testEnforceRSAKeyUsageParticipatesInBestEffortEquality() {
+        var config = TLSConfiguration.makeClientConfiguration()
+        var relaxedConfig = config
+        relaxedConfig.enforceRSAKeyUsage = false
+
+        XCTAssertFalse(config.bestEffortEquals(relaxedConfig))
+        XCTAssertNotEqual(Wrapper(config: config), Wrapper(config: relaxedConfig))
+
+        config.enforceRSAKeyUsage = false
+        XCTAssertTrue(config.bestEffortEquals(relaxedConfig))
+        XCTAssertEqual(Wrapper(config: config), Wrapper(config: relaxedConfig))
     }
 }
 

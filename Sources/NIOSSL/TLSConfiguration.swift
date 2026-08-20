@@ -470,6 +470,20 @@ public struct TLSConfiguration {
     /// This instructs the client which identities can be used by evaluating what CA the identity certificate was issued from.
     public var sendCANameList: Bool
 
+    /// Whether the `keyUsage` extension of an RSA leaf certificate is required to be consistent with the
+    /// negotiated TLS usage. Defaults to `true`.
+    ///
+    /// This only has an effect when acting as a client negotiating TLS 1.2 or below, where the check is
+    /// otherwise performed against the cipher suite in use. In all other cases the check is always enforced
+    /// and this property is ignored. Note that setting ``certificateVerification`` to
+    /// ``CertificateVerification/none`` does not relax this check, as it is not part of trust evaluation.
+    ///
+    /// - Warning: Only set this to `false` when a specific interoperability problem requires it, for example
+    ///     talking to a server whose RSA certificate carries only `keyEncipherment` while the handshake
+    ///     negotiates a cipher suite that needs `digitalSignature`. Disabling the check means the peer is
+    ///     using its key in a way its own certificate says it should not be used for.
+    public var enforceRSAKeyUsage: Bool = true
+
     private init(
         cipherSuiteValues: [NIOTLSCipher] = [],
         cipherSuites: String = defaultCipherSuites,
@@ -561,6 +575,7 @@ extension TLSConfiguration {
             && self.renegotiationSupport == comparing.renegotiationSupport
             && self.sendCANameList == comparing.sendCANameList && isSSLContextCallbackEqual && isPSKClientProviderEqual
             && isPSKServerProviderEqual && self.pskHint == comparing.pskHint
+            && self.enforceRSAKeyUsage == comparing.enforceRSAKeyUsage
     }
 
     /// Returns a best effort hash of this TLS configuration.
@@ -597,6 +612,7 @@ extension TLSConfiguration {
             hasher.combine(bytes: closureServerBits)
         }
         hasher.combine(pskHint)
+        hasher.combine(enforceRSAKeyUsage)
     }
 
     /// Creates a TLS configuration for use with client-side contexts.
