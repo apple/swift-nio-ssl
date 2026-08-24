@@ -212,6 +212,21 @@ extension CertificateVerification: Hashable {
     // empty
 }
 
+extension CertificateVerification {
+    /// Whether this mode requires the peer to present a certificate.
+    ///
+    /// This must stay in sync with the BoringSSL verification setup in `NIOSSLContext`: only the
+    /// modes that map to `SSL_VERIFY_FAIL_IF_NO_PEER_CERT` require a certificate.
+    internal var requiresPeerCertificate: Bool {
+        switch self {
+        case .fullVerification, .noHostnameVerification:
+            return true
+        case .none:
+            return false
+        }
+    }
+}
+
 /// Support for TLS renegotiation.
 ///
 /// In general, renegotiation should not be enabled except in circumstances where it is absolutely necessary.

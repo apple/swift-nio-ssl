@@ -376,23 +376,32 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
             }
 
             if let additionalPeerCertificateVerificationCallback = self.additionalPeerCertificateVerificationCallback {
-                state = .additionalVerification
-                guard let peerCertificate = connection.getPeerCertificate() else {
-                    preconditionFailure(
-                        """
-                            Couldn't get peer certificate after chain verification was successful.
-                            This should be impossible as we have a precondition during creation of this handler that requires certificate verification.
-                            Please file an issue.
-                        """
+                if let peerCertificate = connection.getPeerCertificate() {
+                    state = .additionalVerification
+                    additionalPeerCertificateVerificationCallback(peerCertificate, context.channel)
+                        .hop(to: context.eventLoop)
+                        .assumeIsolated()
+                        .whenComplete { result in
+                            self.completedAdditionalPeerCertificateVerification(result: result)
+                        }
+                    return
+                } else if self.connection.parentContext.configuration.certificateVerification.requiresPeerCertificate {
+                    // The peer presented no certificate even though verification required one.
+                    // BoringSSL sets `SSL_VERIFY_FAIL_IF_NO_PEER_CERT` for these modes, so it
+                    // should have failed the handshake before reaching `.complete`; this branch
+                    // should be unreachable. If it ever is reached we must fail closed rather
+                    // than accept an unauthenticated peer or silently skip the callback.
+                    assertionFailure(
+                        "Reached handshake completion with no peer certificate despite required certificate verification."
                     )
+                    let error = NIOSSLError.noCertificateToValidate
+                    context.fireErrorCaught(error)
+                    channelClose(context: context, reason: error)
+                    return
                 }
-                additionalPeerCertificateVerificationCallback(peerCertificate, context.channel)
-                    .hop(to: context.eventLoop)
-                    .assumeIsolated()
-                    .whenComplete { result in
-                        self.completedAdditionalPeerCertificateVerification(result: result)
-                    }
-                return
+                // Otherwise verification is optional and the peer presented no certificate: there
+                // is nothing to verify, so we skip the callback and accept the connection,
+                // consistent with `.optionalVerification`'s semantics.
             }
 
             state = .active
