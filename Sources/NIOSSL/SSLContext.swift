@@ -750,8 +750,12 @@ extension NIOSSLContext {
         }
 
         if result == 0 {
-            let errorStack = BoringSSLError.buildErrorStack()
-            throw BoringSSLError.unknownError(errorStack)
+            // The hardcoded search paths above only cover FHS-style system
+            // layouts. On systems that keep the trust store elsewhere (for
+            // example minimal container images or non-standard prefixes),
+            // fall back to BoringSSL's defaults, which also respect the
+            // SSL_CERT_FILE and SSL_CERT_DIR environment variables.
+            try loadBoringSSLDefaultVerifyPaths(context: context)
         }
         #elseif os(Android)
         let result = rootCADirectoryPath.withCString { rootCADirectoryPointer in
@@ -764,6 +768,17 @@ extension NIOSSLContext {
         }
         #endif
     }
+
+    #if os(Linux) || os(FreeBSD)
+    /// Loads BoringSSL's default verify paths into the given context. These
+    /// respect the SSL_CERT_FILE and SSL_CERT_DIR environment variables.
+    private static func loadBoringSSLDefaultVerifyPaths(context: OpaquePointer) throws {
+        guard CNIOBoringSSL_SSL_CTX_set_default_verify_paths(context) == 1 else {
+            let errorStack = BoringSSLError.buildErrorStack()
+            throw BoringSSLError.unknownError(errorStack)
+        }
+    }
+    #endif
 
     private static func setKeylogCallback(context: OpaquePointer) throws {
         CNIOBoringSSL_SSL_CTX_set_keylog_callback(context) { (ssl, linePointer) in
