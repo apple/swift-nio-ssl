@@ -452,20 +452,29 @@ internal struct CustomVerifyManager {
 
     private var result: PendingResult = .notStarted
 
+    /// A fixed TLS alert for an internal verifier's rejected result.
+    ///
+    /// Public verification callbacks deliberately leave this unset so BoringSSL retains its
+    /// documented default alert selection.
+    let failureAlert: UInt8?
+
     /// Contains the metadata that the callback returned. As such, this property will *only* contain a value if
     /// `self.result` is `.complete` (and if the callback promise returns metadata).
     var verificationMetadata: VerificationMetadata?
 
     init(callback: @escaping NIOSSLCustomVerificationCallback) {
         self.callback = .public(callback)
+        self.failureAlert = nil
     }
 
     init(callback: @escaping NIOSSLCustomVerificationCallbackWithMetadata) {
         self.callback = .publicWithMetadata(callback)
+        self.failureAlert = nil
     }
 
-    init(callback: @escaping InternalCallback) {
+    init(callback: @escaping InternalCallback, failureAlert: UInt8? = nil) {
         self.callback = .internal(callback)
+        self.failureAlert = failureAlert
     }
 }
 
@@ -486,20 +495,20 @@ extension CustomVerifyManager {
 }
 
 extension CustomVerifyManager {
-    mutating func process(on connection: SSLConnection) -> ssl_verify_result_t {
+    mutating func process(on connection: SSLConnection) -> (result: ssl_verify_result_t, alert: UInt8?) {
         // First, check if we have a result.
         switch self.result {
         case .complete(.certificateVerified):
-            return ssl_verify_ok
+            return (ssl_verify_ok, nil)
         case .completeWithMetadata(.certificateVerified(let metadata)):
             // Extract the metadata and store it within `self`.
             self.verificationMetadata = metadata
-            return ssl_verify_ok
+            return (ssl_verify_ok, nil)
         case .complete(.failed), .completeWithMetadata(.failed):
-            return ssl_verify_invalid
+            return (ssl_verify_invalid, self.failureAlert)
         case .pendingResult:
             // Ask me again.
-            return ssl_verify_retry
+            return (ssl_verify_retry, nil)
         case .notStarted:
             // The rest of this method handles this case.
             break
@@ -510,7 +519,7 @@ extension CustomVerifyManager {
         // Ok, no result. We must invoke the callback.
         self.callback.invoke(on: connection)
 
-        return ssl_verify_retry
+        return (ssl_verify_retry, nil)
     }
 }
 
