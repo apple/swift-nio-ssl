@@ -995,9 +995,12 @@ class TLSConfigurationTest: XCTestCase {
         // Filename is not in rehash format.
         let acceptablePathBadFilename = try NIOSSLContext._isRehashFormat(path: "/etc/ssl/certs/myFile.pem")
         XCTAssertFalse(acceptablePathBadFilename)
-        // Filename is in bad rehash format.
+        // Filename is in bad rehash format: the extension is not a decimal digit.
         let acceptablePathBadRehashFormat = try NIOSSLContext._isRehashFormat(path: "/etc/ssl/certs/7f44456a.z")
         XCTAssertFalse(acceptablePathBadRehashFormat)
+        // Nor is a non-digit that happens to be a hex character.
+        let acceptablePathHexExtension = try NIOSSLContext._isRehashFormat(path: "/etc/ssl/certs/7f44456a.a")
+        XCTAssertFalse(acceptablePathHexExtension)
 
         // Test with an actual file, but no symlink.
         let dummyFile = try dumpToFile(data: Data(), fileExtension: ".txt", customPath: testName)
@@ -1039,6 +1042,100 @@ class TLSConfigurationTest: XCTestCase {
         // Test the success case for the symlink
         let successSymlink = try NIOSSLContext._isRehashFormat(path: rehashSymlinkName)
         XCTAssertTrue(successSymlink)
+    }
+
+    func testRehashFormatAcceptsCollisionSuffixes() throws {
+        // `openssl rehash` names its links "%08x.%s%d", the infix being empty for certificates:
+        // when several certificates share a subject name hash, the id is incremented rather than
+        // staying at 0. Every one of those links is in c_rehash format and must be recognised,
+        // otherwise the CAs behind the higher ids are silently left out of the client CA list.
+        //
+        // The id is a plain %d, so it grows past one digit. `apps/rehash.c` caps a hash bucket at
+        // 256 entries (MAX_COLLISIONS), which makes 255 the largest id that tool can write. The
+        // older perl `tools/c_rehash.in`, still shipped on the 3.0 and 3.5 branches, has no such
+        // cap: its suffix loop just increments until it finds a free name. So the predicate
+        // deliberately accepts any number of digits rather than enforcing a ceiling of its own.
+        let testName = String("\(#function)".dropLast(2))
+
+        let rootCAPath = try dumpToFile(
+            data: .init(customChain.rootPEM.utf8),
+            fileExtension: ".pem",
+            customPath: testName
+        )
+        let rootCAFilename = URL(string: "file://" + rootCAPath)!.lastPathComponent
+
+        var symlinks: [String] = []
+        defer {
+            for symlink in symlinks {
+                XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + symlink)!))
+            }
+            XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rootCAPath)!))
+            let removePath = "\(FileManager.default.temporaryDirectory.path)/\(testName)/"
+            XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + removePath)!))
+        }
+
+        let acceptedSuffixes: [(id: Int, why: String)] = [
+            (0, "the first link for a hash"),
+            (1, "the first collision"),
+            (9, "the last single-digit id"),
+            (10, "the first two-digit id; a single-character check would drop it"),
+            (123, "an arbitrary id in the middle of the range"),
+            (255, "the largest id apps/rehash.c can write (MAX_COLLISIONS - 1)"),
+        ]
+        for (numericExtension, why) in acceptedSuffixes {
+            let symlinkName = getRehashFilename(
+                path: rootCAPath,
+                testName: testName,
+                numericExtension: numericExtension
+            )
+            XCTAssertNoThrow(
+                try FileManager.default.createSymbolicLink(
+                    atPath: symlinkName,
+                    withDestinationPath: rootCAFilename
+                )
+            )
+            symlinks.append(symlinkName)
+
+            XCTAssertTrue(
+                try NIOSSLContext._isRehashFormat(path: symlinkName),
+                "\(symlinkName) is a valid c_rehash link (\(why)) and should be recognised"
+            )
+        }
+
+        // Names that have the right characters but a shape `openssl rehash` never produces. They
+        // are real symlinks to a real certificate, so the name check is the only thing that can
+        // reject them.
+        //
+        // The first three depend on the split keeping empty subsequences: ".7f44456a.0",
+        // "7f44456a..0" and "7f44456a.0." each collapse to the same two parts as "7f44456a.0"
+        // when empty pieces are discarded, and would be accepted. The other three are rejected
+        // for reasons that do not involve the split at all: "7f44456a." by the !isEmpty check,
+        // "7f44456a.0.1" by yielding three parts under either behaviour, and "7f44456a.r0" by
+        // isDecimalDigit.
+        let rejectedNames: [(name: String, why: String)] = [
+            (".7f44456a.0", "leading period gives an empty first part"),
+            ("7f44456a..0", "doubled period gives an empty middle part"),
+            ("7f44456a.0.", "trailing period gives an empty last part"),
+            ("7f44456a.", "empty extension: openssl rehash always writes at least one digit"),
+            ("7f44456a.0.1", "two periods: three parts, not two"),
+            ("7f44456a.r0", "CRL link: the caller loads every accepted name as a PEM certificate"),
+        ]
+        let tempDirPath = FileManager.default.temporaryDirectory.path + "/" + testName + "/"
+        for (name, why) in rejectedNames {
+            let symlinkName = tempDirPath + name
+            XCTAssertNoThrow(
+                try FileManager.default.createSymbolicLink(
+                    atPath: symlinkName,
+                    withDestinationPath: rootCAFilename
+                )
+            )
+            symlinks.append(symlinkName)
+
+            XCTAssertFalse(
+                try NIOSSLContext._isRehashFormat(path: symlinkName),
+                "\(symlinkName) is not a name openssl rehash produces (\(why)) and must be rejected"
+            )
+        }
     }
 
     func testNonexistentFileObject() throws {
