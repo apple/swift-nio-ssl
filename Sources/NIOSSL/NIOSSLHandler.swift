@@ -253,6 +253,13 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
             fatal = false
         }
 
+        if fatal {
+            // Mark the state terminal before invoking downstream handlers. Those handlers may
+            // synchronously complete an outstanding additional-verification future, which must
+            // not reactivate a connection whose input has already closed.
+            self.state = .closed
+        }
+
         context.fireErrorCaught(channelError)
         context.fireUserInboundEventTriggered(ChannelEvent.inputClosed)
 
