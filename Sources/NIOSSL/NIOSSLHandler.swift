@@ -68,6 +68,10 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
         self.storedContext?.channel
     }
 
+    internal var _testOnly_plaintextReadBufferCapacity: Int? {
+        self.plaintextReadBuffer?.capacity
+    }
+
     internal init(
         connection: SSLConnection,
         shutdownTimeout: TimeAmount,
@@ -95,7 +99,7 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
         self.connection.parentHandler = self
         self.connection.eventLoop = context.eventLoop
 
-        self.plaintextReadBuffer = context.channel.allocator.buffer(capacity: SSL_MAX_RECORD_SIZE)
+        self.plaintextReadBuffer = context.channel.allocator.buffer(capacity: 2 * SSL_MAX_RECORD_SIZE)
         // If this channel is already active, immediately begin handshaking.
         if context.channel.isActive {
             doHandshakeStep(context: context)
