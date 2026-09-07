@@ -139,10 +139,16 @@ private final class InputClosedRecorder: ChannelInboundHandler {
     typealias InboundIn = ByteBuffer
 
     private(set) var inputClosedCount = 0
+    private let onInputClosed: @Sendable () -> Void
+
+    init(onInputClosed: @escaping @Sendable () -> Void = {}) {
+        self.onInputClosed = onInputClosed
+    }
 
     func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
         if case .some(.inputClosed) = event as? ChannelEvent {
             self.inputClosedCount += 1
+            self.onInputClosed()
         }
         context.fireUserInboundEventTriggered(event)
     }
@@ -1135,6 +1141,9 @@ class NIOSSLIntegrationTest: XCTestCase {
         let verificationPromise = clientChannel.eventLoop.makePromise(of: Void.self)
         let handshakeHandler = HandshakeCompletedHandler()
         let errorCatcher = ErrorCatcher<NIOSSLError>()
+        let reentrantVerificationCompletion = InputClosedRecorder {
+            verificationPromise.succeed(())
+        }
 
         XCTAssertNoThrow(
             try serverChannel.pipeline.syncOperations.addHandler(
@@ -1148,6 +1157,7 @@ class NIOSSLIntegrationTest: XCTestCase {
                     serverHostname: "localhost",
                     additionalPeerCertificateVerificationCallback: { _, _ in verificationPromise.futureResult }
                 ),
+                reentrantVerificationCompletion,
                 handshakeHandler,
                 errorCatcher
             )
@@ -1165,10 +1175,10 @@ class NIOSSLIntegrationTest: XCTestCase {
         )
         XCTAssertFalse(clientChannel.isActive)
 
-        // The callback is still outstanding: completing it after the close must not resurrect the
-        // handshake or trip the state machine.
-        verificationPromise.succeed(())
+        // The downstream input-closed handler completed verification synchronously. That callback
+        // must not resurrect the handshake or trip the state machine.
         clientChannel.embeddedEventLoop.run()
+        XCTAssertEqual(reentrantVerificationCompletion.inputClosedCount, 1)
         XCTAssertFalse(handshakeHandler.handshakeSucceeded)
         XCTAssertFalse(clientChannel.isActive)
     }
