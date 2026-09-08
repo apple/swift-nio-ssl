@@ -475,6 +475,18 @@ extension SSLConnection {
         }
     }
 
+    /// The peer certificate chain on `ssl`, DER-decoded to `NIOSSLCertificate`s.
+    /// Shared by the record path (`peerCertificateChain()`) and the QUIC handshake
+    /// (`NIOSSLQUICHandshake`), which has an `SSL` handle but no `SSLConnection`.
+    static func peerCertificateChain(fromSSL ssl: OpaquePointer) throws -> [NIOSSLCertificate] {
+        guard let stackPointer = CNIOBoringSSL_SSL_get0_peer_certificates(ssl) else {
+            return []
+        }
+        return try PeerCertificateChainBuffers(basePointer: stackPointer).map {
+            try NIOSSLCertificate(bytes: $0, format: .der)
+        }
+    }
+
     /// Invokes a block with a collection of pointers to DER-encoded bytes of the peer certificate chain.
     ///
     /// The pointers are only guaranteed to be valid for the duration of this call: it is undefined behaviour to escape
@@ -494,13 +506,7 @@ extension SSLConnection {
 
     /// The certificate chain presented by the peer.
     func peerCertificateChain() throws -> [NIOSSLCertificate] {
-        try self.withPeerCertificateChainBuffers { buffers in
-            guard let buffers = buffers else {
-                return []
-            }
-
-            return try buffers.map { try NIOSSLCertificate(bytes: $0, format: .der) }
-        }
+        try SSLConnection.peerCertificateChain(fromSSL: self.ssl)
     }
 
     func applyOverride(_ changes: NIOSSLContextConfigurationOverride) throws {
