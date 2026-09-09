@@ -38,6 +38,8 @@ int CNIOBoringSSLShims_SSL_CTX_set_app_data(SSL_CTX *ctx, void *data);
 int CNIOBoringSSLShims_ERR_GET_LIB(uint32_t err);
 int CNIOBoringSSLShims_ERR_GET_REASON(uint32_t err);
 
+uint8_t CNIOBoringSSLShims_SSL_AD_BAD_CERTIFICATE(void);
+
 #if defined(__cplusplus)
 }  // extern "C"
 #endif

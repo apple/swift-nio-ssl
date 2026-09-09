@@ -46,3 +46,7 @@ int CNIOBoringSSLShims_ERR_GET_LIB(uint32_t err) {
 int CNIOBoringSSLShims_ERR_GET_REASON(uint32_t err) {
   return ERR_GET_REASON(err);
 }
+
+uint8_t CNIOBoringSSLShims_SSL_AD_BAD_CERTIFICATE(void) {
+  return SSL_AD_BAD_CERTIFICATE;
+}
