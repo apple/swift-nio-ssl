@@ -77,6 +77,13 @@ internal final class SSLConnection {
         CNIOBoringSSL_SSL_set_ex_data(self.ssl, sslConnectionExDataIndex, pointerToSelf)
 
         self.setRenegotiationSupport(self.parentContext.configuration.renegotiationSupport)
+
+        // This is a per-connection setting with no SSL_CTX equivalent, so it has to be applied here.
+        // BoringSSL only consults it when we are a client negotiating TLS 1.2 or below, and ignores
+        // it otherwise.
+        if !self.parentContext.configuration.enforceRSAKeyUsage {
+            CNIOBoringSSL_SSL_set_enforce_rsa_key_usage(self.ssl, 0)
+        }
     }
 
     deinit {
