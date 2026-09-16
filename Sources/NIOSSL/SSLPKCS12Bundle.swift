@@ -245,7 +245,7 @@ extension NIOSSLPKCS12Bundle {
 
         var dataPtr: UnsafeMutablePointer<CChar>? = nil
         let length = CNIOBoringSSL_BIO_get_mem_data(bio, &dataPtr)
-        guard let bytes = dataPtr.map({ UnsafeMutableRawBufferPointer(start: $0, count: length) }) else {
+        guard let bytes = dataPtr.map({ UnsafeMutableRawBufferPointer(start: $0, count: Int(length)) }) else {
             fatalError("Failed to get bytes from private key")
         }
 
