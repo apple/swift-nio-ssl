@@ -34,7 +34,7 @@ import Android
 #error("unsupported os")
 #endif
 
-#if os(Android)
+#if os(Android) || os(OpenBSD)
 internal typealias FILEPointer = OpaquePointer
 #else
 internal typealias FILEPointer = UnsafeMutablePointer<FILE>
