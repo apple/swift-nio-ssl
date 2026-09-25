@@ -45,94 +45,8 @@ DSTROOT=Sources/CNIOBoringSSL
 TMPDIR=$(mktemp -d /tmp/.workingXXXXXX)
 SRCROOT="${TMPDIR}/src/boringssl.googlesource.com/boringssl"
 
-# This function namespaces the awkward inline functions declared in OpenSSL
-# and BoringSSL.
-function namespace_inlines {
-    # Pull out all STACK_OF functions.
-    STACKS=$(grep --no-filename -rE -e "DEFINE_(SPECIAL_)?STACK_OF\([A-Z_0-9a-z]+\)" -e "DEFINE_NAMED_STACK_OF\([A-Z_0-9a-z]+, +[A-Z_0-9a-z:]+\)" "$1/"* | grep -v '//' | grep -v '#' | $sed -e 's/DEFINE_\(SPECIAL_\)\?STACK_OF(\(.*\))/\2/' -e 's/DEFINE_NAMED_STACK_OF(\(.*\), .*)/\1/')
-    STACK_FUNCTIONS=("call_free_func" "call_copy_func" "call_cmp_func" "new" "new_null" "num" "zero" "value" "set" "free" "pop_free" "insert" "delete" "delete_ptr" "find" "shift" "push" "pop" "dup" "sort" "is_sorted" "set_cmp_func" "deep_copy")
-
-    for s in $STACKS; do
-        for f in "${STACK_FUNCTIONS[@]}"; do
-            echo "#define sk_${s}_${f} BORINGSSL_ADD_PREFIX(BORINGSSL_PREFIX, sk_${s}_${f})" >> "$1/include/openssl/boringssl_prefix_symbols.h"
-        done
-    done
-
-    # Now pull out all LHASH_OF functions.
-    LHASHES=$(grep --no-filename -rE "DEFINE_LHASH_OF\([A-Z_0-9a-z]+\)" "$1/"* | grep -v '//' | grep -v '#' | grep -v '\\$' | $sed 's/DEFINE_LHASH_OF(\(.*\))/\1/')
-    LHASH_FUNCTIONS=("call_cmp_func" "call_hash_func" "new" "free" "num_items" "retrieve" "call_cmp_key" "retrieve_key" "insert" "delete" "call_doall" "call_doall_arg" "doall" "doall_arg")
-
-    for l in $LHASHES; do
-        for f in "${LHASH_FUNCTIONS[@]}"; do
-            echo "#define lh_${l}_${f} BORINGSSL_ADD_PREFIX(BORINGSSL_PREFIX, lh_${l}_${f})" >> "$1/include/openssl/boringssl_prefix_symbols.h"
-        done
-    done
-}
-
-
 # This function handles mangling the symbols in BoringSSL.
 function mangle_symbols {
-    echo "GENERATING mangled symbol list"
-    (
-        # We need a .a: may as well get SwiftPM to give it to us.
-        # Temporarily enable the product we need.
-        $sed -i -e 's/MANGLE_START/MANGLE_START*\//' -e 's/MANGLE_END/\/*MANGLE_END/' "${HERE}/Package.swift"
-
-        export GOPATH="${TMPDIR}"
-
-        # Begin by building for macOS. We build for two target triples, Intel
-        # and Apple Silicon
-        swift build --triple "x86_64-apple-macosx" --product CNIOBoringSSL
-        swift build --triple "arm64-apple-macosx" --product CNIOBoringSSL
-        (
-            cd "${SRCROOT}"
-            go mod tidy -modcacherw
-            go run "util/read_symbols.go" -out "${TMPDIR}/symbols-macOS-intel.txt" "${HERE}/.build/x86_64-apple-macosx/debug/libCNIOBoringSSL.a"
-            go run "util/read_symbols.go" -out "${TMPDIR}/symbols-macOS-as.txt" "${HERE}/.build/arm64-apple-macosx/debug/libCNIOBoringSSL.a"
-        )
-
-        # Now build for iOS. We use xcodebuild for this because SwiftPM doesn't
-        # meaningfully support it. Unfortunately we must archive ourselves.
-        #
-        # If xcodebuild complains about not finding the scheme, make sure there
-        # isn't a .xcodeproj kicking around.
-        xcodebuild -sdk iphoneos -scheme CNIOBoringSSL -derivedDataPath "${TMPDIR}/iphoneos-deriveddata" -destination generic/platform=iOS
-        ar -r "${TMPDIR}/libCNIOBoringSSL-iosarm64.a" "${TMPDIR}/iphoneos-deriveddata/Build/Products/Debug-iphoneos/CNIOBoringSSL.o"
-
-        (
-            cd "${SRCROOT}"
-            go run "util/read_symbols.go" -out "${TMPDIR}/symbols-iOS.txt" "${TMPDIR}/libCNIOBoringSSL-iosarm64.a"
-        )
-
-        # Now cross compile for our targets.
-        docker run -t -i --rm --privileged -v"$(pwd)":/src -w/src --platform linux/arm64 swift:5.9-jammy \
-            swift build --product CNIOBoringSSL
-        docker run -t -i --rm --privileged -v"$(pwd)":/src -w/src --platform linux/amd64 swift:5.9-jammy \
-            swift build --product CNIOBoringSSL
-
-        # Now we need to generate symbol mangles for Linux. We can do this in
-        # one go for all of them.
-        (
-            cd "${SRCROOT}"
-            go run "util/read_symbols.go" -obj-file-format elf -out "${TMPDIR}/symbols-linux-all.txt" "${HERE}"/.build/*-unknown-linux-gnu/debug/libCNIOBoringSSL.a
-        )
-
-        # Now we concatenate all the symbols together and uniquify it.
-        cat "${TMPDIR}"/symbols-*.txt | sort | uniq > "${TMPDIR}/symbols.txt"
-
-        # Use this as the input to the mangle.
-        (
-            cd "${SRCROOT}"
-            go run "util/make_prefix_headers.go" -out "${HERE}/${DSTROOT}/include/openssl" "${TMPDIR}/symbols.txt"
-        )
-
-        # Remove the product, as we no longer need it.
-        $sed -i -e 's/MANGLE_START\*\//MANGLE_START/' -e 's/\/\*MANGLE_END/MANGLE_END/' "${HERE}/Package.swift"
-    )
-
-    # Now remove any weird symbols that got in and would emit warnings.
-    $sed -i -e '/#define .*\..*/d' "${DSTROOT}"/include/openssl/boringssl_prefix_symbols*.h
-
     # Now edit the headers again to add the symbol mangling.
     echo "ADDING symbol mangling"
     perl -pi -e '$_ .= qq(\n#define BORINGSSL_PREFIX CNIOBoringSSL\n) if /#define OPENSSL_HEADER_BASE_H/' "$DSTROOT/include/openssl/base.h"
@@ -141,42 +55,6 @@ function mangle_symbols {
     do
         $sed -i '1 i #define BORINGSSL_PREFIX CNIOBoringSSL' "$assembly_file"
     done <   <(find "$DSTROOT" -name "*.S" -print0)
-    namespace_inlines "$DSTROOT"
-}
-
-
-# BoringSSL includes a few non-namespaced C++ structures. These aren't namespaced because they're exposed
-# in C-land, which doesn't know about the namespacing. Sadly, these structures include constructors and destructors,
-# and if those aren't namespaced we're still able to conflict.
-#
-# This function is responsible for identifying them and manually cleaning them up. We run this only on
-# macOS because we don't believe that the cross-platform architectures will hit any other structures.
-function mangle_cpp_structures {
-    echo "MANGLING C++ structures"
-    (
-        # We need a .a: may as well get SwiftPM to give it to us.
-        # Temporarily enable the product we need.
-        $sed -i -e 's/MANGLE_START/MANGLE_START*\//' -e 's/MANGLE_END/\/*MANGLE_END/' "${HERE}/Package.swift"
-
-        # Build for macOS.
-        swift build --product CNIOBoringSSL
-
-        # Woah, this is a hell of a command! What does it do?
-        #
-        # The nm command grabs all global defined symbols. We then run the C++ demangler over them and look for methods with '::' in them:
-        # these are C++ methods. We then exclude any that contain CNIOBoringSSL (as those are already namespaced!) and any that contain swift
-        # (as those were put there by the Swift runtime, not us). This gives us a list of symbols. The following cut command
-        # grabs the type name from each of those (the bit preceding the '::'). Then, we sort and uniqify that list.
-        # Finally, we remove any symbol that ends in std. This gives us all the structures that need to be renamed.
-        structures=$(nm -gUj "$(swift build --show-bin-path)/libCNIOBoringSSL.a" | c++filt | grep "::" | grep -v -e "CNIOBoringSSL" -e "swift" | cut -d : -f1 | grep -v "std$" | $sed -E -e 's/([^<>]*)(<[^<>]*>)?/\1/' | sort | uniq)
-
-        for struct in ${structures}; do
-            echo "#define ${struct} BORINGSSL_ADD_PREFIX(BORINGSSL_PREFIX, ${struct})" >> "${DSTROOT}/include/CNIOBoringSSL_boringssl_prefix_symbols.h"
-        done
-
-        # Remove the product, as we no longer need it.
-        $sed -i -e 's/MANGLE_START\*\//MANGLE_START/' -e 's/\/\*MANGLE_END/MANGLE_END/' "${HERE}/Package.swift"
-    )
 }
 
 case "$(uname -s)" in
@@ -237,6 +115,7 @@ PATTERNS=(
 'crypto/*/*.S'
 'crypto/*/*/*.h'
 'crypto/*/*/*.cc.inc'
+'crypto/*/*/*.inc'
 'crypto/*/*/*.S'
 'crypto/*/*/*/*.cc.inc'
 'gen/crypto/*.cc'
@@ -244,7 +123,7 @@ PATTERNS=(
 'gen/bcm/*.S'
 'third_party/fiat/*.h'
 'third_party/fiat/asm/*.S'
-#'third_party/fiat/*.c'
+'third_party/fiat/*.c.inc'
 )
 
 EXCLUDES=(
@@ -292,12 +171,14 @@ echo "RENAMING header files"
 
     # Now change the imports from "<openssl/X> to "<CNIOBoringSSL_X>", apply the same prefix to the 'boringssl_prefix_symbols' headers.
     # shellcheck disable=SC2038
-    find . -name "*.[ch]" -or -name "*.cc" -or -name "*.S" -or -name "*.cc.inc" | xargs $sed -i -r -e 's#include <openssl/(([^/>]+/)*)(.+.h)>#include <\1CNIOBoringSSL_\3>#' -e 's+include <boringssl_prefix_symbols+include <CNIOBoringSSL_boringssl_prefix_symbols+' -e 's#include "openssl/(([^/>]+/)*)(.+.h)"#include "\1CNIOBoringSSL_\3"#'
+    find . -name "*.[ch]" -or -name "*.cc" -or -name "*.S" -or -name "*.cc.inc" -or -name "*.c.inc" | xargs $sed -i -r -e 's#include <openssl/(([^/>]+/)*)(.+.h)>#include <\1CNIOBoringSSL_\3>#' -e 's+include <boringssl_prefix_symbols+include <CNIOBoringSSL_boringssl_prefix_symbols+' -e 's#include "openssl/(([^/>]+/)*)(.+.h)"#include "\1CNIOBoringSSL_\3"#'
 
     # Okay now we need to rename the headers adding the prefix "CNIOBoringSSL_".
     pushd include
     for x in *.h; do mv -- "$x" "CNIOBoringSSL_${x}"; done
-    for x in **/*.h; do mv -- "$x" "${x%/*}/CNIOBoringSSL_${x##*/}"; done
+
+    # The below line was previously necessary, but isn't now. Retaining it for the possible need to reproduce it.
+    # for x in **/*.h; do mv -- "$x" "${x%/*}/CNIOBoringSSL_${x##*/}"; done
 
     # Finally, make sure we refer to them by their prefixed names, and change any includes from angle brackets to quotation marks.
     # shellcheck disable=SC2038
@@ -317,8 +198,6 @@ echo "PROTECTING against executable stacks"
     # shellcheck disable=SC2038
     find . -name "*.S" | xargs $sed -i '$ a #if defined(__linux__) && defined(__ELF__)\n.section .note.GNU-stack,"",%progbits\n#endif\n'
 )
-
-mangle_cpp_structures
 
 # We need BoringSSL to be modularised
 echo "MODULARISING BoringSSL"
@@ -344,44 +223,71 @@ cat << EOF > "$DSTROOT/include/CNIOBoringSSL.h"
 #include "CNIOBoringSSL_arm_arch.h"
 #include "CNIOBoringSSL_asm_base.h"
 #include "CNIOBoringSSL_asn1_mac.h"
+#include "CNIOBoringSSL_asn1.h"
 #include "CNIOBoringSSL_asn1t.h"
 #include "CNIOBoringSSL_base.h"
+#include "CNIOBoringSSL_base64.h"
 #include "CNIOBoringSSL_bio.h"
 #include "CNIOBoringSSL_blake2.h"
 #include "CNIOBoringSSL_blowfish.h"
 #include "CNIOBoringSSL_bn.h"
-#include "CNIOBoringSSL_boringssl_prefix_symbols.h"
-#include "CNIOBoringSSL_boringssl_prefix_symbols_asm.h"
+#include "CNIOBoringSSL_buf.h"
+#include "CNIOBoringSSL_buffer.h"
+#include "CNIOBoringSSL_bytestring.h"
 #include "CNIOBoringSSL_cast.h"
 #include "CNIOBoringSSL_chacha.h"
-#include "CNIOBoringSSL_ctrdrbg.h"
+#include "CNIOBoringSSL_cipher.h"
 #include "CNIOBoringSSL_cmac.h"
+#include "CNIOBoringSSL_cms.h"
 #include "CNIOBoringSSL_conf.h"
+#include "CNIOBoringSSL_configuration.h"
 #include "CNIOBoringSSL_cpu.h"
+#include "CNIOBoringSSL_crypto.h"
+#include "CNIOBoringSSL_ctrdrbg.h"
 #include "CNIOBoringSSL_curve25519.h"
 #include "CNIOBoringSSL_des.h"
+#include "CNIOBoringSSL_dh.h"
+#include "CNIOBoringSSL_digest.h"
+#include "CNIOBoringSSL_dsa.h"
 #include "CNIOBoringSSL_dtls1.h"
 #include "CNIOBoringSSL_e_os2.h"
-#include "CNIOBoringSSL_ec.h"
 #include "CNIOBoringSSL_ec_key.h"
+#include "CNIOBoringSSL_ec.h"
+#include "CNIOBoringSSL_ecdh.h"
 #include "CNIOBoringSSL_ecdsa.h"
+#include "CNIOBoringSSL_engine.h"
 #include "CNIOBoringSSL_err.h"
+#include "CNIOBoringSSL_evp_errors.h"
 #include "CNIOBoringSSL_evp.h"
+#include "CNIOBoringSSL_ex_data.h"
 #include "CNIOBoringSSL_hkdf.h"
 #include "CNIOBoringSSL_hmac.h"
 #include "CNIOBoringSSL_hpke.h"
 #include "CNIOBoringSSL_hrss.h"
+#include "CNIOBoringSSL_is_boringssl.h"
 #include "CNIOBoringSSL_kdf.h"
+#include "CNIOBoringSSL_lhash.h"
 #include "CNIOBoringSSL_md4.h"
 #include "CNIOBoringSSL_md5.h"
+#include "CNIOBoringSSL_mem.h"
 #include "CNIOBoringSSL_mldsa.h"
 #include "CNIOBoringSSL_mlkem.h"
+#include "CNIOBoringSSL_nid.h"
 #include "CNIOBoringSSL_obj_mac.h"
+#include "CNIOBoringSSL_obj.h"
 #include "CNIOBoringSSL_objects.h"
+#include "CNIOBoringSSL_opensslconf.h"
 #include "CNIOBoringSSL_opensslv.h"
 #include "CNIOBoringSSL_ossl_typ.h"
+#include "CNIOBoringSSL_params.h"
+#include "CNIOBoringSSL_pem.h"
 #include "CNIOBoringSSL_pkcs12.h"
+#include "CNIOBoringSSL_pkcs7.h"
+#include "CNIOBoringSSL_pkcs8.h"
 #include "CNIOBoringSSL_poly1305.h"
+#include "CNIOBoringSSL_pool.h"
+#include "CNIOBoringSSL_posix_time.h"
+#include "CNIOBoringSSL_prefix_symbols.h"
 #include "CNIOBoringSSL_rand.h"
 #include "CNIOBoringSSL_rc4.h"
 #include "CNIOBoringSSL_ripemd.h"
@@ -389,22 +295,40 @@ cat << EOF > "$DSTROOT/include/CNIOBoringSSL.h"
 #include "CNIOBoringSSL_safestack.h"
 #include "CNIOBoringSSL_service_indicator.h"
 #include "CNIOBoringSSL_sha.h"
+#include "CNIOBoringSSL_sha2.h"
 #include "CNIOBoringSSL_siphash.h"
 #include "CNIOBoringSSL_slhdsa.h"
+#include "CNIOBoringSSL_span.h"
 #include "CNIOBoringSSL_srtp.h"
 #include "CNIOBoringSSL_ssl.h"
+#include "CNIOBoringSSL_ssl3.h"
+#include "CNIOBoringSSL_stack.h"
+#include "CNIOBoringSSL_target.h"
+#include "CNIOBoringSSL_thread.h"
 #include "CNIOBoringSSL_time.h"
+#include "CNIOBoringSSL_tls_prf.h"
+#include "CNIOBoringSSL_tls1.h"
 #include "CNIOBoringSSL_trust_token.h"
 #include "CNIOBoringSSL_type_check.h"
+#include "CNIOBoringSSL_types.h"
 #include "CNIOBoringSSL_x509_vfy.h"
+#include "CNIOBoringSSL_x509.h"
+#include "CNIOBoringSSL_x509v3_errors.h"
 #include "CNIOBoringSSL_x509v3.h"
-#include "experimental/CNIOBoringSSL_kyber.h"
+#include "CNIOBoringSSL_xwing.h"
 
 #endif  // C_NIO_BORINGSSL_H
 EOF
 cat << EOF > "$DSTROOT/include/module.modulemap"
 module CNIOBoringSSL {
     umbrella header "CNIOBoringSSL.h"
+    // These are BoringSSL's private prefixing headers, not public API. The _S
+    // variant is for assembly only: outside __APPLE__ it defines the same macro
+    // names as the _c variant, so letting the C compiler see both is a few
+    // hundred macro redefinitions. Assembly still picks up _S.h through
+    // CNIOBoringSSL_asm_base.h, under its own __ASSEMBLER__ guard.
+    exclude header "CNIOBoringSSL_prefix_symbols_internal_c.h"
+    exclude header "CNIOBoringSSL_prefix_symbols_internal_S.h"
     export *
 }
 EOF
@@ -415,4 +339,7 @@ echo "This directory is derived from BoringSSL cloned from https://boringssl.goo
 
 echo "CLEANING temporary directory"
 rm -rf "${TMPDIR}"
+
+echo "CHECKING symbol prefixing"
+"${HERE}/scripts/check-symbol-prefixing.py" --build
 

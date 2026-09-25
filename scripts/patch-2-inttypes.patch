@@ -2,8 +2,8 @@ diff --git a/Sources/CNIOBoringSSL/crypto/x509/t_x509.cc b/Sources/CNIOBoringSSL
 index 7a3acc8..c0bc1c5 100644
 --- a/Sources/CNIOBoringSSL/crypto/x509/t_x509.cc
 +++ b/Sources/CNIOBoringSSL/crypto/x509/t_x509.cc
-@@ -8,6 +8,7 @@
-  */
+@@ -13,6 +13,7 @@
+ // limitations under the License.
  
  #include <assert.h>
 +#include <inttypes.h>  // for PRIu64 and friends
@@ -14,9 +14,8 @@ diff --git a/Sources/CNIOBoringSSL/include/CNIOBoringSSL_bn.h b/Sources/CNIOBori
 index 557fb1d..825b4ea 100644
 --- a/Sources/CNIOBoringSSL/include/CNIOBoringSSL_bn.h
 +++ b/Sources/CNIOBoringSSL/include/CNIOBoringSSL_bn.h
-@@ -126,7 +126,6 @@
- #include "CNIOBoringSSL_base.h"
- #include "CNIOBoringSSL_thread.h"
+@@ -19,6 +19,5 @@
+ #include "CNIOBoringSSL_base.h"   // IWYU pragma: export
  
 -#include <inttypes.h>  // for PRIu64 and friends
  #include <sys/types.h>
