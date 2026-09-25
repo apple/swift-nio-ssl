@@ -19,7 +19,7 @@ extension NIOSSLCertificate {
     public struct _Extensions {
         private enum Storage {
             final class Deallocator {
-                /// `reference` is optional because `CNIOBoringSSL_X509_get0_extensions` can return`nil` if no extensions are present.
+                /// `reference` is optional because `X509_get0_extensions` can return`nil` if no extensions are present.
                 /// We therefore need to handle the `nil` case as if this collection is empty.
                 let reference: OpaquePointer?
 
@@ -29,13 +29,13 @@ extension NIOSSLCertificate {
 
                 deinit {
                     if let reference = self.reference {
-                        CNIOBoringSSL_sk_X509_EXTENSION_free(reference)
+                        CNIOBoringSSLShims_sk_X509_EXTENSION_free(reference)
                     }
                 }
             }
 
             case owned(Deallocator)
-            /// `reference` is optional because `CNIOBoringSSL_X509_get0_extensions` can return`nil` if no extensions are present.
+            /// `reference` is optional because `X509_get0_extensions` can return`nil` if no extensions are present.
             /// We therefore need to handle the `nil` case as if this collection is empty.
             case borrowed(reference: OpaquePointer?, owner: AnyObject)
 
@@ -80,7 +80,7 @@ extension NIOSSLCertificate {
         internal init(takeOwnershipOf reference: OpaquePointer?) {
             self.storage = .init(takeOwnershipOf: reference)
             if let reference = reference {
-                self.stackSize = CNIOBoringSSL_sk_X509_EXTENSION_num(reference)
+                self.stackSize = CNIOBoringSSLShims_sk_X509_EXTENSION_num(reference)
             } else {
                 self.stackSize = 0
             }
@@ -89,7 +89,7 @@ extension NIOSSLCertificate {
         internal init(borrowing reference: OpaquePointer?, owner: AnyObject) {
             self.storage = .init(borrowing: reference, owner: owner)
             if let reference = reference {
-                self.stackSize = CNIOBoringSSL_sk_X509_EXTENSION_num(reference)
+                self.stackSize = CNIOBoringSSLShims_sk_X509_EXTENSION_num(reference)
             } else {
                 self.stackSize = 0
             }
@@ -102,7 +102,7 @@ extension NIOSSLCertificate._Extensions: @unchecked Sendable {}
 
 extension NIOSSLCertificate {
     public var _extensions: NIOSSLCertificate._Extensions {
-        NIOSSLCertificate._Extensions(borrowing: CNIOBoringSSL_X509_get0_extensions(self._ref), owner: self)
+        NIOSSLCertificate._Extensions(borrowing: X509_get0_extensions(self._ref), owner: self)
     }
 }
 
@@ -145,22 +145,22 @@ extension NIOSSLCertificate {
 
         public var objectIdentifier: NIOSSLObjectIdentifier {
             withReference {
-                .init(borrowing: CNIOBoringSSL_X509_EXTENSION_get_object($0), owner: self.owner)
+                .init(borrowing: X509_EXTENSION_get_object($0), owner: self.owner)
             }
         }
 
         public var isCritical: Bool {
             withReference {
-                CNIOBoringSSL_X509_EXTENSION_get_critical($0) == 1
+                X509_EXTENSION_get_critical($0) == 1
             }
         }
 
         public var data: Data {
             withReference {
-                let data = CNIOBoringSSL_X509_EXTENSION_get_data($0)
+                let data = X509_EXTENSION_get_data($0)
                 let buffer = UnsafeBufferPointer(
-                    start: CNIOBoringSSL_ASN1_STRING_get0_data(data),
-                    count: Int(CNIOBoringSSL_ASN1_STRING_length(data))
+                    start: ASN1_STRING_get0_data(data),
+                    count: Int(ASN1_STRING_length(data))
                 )
                 return .init(buffer: buffer, owner: self.owner)
             }

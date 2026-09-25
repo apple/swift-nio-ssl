@@ -28,7 +28,7 @@ public final class NIOSSLPublicKey {
     }
 
     deinit {
-        CNIOBoringSSL_EVP_PKEY_free(self.ref)
+        EVP_PKEY_free(self.ref)
     }
 }
 
@@ -59,22 +59,22 @@ extension NIOSSLPublicKey {
     /// - returns: The DER-encoded SubjectPublicKeyInfo bytes for this public key.
     /// - throws: If an error occurred while serializing the key.
     public func toSPKIBytes() throws -> [UInt8] {
-        guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_mem()) else {
+        guard let bio = BIO_new(BIO_s_mem()) else {
             fatalError("Failed to malloc for a BIO handler")
         }
 
         defer {
-            CNIOBoringSSL_BIO_free(bio)
+            BIO_free(bio)
         }
 
-        let rc = CNIOBoringSSL_i2d_PUBKEY_bio(bio, self.ref)
+        let rc = i2d_PUBKEY_bio(bio, self.ref)
         guard rc == 1 else {
             let errorStack = BoringSSLError.buildErrorStack()
             throw BoringSSLError.unknownError(errorStack)
         }
 
         var dataPtr: UnsafeMutablePointer<CChar>? = nil
-        let length = CNIOBoringSSL_BIO_get_mem_data(bio, &dataPtr)
+        let length = BIO_get_mem_data(bio, &dataPtr)
 
         guard let bytes = dataPtr.map({ UnsafeMutableRawBufferPointer(start: $0, count: length) }) else {
             fatalError("Failed to map bytes from a public key")

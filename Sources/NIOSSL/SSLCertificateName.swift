@@ -41,36 +41,36 @@ public struct SSLCertificateName: Equatable, Hashable, Sendable {
 extension NIOSSLCertificate {
     private static func convertName(_ name: OpaquePointer) -> [SSLCertificateName] {
 
-        let count = CNIOBoringSSL_X509_NAME_entry_count(name)
+        let count = X509_NAME_entry_count(name)
         var names = [SSLCertificateName]()
         names.reserveCapacity(Int(count))
         for index in 0..<count {
-            guard let entry = CNIOBoringSSL_X509_NAME_get_entry(name, index) else {
+            guard let entry = X509_NAME_get_entry(name, index) else {
                 continue
             }
 
-            guard let object = CNIOBoringSSL_X509_NAME_ENTRY_get_object(entry) else {
+            guard let object = X509_NAME_ENTRY_get_object(entry) else {
                 continue
             }
 
-            guard let data = CNIOBoringSSL_X509_NAME_ENTRY_get_data(entry) else {
+            guard let data = X509_NAME_ENTRY_get_data(entry) else {
                 continue
             }
 
             var encodedName: UnsafeMutablePointer<UInt8>? = nil
-            let stringLength = CNIOBoringSSL_ASN1_STRING_to_UTF8(&encodedName, data)
+            let stringLength = ASN1_STRING_to_UTF8(&encodedName, data)
 
             guard let namePtr = encodedName else {
                 continue
             }
 
             defer {
-                CNIOBoringSSL_OPENSSL_free(namePtr)
+                OPENSSL_free(namePtr)
             }
 
             let arr = UnsafeBufferPointer(start: namePtr, count: Int(stringLength))
             let nameString = String(decoding: arr, as: UTF8.self)
-            let nid = CNIOBoringSSL_OBJ_obj2nid(object)
+            let nid = OBJ_obj2nid(object)
             names.append(SSLCertificateName(nameString, .init(nid: nid)))
         }
 
@@ -80,7 +80,7 @@ extension NIOSSLCertificate {
     /// Return an array of SSLCertificateName enums containing the subject name of the
     /// underlying X509 Certificate
     public var subjectName: [SSLCertificateName] {
-        guard let subjectName = CNIOBoringSSL_X509_get_subject_name(self._ref) else {
+        guard let subjectName = X509_get_subject_name(self._ref) else {
             return []
         }
 
@@ -91,7 +91,7 @@ extension NIOSSLCertificate {
     /// Return an array of SSLCertificateName enums containing the issuer name of the
     /// underlying X509 Certificate
     public var issuerName: [SSLCertificateName] {
-        guard let issuerName = CNIOBoringSSL_X509_get_issuer_name(self._ref) else {
+        guard let issuerName = X509_get_issuer_name(self._ref) else {
             return []
         }
 
