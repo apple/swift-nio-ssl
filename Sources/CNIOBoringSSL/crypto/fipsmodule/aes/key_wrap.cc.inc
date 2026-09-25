@@ -1,11 +1,16 @@
-/*
- * Copyright 2008-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 2008-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_aes.h>
 
@@ -15,9 +20,12 @@
 
 #include <CNIOBoringSSL_mem.h>
 
+#include "../bcm_interface.h"
 #include "../../internal.h"
 #include "../service_indicator/internal.h"
 
+
+using namespace bssl;
 
 // kDefaultIV is the default IV value given in RFC 3394, 2.2.3.1.
 static const uint8_t kDefaultIV[] = {
@@ -35,7 +43,7 @@ int AES_wrap_key(const AES_KEY *key, const uint8_t *iv, uint8_t *out,
     return -1;
   }
 
-  if (iv == NULL) {
+  if (iv == nullptr) {
     iv = kDefaultIV;
   }
 
@@ -48,7 +56,7 @@ int AES_wrap_key(const AES_KEY *key, const uint8_t *iv, uint8_t *out,
   for (unsigned j = 0; j < kBound; j++) {
     for (size_t i = 1; i <= n; i++) {
       OPENSSL_memcpy(A + 8, out + 8 * i, 8);
-      AES_encrypt(A, A, key);
+      BCM_aes_encrypt(A, A, key);
 
       uint32_t t = (uint32_t)(n * j + i);
       A[7] ^= t & 0xff;
@@ -91,7 +99,7 @@ static int aes_unwrap_key_inner(const AES_KEY *key, uint8_t *out,
       A[5] ^= (t >> 16) & 0xff;
       A[4] ^= (t >> 24) & 0xff;
       OPENSSL_memcpy(A + 8, out + 8 * (i - 1), 8);
-      AES_decrypt(A, A, key);
+      BCM_aes_decrypt(A, A, key);
       OPENSSL_memcpy(out + 8 * (i - 1), A + 8, 8);
     }
   }
@@ -107,7 +115,7 @@ int AES_unwrap_key(const AES_KEY *key, const uint8_t *iv, uint8_t *out,
     return -1;
   }
 
-  if (iv == NULL) {
+  if (iv == nullptr) {
     iv = kDefaultIV;
   }
   if (CRYPTO_memcmp(calculated_iv, iv, 8) != 0) {
@@ -140,13 +148,13 @@ int AES_wrap_key_padded(const AES_KEY *key, uint8_t *out, size_t *out_len,
   if (in_len <= 8) {
     memset(block + 8, 0, 8);
     memcpy(block + 8, in, in_len);
-    AES_encrypt(block, out, key);
+    BCM_aes_encrypt(block, out, key);
     *out_len = AES_BLOCK_SIZE;
     return 1;
   }
 
   uint8_t *padded_in = reinterpret_cast<uint8_t *>(OPENSSL_malloc(padded_len));
-  if (padded_in == NULL) {
+  if (padded_in == nullptr) {
     return 0;
   }
   assert(padded_len >= 8);
@@ -174,7 +182,7 @@ int AES_unwrap_key_padded(const AES_KEY *key, uint8_t *out, size_t *out_len,
   uint8_t iv[8];
   if (in_len == AES_BLOCK_SIZE) {
     uint8_t block[AES_BLOCK_SIZE];
-    AES_decrypt(in, block, key);
+    BCM_aes_decrypt(in, block, key);
     memcpy(iv, block, sizeof(iv));
     memcpy(out, block + 8, 8);
   } else if (!aes_unwrap_key_inner(key, out, iv, in, in_len)) {

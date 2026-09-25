@@ -1,20 +1,29 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_md4.h>
 
 #include <stdlib.h>
 #include <string.h>
 
+#include <CNIOBoringSSL_span.h>
+
 #include "../fipsmodule/digest/md32_common.h"
 #include "../internal.h"
 
+
+using namespace bssl;
 
 uint8_t *MD4(const uint8_t *data, size_t len, uint8_t out[MD4_DIGEST_LENGTH]) {
   MD4_CTX ctx;
@@ -43,17 +52,26 @@ void MD4_Transform(MD4_CTX *c, const uint8_t data[MD4_CBLOCK]) {
   md4_block_data_order(c->h, data, 1);
 }
 
+namespace {
+struct MD4Traits {
+  using HashContext = MD4_CTX;
+  static constexpr size_t kBlockSize = MD4_CBLOCK;
+  static constexpr bool kLengthIsBigEndian = false;
+  static void HashBlocks(uint32_t *state, const uint8_t *data,
+                         size_t num_blocks) {
+    md4_block_data_order(state, data, num_blocks);
+  }
+};
+}  // namespace
+
 int MD4_Update(MD4_CTX *c, const void *data, size_t len) {
-  crypto_md32_update(&md4_block_data_order, c->h, c->data, MD4_CBLOCK, &c->num,
-                     &c->Nh, &c->Nl, reinterpret_cast<const uint8_t *>(data),
-                     len);
+  crypto_md32_update<MD4Traits>(c,
+                                Span(static_cast<const uint8_t *>(data), len));
   return 1;
 }
 
 int MD4_Final(uint8_t out[MD4_DIGEST_LENGTH], MD4_CTX *c) {
-  crypto_md32_final(&md4_block_data_order, c->h, c->data, MD4_CBLOCK, &c->num,
-                    c->Nh, c->Nl, /*is_big_endian=*/0);
-
+  crypto_md32_final<MD4Traits>(c);
   CRYPTO_store_u32_le(out, c->h[0]);
   CRYPTO_store_u32_le(out + 4, c->h[1]);
   CRYPTO_store_u32_le(out + 8, c->h[2]);

@@ -1,16 +1,16 @@
-/* Copyright 2014 The BoringSSL Authors
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2014 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_engine.h>
 
@@ -21,28 +21,28 @@
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_mem.h>
 #include <CNIOBoringSSL_rsa.h>
-#include <CNIOBoringSSL_thread.h>
 
 #include "../internal.h"
+#include "../mem_internal.h"
 
+
+using namespace bssl;
 
 struct engine_st {
   RSA_METHOD *rsa_method;
   ECDSA_METHOD *ecdsa_method;
 };
 
-ENGINE *ENGINE_new(void) {
-  return reinterpret_cast<ENGINE *>(OPENSSL_zalloc(sizeof(ENGINE)));
-}
+ENGINE *ENGINE_new() { return New<ENGINE>(); }
 
 int ENGINE_free(ENGINE *engine) {
   // Methods are currently required to be static so are not unref'ed.
-  OPENSSL_free(engine);
+  Delete(engine);
   return 1;
 }
 
 // set_method takes a pointer to a method and its given size and sets
-// |*out_member| to point to it. This function might want to be extended in the
+// `*out_member` to point to it. This function might want to be extended in the
 // future to support making a copy of the method so that a stable ABI for
 // ENGINEs can be supported. But, for the moment, all *_METHODS must be
 // static.
@@ -86,7 +86,7 @@ void METHOD_unref(void *method_in) {
   struct openssl_method_common_st *method =
       reinterpret_cast<openssl_method_common_st *>(method_in);
 
-  if (method == NULL) {
+  if (method == nullptr) {
     return;
   }
   assert(method->is_static);

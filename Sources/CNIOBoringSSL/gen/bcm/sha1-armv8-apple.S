@@ -5,8 +5,6 @@
 #include <CNIOBoringSSL_asm_base.h>
 
 #if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_AARCH64) && defined(__APPLE__)
-#include <CNIOBoringSSL_arm_arch.h>
-
 .text
 
 .globl	_sha1_block_data_order_nohw
@@ -1076,6 +1074,7 @@ Loop:
 .private_extern	_sha1_block_data_order_hw
 
 .align	6
+.alt_entry _sha1_block_data_order_hw
 _sha1_block_data_order_hw:
 	// Armv8.3-A PAuth: even though x30 is pushed to stack it is not popped later.
 	AARCH64_VALID_CALL_TARGET
@@ -1207,7 +1206,9 @@ Loop_hw:
 	ret
 
 .section	__TEXT,__const
+
 .align	6
+sha1_constants:
 Lconst:
 .long	0x5a827999,0x5a827999,0x5a827999,0x5a827999	//K_00_19
 .long	0x6ed9eba1,0x6ed9eba1,0x6ed9eba1,0x6ed9eba1	//K_20_39

@@ -1,16 +1,16 @@
-/* Copyright 2024 The BoringSSL Authors
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2024 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_slhdsa.h>
 
@@ -19,15 +19,38 @@
 #include "../fipsmodule/bcm_interface.h"
 
 
+using namespace bssl;
+
+static_assert(SLHDSA_SHA2_128S_SEED_BYTES == 3 * BCM_SLHDSA_SHA2_128S_N);
 static_assert(SLHDSA_SHA2_128S_PUBLIC_KEY_BYTES ==
-                  BCM_SLHDSA_SHA2_128S_PUBLIC_KEY_BYTES,
-              "");
+              BCM_SLHDSA_SHA2_128S_PUBLIC_KEY_BYTES);
 static_assert(SLHDSA_SHA2_128S_PRIVATE_KEY_BYTES ==
-                  BCM_SLHDSA_SHA2_128S_PRIVATE_KEY_BYTES,
-              "");
+              BCM_SLHDSA_SHA2_128S_PRIVATE_KEY_BYTES);
 static_assert(SLHDSA_SHA2_128S_SIGNATURE_BYTES ==
-                  BCM_SLHDSA_SHA2_128S_SIGNATURE_BYTES,
-              "");
+              BCM_SLHDSA_SHA2_128S_SIGNATURE_BYTES);
+static_assert(SLHDSA_SHAKE_256F_SEED_BYTES == 3 * BCM_SLHDSA_SHAKE_256F_N);
+static_assert(SLHDSA_SHAKE_256F_PUBLIC_KEY_BYTES ==
+              BCM_SLHDSA_SHAKE_256F_PUBLIC_KEY_BYTES);
+static_assert(SLHDSA_SHAKE_256F_PRIVATE_KEY_BYTES ==
+              BCM_SLHDSA_SHAKE_256F_PRIVATE_KEY_BYTES);
+static_assert(SLHDSA_SHAKE_256F_SIGNATURE_BYTES ==
+              BCM_SLHDSA_SHAKE_256F_SIGNATURE_BYTES);
+
+void SLHDSA_SHA2_128S_generate_key_from_seed(
+    uint8_t out_public_key[SLHDSA_SHA2_128S_PUBLIC_KEY_BYTES],
+    uint8_t out_private_key[SLHDSA_SHA2_128S_PRIVATE_KEY_BYTES],
+    const uint8_t seed[SLHDSA_SHA2_128S_SEED_BYTES]) {
+  BCM_slhdsa_sha2_128s_generate_key_from_seed(out_public_key, out_private_key,
+                                              seed);
+}
+
+void SLHDSA_SHAKE_256F_generate_key_from_seed(
+    uint8_t out_public_key[SLHDSA_SHAKE_256F_PUBLIC_KEY_BYTES],
+    uint8_t out_private_key[SLHDSA_SHAKE_256F_PRIVATE_KEY_BYTES],
+    const uint8_t seed[SLHDSA_SHAKE_256F_SEED_BYTES]) {
+  BCM_slhdsa_shake_256f_generate_key_from_seed(out_public_key, out_private_key,
+                                               seed);
+}
 
 void SLHDSA_SHA2_128S_generate_key(
     uint8_t out_public_key[SLHDSA_SHA2_128S_PUBLIC_KEY_BYTES],
@@ -35,10 +58,22 @@ void SLHDSA_SHA2_128S_generate_key(
   BCM_slhdsa_sha2_128s_generate_key(out_public_key, out_private_key);
 }
 
+void SLHDSA_SHAKE_256F_generate_key(
+    uint8_t out_public_key[SLHDSA_SHAKE_256F_PUBLIC_KEY_BYTES],
+    uint8_t out_private_key[SLHDSA_SHAKE_256F_PRIVATE_KEY_BYTES]) {
+  BCM_slhdsa_shake_256f_generate_key(out_public_key, out_private_key);
+}
+
 void SLHDSA_SHA2_128S_public_from_private(
     uint8_t out_public_key[SLHDSA_SHA2_128S_PUBLIC_KEY_BYTES],
     const uint8_t private_key[SLHDSA_SHA2_128S_PRIVATE_KEY_BYTES]) {
   BCM_slhdsa_sha2_128s_public_from_private(out_public_key, private_key);
+}
+
+void SLHDSA_SHAKE_256F_public_from_private(
+    uint8_t out_public_key[SLHDSA_SHAKE_256F_PUBLIC_KEY_BYTES],
+    const uint8_t private_key[SLHDSA_SHAKE_256F_PRIVATE_KEY_BYTES]) {
+  BCM_slhdsa_shake_256f_public_from_private(out_public_key, private_key);
 }
 
 int SLHDSA_SHA2_128S_sign(
@@ -50,6 +85,15 @@ int SLHDSA_SHA2_128S_sign(
                                                msg_len, context, context_len));
 }
 
+int SLHDSA_SHAKE_256F_sign(
+    uint8_t out_signature[SLHDSA_SHAKE_256F_SIGNATURE_BYTES],
+    const uint8_t private_key[SLHDSA_SHAKE_256F_PRIVATE_KEY_BYTES],
+    const uint8_t *msg, size_t msg_len, const uint8_t *context,
+    size_t context_len) {
+  return bcm_success(BCM_slhdsa_shake_256f_sign(out_signature, private_key, msg,
+                                                msg_len, context, context_len));
+}
+
 int SLHDSA_SHA2_128S_verify(
     const uint8_t *signature, size_t signature_len,
     const uint8_t public_key[SLHDSA_SHA2_128S_PUBLIC_KEY_BYTES],
@@ -58,6 +102,16 @@ int SLHDSA_SHA2_128S_verify(
   return bcm_success(BCM_slhdsa_sha2_128s_verify(signature, signature_len,
                                                  public_key, msg, msg_len,
                                                  context, context_len));
+}
+
+int SLHDSA_SHAKE_256F_verify(
+    const uint8_t *signature, size_t signature_len,
+    const uint8_t public_key[SLHDSA_SHAKE_256F_PUBLIC_KEY_BYTES],
+    const uint8_t *msg, size_t msg_len, const uint8_t *context,
+    size_t context_len) {
+  return bcm_success(BCM_slhdsa_shake_256f_verify(signature, signature_len,
+                                                  public_key, msg, msg_len,
+                                                  context, context_len));
 }
 
 int SLHDSA_SHA2_128S_prehash_sign(

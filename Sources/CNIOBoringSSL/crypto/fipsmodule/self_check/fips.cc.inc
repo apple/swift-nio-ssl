@@ -1,16 +1,16 @@
-/* Copyright 2017 The BoringSSL Authors
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2017 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_crypto.h>
 
@@ -18,7 +18,9 @@
 #include "../delocate.h"
 
 
-int FIPS_mode(void) {
+using namespace bssl;
+
+int FIPS_mode() {
 #if defined(BORINGSSL_FIPS) && !defined(OPENSSL_ASAN)
   return 1;
 #else
@@ -28,9 +30,9 @@ int FIPS_mode(void) {
 
 int FIPS_mode_set(int on) { return on == FIPS_mode(); }
 
-const char *FIPS_module_name(void) { return "BoringCrypto"; }
+const char *FIPS_module_name() { return "BoringCrypto"; }
 
-int CRYPTO_has_asm(void) {
+int CRYPTO_has_asm() {
 #if defined(OPENSSL_NO_ASM)
   return 0;
 #else
@@ -38,9 +40,7 @@ int CRYPTO_has_asm(void) {
 #endif
 }
 
-uint32_t FIPS_version(void) {
-  return 0;
-}
+uint32_t FIPS_version() { return 0; }
 
 int FIPS_query_algorithm_status(const char *algorithm) {
 #if defined(BORINGSSL_FIPS)
@@ -67,8 +67,8 @@ int FIPS_query_algorithm_status(const char *algorithm) {
     "SHA2-512",
     "SHA2-512/256",
   };
-  for (size_t i = 0; i < OPENSSL_ARRAY_SIZE(kApprovedAlgorithms); i++) {
-    if (strcmp(algorithm, kApprovedAlgorithms[i]) == 0) {
+  for (const char *approved : kApprovedAlgorithms) {
+    if (strcmp(algorithm, approved) == 0) {
       return 1;
     }
   }
@@ -94,7 +94,7 @@ size_t FIPS_read_counter(enum fips_counter_t counter) {
   return array[index];
 }
 
-void boringssl_fips_inc_counter(enum fips_counter_t counter) {
+void bssl::boringssl_fips_inc_counter(enum fips_counter_t counter) {
   size_t index = (size_t)counter;
   if (index > fips_counter_max) {
     abort();
@@ -111,7 +111,7 @@ void boringssl_fips_inc_counter(enum fips_counter_t counter) {
 
     if (!CRYPTO_set_thread_local(OPENSSL_THREAD_LOCAL_FIPS_COUNTERS, array,
                                  OPENSSL_free)) {
-      // |OPENSSL_free| has already been called by |CRYPTO_set_thread_local|.
+      // `OPENSSL_free` has already been called by `CRYPTO_set_thread_local`.
       return;
     }
   }

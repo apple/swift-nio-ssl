@@ -1,11 +1,16 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <assert.h>
 
@@ -14,20 +19,22 @@
 #include <CNIOBoringSSL_hkdf.h>
 #include <CNIOBoringSSL_hmac.h>
 #include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_tls_prf.h>
 
-#include "internal.h"
 #include "../../internal.h"
 #include "../service_indicator/internal.h"
+#include "internal.h"
 
+
+using namespace bssl;
 
 // tls1_P_hash computes the TLS P_<hash> function as described in RFC 5246,
-// section 5. It XORs |out_len| bytes to |out|, using |md| as the hash and
-// |secret| as the secret. |label|, |seed1|, and |seed2| are concatenated to
+// section 5. It XORs `out_len` bytes to `out`, using `md` as the hash and
+// `secret` as the secret. `label`, `seed1`, and `seed2` are concatenated to
 // form the seed parameter. It returns true on success and false on failure.
-static int tls1_P_hash(uint8_t *out, size_t out_len,
-                       const EVP_MD *md,
+static int tls1_P_hash(uint8_t *out, size_t out_len, const EVP_MD *md,
                        const uint8_t *secret, size_t secret_len,
-                       const char *label, size_t label_len,
+                       const uint8_t *label, size_t label_len,
                        const uint8_t *seed1, size_t seed1_len,
                        const uint8_t *seed2, size_t seed2_len) {
   HMAC_CTX ctx, ctx_tmp, ctx_init;
@@ -40,11 +47,11 @@ static int tls1_P_hash(uint8_t *out, size_t out_len,
   HMAC_CTX_init(&ctx_tmp);
   HMAC_CTX_init(&ctx_init);
 
-  if (!HMAC_Init_ex(&ctx_init, secret, secret_len, md, NULL) ||
+  if (!HMAC_Init_ex(&ctx_init, secret, secret_len, md, nullptr) ||
       !HMAC_CTX_copy_ex(&ctx, &ctx_init) ||
-      !HMAC_Update(&ctx, (const uint8_t *) label, label_len) ||
+      !HMAC_Update(&ctx, label, label_len) ||
       !HMAC_Update(&ctx, seed1, seed1_len) ||
-      !HMAC_Update(&ctx, seed2, seed2_len) ||
+      !HMAC_Update(&ctx, seed2, seed2_len) ||  //
       !HMAC_Final(&ctx, A1, &A1_len)) {
     goto err;
   }
@@ -52,11 +59,10 @@ static int tls1_P_hash(uint8_t *out, size_t out_len,
   for (;;) {
     unsigned len_u;
     uint8_t hmac[EVP_MAX_MD_SIZE];
-    if (!HMAC_CTX_copy_ex(&ctx, &ctx_init) ||
-        !HMAC_Update(&ctx, A1, A1_len) ||
-        // Save a copy of |ctx| to compute the next A1 value below.
+    if (!HMAC_CTX_copy_ex(&ctx, &ctx_init) || !HMAC_Update(&ctx, A1, A1_len) ||
+        // Save a copy of `ctx` to compute the next A1 value below.
         (out_len > chunk && !HMAC_CTX_copy_ex(&ctx_tmp, &ctx)) ||
-        !HMAC_Update(&ctx, (const uint8_t *) label, label_len) ||
+        !HMAC_Update(&ctx, (const uint8_t *)label, label_len) ||
         !HMAC_Update(&ctx, seed1, seed1_len) ||
         !HMAC_Update(&ctx, seed2, seed2_len) ||
         !HMAC_Final(&ctx, hmac, &len_u)) {
@@ -65,7 +71,7 @@ static int tls1_P_hash(uint8_t *out, size_t out_len,
     size_t len = len_u;
     assert(len == chunk);
 
-    // XOR the result into |out|.
+    // XOR the result into `out`.
     if (len > out_len) {
       len = out_len;
     }
@@ -95,10 +101,9 @@ err:
   return ret;
 }
 
-int CRYPTO_tls1_prf(const EVP_MD *digest,
-                    uint8_t *out, size_t out_len,
+int CRYPTO_tls1_prf(const EVP_MD *digest, uint8_t *out, size_t out_len,
                     const uint8_t *secret, size_t secret_len,
-                    const char *label, size_t label_len,
+                    const uint8_t *label, size_t label_len,
                     const uint8_t *seed1, size_t seed1_len,
                     const uint8_t *seed2, size_t seed2_len) {
   if (out_len == 0) {
@@ -112,14 +117,14 @@ int CRYPTO_tls1_prf(const EVP_MD *digest,
   int ret = 0;
 
   if (digest == EVP_md5_sha1()) {
-    // If using the MD5/SHA1 PRF, |secret| is partitioned between MD5 and SHA-1.
+    // If using the MD5/SHA1 PRF, `secret` is partitioned between MD5 and SHA-1.
     size_t secret_half = secret_len - (secret_len / 2);
     if (!tls1_P_hash(out, out_len, EVP_md5(), secret, secret_half, label,
                      label_len, seed1, seed1_len, seed2, seed2_len)) {
       goto end;
     }
 
-    // Note that, if |secret_len| is odd, the two halves share a byte.
+    // Note that, if `secret_len` is odd, the two halves share a byte.
     secret += secret_len - secret_half;
     secret_len = secret_half;
     digest = EVP_sha1();
@@ -136,14 +141,15 @@ end:
   return ret;
 }
 
-int CRYPTO_tls13_hkdf_expand_label(uint8_t *out, size_t out_len,
-                                   const EVP_MD *digest,  //
-                                   const uint8_t *secret, size_t secret_len,
-                                   const uint8_t *label, size_t label_len,
-                                   const uint8_t *hash, size_t hash_len) {
+int bssl::CRYPTO_tls13_hkdf_expand_label(uint8_t *out, size_t out_len,
+                                         const EVP_MD *digest,  //
+                                         const uint8_t *secret,
+                                         size_t secret_len,
+                                         const uint8_t *label, size_t label_len,
+                                         const uint8_t *hash, size_t hash_len) {
   static const uint8_t kProtocolLabel[] = "tls13 ";
   CBB cbb, child;
-  uint8_t *hkdf_label = NULL;
+  uint8_t *hkdf_label = nullptr;
   size_t hkdf_label_len;
 
   FIPS_service_indicator_lock_state();
@@ -172,4 +178,3 @@ int CRYPTO_tls13_hkdf_expand_label(uint8_t *out, size_t out_len,
   }
   return ret;
 }
-

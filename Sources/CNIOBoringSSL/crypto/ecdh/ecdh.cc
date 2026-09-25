@@ -1,12 +1,17 @@
-/*
- * Copyright 2002-2016 The OpenSSL Project Authors. All Rights Reserved.
- * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 2002-2016 The OpenSSL Project Authors. All Rights Reserved.
+// Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_ecdh.h>
 
@@ -21,17 +26,19 @@
 #include "../internal.h"
 
 
+using namespace bssl;
+
 int ECDH_compute_key(void *out, size_t out_len, const EC_POINT *pub_key,
                      const EC_KEY *priv_key,
                      void *(*kdf)(const void *in, size_t inlen, void *out,
                                   size_t *out_len)) {
-  if (priv_key->priv_key == NULL) {
+  if (FromOpaque(priv_key)->priv_key == nullptr) {
     OPENSSL_PUT_ERROR(ECDH, ECDH_R_NO_PRIVATE_VALUE);
     return -1;
   }
-  const EC_SCALAR *const priv = &priv_key->priv_key->scalar;
+  const EC_SCALAR *const priv = &FromOpaque(priv_key)->priv_key->scalar;
   const EC_GROUP *const group = EC_KEY_get0_group(priv_key);
-  if (EC_GROUP_cmp(group, pub_key->group, NULL) != 0) {
+  if (EC_GROUP_cmp(group, pub_key->group, nullptr) != 0) {
     OPENSSL_PUT_ERROR(EC, EC_R_INCOMPATIBLE_OBJECTS);
     return -1;
   }
@@ -46,8 +53,8 @@ int ECDH_compute_key(void *out, size_t out_len, const EC_POINT *pub_key,
     return -1;
   }
 
-  if (kdf != NULL) {
-    if (kdf(buf, buf_len, out, &out_len) == NULL) {
+  if (kdf != nullptr) {
+    if (kdf(buf, buf_len, out, &out_len) == nullptr) {
       OPENSSL_PUT_ERROR(ECDH, ECDH_R_KDF_FAILED);
       return -1;
     }

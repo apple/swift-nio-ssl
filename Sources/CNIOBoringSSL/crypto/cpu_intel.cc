@@ -1,35 +1,41 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_base.h>
 
 #if !defined(OPENSSL_NO_ASM) && \
     (defined(OPENSSL_X86) || defined(OPENSSL_X86_64))
 
+#include <errno.h>
 #include <inttypes.h>
-#include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
 #if defined(_MSC_VER)
-OPENSSL_MSVC_PRAGMA(warning(push, 3))
 #include <immintrin.h>
 #include <intrin.h>
-OPENSSL_MSVC_PRAGMA(warning(pop))
 #endif
 
 #include "internal.h"
 
 
-// OPENSSL_cpuid runs the cpuid instruction. |leaf| is passed in as EAX and ECX
-// is set to zero. It writes EAX, EBX, ECX, and EDX to |*out_eax| through
-// |*out_edx|.
+using namespace bssl;
+
+// OPENSSL_cpuid runs the cpuid instruction. `leaf` is passed in as EAX and ECX
+// is set to zero. It writes EAX, EBX, ECX, and EDX to `*out_eax` through
+// `*out_edx`.
 static void OPENSSL_cpuid(uint32_t *out_eax, uint32_t *out_ebx,
                           uint32_t *out_ecx, uint32_t *out_edx, uint32_t leaf) {
 #if defined(_MSC_VER)
@@ -59,7 +65,7 @@ static void OPENSSL_cpuid(uint32_t *out_eax, uint32_t *out_ebx,
 }
 
 // OPENSSL_xgetbv returns the value of an Intel Extended Control Register (XCR).
-// Currently only XCR0 is defined by Intel so |xcr| should always be zero.
+// Currently only XCR0 is defined by Intel so `xcr` should always be zero.
 static uint64_t OPENSSL_xgetbv(uint32_t xcr) {
 #if defined(_MSC_VER)
   return (uint64_t)_xgetbv(xcr);
@@ -86,23 +92,26 @@ static bool os_supports_avx512(uint64_t xcr0) {
 #endif
 }
 
-// handle_cpu_env applies the value from |in| to the CPUID values in |out[0]|
-// and |out[1]|. See the comment in |OPENSSL_cpuid_setup| about this.
-static void handle_cpu_env(uint32_t *out, const char *in) {
+// handle_cpu_env applies the value from `in` to the CPUID values in `out[0]`
+// and `out[1]`. See the comment in `OPENSSL_cpuid_setup` about this. The
+// `is_last` argument specifies whether the value is at the end of the string.
+// Otherwise it may be followed by a colon.
+static void handle_cpu_env(uint32_t out[2], const char *in, bool is_last) {
   const int invert_op = in[0] == '~';
   const int or_op = in[0] == '|';
   const int skip_first_byte = invert_op || or_op;
   const int hex = in[skip_first_byte] == '0' && in[skip_first_byte + 1] == 'x';
+  const int base = hex ? 16 : 10;
 
-  int sscanf_result;
-  uint64_t v;
-  if (hex) {
-    sscanf_result = sscanf(in + invert_op + 2, "%" PRIx64, &v);
-  } else {
-    sscanf_result = sscanf(in + invert_op, "%" PRIu64, &v);
-  }
+  const char *start = in + skip_first_byte;
+  char *end;
+  errno = 0;
+  // We need to parse 64-bit values with `strtoull`.
+  static_assert(sizeof(unsigned long long) == sizeof(uint64_t));
+  unsigned long long v = strtoull(start, &end, base);
 
-  if (!sscanf_result) {
+  if (end == start || (*end != '\0' && (is_last || *end != ':')) ||
+      (v == ULLONG_MAX && errno == ERANGE)) {
     return;
   }
 
@@ -118,18 +127,39 @@ static void handle_cpu_env(uint32_t *out, const char *in) {
   }
 }
 
-void OPENSSL_cpuid_setup(void) {
+void bssl::OPENSSL_adjust_ia32cap(uint32_t cap[4], const char *env) {
+  // OPENSSL_ia32cap can contain zero, one or two values, separated with a ':'.
+  // Each value is a 64-bit, unsigned value which may start with "0x" to
+  // indicate a hex value. Prior to the 64-bit value, a '~' or '|' may be given.
+  //
+  // If the '~' prefix is present:
+  //   the value is inverted and ANDed with the probed CPUID result
+  // If the '|' prefix is present:
+  //   the value is ORed with the probed CPUID result
+  // Otherwise:
+  //   the value is taken as the result of the CPUID
+  //
+  // The first value determines OPENSSL_ia32cap_P[0] and [1]. The second [2]
+  // and [3].
+  handle_cpu_env(cap, env, /*is_last=*/false);
+  env = strchr(env, ':');
+  if (env != nullptr) {
+    handle_cpu_env(cap + 2, env + 1, /*is_last=*/true);
+  }
+}
+
+void bssl::OPENSSL_cpuid_setup() {
   // Determine the vendor and maximum input value.
   uint32_t eax, ebx, ecx, edx;
   OPENSSL_cpuid(&eax, &ebx, &ecx, &edx, 0);
 
   uint32_t num_ids = eax;
 
-  int is_intel = ebx == 0x756e6547 /* Genu */ && //
-                 edx == 0x49656e69 /* ineI */ && //
+  int is_intel = ebx == 0x756e6547 /* Genu */ &&  //
+                 edx == 0x49656e69 /* ineI */ &&  //
                  ecx == 0x6c65746e /* ntel */;
-  int is_amd = ebx == 0x68747541 /* Auth */ && //
-               edx == 0x69746e65 /* enti */ && //
+  int is_amd = ebx == 0x68747541 /* Auth */ &&  //
+               edx == 0x69746e65 /* enti */ &&  //
                ecx == 0x444d4163 /* cAMD */;
 
   uint32_t extended_features[2] = {0};
@@ -166,24 +196,12 @@ void OPENSSL_cpuid_setup(void) {
     }
   }
 
-  // Force the hyper-threading bit so that the more conservative path is always
-  // chosen.
-  edx |= 1u << 28;
-
-  // Reserved bit #20 was historically repurposed to control the in-memory
-  // representation of RC4 state. Always set it to zero.
-  edx &= ~(1u << 20);
-
   // Reserved bit #30 is repurposed to signal an Intel CPU.
   if (is_intel) {
     edx |= (1u << 30);
   } else {
     edx &= ~(1u << 30);
   }
-
-  // The SDBG bit is repurposed to denote AMD XOP support. Don't ever use AMD
-  // XOP code paths.
-  ecx &= ~(1u << 11);
 
   uint64_t xcr0 = 0;
   if (ecx & (1u << 27)) {
@@ -214,10 +232,6 @@ void OPENSSL_cpuid_setup(void) {
     // 128-bit or 256-bit vectors, and also volume 2a section 2.7.11 ("#UD
     // Equations for EVEX") which says that all EVEX-coded instructions raise an
     // undefined-instruction exception if any of these XCR0 bits is zero.
-    //
-    // AVX10 fixes this by reorganizing the features that used to be part of
-    // "AVX512" and allowing them to be used independently of 512-bit support.
-    // TODO: add AVX10 detection.
     extended_features[0] &= ~(1u << 16);  // AVX512F
     extended_features[0] &= ~(1u << 17);  // AVX512DQ
     extended_features[0] &= ~(1u << 21);  // AVX512IFMA
@@ -264,30 +278,9 @@ void OPENSSL_cpuid_setup(void) {
   OPENSSL_ia32cap_P[2] = extended_features[0];
   OPENSSL_ia32cap_P[3] = extended_features[1];
 
-  const char *env1, *env2;
-  env1 = getenv("OPENSSL_ia32cap");
-  if (env1 == NULL) {
-    return;
-  }
-
-  // OPENSSL_ia32cap can contain zero, one or two values, separated with a ':'.
-  // Each value is a 64-bit, unsigned value which may start with "0x" to
-  // indicate a hex value. Prior to the 64-bit value, a '~' or '|' may be given.
-  //
-  // If the '~' prefix is present:
-  //   the value is inverted and ANDed with the probed CPUID result
-  // If the '|' prefix is present:
-  //   the value is ORed with the probed CPUID result
-  // Otherwise:
-  //   the value is taken as the result of the CPUID
-  //
-  // The first value determines OPENSSL_ia32cap_P[0] and [1]. The second [2]
-  // and [3].
-
-  handle_cpu_env(&OPENSSL_ia32cap_P[0], env1);
-  env2 = strchr(env1, ':');
-  if (env2 != NULL) {
-    handle_cpu_env(&OPENSSL_ia32cap_P[2], env2 + 1);
+  const char *env = getenv("OPENSSL_ia32cap");
+  if (env != nullptr) {
+    OPENSSL_adjust_ia32cap(OPENSSL_ia32cap_P, env);
   }
 }
 

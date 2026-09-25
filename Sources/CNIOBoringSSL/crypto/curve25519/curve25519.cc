@@ -1,16 +1,16 @@
-/* Copyright 2020 The BoringSSL Authors
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2020 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 // Some of this code is taken from the ref10 version of Ed25519 in SUPERCOP
 // 20141124 (http://bench.cr.yp.to/supercop.html). That code is released as
@@ -22,9 +22,10 @@
 #include <assert.h>
 #include <string.h>
 
+#include <CNIOBoringSSL_digest.h>
 #include <CNIOBoringSSL_mem.h>
 #include <CNIOBoringSSL_rand.h>
-#include <CNIOBoringSSL_sha.h>
+#include <CNIOBoringSSL_sha2.h>
 
 #include "../internal.h"
 #include "internal.h"
@@ -40,6 +41,8 @@
 #include "../../third_party/fiat/curve25519_32.h"
 #endif
 
+
+using namespace bssl;
 
 // Low-level intrinsic operations
 
@@ -68,7 +71,7 @@ static uint64_t load_4(const uint8_t *in) {
 typedef uint64_t fe_limb_t;
 #define FE_NUM_LIMBS 5
 
-// assert_fe asserts that |f| satisfies bounds:
+// assert_fe asserts that `f` satisfies bounds:
 //
 //  [[0x0 ~> 0x8cccccccccccc],
 //   [0x0 ~> 0x8cccccccccccc],
@@ -85,7 +88,7 @@ typedef uint64_t fe_limb_t;
     }                                                                   \
   } while (0)
 
-// assert_fe_loose asserts that |f| satisfies bounds:
+// assert_fe_loose asserts that `f` satisfies bounds:
 //
 //  [[0x0 ~> 0x1a666666666664],
 //   [0x0 ~> 0x1a666666666664],
@@ -107,7 +110,7 @@ typedef uint64_t fe_limb_t;
 typedef uint32_t fe_limb_t;
 #define FE_NUM_LIMBS 10
 
-// assert_fe asserts that |f| satisfies bounds:
+// assert_fe asserts that `f` satisfies bounds:
 //
 //  [[0x0 ~> 0x4666666], [0x0 ~> 0x2333333],
 //   [0x0 ~> 0x4666666], [0x0 ~> 0x2333333],
@@ -125,7 +128,7 @@ typedef uint32_t fe_limb_t;
     }                                                                    \
   } while (0)
 
-// assert_fe_loose asserts that |f| satisfies bounds:
+// assert_fe_loose asserts that `f` satisfies bounds:
 //
 //  [[0x0 ~> 0xd333332], [0x0 ~> 0x6999999],
 //   [0x0 ~> 0xd333332], [0x0 ~> 0x6999999],
@@ -149,12 +152,14 @@ static_assert(sizeof(fe) == sizeof(fe_limb_t) * FE_NUM_LIMBS,
               "fe_limb_t[FE_NUM_LIMBS] is inconsistent with fe");
 
 static void fe_frombytes_strict(fe *h, const uint8_t s[32]) {
-  // |fiat_25519_from_bytes| requires the top-most bit be clear.
+  // `fiat_25519_from_bytes` requires the top-most bit be clear.
   declassify_assert((s[31] & 0x80) == 0);
   fiat_25519_from_bytes(h->v, s);
   assert_fe(h->v);
 }
 
+// fe_frombytes takes in a little-endian 255-bit number and decodes it into an
+// `fe`.
 static void fe_frombytes(fe *h, const uint8_t s[32]) {
   uint8_t s_copy[32];
   OPENSSL_memcpy(s_copy, s, 32);
@@ -284,12 +289,25 @@ static void fe_neg(fe_loose *h, const fe *f) {
 //
 // Preconditions: b in {0,1}.
 static void fe_cmov(fe_loose *f, const fe_loose *g, fe_limb_t b) {
-  // Silence an unused function warning. |fiat_25519_selectznz| isn't quite the
+  // Silence an unused function warning. `fiat_25519_selectznz` isn't quite the
   // calling convention the rest of this code wants, so implement it by hand.
   //
   // TODO(davidben): Switch to fiat's calling convention, or ask fiat to emit a
   // different one.
 
+  b = 0 - b;
+  for (unsigned i = 0; i < FE_NUM_LIMBS; i++) {
+    fe_limb_t x = f->v[i] ^ g->v[i];
+    x &= b;
+    f->v[i] ^= x;
+  }
+}
+
+// Replace (f,g) with (g,g) if b == 1;
+// replace (f,g) with (f,g) if b == 0.
+//
+// Preconditions: b in {0,1}.
+static void fe_cmov(fe *f, const fe *g, fe_limb_t b) {
   b = 0 - b;
   for (unsigned i = 0; i < FE_NUM_LIMBS; i++) {
     fe_limb_t x = f->v[i] ^ g->v[i];
@@ -372,14 +390,20 @@ static void fe_invert(fe *out, const fe *z) {
 
 // return 0 if f == 0
 // return 1 if f != 0
-static int fe_isnonzero(const fe_loose *f) {
-  fe tight;
-  fe_carry(&tight, f);
+static int fe_isnonzero(const fe *f) {
   uint8_t s[32];
-  fe_tobytes(s, &tight);
+  fe_tobytes(s, f);
 
   static const uint8_t zero[32] = {0};
   return CRYPTO_memcmp(s, zero, sizeof(zero)) != 0;
+}
+
+// return 0 if f == 0
+// return 1 if f != 0
+static int fe_isnonzero(const fe_loose *f) {
+  fe tight;
+  fe_carry(&tight, f);
+  return fe_isnonzero(&tight);
 }
 
 // return 1 if f is in {1,3,5,...,q-2}
@@ -391,7 +415,7 @@ static int fe_isnegative(const fe *f) {
 }
 
 static void fe_sq2_tt(fe *h, const fe *f) {
-  // h = f^2
+  // h = f²
   fe_sq_tt(h, f);
 
   // h = h + h
@@ -460,7 +484,7 @@ static void fe_pow22523(fe *out, const fe *z) {
 
 // Group operations.
 
-void x25519_ge_tobytes(uint8_t s[32], const ge_p2 *h) {
+void bssl::x25519_ge_tobytes(uint8_t s[32], const ge_p2 *h) {
   fe recip;
   fe x;
   fe y;
@@ -484,7 +508,7 @@ static void ge_p3_tobytes(uint8_t s[32], const ge_p3 *h) {
   s[31] ^= fe_isnegative(&x) << 7;
 }
 
-int x25519_ge_frombytes_vartime(ge_p3 *h, const uint8_t s[32]) {
+int bssl::x25519_ge_frombytes_vartime(ge_p3 *h, const uint8_t s[32]) {
   fe u;
   fe_loose v;
   fe w;
@@ -495,9 +519,9 @@ int x25519_ge_frombytes_vartime(ge_p3 *h, const uint8_t s[32]) {
   fe_1(&h->Z);
   fe_sq_tt(&w, &h->Y);
   fe_mul_ttt(&vxx, &w, &d);
-  fe_sub(&v, &w, &h->Z);  // u = y^2-1
+  fe_sub(&v, &w, &h->Z);  // u = y² - 1
   fe_carry(&u, &v);
-  fe_add(&v, &vxx, &h->Z);  // v = dy^2+1
+  fe_add(&v, &vxx, &h->Z);  // v = dy² + 1
 
   fe_mul_ttl(&w, &u, &v);        // w = u*v
   fe_pow22523(&h->X, &w);        // x = w^((q-5)/8)
@@ -558,7 +582,7 @@ static void ge_p3_to_p2(ge_p2 *r, const ge_p3 *p) {
 }
 
 // r = p
-void x25519_ge_p3_to_cached(ge_cached *r, const ge_p3 *p) {
+void bssl::x25519_ge_p3_to_cached(ge_cached *r, const ge_p3 *p) {
   fe_add(&r->YplusX, &p->Y, &p->X);
   fe_sub(&r->YminusX, &p->Y, &p->X);
   fe_copy_lt(&r->Z, &p->Z);
@@ -566,14 +590,14 @@ void x25519_ge_p3_to_cached(ge_cached *r, const ge_p3 *p) {
 }
 
 // r = p
-void x25519_ge_p1p1_to_p2(ge_p2 *r, const ge_p1p1 *p) {
+void bssl::x25519_ge_p1p1_to_p2(ge_p2 *r, const ge_p1p1 *p) {
   fe_mul_tll(&r->X, &p->X, &p->T);
   fe_mul_tll(&r->Y, &p->Y, &p->Z);
   fe_mul_tll(&r->Z, &p->Z, &p->T);
 }
 
 // r = p
-void x25519_ge_p1p1_to_p3(ge_p3 *r, const ge_p1p1 *p) {
+void bssl::x25519_ge_p1p1_to_p3(ge_p3 *r, const ge_p1p1 *p) {
   fe_mul_tll(&r->X, &p->X, &p->T);
   fe_mul_tll(&r->Y, &p->Y, &p->Z);
   fe_mul_tll(&r->Z, &p->Z, &p->T);
@@ -648,7 +672,7 @@ static void ge_msub(ge_p1p1 *r, const ge_p3 *p, const ge_precomp *q) {
 }
 
 // r = p + q
-void x25519_ge_add(ge_p1p1 *r, const ge_p3 *p, const ge_cached *q) {
+void bssl::x25519_ge_add(ge_p1p1 *r, const ge_p3 *p, const ge_cached *q) {
   fe trX, trY, trZ, trT;
 
   fe_add(&r->X, &p->Y, &p->X);
@@ -666,7 +690,7 @@ void x25519_ge_add(ge_p1p1 *r, const ge_p3 *p, const ge_cached *q) {
 }
 
 // r = p - q
-void x25519_ge_sub(ge_p1p1 *r, const ge_p3 *p, const ge_cached *q) {
+void bssl::x25519_ge_sub(ge_p1p1 *r, const ge_p3 *p, const ge_cached *q) {
   fe trX, trY, trZ, trT;
 
   fe_add(&r->X, &p->Y, &p->X);
@@ -689,16 +713,16 @@ static void cmov(ge_precomp *t, const ge_precomp *u, uint8_t b) {
   fe_cmov(&t->xy2d, &u->xy2d, b);
 }
 
-void x25519_ge_scalarmult_small_precomp(
+void bssl::x25519_ge_scalarmult_small_precomp(
     ge_p3 *h, const uint8_t a[32], const uint8_t precomp_table[15 * 2 * 32]) {
-  // precomp_table is first expanded into matching |ge_precomp|
+  // precomp_table is first expanded into matching `ge_precomp`
   // elements.
   ge_precomp multiples[15];
 
   unsigned i;
   for (i = 0; i < 15; i++) {
     // The precomputed table is assumed to already clear the top bit, so
-    // |fe_frombytes_strict| may be used directly.
+    // `fe_frombytes_strict` may be used directly.
     const uint8_t *bytes = &precomp_table[i * (2 * 32)];
     fe x, y;
     fe_frombytes_strict(&x, bytes);
@@ -711,7 +735,7 @@ void x25519_ge_scalarmult_small_precomp(
     fe_mul_llt(&out->xy2d, &out->xy2d, &d2);
   }
 
-  // See the comment above |k25519SmallPrecomp| about the structure of the
+  // See the comment above `k25519SmallPrecomp` about the structure of the
   // precomputed elements. This loop does 64 additions and 64 doublings to
   // calculate the result.
   ge_p3_0(h);
@@ -745,7 +769,7 @@ void x25519_ge_scalarmult_small_precomp(
 
 #if defined(OPENSSL_SMALL)
 
-void x25519_ge_scalarmult_base(ge_p3 *h, const uint8_t a[32]) {
+void bssl::x25519_ge_scalarmult_base(ge_p3 *h, const uint8_t a[32]) {
   x25519_ge_scalarmult_small_precomp(h, a, k25519SmallPrecomp);
 }
 
@@ -762,7 +786,7 @@ static void table_select(ge_precomp *t, const int pos, const signed char b) {
 #if defined(__clang__)  // materialize for vectorization, 6% speedup
   __asm__("" : "+m"(t_bytes) : /*no inputs*/);
 #endif
-  static_assert(sizeof(t_bytes) == sizeof(k25519Precomp[pos][0]), "");
+  static_assert(sizeof(t_bytes) == sizeof(k25519Precomp[pos][0]));
   for (int i = 0; i < 8; i++) {
     constant_time_conditional_memxor(t_bytes, k25519Precomp[pos][i],
                                      sizeof(t_bytes),
@@ -791,7 +815,7 @@ static void table_select(ge_precomp *t, const int pos, const signed char b) {
 //
 // Preconditions:
 //   a[31] <= 127
-void x25519_ge_scalarmult_base(ge_p3 *h, const uint8_t a[32]) {
+void bssl::x25519_ge_scalarmult_base(ge_p3 *h, const uint8_t a[32]) {
 #if defined(BORINGSSL_FE25519_ADX)
   if (CRYPTO_is_BMI1_capable() && CRYPTO_is_BMI2_capable() &&
       CRYPTO_is_ADX_capable()) {
@@ -862,7 +886,8 @@ static void cmov_cached(ge_cached *t, ge_cached *u, uint8_t b) {
 
 // r = scalar * A.
 // where a = a[0]+256*a[1]+...+256^31 a[31].
-void x25519_ge_scalarmult(ge_p2 *r, const uint8_t *scalar, const ge_p3 *A) {
+void bssl::x25519_ge_scalarmult(ge_p2 *r, const uint8_t *scalar,
+                                const ge_p3 *A) {
   ge_p2 Ai_p2[8];
   ge_cached Ai[16];
   ge_p1p1 t;
@@ -1021,9 +1046,9 @@ static void ge_double_scalarmult_vartime(ge_p2 *r, const uint8_t *a,
   }
 }
 
-// int64_lshift21 returns |a << 21| but is defined when shifting bits into the
+// int64_lshift21 returns `a << 21` but is defined when shifting bits into the
 // sign bit. This works around a language flaw in C.
-static inline int64_t int64_lshift21(int64_t a) {
+static int64_t int64_lshift21(int64_t a) {
   return (int64_t)((uint64_t)a << 21);
 }
 
@@ -1037,7 +1062,7 @@ static inline int64_t int64_lshift21(int64_t a) {
 //   s[0]+256*s[1]+...+256^31*s[31] = s mod l
 //   where l = 2^252 + 27742317777372353535851937790883648493.
 //   Overwrites s in place.
-void x25519_sc_reduce(uint8_t s[64]) {
+void bssl::x25519_sc_reduce(uint8_t s[64]) {
   int64_t s0 = 2097151 & load_3(s);
   int64_t s1 = 2097151 & (load_4(s + 2) >> 5);
   int64_t s2 = 2097151 & (load_3(s + 5) >> 2);
@@ -1865,13 +1890,9 @@ void ED25519_keypair(uint8_t out_public_key[32], uint8_t out_private_key[64]) {
   ED25519_keypair_from_seed(out_public_key, out_private_key, seed);
 }
 
-int ED25519_sign(uint8_t out_sig[64], const uint8_t *message,
-                 size_t message_len, const uint8_t private_key[64]) {
-  // NOTE: The documentation on this function says that it returns zero on
-  // allocation failure. While that can't happen with the current
-  // implementation, we want to reserve the ability to allocate in this
-  // implementation in the future.
-
+static int ed25519_sign(uint8_t out_sig[64], const uint8_t *hash_prefix,
+                        size_t hash_prefix_len, const uint8_t *message,
+                        size_t message_len, const uint8_t private_key[64]) {
   uint8_t az[SHA512_DIGEST_LENGTH];
   SHA512(private_key, 32, az);
 
@@ -1881,6 +1902,7 @@ int ED25519_sign(uint8_t out_sig[64], const uint8_t *message,
 
   SHA512_CTX hash_ctx;
   SHA512_Init(&hash_ctx);
+  SHA512_Update(&hash_ctx, hash_prefix, hash_prefix_len);
   SHA512_Update(&hash_ctx, az + 32, 32);
   SHA512_Update(&hash_ctx, message, message_len);
   uint8_t nonce[SHA512_DIGEST_LENGTH];
@@ -1892,6 +1914,7 @@ int ED25519_sign(uint8_t out_sig[64], const uint8_t *message,
   ge_p3_tobytes(out_sig, &R);
 
   SHA512_Init(&hash_ctx);
+  SHA512_Update(&hash_ctx, hash_prefix, hash_prefix_len);
   SHA512_Update(&hash_ctx, out_sig, 32);
   SHA512_Update(&hash_ctx, private_key + 32, 32);
   SHA512_Update(&hash_ctx, message, message_len);
@@ -1906,8 +1929,10 @@ int ED25519_sign(uint8_t out_sig[64], const uint8_t *message,
   return 1;
 }
 
-int ED25519_verify(const uint8_t *message, size_t message_len,
-                   const uint8_t signature[64], const uint8_t public_key[32]) {
+static int ed25519_verify(const uint8_t *hash_prefix, size_t hash_prefix_len,
+                          const uint8_t *message, size_t message_len,
+                          const uint8_t signature[64],
+                          const uint8_t public_key[32]) {
   ge_p3 A;
   if ((signature[63] & 224) != 0 ||
       !x25519_ge_frombytes_vartime(&A, public_key)) {
@@ -1950,6 +1975,7 @@ int ED25519_verify(const uint8_t *message, size_t message_len,
 
   SHA512_CTX hash_ctx;
   SHA512_Init(&hash_ctx);
+  SHA512_Update(&hash_ctx, hash_prefix, hash_prefix_len);
   SHA512_Update(&hash_ctx, signature, 32);
   SHA512_Update(&hash_ctx, public_key, 32);
   SHA512_Update(&hash_ctx, message, message_len);
@@ -1965,6 +1991,78 @@ int ED25519_verify(const uint8_t *message, size_t message_len,
   x25519_ge_tobytes(rcheck, &R);
 
   return CRYPTO_memcmp(rcheck, rcopy, sizeof(rcheck)) == 0;
+}
+
+int ED25519_sign(uint8_t out_sig[64], const uint8_t *message,
+                 size_t message_len, const uint8_t private_key[64]) {
+  // NOTE: The documentation on this function says that it returns zero on
+  // allocation failure. While that can't happen with the current
+  // implementation, we want to reserve the ability to allocate in this
+  // implementation in the future.
+
+  return ed25519_sign(out_sig, nullptr, 0, message, message_len, private_key);
+}
+
+int ED25519_verify(const uint8_t *message, size_t message_len,
+                   const uint8_t signature[64], const uint8_t public_key[32]) {
+  return ed25519_verify(nullptr, 0, message, message_len, signature,
+                        public_key);
+}
+
+// ED25519_MAX_CONTEXT is the longest context permitted by RFC 8032.
+#define ED25519_MAX_CONTEXT 255
+#define ED25519_MAX_HASH_PREFIX (32 + 1 + 1 + ED25519_MAX_CONTEXT)
+
+// ed25519_build_hash_prefix implements the `dom2` function from
+// https://datatracker.ietf.org/doc/html/rfc8032#section-2
+static int ed25519_build_hash_prefix(
+    uint8_t out_hash_prefix[ED25519_MAX_HASH_PREFIX],
+    size_t *out_hash_prefix_len, const uint8_t *context, size_t context_len) {
+  if (context_len > ED25519_MAX_CONTEXT) {
+    return 0;
+  }
+
+  OPENSSL_memcpy(out_hash_prefix, "SigEd25519 no Ed25519 collisions", 32);
+  out_hash_prefix[32] = 1;
+  out_hash_prefix[33] = static_cast<uint8_t>(context_len);
+  OPENSSL_memcpy(&out_hash_prefix[34], context, context_len);
+  *out_hash_prefix_len = 32 + 1 + 1 + context_len;
+  return 1;
+}
+
+int ED25519_sign_prehashed(uint8_t out_sig[64], const uint8_t *context,
+                           size_t context_len,
+                           const uint8_t sha512_digest[SHA512_DIGEST_LENGTH],
+                           const uint8_t private_key[64]) {
+  // NOTE: The documentation on this function says that it returns zero on
+  // allocation failure. While that can't happen with the current
+  // implementation, we want to reserve the ability to allocate in this
+  // implementation in the future.
+
+  uint8_t hash_prefix[ED25519_MAX_HASH_PREFIX];
+  size_t hash_prefix_len;
+  if (!ed25519_build_hash_prefix(hash_prefix, &hash_prefix_len, context,
+                                 context_len)) {
+    return 0;
+  }
+
+  return ed25519_sign(out_sig, hash_prefix, hash_prefix_len, sha512_digest,
+                      SHA512_DIGEST_LENGTH, private_key);
+}
+
+int ED25519_verify_prehashed(const uint8_t *context, size_t context_len,
+                             const uint8_t sha512_digest[SHA512_DIGEST_LENGTH],
+                             const uint8_t signature[64],
+                             const uint8_t public_key[32]) {
+  uint8_t hash_prefix[ED25519_MAX_HASH_PREFIX];
+  size_t hash_prefix_len;
+  if (!ed25519_build_hash_prefix(hash_prefix, &hash_prefix_len, context,
+                                 context_len)) {
+    return 0;
+  }
+
+  return ed25519_verify(hash_prefix, hash_prefix_len, sha512_digest,
+                        SHA512_DIGEST_LENGTH, signature, public_key);
 }
 
 void ED25519_keypair_from_seed(uint8_t out_public_key[32],
@@ -2151,4 +2249,188 @@ void X25519_public_from_private(uint8_t out_public_value[32],
   fe_mul_tlt(&zminusy_inv, &zplusy, &zminusy_inv);
   fe_tobytes(out_public_value, &zminusy_inv);
   CONSTTIME_DECLASSIFY(out_public_value, 32);
+}
+
+static void fe_from_limb(fe *h, fe_limb_t val) {
+  fe_0(h);
+  h->v[0] = val;
+  assert_fe(h->v);
+}
+
+// map_to_curve_elligator2 implements the straight-line Elligator 2 mapping
+// for Curve25519 from RFC 9380, Appendix G.2.1.
+//
+// It maps a field element u to a Montgomery point (xn / xd, y / 1) on the curve
+// t^2 = s^3 + 486662*s^2 + s.
+static void map_to_curve_elligator2(fe *out_xMn, fe *out_xMd, fe *out_yMn,
+                                    const fe *u) {
+  fe one, J_fe, c2_fe;
+  fe_1(&one);
+  fe_from_limb(&J_fe, 486662);
+  // c2 = 2^((p + 3) / 8) mod (2^255 - 19) in little-endian.
+  constexpr static uint8_t kC2[32] = {
+      0xb1, 0xa0, 0x0e, 0x4a, 0x27, 0x1b, 0xee, 0xc4, 0x78, 0xe4, 0x2f,
+      0xad, 0x06, 0x18, 0x43, 0x2f, 0xa7, 0xd7, 0xfb, 0x3d, 0x99, 0x00,
+      0x4d, 0x2b, 0x0b, 0xdf, 0xc1, 0x4f, 0x80, 0x24, 0x83, 0x2b};
+  fe_frombytes(&c2_fe, kC2);
+
+  // 1-2. tv1 = 2 * u^2
+  fe tv1;
+  fe_sq2_tt(&tv1, u);
+
+  // 3. xd = tv1 + 1
+  fe_loose xd_loose;
+  fe_add(&xd_loose, &tv1, &one);
+
+  // 4. x1n = -J
+  fe_loose x1n_loose;
+  fe_neg(&x1n_loose, &J_fe);
+
+  // 5. tv2 = xd^2
+  fe tv2;
+  fe_sq_tl(&tv2, &xd_loose);
+
+  // 6. gxd = xd^3
+  fe gxd;
+  fe_mul_ttl(&gxd, &tv2, &xd_loose);
+
+  fe gx1;
+  {
+    fe_loose l_tmp;
+    // 7. gx1 = J * tv1
+    fe_mul_ltt(&l_tmp, &J_fe, &tv1);
+    // 8. gx1 = gx1 * x1n
+    fe_mul_tll(&gx1, &l_tmp, &x1n_loose);
+    // 9. gx1 = gx1 + tv2
+    fe_add(&l_tmp, &gx1, &tv2);
+    // 10. gx1 = gx1 * x1n
+    fe_mul_tll(&gx1, &l_tmp, &x1n_loose);
+  }
+
+  fe tv3;
+  // 11. tv3 = gxd^2
+  fe_sq_tt(&tv3, &gxd);
+  // 12. tv2 = tv3^2
+  fe_sq_tt(&tv2, &tv3);
+  // 13. tv3 = tv3 * gxd
+  fe_mul_ttt(&tv3, &tv3, &gxd);
+  // 14. tv3 = tv3 * gx1
+  fe_mul_ttt(&tv3, &tv3, &gx1);
+  // 15. tv2 = tv2 * tv3
+  fe_mul_ttt(&tv2, &tv2, &tv3);
+
+  // 16. y11 = tv2^c4 = (gx1 * gxd^7)^((p - 5) / 8)
+  fe y11;
+  fe_pow22523(&y11, &tv2);
+  // 17. y11 = y11 * tv3
+  fe_mul_ttt(&y11, &y11, &tv3);
+
+  // 18. y12 = y11 * c3
+  fe y12;
+  fe_mul_ttt(&y12, &y11, &sqrtm1);
+
+  // 19. tv2 = y11 ^ 2
+  fe_sq_tt(&tv2, &y11);
+  // 20. tv2 = tv2 * gxd
+  fe_mul_ttt(&tv2, &tv2, &gxd);
+  // 21. e1 = tv2 == gx1
+  fe_limb_t e1;
+  {
+    fe_loose l_tmp;
+    fe_sub(&l_tmp, &tv2, &gx1);
+    e1 = 1 - fe_isnonzero(&l_tmp);
+  }
+
+  // 22. y1 = CMOV(y12, y11, e1)  # If g(x1) is square, this is its sqrt
+  fe y1;
+  fe_copy(&y1, &y12);
+  fe_cmov(&y1, &y11, e1);
+
+  // 23. x2n = x1n * tv1
+  fe x2n;
+  fe_mul_ttl(&x2n, &tv1, &x1n_loose);
+
+  // 24. y21 = y11 * u
+  fe y21;
+  fe_mul_ttt(&y21, &y11, u);
+  // 25. y21 = y21 * c2
+  fe_mul_ttt(&y21, &y21, &c2_fe);
+
+  // 26. y22 = y21 * c3
+  fe y22;
+  fe_mul_ttt(&y22, &y21, &sqrtm1);
+
+  // 27. gx2 = gx1 * tv1           # g(x2) = gx2 / gxd = 2 * u^2 * g(x1)
+  fe gx2;
+  fe_mul_ttt(&gx2, &gx1, &tv1);
+
+  // 28. tv2 = y21^2
+  fe_sq_tt(&tv2, &y21);
+  // 29. tv2 = tv2 * gxd
+  fe_mul_ttt(&tv2, &tv2, &gxd);
+  // 30. e2 = tv2 == gx2
+  fe_limb_t e2;
+  {
+    fe_loose l_tmp;
+    fe_sub(&l_tmp, &tv2, &gx2);
+    e2 = 1 - fe_isnonzero(&l_tmp);
+  }
+
+  // 31. y2 = CMOV(y22, y21, e2)  # If g(x2) is square, this is its sqrt
+  fe y2;
+  fe_copy(&y2, &y22);
+  fe_cmov(&y2, &y21, e2);
+
+  // 32. tv2 = y1^2
+  fe_sq_tt(&tv2, &y1);
+  // 33. tv2 = tv2 * gxd
+  fe_mul_ttt(&tv2, &tv2, &gxd);
+  // 34. e3 = tv2 == gx1
+  fe_limb_t e3;
+  {
+    fe_loose l_tmp;
+    fe_sub(&l_tmp, &tv2, &gx1);
+    e3 = 1 - fe_isnonzero(&l_tmp);
+  }
+
+  fe xn, y;
+  // 35. xn = CMOV(x2n, x1n, e3)  # If e3, x = x1, else x = x2
+  // or  xn = CMOV(x1n, x2n, 1 - e3)
+  fe_carry(&xn, &x1n_loose);
+  fe_cmov(&xn, &x2n, 1 - e3);
+  // 36. y = CMOV(y2, y1, e3)    # If e3, y = y1, else y = y2
+  fe_copy(&y, &y2);
+  fe_cmov(&y, &y1, e3);
+
+  // 37. e4 = sgn0(y) == 1        # Fix sign of y
+  fe_limb_t e4 = fe_isnegative(&y);
+  fe negy;
+  {
+    fe_loose l_tmp;
+    fe_neg(&l_tmp, &y);
+    fe_carry(&negy, &l_tmp);
+  }
+  // 38. y = CMOV(y, -y, e3 XOR e4)
+  fe_cmov(&y, &negy, e3 ^ e4);
+
+  // 39. return (xn, xd, y, /* 1 */)
+  fe_copy(out_xMn, &xn);
+  fe_carry(out_xMd, &xd_loose);
+  fe_copy(out_yMn, &y);
+}
+
+void bssl::map_to_curve_curve25519_elligator2(uint8_t out_qx[32],
+                                              uint8_t out_qy[32],
+                                              const uint8_t u[32]) {
+  fe u_fe;
+  fe_frombytes(&u_fe, u);
+
+  fe xMn, xMd, yMn;
+  map_to_curve_elligator2(&xMn, &xMd, &yMn, &u_fe);
+
+  fe xMd_inv, qx;
+  fe_invert(&xMd_inv, &xMd);
+  fe_mul_ttt(&qx, &xMn, &xMd_inv);
+  fe_tobytes(out_qx, &qx);
+  fe_tobytes(out_qy, &yMn);
 }

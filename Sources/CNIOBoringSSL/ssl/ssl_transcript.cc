@@ -1,12 +1,17 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- * Copyright 2005 Nokia. All rights reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+// Copyright 2005 Nokia. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_ssl.h>
 
@@ -163,8 +168,8 @@ bool SSLTranscript::Update(Span<const uint8_t> in) {
   // transcript format as TLS 1.3 is used. This means we write the 1-byte
   // msg_type, 3-byte length, then skip 2+3+3 bytes for the DTLS-specific
   // fields that get omitted.
-  if (!AddToBufferOrHash(in.subspan(0, 4)) ||
-      !AddToBufferOrHash(in.subspan(12))) {
+  if (!AddToBufferOrHash(in.first<4>()) ||
+      !AddToBufferOrHash(in.subspan<12>())) {
     return false;
   }
   return true;
@@ -178,7 +183,7 @@ bool SSLTranscript::AddToBufferOrHash(Span<const uint8_t> in) {
     return false;
   }
 
-  if (EVP_MD_CTX_md(hash_.get()) != NULL) {
+  if (EVP_MD_CTX_md(hash_.get()) != nullptr) {
     EVP_DigestUpdate(hash_.get(), in.data(), in.size());
   }
 
@@ -197,7 +202,7 @@ bool SSLTranscript::GetHash(uint8_t *out, size_t *out_len) const {
 }
 
 bool SSLTranscript::GetFinishedMAC(uint8_t *out, size_t *out_len,
-                                   const SSL_SESSION *session,
+                                   const SSLSession *session,
                                    bool from_server) const {
   uint8_t digest[EVP_MAX_MD_SIZE];
   size_t digest_len;

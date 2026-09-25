@@ -1,11 +1,16 @@
-/*
- * Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <stdio.h>
 #include <string.h>
@@ -18,9 +23,10 @@
 #include <CNIOBoringSSL_obj.h>
 #include <CNIOBoringSSL_x509.h>
 
-#include "ext_dat.h"
 #include "internal.h"
 
+
+using namespace bssl;
 
 static STACK_OF(CONF_VALUE) *i2v_AUTHORITY_INFO_ACCESS(
     const X509V3_EXT_METHOD *method, void *ext, STACK_OF(CONF_VALUE) *ret);
@@ -28,38 +34,38 @@ static void *v2i_AUTHORITY_INFO_ACCESS(const X509V3_EXT_METHOD *method,
                                        const X509V3_CTX *ctx,
                                        const STACK_OF(CONF_VALUE) *nval);
 
-const X509V3_EXT_METHOD v3_info = {
+const X509V3_EXT_METHOD bssl::v3_info = {
     NID_info_access,
     X509V3_EXT_MULTILINE,
     ASN1_ITEM_ref(AUTHORITY_INFO_ACCESS),
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
     i2v_AUTHORITY_INFO_ACCESS,
     v2i_AUTHORITY_INFO_ACCESS,
-    0,
-    0,
-    NULL,
+    nullptr,
+    nullptr,
+    nullptr,
 };
 
-const X509V3_EXT_METHOD v3_sinfo = {
+const X509V3_EXT_METHOD bssl::v3_sinfo = {
     NID_sinfo_access,
     X509V3_EXT_MULTILINE,
     ASN1_ITEM_ref(AUTHORITY_INFO_ACCESS),
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
     i2v_AUTHORITY_INFO_ACCESS,
     v2i_AUTHORITY_INFO_ACCESS,
-    0,
-    0,
-    NULL,
+    nullptr,
+    nullptr,
+    nullptr,
 };
 
 ASN1_SEQUENCE(ACCESS_DESCRIPTION) = {
@@ -73,7 +79,7 @@ ASN1_ITEM_TEMPLATE(AUTHORITY_INFO_ACCESS) = ASN1_EX_TEMPLATE_TYPE(
     ASN1_TFLG_SEQUENCE_OF, 0, GeneralNames, ACCESS_DESCRIPTION)
 ASN1_ITEM_TEMPLATE_END(AUTHORITY_INFO_ACCESS)
 
-IMPLEMENT_ASN1_FUNCTIONS(AUTHORITY_INFO_ACCESS)
+IMPLEMENT_ASN1_FUNCTIONS_const(AUTHORITY_INFO_ACCESS)
 
 static STACK_OF(CONF_VALUE) *i2v_AUTHORITY_INFO_ACCESS(
     const X509V3_EXT_METHOD *method, void *ext, STACK_OF(CONF_VALUE) *ret) {
@@ -89,7 +95,7 @@ static STACK_OF(CONF_VALUE) *i2v_AUTHORITY_INFO_ACCESS(
 
     desc = sk_ACCESS_DESCRIPTION_value(ainfo, i);
     tmp = i2v_GENERAL_NAME(method, desc->location, tret);
-    if (tmp == NULL) {
+    if (tmp == nullptr) {
       goto err;
     }
     tret = tmp;
@@ -102,58 +108,55 @@ static STACK_OF(CONF_VALUE) *i2v_AUTHORITY_INFO_ACCESS(
     OPENSSL_free(vtmp->name);
     vtmp->name = name;
   }
-  if (ret == NULL && tret == NULL) {
+  if (ret == nullptr && tret == nullptr) {
     return sk_CONF_VALUE_new_null();
   }
 
   return tret;
 err:
-  if (ret == NULL && tret != NULL) {
+  if (ret == nullptr && tret != nullptr) {
     sk_CONF_VALUE_pop_free(tret, X509V3_conf_free);
   }
-  return NULL;
+  return nullptr;
 }
 
 static void *v2i_AUTHORITY_INFO_ACCESS(const X509V3_EXT_METHOD *method,
                                        const X509V3_CTX *ctx,
                                        const STACK_OF(CONF_VALUE) *nval) {
-  AUTHORITY_INFO_ACCESS *ainfo = NULL;
-  ACCESS_DESCRIPTION *acc;
-  if (!(ainfo = sk_ACCESS_DESCRIPTION_new_null())) {
-    return NULL;
+  UniquePtr<AUTHORITY_INFO_ACCESS> ainfo(sk_ACCESS_DESCRIPTION_new_null());
+  if (ainfo == nullptr) {
+    return nullptr;
   }
   for (size_t i = 0; i < sk_CONF_VALUE_num(nval); i++) {
     const CONF_VALUE *cnf = sk_CONF_VALUE_value(nval, i);
-    if (!(acc = ACCESS_DESCRIPTION_new()) ||
-        !sk_ACCESS_DESCRIPTION_push(ainfo, acc)) {
-      goto err;
+    UniquePtr<ACCESS_DESCRIPTION> acc(ACCESS_DESCRIPTION_new());
+    if (acc == nullptr) {
+      return nullptr;
     }
     char *ptmp = strchr(cnf->name, ';');
     if (!ptmp) {
       OPENSSL_PUT_ERROR(X509V3, X509V3_R_INVALID_SYNTAX);
-      goto err;
+      return nullptr;
     }
     CONF_VALUE ctmp;
     ctmp.name = ptmp + 1;
     ctmp.value = cnf->value;
     if (!v2i_GENERAL_NAME_ex(acc->location, method, ctx, &ctmp, 0)) {
-      goto err;
+      return nullptr;
     }
-    char *objtmp = OPENSSL_strndup(cnf->name, ptmp - cnf->name);
-    if (objtmp == NULL) {
-      goto err;
+    UniquePtr<char> objtmp(OPENSSL_strndup(cnf->name, ptmp - cnf->name));
+    if (objtmp == nullptr) {
+      return nullptr;
     }
-    acc->method = OBJ_txt2obj(objtmp, 0);
+    acc->method = OBJ_txt2obj(objtmp.get(), 0);
     if (!acc->method) {
       OPENSSL_PUT_ERROR(X509V3, X509V3_R_BAD_OBJECT);
-      ERR_add_error_data(2, "value=", objtmp);
-      OPENSSL_free(objtmp);
-      goto err;
+      ERR_add_error_data(2, "value=", objtmp.get());
+      return nullptr;
     }
-    OPENSSL_free(objtmp);
+    if (!PushToStack(ainfo.get(), std::move(acc))) {
+      return nullptr;
+    }
   }
-  return ainfo;
-err:
-  sk_ACCESS_DESCRIPTION_pop_free(ainfo, ACCESS_DESCRIPTION_free);
-  return NULL;
+  return ainfo.release();
 }

@@ -1,11 +1,16 @@
-/*
- * Copyright 2000-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 2000-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_x509.h>
 
@@ -13,7 +18,10 @@
 #include <CNIOBoringSSL_bio.h>
 #include <CNIOBoringSSL_nid.h>
 
-#include "ext_dat.h"
+#include "internal.h"
+
+
+using namespace bssl;
 
 // OCSP extensions and a couple of CRL entry extensions
 
@@ -25,38 +33,38 @@ static int i2r_ocsp_nocheck(const X509V3_EXT_METHOD *method, void *nocheck,
 static void *s2i_ocsp_nocheck(const X509V3_EXT_METHOD *method,
                               const X509V3_CTX *ctx, const char *str);
 
-const X509V3_EXT_METHOD v3_crl_invdate = {
+const X509V3_EXT_METHOD bssl::v3_crl_invdate = {
     NID_invalidity_date,
     0,
     ASN1_ITEM_ref(ASN1_GENERALIZEDTIME),
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
     i2r_ocsp_acutoff,
-    0,
-    NULL,
+    nullptr,
+    nullptr,
 };
 
-const X509V3_EXT_METHOD v3_ocsp_nocheck = {
+const X509V3_EXT_METHOD bssl::v3_ocsp_nocheck = {
     NID_id_pkix_OCSP_noCheck,
     0,
     ASN1_ITEM_ref(ASN1_NULL),
-    0,
-    0,
-    0,
-    0,
-    0,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
     s2i_ocsp_nocheck,
-    0,
-    0,
+    nullptr,
+    nullptr,
     i2r_ocsp_nocheck,
-    0,
-    NULL,
+    nullptr,
+    nullptr,
 };
 
 static int i2r_ocsp_acutoff(const X509V3_EXT_METHOD *method, void *cutoff,

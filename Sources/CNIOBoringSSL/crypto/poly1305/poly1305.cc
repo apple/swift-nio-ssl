@@ -1,16 +1,16 @@
-/* Copyright 2014 The BoringSSL Authors
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2014 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 // This implementation of poly1305 is by Andrew Moon
 // (https://github.com/floodyberry/poly1305-donna) and released as public
@@ -24,6 +24,8 @@
 #include "../internal.h"
 #include "internal.h"
 
+
+using namespace bssl;
 
 #if !defined(BORINGSSL_HAS_UINT128) || !defined(OPENSSL_X86_64)
 
@@ -42,13 +44,12 @@ static_assert(
     sizeof(struct poly1305_state_st) + 63 <= sizeof(poly1305_state),
     "poly1305_state isn't large enough to hold aligned poly1305_state_st");
 
-static inline struct poly1305_state_st *poly1305_aligned_state(
-    poly1305_state *state) {
+static struct poly1305_state_st *poly1305_aligned_state(poly1305_state *state) {
   return reinterpret_cast<poly1305_state_st *>(align_pointer(state, 64));
 }
 
-// poly1305_blocks updates |state| given some amount of input data. This
-// function may only be called with a |len| that is not a multiple of 16 at the
+// poly1305_blocks updates `state` given some amount of input data. This
+// function may only be called with a `len` that is not a multiple of 16 at the
 // end of the data. Otherwise the input must be buffered into 16 byte blocks.
 static void poly1305_update(struct poly1305_state_st *state, const uint8_t *in,
                             size_t len) {
