@@ -17,6 +17,6 @@
 /// Initialize BoringSSL. Note that this function IS NOT THREAD SAFE, and so must be called inside
 /// either an explicit or implicit dispatch_once.
 func initializeBoringSSL() -> Bool {
-    CNIOBoringSSL_CRYPTO_library_init()
+    CRYPTO_library_init()
     return true
 }

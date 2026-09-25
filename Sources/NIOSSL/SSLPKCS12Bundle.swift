@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 @_implementationOnly import CNIOBoringSSL
+@_implementationOnly import CNIOBoringSSLShims
 
 /// A container for a single PKCS#12 bundle.
 ///
@@ -50,7 +51,7 @@ public struct NIOSSLPKCS12Bundle: Hashable {
         var caCerts: OpaquePointer? = nil
 
         let rc = try passphrase.withSecureCString { passphrase in
-            CNIOBoringSSL_PKCS12_parse(ref, passphrase, &pkey, &cert, &caCerts)
+            PKCS12_parse(ref, passphrase, &pkey, &cert, &caCerts)
         }
         guard rc == 1 else {
             throw BoringSSLError.unknownError(BoringSSLError.buildErrorStack())
@@ -62,13 +63,13 @@ public struct NIOSSLPKCS12Bundle: Hashable {
             fatalError("Failed to obtain cert and pkey from a PKC12 file")
         }
 
-        let certStackSize = caCerts.map { CNIOBoringSSL_sk_X509_num($0) } ?? 0
+        let certStackSize = caCerts.map { CNIOBoringSSLShims_sk_X509_num($0) } ?? 0
         var certs = [NIOSSLCertificate]()
         certs.reserveCapacity(Int(certStackSize) + 1)
         certs.append(NIOSSLCertificate.fromUnsafePointer(takingOwnership: actualCert))
 
         for idx in 0..<certStackSize {
-            guard let stackCertPtr = CNIOBoringSSL_sk_X509_value(caCerts, idx) else {
+            guard let stackCertPtr = CNIOBoringSSLShims_sk_X509_value(caCerts, idx) else {
                 preconditionFailure("Unable to get cert \(idx) from stack")
             }
             certs.append(NIOSSLCertificate.fromUnsafePointer(takingOwnership: stackCertPtr))
@@ -89,14 +90,14 @@ public struct NIOSSLPKCS12Bundle: Hashable {
         guard boringSSLIsInitialized else { fatalError("Failed to initialize BoringSSL") }
 
         let p12 = buffer.withUnsafeBytes { pointer -> OpaquePointer? in
-            let bio = CNIOBoringSSL_BIO_new_mem_buf(pointer.baseAddress, pointer.count)!
+            let bio = BIO_new_mem_buf(pointer.baseAddress, pointer.count)!
             defer {
-                CNIOBoringSSL_BIO_free(bio)
+                BIO_free(bio)
             }
-            return CNIOBoringSSL_d2i_PKCS12_bio(bio, nil)
+            return d2i_PKCS12_bio(bio, nil)
         }
         defer {
-            p12.map { CNIOBoringSSL_PKCS12_free($0) }
+            p12.map { PKCS12_free($0) }
         }
 
         if let p12 = p12 {
@@ -120,9 +121,9 @@ public struct NIOSSLPKCS12Bundle: Hashable {
             fclose(fileObject)
         }
 
-        let p12 = CNIOBoringSSL_d2i_PKCS12_fp(fileObject, nil)
+        let p12 = d2i_PKCS12_fp(fileObject, nil)
         defer {
-            p12.map(CNIOBoringSSL_PKCS12_free)
+            p12.map(PKCS12_free)
         }
 
         if let p12 = p12 {
@@ -190,16 +191,16 @@ extension NIOSSLPKCS12Bundle {
             preconditionFailure("At least one certificate must be provided")
         }
 
-        let certificateChainStack = CNIOBoringSSL_sk_X509_new(nil)
+        let certificateChainStack = CNIOBoringSSLShims_sk_X509_new_null()
 
         defer {
-            CNIOBoringSSL_sk_X509_pop_free(certificateChainStack, CNIOBoringSSL_X509_free)
+            CNIOBoringSSLShims_sk_X509_pop_free(certificateChainStack, X509_free)
         }
 
         for additionalCertificate in self.certificateChain.dropFirst() {
             let result = additionalCertificate.withUnsafeMutableX509Pointer { certificate in
-                CNIOBoringSSL_X509_up_ref(certificate)
-                return CNIOBoringSSL_sk_X509_push(certificateChainStack, certificate)
+                X509_up_ref(certificate)
+                return CNIOBoringSSLShims_sk_X509_push(certificateChainStack, certificate)
             }
             if result == 0 {
                 fatalError("Failed to add certificate to chain")
@@ -209,7 +210,7 @@ extension NIOSSLPKCS12Bundle {
         let pkcs12 = try passphrase.withSecureCString { passphrase in
             privateKey.withUnsafeMutableEVPPKEYPointer { privateKey in
                 mainCertificate.withUnsafeMutableX509Pointer { certificate in
-                    CNIOBoringSSL_PKCS12_create(
+                    PKCS12_create(
                         passphrase,
                         nil,
                         privateKey,
@@ -226,25 +227,25 @@ extension NIOSSLPKCS12Bundle {
         }
 
         defer {
-            CNIOBoringSSL_PKCS12_free(pkcs12)
+            PKCS12_free(pkcs12)
         }
 
-        guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_mem()) else {
+        guard let bio = BIO_new(BIO_s_mem()) else {
             fatalError("Failed to malloc for a BIO handler")
         }
 
         defer {
-            CNIOBoringSSL_BIO_free(bio)
+            BIO_free(bio)
         }
 
-        let rc = CNIOBoringSSL_i2d_PKCS12_bio(bio, pkcs12)
+        let rc = i2d_PKCS12_bio(bio, pkcs12)
         guard rc == 1 else {
             let errorStack = BoringSSLError.buildErrorStack()
             throw BoringSSLError.unknownError(errorStack)
         }
 
         var dataPtr: UnsafeMutablePointer<CChar>? = nil
-        let length = CNIOBoringSSL_BIO_get_mem_data(bio, &dataPtr)
+        let length = BIO_get_mem_data(bio, &dataPtr)
         guard let bytes = dataPtr.map({ UnsafeMutableRawBufferPointer(start: $0, count: length) }) else {
             fatalError("Failed to get bytes from private key")
         }
@@ -286,7 +287,7 @@ extension Collection where Element == UInt8 {
             // .initialize(repeating: 0) can be, and empirically is, optimized away, bzero
             // is deprecated, memset_s is not well supported cross-platform, and memset-to-zero
             // is famously easily optimised away. This is our best bet.
-            CNIOBoringSSL_OPENSSL_cleanse(bufferPtr.baseAddress!, bufferPtr.count)
+            OPENSSL_cleanse(bufferPtr.baseAddress!, bufferPtr.count)
             bufferPtr.baseAddress!.deinitialize(count: bufferPtr.count)
         }
 

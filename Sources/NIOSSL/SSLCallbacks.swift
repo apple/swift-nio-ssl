@@ -376,7 +376,7 @@ extension CustomContextManager {
             }
 
             // Construct extension values to be passed to callback
-            let cServerHostname = CNIOBoringSSL_SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
+            let cServerHostname = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)
             let serverHostname = cServerHostname.map { String(cString: $0) }
             let values = NIOSSLClientExtensionValues(serverHostname: serverHostname)
 
