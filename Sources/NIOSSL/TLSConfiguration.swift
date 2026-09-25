@@ -212,6 +212,21 @@ extension CertificateVerification: Hashable {
     // empty
 }
 
+extension CertificateVerification {
+    /// Whether this mode requires the peer to present a certificate.
+    ///
+    /// This must stay in sync with the BoringSSL verification setup in `NIOSSLContext`: only the
+    /// modes that map to `SSL_VERIFY_FAIL_IF_NO_PEER_CERT` require a certificate.
+    internal var requiresPeerCertificate: Bool {
+        switch self {
+        case .fullVerification, .noHostnameVerification:
+            return true
+        case .none:
+            return false
+        }
+    }
+}
+
 /// Support for TLS renegotiation.
 ///
 /// In general, renegotiation should not be enabled except in circumstances where it is absolutely necessary.
@@ -506,6 +521,57 @@ public struct TLSConfiguration {
 extension TLSConfiguration: Sendable {}
 
 // MARK: BestEffortHashable
+
+/// The raw representation of a closure: a function pointer plus a context pointer.
+///
+/// Closure values cannot safely be inspected byte-wise by passing them directly to a generic
+/// parameter such as `withUnsafeBytes(of:)` or `unsafeBitCast(_:to:)`. Swift's calling
+/// convention requires generic arguments in their maximally abstract form (arguments and
+/// results passed indirectly), so a closure stored in its concrete form must be converted
+/// before it can be passed. That conversion emits a "reabstraction thunk", and the thunk
+/// needs a freshly heap-allocated box to capture the original function. The bytes that
+/// reach the closure are then the thunk's pointer and the box's address — a new address on
+/// every call — and never the closure that was actually stored.
+///
+/// The effect is that two byte-wise comparisons of the same closure can often disagree,
+/// which turns `bestEffortEquals` into "never equal" for any configuration carrying a
+/// callback.
+///
+/// Reading the words out of a concrete wrapper struct keeps the function away from any
+/// generic parameter, so no thunk is emitted and the stored bytes are observed as they are.
+private struct ClosureBits: Hashable {
+    /// See ``ClosureBits``.
+    private struct KeyLogCallbackBox {
+        var callback: NIOSSLKeyLogCallback?
+    }
+
+    private struct SSLContextCallbackBox {
+        var callback: NIOSSLContextCallback?
+    }
+
+    private var function: UInt
+    private var context: UInt
+
+    init(_ closure: NIOSSLKeyLogCallback?) {
+        self.init(KeyLogCallbackBox(callback: closure))
+    }
+
+    init(_ closure: NIOSSLContextCallback?) {
+        self.init(SSLContextCallbackBox(callback: closure))
+    }
+
+    // Never call this with the closure directly, only the boxes.
+    private init(_ box: some Any) {
+        precondition(MemoryLayout.size(ofValue: box) == 2 * MemoryLayout<UInt>.size)
+        (self.function, self.context) = withUnsafeBytes(of: box) { raw in
+            (
+                raw.load(fromByteOffset: 0, as: UInt.self),
+                raw.load(fromByteOffset: MemoryLayout<UInt>.size, as: UInt.self)
+            )
+        }
+    }
+}
+
 extension TLSConfiguration {
     /// Returns a best effort result of whether two ``TLSConfiguration`` objects are equal.
     ///
@@ -513,11 +579,7 @@ extension TLSConfiguration {
     ///
     /// - warning: You should probably not use this function. This function can return false-negatives, but not false-positives.
     public func bestEffortEquals(_ comparing: TLSConfiguration) -> Bool {
-        let isKeyLoggerCallbacksEqual = withUnsafeBytes(of: self.keyLogCallback) { callbackPointer1 in
-            withUnsafeBytes(of: comparing.keyLogCallback) { callbackPointer2 in
-                callbackPointer1.elementsEqual(callbackPointer2)
-            }
-        }
+        let isKeyLoggerCallbacksEqual = ClosureBits(self.keyLogCallback) == ClosureBits(comparing.keyLogCallback)
         let isPSKClientProviderEqual = withUnsafeBytes(of: self._pskClientIdentityProvider) { pskClientProvider1 in
             withUnsafeBytes(of: comparing._pskClientIdentityProvider) { pskClientProvider2 in
                 pskClientProvider1.elementsEqual(pskClientProvider2)
@@ -528,11 +590,8 @@ extension TLSConfiguration {
                 pskServerProvider1.elementsEqual(pskServerProvider2)
             }
         }
-        let isSSLContextCallbackEqual = withUnsafeBytes(of: self.sslContextCallback) { sslContextCallback1 in
-            withUnsafeBytes(of: comparing.sslContextCallback) { sslContextCallback2 in
-                sslContextCallback1.elementsEqual(sslContextCallback2)
-            }
-        }
+        let isSSLContextCallbackEqual =
+            ClosureBits(self.sslContextCallback) == ClosureBits(comparing.sslContextCallback)
 
         return self.minimumTLSVersion == comparing.minimumTLSVersion
             && self.maximumTLSVersion == comparing.maximumTLSVersion && self.cipherSuites == comparing.cipherSuites
@@ -567,9 +626,7 @@ extension TLSConfiguration {
         hasher.combine(privateKey)
         hasher.combine(encodedApplicationProtocols)
         hasher.combine(shutdownTimeout)
-        withUnsafeBytes(of: keyLogCallback) { closureBits in
-            hasher.combine(bytes: closureBits)
-        }
+        hasher.combine(ClosureBits(keyLogCallback))
         hasher.combine(renegotiationSupport)
         hasher.combine(sendCANameList)
         withUnsafeBytes(of: _pskClientIdentityProvider) { closureClientBits in
@@ -578,9 +635,7 @@ extension TLSConfiguration {
         withUnsafeBytes(of: _pskServerIdentityProvider) { closureServerBits in
             hasher.combine(bytes: closureServerBits)
         }
-        withUnsafeBytes(of: sslContextCallback) { closureServerBits in
-            hasher.combine(bytes: closureServerBits)
-        }
+        hasher.combine(ClosureBits(sslContextCallback))
         hasher.combine(pskHint)
     }
 

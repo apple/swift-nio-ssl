@@ -68,6 +68,10 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
         self.storedContext?.channel
     }
 
+    internal var _testOnly_plaintextReadBufferCapacity: Int? {
+        self.plaintextReadBuffer?.capacity
+    }
+
     internal init(
         connection: SSLConnection,
         shutdownTimeout: TimeAmount,
@@ -95,7 +99,7 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
         self.connection.parentHandler = self
         self.connection.eventLoop = context.eventLoop
 
-        self.plaintextReadBuffer = context.channel.allocator.buffer(capacity: SSL_MAX_RECORD_SIZE)
+        self.plaintextReadBuffer = context.channel.allocator.buffer(capacity: 2 * SSL_MAX_RECORD_SIZE)
         // If this channel is already active, immediately begin handshaking.
         if context.channel.isActive {
             doHandshakeStep(context: context)
@@ -158,10 +162,13 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
         }
         let shutdownPromise = self.shutdownPromise
         self.shutdownPromise = nil
+        let closeOutputPromise = self.closeOutputPromise
+        self.closeOutputPromise = nil
         let closePromise = self.closePromise
         self.closePromise = nil
 
         shutdownPromise?.fail(channelError)
+        closeOutputPromise?.fail(channelError)
         closePromise?.fail(channelError)
         context.fireErrorCaught(channelError)
         discardBufferedActions(reason: channelError)
@@ -213,6 +220,8 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
 
     private func userInboundInputClosedTriggered(context: ChannelHandlerContext) {
         let channelError: NIOSSLError
+        let fatal: Bool
+
         switch self.state {
         case .inputClosed:
             return
@@ -226,6 +235,7 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
             // We use a synthetic error here as the error stack will be empty, and we should try to
             // provide some diagnostic help.
             channelError = NIOSSLError.handshakeFailed(.sslError([.eofDuringHandshake]))
+            fatal = true
         case .additionalVerification:
             // In this case the channel is going through the doHandshake steps and
             // a channelInactive is fired taking down the connection.
@@ -233,14 +243,32 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
             // We use a synthetic error here as the error stack will be empty, and we should try to
             // provide some diagnostic help.
             channelError = NIOSSLError.handshakeFailed(.sslError([.eofDuringAdditionalCertficiateChainValidation]))
+            fatal = true
         default:
             // This is a ragged EOF: we weren't sent a CLOSE_NOTIFY. We want to send a user
             // event to notify about this before we propagate channelInactive. We also want to fail all
             // these writes.
+            // Half closure is legitimate here, so we deliberately leave the state alone.
             channelError = NIOSSLError.uncleanShutdown
+            fatal = false
         }
+
+        if fatal {
+            // Mark the state terminal before invoking downstream handlers. Those handlers may
+            // synchronously complete an outstanding additional-verification future, which must
+            // not reactivate a connection whose input has already closed.
+            self.state = .closed
+        }
+
         context.fireErrorCaught(channelError)
         context.fireUserInboundEventTriggered(ChannelEvent.inputClosed)
+
+        if fatal {
+            // We have declared the handshake failed, so this connection can never be used: close it
+            // rather than leave it half-closed. Nothing else necessarily owns the closure, as NIO
+            // does not close on FIN when allowRemoteHalfClosure is set.
+            self.channelClose(context: context, reason: channelError)
+        }
     }
 
     public func write(context: ChannelHandlerContext, data: NIOAny, promise: EventLoopPromise<Void>?) {
@@ -376,23 +404,32 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
             }
 
             if let additionalPeerCertificateVerificationCallback = self.additionalPeerCertificateVerificationCallback {
-                state = .additionalVerification
-                guard let peerCertificate = connection.getPeerCertificate() else {
-                    preconditionFailure(
-                        """
-                            Couldn't get peer certificate after chain verification was successful.
-                            This should be impossible as we have a precondition during creation of this handler that requires certificate verification.
-                            Please file an issue.
-                        """
+                if let peerCertificate = connection.getPeerCertificate() {
+                    state = .additionalVerification
+                    additionalPeerCertificateVerificationCallback(peerCertificate, context.channel)
+                        .hop(to: context.eventLoop)
+                        .assumeIsolated()
+                        .whenComplete { result in
+                            self.completedAdditionalPeerCertificateVerification(result: result)
+                        }
+                    return
+                } else if self.connection.parentContext.configuration.certificateVerification.requiresPeerCertificate {
+                    // The peer presented no certificate even though verification required one.
+                    // BoringSSL sets `SSL_VERIFY_FAIL_IF_NO_PEER_CERT` for these modes, so it
+                    // should have failed the handshake before reaching `.complete`; this branch
+                    // should be unreachable. If it ever is reached we must fail closed rather
+                    // than accept an unauthenticated peer or silently skip the callback.
+                    assertionFailure(
+                        "Reached handshake completion with no peer certificate despite required certificate verification."
                     )
+                    let error = NIOSSLError.noCertificateToValidate
+                    context.fireErrorCaught(error)
+                    channelClose(context: context, reason: error)
+                    return
                 }
-                additionalPeerCertificateVerificationCallback(peerCertificate, context.channel)
-                    .hop(to: context.eventLoop)
-                    .assumeIsolated()
-                    .whenComplete { result in
-                        self.completedAdditionalPeerCertificateVerification(result: result)
-                    }
-                return
+                // Otherwise verification is optional and the peer presented no certificate: there
+                // is nothing to verify, so we skip the callback and accept the connection,
+                // consistent with `.optionalVerification`'s semantics.
             }
 
             state = .active
@@ -729,10 +766,14 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
         let shutdownPromise = self.shutdownPromise
         self.shutdownPromise = nil
 
+        let closeOutputPromise = self.closeOutputPromise
+        self.closeOutputPromise = nil
+
         let closePromise = self.closePromise
         self.closePromise = nil
 
         shutdownPromise?.fail(reason)
+        closeOutputPromise?.fail(reason)
         context.close(promise: closePromise)
     }
 

@@ -1,5 +1,6 @@
 .DS_Store
 /.build
+*/.build
 /Packages
 /*.xcodeproj
 Package.pins
@@ -9,3 +10,4 @@ Package.resolved
 DerivedData
 /.idea
 .swiftpm
+.vscode

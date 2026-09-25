@@ -429,15 +429,15 @@ class TLSConfigurationTest: XCTestCase {
         leafCert: NIOSSLCertificate, leafKey: NIOSSLPrivateKey,
         clientCert: NIOSSLCertificate, clientKey: NIOSSLPrivateKey
     ) {
-        let leaf = try NIOSSLCertificate(bytes: .init(leafCertificateForTLSIssuedFromCustomCARoot.utf8), format: .pem)
-        let leaf_privateKey = try NIOSSLPrivateKey.init(bytes: .init(privateKeyForLeafCertificate.utf8), format: .pem)
+        let leaf = try NIOSSLCertificate(bytes: .init(customChain.serverLeafCertificatePEM.utf8), format: .pem)
+        let leaf_privateKey = try NIOSSLPrivateKey(bytes: .init(customChain.serverPrivateKeyPEM.utf8), format: .pem)
 
         let client_cert = try NIOSSLCertificate(
-            bytes: .init(leafCertificateForClientAuthenticationIssuedFromCustomCARoot.utf8),
+            bytes: .init(customChain.clientLeafCertificatePEM.utf8),
             format: .pem
         )
-        let client_privateKey = try NIOSSLPrivateKey.init(
-            bytes: .init(privateKeyForClientAuthentication.utf8),
+        let client_privateKey = try NIOSSLPrivateKey(
+            bytes: .init(customChain.clientPrivateKeyPEM.utf8),
             format: .pem
         )
         return (leaf, leaf_privateKey, client_cert, client_privateKey)
@@ -764,7 +764,7 @@ class TLSConfigurationTest: XCTestCase {
 
     func testFullVerificationWithCANamesFromCertificate() throws {
         // Custom certificates for TLS and client authentication.
-        let root = try NIOSSLCertificate(bytes: .init(customCARoot.utf8), format: .pem)
+        let root = try NIOSSLCertificate(bytes: .init(customChain.rootPEM.utf8), format: .pem)
 
         let digitalIdentities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
 
@@ -839,7 +839,7 @@ class TLSConfigurationTest: XCTestCase {
         // Custom certificates for TLS and client authentication.
         // In this test create the root certificate in the tmp directory and use it here to send the CA names.
         // This exercised the loadVerifyLocations file code path out in SSLContext
-        let rootPath = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem")
+        let rootPath = try dumpToFile(data: .init(customChain.rootPEM.utf8), fileExtension: ".pem")
 
         let digitalIdentities = try setupTLSLeafandClientIdentitiesFromCustomCARoot()
 
@@ -915,7 +915,11 @@ class TLSConfigurationTest: XCTestCase {
         // Use the test name as the directory name in the temporary directory.
         let testName = String("\(#function)".dropLast(2))
         // Create 2 PEM based certs
-        let rootCAPathOne = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem", customPath: testName)
+        let rootCAPathOne = try dumpToFile(
+            data: .init(customChain.rootPEM.utf8),
+            fileExtension: ".pem",
+            customPath: testName
+        )
         let rootCAPathTwo = try dumpToFile(
             data: .init(secondaryRootCertificateForClientAuthentication.utf8),
             fileExtension: ".pem",
@@ -991,9 +995,12 @@ class TLSConfigurationTest: XCTestCase {
         // Filename is not in rehash format.
         let acceptablePathBadFilename = try NIOSSLContext._isRehashFormat(path: "/etc/ssl/certs/myFile.pem")
         XCTAssertFalse(acceptablePathBadFilename)
-        // Filename is in bad rehash format.
+        // Filename is in bad rehash format: the extension is not a decimal digit.
         let acceptablePathBadRehashFormat = try NIOSSLContext._isRehashFormat(path: "/etc/ssl/certs/7f44456a.z")
         XCTAssertFalse(acceptablePathBadRehashFormat)
+        // Nor is a non-digit that happens to be a hex character.
+        let acceptablePathHexExtension = try NIOSSLContext._isRehashFormat(path: "/etc/ssl/certs/7f44456a.a")
+        XCTAssertFalse(acceptablePathHexExtension)
 
         // Test with an actual file, but no symlink.
         let dummyFile = try dumpToFile(data: Data(), fileExtension: ".txt", customPath: testName)
@@ -1004,7 +1011,11 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertFalse(acceptablePathAndRehashFormatButNoSymlink)
 
         // Test actual symlink
-        let rootCAPathOne = try dumpToFile(data: .init(customCARoot.utf8), fileExtension: ".pem", customPath: testName)
+        let rootCAPathOne = try dumpToFile(
+            data: .init(customChain.rootPEM.utf8),
+            fileExtension: ".pem",
+            customPath: testName
+        )
         let rehashSymlinkName = getRehashFilename(path: rootCAPathOne, testName: testName, numericExtension: 0)
 
         // Extract just the filename of the newly create certs in the tmp directory.
@@ -1031,6 +1042,100 @@ class TLSConfigurationTest: XCTestCase {
         // Test the success case for the symlink
         let successSymlink = try NIOSSLContext._isRehashFormat(path: rehashSymlinkName)
         XCTAssertTrue(successSymlink)
+    }
+
+    func testRehashFormatAcceptsCollisionSuffixes() throws {
+        // `openssl rehash` names its links "%08x.%s%d", the infix being empty for certificates:
+        // when several certificates share a subject name hash, the id is incremented rather than
+        // staying at 0. Every one of those links is in c_rehash format and must be recognised,
+        // otherwise the CAs behind the higher ids are silently left out of the client CA list.
+        //
+        // The id is a plain %d, so it grows past one digit. `apps/rehash.c` caps a hash bucket at
+        // 256 entries (MAX_COLLISIONS), which makes 255 the largest id that tool can write. The
+        // older perl `tools/c_rehash.in`, still shipped on the 3.0 and 3.5 branches, has no such
+        // cap: its suffix loop just increments until it finds a free name. So the predicate
+        // deliberately accepts any number of digits rather than enforcing a ceiling of its own.
+        let testName = String("\(#function)".dropLast(2))
+
+        let rootCAPath = try dumpToFile(
+            data: .init(customChain.rootPEM.utf8),
+            fileExtension: ".pem",
+            customPath: testName
+        )
+        let rootCAFilename = URL(string: "file://" + rootCAPath)!.lastPathComponent
+
+        var symlinks: [String] = []
+        defer {
+            for symlink in symlinks {
+                XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + symlink)!))
+            }
+            XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + rootCAPath)!))
+            let removePath = "\(FileManager.default.temporaryDirectory.path)/\(testName)/"
+            XCTAssertNoThrow(try FileManager.default.removeItem(at: URL(string: "file://" + removePath)!))
+        }
+
+        let acceptedSuffixes: [(id: Int, why: String)] = [
+            (0, "the first link for a hash"),
+            (1, "the first collision"),
+            (9, "the last single-digit id"),
+            (10, "the first two-digit id; a single-character check would drop it"),
+            (123, "an arbitrary id in the middle of the range"),
+            (255, "the largest id apps/rehash.c can write (MAX_COLLISIONS - 1)"),
+        ]
+        for (numericExtension, why) in acceptedSuffixes {
+            let symlinkName = getRehashFilename(
+                path: rootCAPath,
+                testName: testName,
+                numericExtension: numericExtension
+            )
+            XCTAssertNoThrow(
+                try FileManager.default.createSymbolicLink(
+                    atPath: symlinkName,
+                    withDestinationPath: rootCAFilename
+                )
+            )
+            symlinks.append(symlinkName)
+
+            XCTAssertTrue(
+                try NIOSSLContext._isRehashFormat(path: symlinkName),
+                "\(symlinkName) is a valid c_rehash link (\(why)) and should be recognised"
+            )
+        }
+
+        // Names that have the right characters but a shape `openssl rehash` never produces. They
+        // are real symlinks to a real certificate, so the name check is the only thing that can
+        // reject them.
+        //
+        // The first three depend on the split keeping empty subsequences: ".7f44456a.0",
+        // "7f44456a..0" and "7f44456a.0." each collapse to the same two parts as "7f44456a.0"
+        // when empty pieces are discarded, and would be accepted. The other three are rejected
+        // for reasons that do not involve the split at all: "7f44456a." by the !isEmpty check,
+        // "7f44456a.0.1" by yielding three parts under either behaviour, and "7f44456a.r0" by
+        // isDecimalDigit.
+        let rejectedNames: [(name: String, why: String)] = [
+            (".7f44456a.0", "leading period gives an empty first part"),
+            ("7f44456a..0", "doubled period gives an empty middle part"),
+            ("7f44456a.0.", "trailing period gives an empty last part"),
+            ("7f44456a.", "empty extension: openssl rehash always writes at least one digit"),
+            ("7f44456a.0.1", "two periods: three parts, not two"),
+            ("7f44456a.r0", "CRL link: the caller loads every accepted name as a PEM certificate"),
+        ]
+        let tempDirPath = FileManager.default.temporaryDirectory.path + "/" + testName + "/"
+        for (name, why) in rejectedNames {
+            let symlinkName = tempDirPath + name
+            XCTAssertNoThrow(
+                try FileManager.default.createSymbolicLink(
+                    atPath: symlinkName,
+                    withDestinationPath: rootCAFilename
+                )
+            )
+            symlinks.append(symlinkName)
+
+            XCTAssertFalse(
+                try NIOSSLContext._isRehashFormat(path: symlinkName),
+                "\(symlinkName) is not a name openssl rehash produces (\(why)) and must be rejected"
+            )
+        }
     }
 
     func testNonexistentFileObject() throws {
@@ -1141,6 +1246,150 @@ class TLSConfigurationTest: XCTestCase {
         var differentConfig = config
         differentConfig.sslContextCallback = { _, _ in }
         XCTAssertFalse(config.bestEffortEquals(differentConfig))
+    }
+
+    func testSSLContextCallbackConfigEqualsItself() {
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        config.sslContextCallback = { _, _ in }
+        let theSameConfig = config
+
+        // `bestEffortEquals` is documented to return false-negatives but not false-positives.
+        // Comparing a configuration against a copy of itself must therefore still be equal:
+        // the closure is literally the same closure, so there is no negative to be had.
+        XCTAssertTrue(config.bestEffortEquals(theSameConfig))
+        XCTAssertTrue(config.bestEffortEquals(config))
+    }
+
+    func testSSLContextCallbackConfigHashesEqualToItself() {
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        config.sslContextCallback = { _, _ in }
+        let theSameConfig = config
+
+        var hasher = Hasher()
+        var hasher2 = Hasher()
+        config.bestEffortHash(into: &hasher)
+        theSameConfig.bestEffortHash(into: &hasher2)
+        XCTAssertEqual(hasher.finalize(), hasher2.finalize())
+    }
+
+    func testKeyLogCallbackConfigEqualsItself() {
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        config.keyLogCallback = { _ in }
+        let theSameConfig = config
+
+        XCTAssertTrue(config.bestEffortEquals(theSameConfig))
+
+        var hasher = Hasher()
+        var hasher2 = Hasher()
+        config.bestEffortHash(into: &hasher)
+        theSameConfig.bestEffortHash(into: &hasher2)
+        XCTAssertEqual(hasher.finalize(), hasher2.finalize())
+    }
+
+    func testCallbackBearingConfigEqualsItselfRepeatedly() {
+        // The failure this guards against is a per-call heap allocation, so it can be
+        // sensitive to optimisation and to allocator state. Repeat it enough times that a
+        // regression cannot pass by luck.
+        var config = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        config.sslContextCallback = { _, _ in }
+        config.keyLogCallback = { _ in }
+        let theSameConfig = config
+
+        for _ in 0..<1000 {
+            XCTAssertTrue(config.bestEffortEquals(theSameConfig))
+        }
+    }
+
+    func testCallbacksDifferingOnlyByCaptureNotEqual() {
+        // Both configurations get a callback made from the same closure literal, so the
+        // function pointers are identical and only the captured context differs. This is
+        // the case the context word alone has to distinguish, and it guards against a
+        // comparison that looks at the function pointer but ignores the context.
+        func makeCallback(_ response: String) -> NIOSSLContextCallback {
+            { _, promise in
+                promise.succeed(NIOSSLContextConfigurationOverride())
+                _ = response
+            }
+        }
+
+        var config = TLSConfiguration.makeClientConfiguration()
+        config.sslContextCallback = makeCallback("first")
+        var differentConfig = config
+        differentConfig.sslContextCallback = makeCallback("second")
+
+        XCTAssertFalse(config.bestEffortEquals(differentConfig))
+        XCTAssertNotEqual(Wrapper(config: config), Wrapper(config: differentConfig))
+    }
+
+    func testCapturingCallbackEqualsItselfWhenCopied() {
+        // The mirror of the above: one capturing closure shared by both configurations.
+        // The context is a single heap box, so this must compare equal.
+        func makeCallback(_ response: String) -> NIOSSLContextCallback {
+            { _, promise in
+                promise.succeed(NIOSSLContextConfigurationOverride())
+                _ = response
+            }
+        }
+
+        var config = TLSConfiguration.makeClientConfiguration()
+        config.sslContextCallback = makeCallback("shared")
+        let theSameConfig = config
+
+        XCTAssertTrue(config.bestEffortEquals(theSameConfig))
+        XCTAssertEqual(Wrapper(config: config), Wrapper(config: theSameConfig))
+    }
+
+    func testCallbackSetVersusUnsetNotEqual() {
+        var withCallback = TLSConfiguration.makeClientConfiguration()
+        withCallback.sslContextCallback = { _, _ in }
+        let withoutCallback = TLSConfiguration.makeClientConfiguration()
+
+        XCTAssertFalse(withCallback.bestEffortEquals(withoutCallback))
+        XCTAssertFalse(withoutCallback.bestEffortEquals(withCallback))
+        XCTAssertNotEqual(Wrapper(config: withCallback), Wrapper(config: withoutCallback))
+
+        var withKeyLog = TLSConfiguration.makeClientConfiguration()
+        withKeyLog.keyLogCallback = { _ in }
+        XCTAssertFalse(withKeyLog.bestEffortEquals(withoutCallback))
+        XCTAssertNotEqual(Wrapper(config: withKeyLog), Wrapper(config: withoutCallback))
+    }
+
+    func testDistinctCallbacksNotEqual() {
+        // Two closures with distinguishable bodies. The bodies must differ: a compiler is
+        // free to fold two identical function bodies into a single function, and identical
+        // non-capturing closures then share a function pointer and a null context, so they
+        // compare equal. That is a false positive, which `bestEffortEquals` documents as the
+        // one result it must never produce.
+        //
+        // This is inherent to comparing closures byte-wise and is not specific to
+        // `sslContextCallback`; the same is true of the PSK providers, which have always
+        // been compared this way. It is called out here so that the guarantee this test
+        // relies on -- distinct bodies, hence distinct functions -- is explicit rather than
+        // accidental. `testDifferentSSLContextCallbacksNotEqual` above uses two empty
+        // closures and so does not reliably test this.
+        var config = TLSConfiguration.makeClientConfiguration()
+        config.sslContextCallback = { _, promise in
+            promise.succeed(NIOSSLContextConfigurationOverride())
+        }
+        var differentConfig = TLSConfiguration.makeClientConfiguration()
+        differentConfig.sslContextCallback = { _, promise in
+            promise.fail(NIOSSLError.unableToValidateCertificate)
+        }
+
+        XCTAssertFalse(config.bestEffortEquals(differentConfig))
+        XCTAssertNotEqual(Wrapper(config: config), Wrapper(config: differentConfig))
     }
 
     func testCompatibleCurves() throws {
