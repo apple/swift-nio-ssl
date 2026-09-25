@@ -5,10 +5,10 @@
 #include <CNIOBoringSSL_asm_base.h>
 
 #if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_AARCH64) && defined(_WIN32)
-#include <CNIOBoringSSL_arm_arch.h>
 .section	.rodata
 
 .align	7
+chacha20_poly1305_constants:
 Lchacha20_consts:
 .byte	'e','x','p','a','n','d',' ','3','2','-','b','y','t','e',' ','k'
 Linc:
@@ -24,6 +24,7 @@ Lclamp:
    .type 32
 .endef
 .align	6
+chacha20_poly1305_helpers:
 Lpoly_hash_ad_internal:
 .cfi_startproc
 	cbnz	x4, Lpoly_hash_intro
@@ -1205,7 +1206,7 @@ Lseal_hash_extra_load:
 	subs	x4, x4, #1
 	b.gt	Lseal_hash_extra_load
 
-    // Hash in the final padded extra_in blcok
+    // Hash in the final padded extra_in block
 	mov	x11, v20.d[0]
 	mov	x12, v20.d[1]
 	adds	x8, x8, x11
@@ -1584,7 +1585,6 @@ Lopen_init_rounds:
 
 	bl	Lpoly_hash_ad_internal
 
-Lopen_ad_done:
 	mov	x3, x1
 
 // Each iteration of the loop hash 320 bytes, and prepare stream for 320 bytes
@@ -1620,7 +1620,6 @@ Lopen_main_loop:
 	sub	x4, x4, #10
 
 	mov	x7, #10
-	subs	x6, x7, x4
 	subs	x6, x7, x4 // itr1 can be negative if we have more than 320 bytes to hash
 	csel	x7, x7, x4, le // if itr1 is zero or less, itr2 should be 10 to indicate all 10 rounds are full
 

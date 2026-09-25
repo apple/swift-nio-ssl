@@ -29,7 +29,7 @@ private final class CustomPKEY: @unchecked Sendable {
     init(from key: NIOSSLPrivateKey) {
         // Extract a copy of the key reference here.
         self.ref = key.withUnsafeMutableEVPPKEYPointer { pkey in
-            CNIOBoringSSL_EVP_PKEY_up_ref(pkey)
+            EVP_PKEY_up_ref(pkey)
             return pkey
         }
     }
@@ -39,24 +39,24 @@ private final class CustomPKEY: @unchecked Sendable {
     }
 
     deinit {
-        CNIOBoringSSL_EVP_PKEY_free(self.ref)
+        EVP_PKEY_free(self.ref)
     }
 
     func sign(algorithm: SignatureAlgorithm, data: ByteBuffer) -> ByteBuffer {
-        let ctx = CNIOBoringSSL_EVP_PKEY_CTX_new(self.ref, nil)!
+        let ctx = EVP_PKEY_CTX_new(self.ref, nil)!
         defer {
-            CNIOBoringSSL_EVP_PKEY_CTX_free(ctx)
+            EVP_PKEY_CTX_free(ctx)
         }
 
         // Step 1: We need to hash the input before we sign.
-        let hashContext = CNIOBoringSSL_EVP_MD_CTX_new()!
+        let hashContext = EVP_MD_CTX_new()!
         defer {
-            CNIOBoringSSL_EVP_MD_CTX_free(hashContext)
+            EVP_MD_CTX_free(hashContext)
         }
-        CNIOBoringSSL_EVP_MD_CTX_init(hashContext)
-        CNIOBoringSSL_EVP_DigestInit_ex(hashContext, algorithm.md, nil)
+        EVP_MD_CTX_init(hashContext)
+        EVP_DigestInit_ex(hashContext, algorithm.md, nil)
         var rc = data.withUnsafeReadableBytes { bytesPtr in
-            CNIOBoringSSL_EVP_DigestUpdate(
+            EVP_DigestUpdate(
                 hashContext,
                 bytesPtr.baseAddress?.assumingMemoryBound(to: UInt8.self),
                 bytesPtr.count
@@ -64,12 +64,12 @@ private final class CustomPKEY: @unchecked Sendable {
         }
         precondition(rc == 1)
 
-        let signatureSize = CNIOBoringSSL_EVP_MD_size(algorithm.md)
+        let signatureSize = EVP_MD_size(algorithm.md)
 
         var digestBuffer = ByteBuffer()
         digestBuffer.writeWithUnsafeMutableBytes(minimumWritableBytes: signatureSize) { outputPtr in
             var actualSize = CUnsignedInt(outputPtr.count)
-            CNIOBoringSSL_EVP_DigestFinal_ex(
+            EVP_DigestFinal_ex(
                 hashContext,
                 outputPtr.baseAddress?.assumingMemoryBound(to: UInt8.self),
                 &actualSize
@@ -78,24 +78,24 @@ private final class CustomPKEY: @unchecked Sendable {
         }
 
         // Ok, great, we've hashed. Now let's do the signing.
-        precondition(CNIOBoringSSL_EVP_PKEY_sign_init(ctx) == 1)
+        precondition(EVP_PKEY_sign_init(ctx) == 1)
         // TODO: Add RSA padding when needed.
-        CNIOBoringSSL_EVP_PKEY_CTX_set_signature_md(ctx, algorithm.md)
+        EVP_PKEY_CTX_set_signature_md(ctx, algorithm.md)
 
         // For RSA algorithms we may need to add padding.
         if let padding = algorithm.rsaPadding {
-            CNIOBoringSSL_EVP_PKEY_CTX_set_rsa_padding(ctx, padding)
+            EVP_PKEY_CTX_set_rsa_padding(ctx, padding)
         }
 
         // And for some RSA padding, that may require a salt.
         if let saltLength = algorithm.saltLen {
-            CNIOBoringSSL_EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, saltLength)
+            EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, saltLength)
         }
 
         // Now we find out the length we need.
         var signatureLength: Int = 0
         rc = digestBuffer.withUnsafeReadableBytes { bytesPtr in
-            CNIOBoringSSL_EVP_PKEY_sign(
+            EVP_PKEY_sign(
                 ctx,
                 nil,
                 &signatureLength,
@@ -111,7 +111,7 @@ private final class CustomPKEY: @unchecked Sendable {
         outputBuffer.writeWithUnsafeMutableBytes(minimumWritableBytes: signatureLength) { outputPtr in
             precondition(signatureLength <= outputPtr.count)
             let rc = digestBuffer.withUnsafeReadableBytes { bytesPtr in
-                CNIOBoringSSL_EVP_PKEY_sign(
+                EVP_PKEY_sign(
                     ctx,
                     outputPtr.baseAddress?.assumingMemoryBound(to: UInt8.self),
                     &signatureLength,
@@ -128,14 +128,14 @@ private final class CustomPKEY: @unchecked Sendable {
 
     func decrypt(data: ByteBuffer) -> ByteBuffer {
         // Decryption is only needed for RSA, so this has to work.
-        let rsa = CNIOBoringSSL_EVP_PKEY_get0_RSA(self.ref)!
-        let targetSize = CNIOBoringSSL_RSA_size(rsa)
+        let rsa = EVP_PKEY_get0_RSA(self.ref)!
+        let targetSize = RSA_size(rsa)
 
         var output = ByteBuffer()
         output.writeWithUnsafeMutableBytes(minimumWritableBytes: Int(targetSize)) { outputBytes in
             var written = 0
             let rc = data.withUnsafeReadableBytes { inputBytes in
-                CNIOBoringSSL_RSA_decrypt(
+                RSA_decrypt(
                     rsa,
                     &written,
                     outputBytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
@@ -972,11 +972,11 @@ extension SignatureAlgorithm {
     var md: OpaquePointer {
         switch self {
         case .ecdsaSecp256R1Sha256:
-            return CNIOBoringSSL_EVP_sha256()
+            return EVP_sha256()
         case .rsaPssRsaeSha256:
-            return CNIOBoringSSL_EVP_sha256()
+            return EVP_sha256()
         case .rsaPkcs1Sha256:
-            return CNIOBoringSSL_EVP_sha256()
+            return EVP_sha256()
         default:
             preconditionFailure()
         }

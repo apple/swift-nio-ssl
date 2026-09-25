@@ -1,11 +1,16 @@
-/*
- * Copyright 2010-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 2010-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_base.h>
 
@@ -18,12 +23,14 @@
 #include "internal.h"
 
 
+using namespace bssl;
+
 // kSizeTWithoutLower4Bits is a mask that can be used to zero the lower four
-// bits of a |size_t|.
+// bits of a `size_t`.
 static const size_t kSizeTWithoutLower4Bits = (size_t) -16;
 
 
-#define GCM_MUL(key, ctx, Xi) gcm_gmult_nohw((ctx)->Xi, (key)->Htable)
+#define GCM_MUL(key, ctx, Xi) bssl::gcm_gmult_nohw((ctx)->Xi, (key)->Htable)
 #define GHASH(key, ctx, in, len) \
   gcm_ghash_nohw((ctx)->Xi, (key)->Htable, in, len)
 // GHASH_CHUNK is "stride parameter" missioned to mitigate cache
@@ -32,7 +39,7 @@ static const size_t kSizeTWithoutLower4Bits = (size_t) -16;
 #define GHASH_CHUNK (3 * 1024)
 
 #if defined(GHASH_ASM_X86_64) || defined(GHASH_ASM_X86)
-static inline void gcm_reduce_1bit(u128 *V) {
+static void gcm_reduce_1bit(u128 *V) {
   if (sizeof(crypto_word_t) == 8) {
     uint64_t T = UINT64_C(0xe100000000000000) & (0 - (V->hi & 1));
     V->hi = (V->lo << 63) | (V->hi >> 1);
@@ -44,7 +51,7 @@ static inline void gcm_reduce_1bit(u128 *V) {
   }
 }
 
-void gcm_init_ssse3(u128 Htable[16], const uint64_t H[2]) {
+void bssl::gcm_init_ssse3(u128 Htable[16], const uint64_t H[2]) {
   Htable[0].hi = 0;
   Htable[0].lo = 0;
   u128 V;
@@ -72,7 +79,7 @@ void gcm_init_ssse3(u128 Htable[16], const uint64_t H[2]) {
   Htable[14].hi = V.hi ^ Htable[6].hi, Htable[14].lo = V.lo ^ Htable[6].lo;
   Htable[15].hi = V.hi ^ Htable[7].hi, Htable[15].lo = V.lo ^ Htable[7].lo;
 
-  // Treat |Htable| as a 16x16 byte table and transpose it. Thus, Htable[i]
+  // Treat `Htable` as a 16x16 byte table and transpose it. Thus, Htable[i]
   // contains the i'th byte of j*H for all j.
   uint8_t *Hbytes = (uint8_t *)Htable;
   for (int i = 0; i < 16; i++) {
@@ -104,9 +111,9 @@ static size_t hw_gcm_encrypt(const uint8_t *in, uint8_t *out, size_t len,
       aes_gcm_enc_update_vaes_avx2(in, out, len, key, ivec, Htable, Xi);
       CRYPTO_store_u32_be(&ivec[12], CRYPTO_load_u32_be(&ivec[12]) + len / 16);
       return len;
-    case gcm_x86_vaes_avx10_512:
+    case gcm_x86_vaes_avx512:
       len &= kSizeTWithoutLower4Bits;
-      aes_gcm_enc_update_vaes_avx10_512(in, out, len, key, ivec, Htable, Xi);
+      aes_gcm_enc_update_vaes_avx512(in, out, len, key, ivec, Htable, Xi);
       CRYPTO_store_u32_be(&ivec[12], CRYPTO_load_u32_be(&ivec[12]) + len / 16);
       return len;
     default:
@@ -124,9 +131,9 @@ static size_t hw_gcm_decrypt(const uint8_t *in, uint8_t *out, size_t len,
       aes_gcm_dec_update_vaes_avx2(in, out, len, key, ivec, Htable, Xi);
       CRYPTO_store_u32_be(&ivec[12], CRYPTO_load_u32_be(&ivec[12]) + len / 16);
       return len;
-    case gcm_x86_vaes_avx10_512:
+    case gcm_x86_vaes_avx512:
       len &= kSizeTWithoutLower4Bits;
-      aes_gcm_dec_update_vaes_avx10_512(in, out, len, key, ivec, Htable, Xi);
+      aes_gcm_dec_update_vaes_avx512(in, out, len, key, ivec, Htable, Xi);
       CRYPTO_store_u32_be(&ivec[12], CRYPTO_load_u32_be(&ivec[12]) + len / 16);
       return len;
     default:
@@ -145,6 +152,10 @@ static size_t hw_gcm_encrypt(const uint8_t *in, uint8_t *out, size_t len,
   if (!len_blocks) {
     return 0;
   }
+  if (impl == gcm_arm64_aes_eor3) {
+    aes_gcm_enc_kernel_eor3(in, len_blocks * 8, out, Xi, ivec, key, Htable);
+    return len_blocks;
+  }
   aes_gcm_enc_kernel(in, len_blocks * 8, out, Xi, ivec, key, Htable);
   return len_blocks;
 }
@@ -157,15 +168,19 @@ static size_t hw_gcm_decrypt(const uint8_t *in, uint8_t *out, size_t len,
   if (!len_blocks) {
     return 0;
   }
+  if (impl == gcm_arm64_aes_eor3) {
+    aes_gcm_dec_kernel_eor3(in, len_blocks * 8, out, Xi, ivec, key, Htable);
+    return len_blocks;
+  }
   aes_gcm_dec_kernel(in, len_blocks * 8, out, Xi, ivec, key, Htable);
   return len_blocks;
 }
 
 #endif  // HW_GCM && AARCH64
 
-void CRYPTO_ghash_init(gmult_func *out_mult, ghash_func *out_hash,
-                       u128 out_table[16], const uint8_t gcm_key[16]) {
-  // H is passed to |gcm_init_*| as a pair of byte-swapped, 64-bit values.
+void bssl::CRYPTO_ghash_init(gmult_func *out_mult, ghash_func *out_hash,
+                             u128 out_table[16], const uint8_t gcm_key[16]) {
+  // H is passed to `gcm_init_*` as a pair of byte-swapped, 64-bit values.
   uint64_t H[2] = {CRYPTO_load_u64_be(gcm_key),
                    CRYPTO_load_u64_be(gcm_key + 8)};
 
@@ -174,9 +189,9 @@ void CRYPTO_ghash_init(gmult_func *out_mult, ghash_func *out_hash,
     if (CRYPTO_is_VPCLMULQDQ_capable() && CRYPTO_is_AVX2_capable()) {
       if (CRYPTO_is_AVX512BW_capable() && CRYPTO_is_AVX512VL_capable() &&
           CRYPTO_is_BMI2_capable() && !CRYPTO_cpu_avoid_zmm_registers()) {
-        gcm_init_vpclmulqdq_avx10_512(out_table, H);
-        *out_mult = gcm_gmult_vpclmulqdq_avx10;
-        *out_hash = gcm_ghash_vpclmulqdq_avx10_512;
+        gcm_init_vpclmulqdq_avx512(out_table, H);
+        *out_mult = gcm_gmult_vpclmulqdq_avx512;
+        *out_hash = gcm_ghash_vpclmulqdq_avx512;
         return;
       }
       gcm_init_vpclmulqdq_avx2(out_table, H);
@@ -235,8 +250,8 @@ void CRYPTO_ghash_init(gmult_func *out_mult, ghash_func *out_hash,
   *out_hash = gcm_ghash_nohw;
 }
 
-void CRYPTO_gcm128_init_aes_key(GCM128_KEY *gcm_key, const uint8_t *key,
-                                size_t key_bytes) {
+void bssl::CRYPTO_gcm128_init_aes_key(GCM128_KEY *gcm_key, const uint8_t *key,
+                                      size_t key_bytes) {
   switch (key_bytes) {
     case 16:
       boringssl_fips_inc_counter(fips_counter_evp_aes_128_gcm);
@@ -261,25 +276,27 @@ void CRYPTO_gcm128_init_aes_key(GCM128_KEY *gcm_key, const uint8_t *key,
 
 #if !defined(OPENSSL_NO_ASM)
 #if defined(OPENSSL_X86_64)
-  if (gcm_key->ghash == gcm_ghash_vpclmulqdq_avx10_512 &&
+  if (gcm_key->ghash == gcm_ghash_vpclmulqdq_avx512 && is_hwaes &&
       CRYPTO_is_VAES_capable()) {
-    gcm_key->impl = gcm_x86_vaes_avx10_512;
-  } else if (gcm_key->ghash == gcm_ghash_vpclmulqdq_avx2 &&
+    gcm_key->impl = gcm_x86_vaes_avx512;
+  } else if (gcm_key->ghash == gcm_ghash_vpclmulqdq_avx2 && is_hwaes &&
              CRYPTO_is_VAES_capable()) {
     gcm_key->impl = gcm_x86_vaes_avx2;
   } else if (gcm_key->ghash == gcm_ghash_avx && is_hwaes) {
     gcm_key->impl = gcm_x86_aesni;
   }
 #elif defined(OPENSSL_AARCH64)
-  if (gcm_pmull_capable() && is_hwaes) {
+  if (gcm_eor3_capable() && is_hwaes) {
+    gcm_key->impl = gcm_arm64_aes_eor3;
+  } else if (gcm_pmull_capable() && is_hwaes) {
     gcm_key->impl = gcm_arm64_aes;
   }
 #endif
 #endif
 }
 
-void CRYPTO_gcm128_init_ctx(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
-                            const uint8_t *iv, size_t iv_len) {
+void bssl::CRYPTO_gcm128_init_ctx(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
+                                  const uint8_t *iv, size_t iv_len) {
 #ifdef GCM_FUNCREF
   void (*gcm_gmult_p)(uint8_t Xi[16], const u128 Htable[16]) = key->gmult;
 #endif
@@ -326,8 +343,8 @@ void CRYPTO_gcm128_init_ctx(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
   CRYPTO_store_u32_be(ctx->Yi + 12, ctr);
 }
 
-int CRYPTO_gcm128_aad(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
-                      const uint8_t *aad, size_t aad_len) {
+int bssl::CRYPTO_gcm128_aad(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
+                            const uint8_t *aad, size_t aad_len) {
 #ifdef GCM_FUNCREF
   void (*gcm_gmult_p)(uint8_t Xi[16], const u128 Htable[16]) = key->gmult;
   void (*gcm_ghash_p)(uint8_t Xi[16], const u128 Htable[16], const uint8_t *inp,
@@ -380,8 +397,8 @@ int CRYPTO_gcm128_aad(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
   return 1;
 }
 
-int CRYPTO_gcm128_encrypt(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
-                          const uint8_t *in, uint8_t *out, size_t len) {
+int bssl::CRYPTO_gcm128_encrypt(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
+                                const uint8_t *in, uint8_t *out, size_t len) {
 #ifdef GCM_FUNCREF
   void (*gcm_gmult_p)(uint8_t Xi[16], const u128 Htable[16]) = key->gmult;
   void (*gcm_ghash_p)(uint8_t Xi[16], const u128 Htable[16], const uint8_t *inp,
@@ -417,9 +434,8 @@ int CRYPTO_gcm128_encrypt(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
   }
 
 #if defined(HW_GCM)
-  // Check |len| to work around a C language bug. See https://crbug.com/1019588.
   if (key->impl != gcm_separate && len > 0) {
-    // |hw_gcm_encrypt| may not process all the input given to it. It may
+    // `hw_gcm_encrypt` may not process all the input given to it. It may
     // not process *any* of its input if it is deemed too small.
     size_t bulk = hw_gcm_encrypt(in, out, len, &key->aes, ctx->Yi, ctx->Xi,
                                  key->Htable, key->impl);
@@ -467,8 +483,8 @@ int CRYPTO_gcm128_encrypt(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
   return 1;
 }
 
-int CRYPTO_gcm128_decrypt(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
-                          const uint8_t *in, uint8_t *out, size_t len) {
+int bssl::CRYPTO_gcm128_decrypt(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
+                                const uint8_t *in, uint8_t *out, size_t len) {
 #ifdef GCM_FUNCREF
   void (*gcm_gmult_p)(uint8_t Xi[16], const u128 Htable[16]) = key->gmult;
   void (*gcm_ghash_p)(uint8_t Xi[16], const u128 Htable[16], const uint8_t *inp,
@@ -506,9 +522,8 @@ int CRYPTO_gcm128_decrypt(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
   }
 
 #if defined(HW_GCM)
-  // Check |len| to work around a C language bug. See https://crbug.com/1019588.
   if (key->impl != gcm_separate && len > 0) {
-    // |hw_gcm_decrypt| may not process all the input given to it. It may
+    // `hw_gcm_decrypt` may not process all the input given to it. It may
     // not process *any* of its input if it is deemed too small.
     size_t bulk = hw_gcm_decrypt(in, out, len, &key->aes, ctx->Yi, ctx->Xi,
                                  key->Htable, key->impl);
@@ -558,8 +573,8 @@ int CRYPTO_gcm128_decrypt(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
   return 1;
 }
 
-int CRYPTO_gcm128_finish(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
-                         const uint8_t *tag, size_t len) {
+int bssl::CRYPTO_gcm128_finish(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
+                               const uint8_t *tag, size_t len) {
 #ifdef GCM_FUNCREF
   void (*gcm_gmult_p)(uint8_t Xi[16], const u128 Htable[16]) = key->gmult;
 #endif
@@ -582,16 +597,16 @@ int CRYPTO_gcm128_finish(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
   }
 }
 
-void CRYPTO_gcm128_tag(const GCM128_KEY *key, GCM128_CONTEXT *ctx, uint8_t *tag,
-                       size_t len) {
-  CRYPTO_gcm128_finish(key, ctx, NULL, 0);
+void bssl::CRYPTO_gcm128_tag(const GCM128_KEY *key, GCM128_CONTEXT *ctx,
+                             uint8_t *tag, size_t len) {
+  CRYPTO_gcm128_finish(key, ctx, nullptr, 0);
   OPENSSL_memcpy(tag, ctx->Xi, len <= sizeof(ctx->Xi) ? len : sizeof(ctx->Xi));
 }
 
 #if defined(OPENSSL_X86) || defined(OPENSSL_X86_64)
-int crypto_gcm_clmul_enabled(void) {
+int bssl::crypto_gcm_clmul_enabled() {
 #if defined(GHASH_ASM_X86) || defined(GHASH_ASM_X86_64)
-  return CRYPTO_is_FXSR_capable() && CRYPTO_is_PCLMUL_capable();
+  return CRYPTO_is_PCLMUL_capable() && CRYPTO_is_SSSE3_capable();
 #else
   return 0;
 #endif

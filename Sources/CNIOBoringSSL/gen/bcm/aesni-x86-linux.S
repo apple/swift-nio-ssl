@@ -36,12 +36,12 @@ aes_hw_encrypt:
 	leal	32(%edx),%edx
 	xorps	%xmm0,%xmm2
 .L001enc1_loop_1:
-.byte	102,15,56,220,209
+	aesenc	%xmm1,%xmm2
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L001enc1_loop_1
-.byte	102,15,56,221,209
+	aesenclast	%xmm1,%xmm2
 	pxor	%xmm0,%xmm0
 	pxor	%xmm1,%xmm1
 	movups	%xmm2,(%eax)
@@ -64,12 +64,12 @@ aes_hw_decrypt:
 	leal	32(%edx),%edx
 	xorps	%xmm0,%xmm2
 .L002dec1_loop_2:
-.byte	102,15,56,222,209
+	aesdec	%xmm1,%xmm2
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L002dec1_loop_2
-.byte	102,15,56,223,209
+	aesdeclast	%xmm1,%xmm2
 	pxor	%xmm0,%xmm0
 	pxor	%xmm1,%xmm1
 	movups	%xmm2,(%eax)
@@ -90,18 +90,18 @@ _aesni_encrypt2:
 	negl	%ecx
 	addl	$16,%ecx
 .L003enc2_loop:
-.byte	102,15,56,220,209
-.byte	102,15,56,220,217
+	aesenc	%xmm1,%xmm2
+	aesenc	%xmm1,%xmm3
 	movups	(%edx,%ecx,1),%xmm1
 	addl	$32,%ecx
-.byte	102,15,56,220,208
-.byte	102,15,56,220,216
+	aesenc	%xmm0,%xmm2
+	aesenc	%xmm0,%xmm3
 	movups	-16(%edx,%ecx,1),%xmm0
 	jnz	.L003enc2_loop
-.byte	102,15,56,220,209
-.byte	102,15,56,220,217
-.byte	102,15,56,221,208
-.byte	102,15,56,221,216
+	aesenc	%xmm1,%xmm2
+	aesenc	%xmm1,%xmm3
+	aesenclast	%xmm0,%xmm2
+	aesenclast	%xmm0,%xmm3
 	ret
 .size	_aesni_encrypt2,.-_aesni_encrypt2
 .hidden	_aesni_decrypt2
@@ -118,18 +118,18 @@ _aesni_decrypt2:
 	negl	%ecx
 	addl	$16,%ecx
 .L004dec2_loop:
-.byte	102,15,56,222,209
-.byte	102,15,56,222,217
+	aesdec	%xmm1,%xmm2
+	aesdec	%xmm1,%xmm3
 	movups	(%edx,%ecx,1),%xmm1
 	addl	$32,%ecx
-.byte	102,15,56,222,208
-.byte	102,15,56,222,216
+	aesdec	%xmm0,%xmm2
+	aesdec	%xmm0,%xmm3
 	movups	-16(%edx,%ecx,1),%xmm0
 	jnz	.L004dec2_loop
-.byte	102,15,56,222,209
-.byte	102,15,56,222,217
-.byte	102,15,56,223,208
-.byte	102,15,56,223,216
+	aesdec	%xmm1,%xmm2
+	aesdec	%xmm1,%xmm3
+	aesdeclast	%xmm0,%xmm2
+	aesdeclast	%xmm0,%xmm3
 	ret
 .size	_aesni_decrypt2,.-_aesni_decrypt2
 .hidden	_aesni_encrypt3
@@ -147,22 +147,22 @@ _aesni_encrypt3:
 	negl	%ecx
 	addl	$16,%ecx
 .L005enc3_loop:
-.byte	102,15,56,220,209
-.byte	102,15,56,220,217
-.byte	102,15,56,220,225
+	aesenc	%xmm1,%xmm2
+	aesenc	%xmm1,%xmm3
+	aesenc	%xmm1,%xmm4
 	movups	(%edx,%ecx,1),%xmm1
 	addl	$32,%ecx
-.byte	102,15,56,220,208
-.byte	102,15,56,220,216
-.byte	102,15,56,220,224
+	aesenc	%xmm0,%xmm2
+	aesenc	%xmm0,%xmm3
+	aesenc	%xmm0,%xmm4
 	movups	-16(%edx,%ecx,1),%xmm0
 	jnz	.L005enc3_loop
-.byte	102,15,56,220,209
-.byte	102,15,56,220,217
-.byte	102,15,56,220,225
-.byte	102,15,56,221,208
-.byte	102,15,56,221,216
-.byte	102,15,56,221,224
+	aesenc	%xmm1,%xmm2
+	aesenc	%xmm1,%xmm3
+	aesenc	%xmm1,%xmm4
+	aesenclast	%xmm0,%xmm2
+	aesenclast	%xmm0,%xmm3
+	aesenclast	%xmm0,%xmm4
 	ret
 .size	_aesni_encrypt3,.-_aesni_encrypt3
 .hidden	_aesni_decrypt3
@@ -180,22 +180,22 @@ _aesni_decrypt3:
 	negl	%ecx
 	addl	$16,%ecx
 .L006dec3_loop:
-.byte	102,15,56,222,209
-.byte	102,15,56,222,217
-.byte	102,15,56,222,225
+	aesdec	%xmm1,%xmm2
+	aesdec	%xmm1,%xmm3
+	aesdec	%xmm1,%xmm4
 	movups	(%edx,%ecx,1),%xmm1
 	addl	$32,%ecx
-.byte	102,15,56,222,208
-.byte	102,15,56,222,216
-.byte	102,15,56,222,224
+	aesdec	%xmm0,%xmm2
+	aesdec	%xmm0,%xmm3
+	aesdec	%xmm0,%xmm4
 	movups	-16(%edx,%ecx,1),%xmm0
 	jnz	.L006dec3_loop
-.byte	102,15,56,222,209
-.byte	102,15,56,222,217
-.byte	102,15,56,222,225
-.byte	102,15,56,223,208
-.byte	102,15,56,223,216
-.byte	102,15,56,223,224
+	aesdec	%xmm1,%xmm2
+	aesdec	%xmm1,%xmm3
+	aesdec	%xmm1,%xmm4
+	aesdeclast	%xmm0,%xmm2
+	aesdeclast	%xmm0,%xmm3
+	aesdeclast	%xmm0,%xmm4
 	ret
 .size	_aesni_decrypt3,.-_aesni_decrypt3
 .hidden	_aesni_encrypt4
@@ -215,26 +215,26 @@ _aesni_encrypt4:
 .byte	15,31,64,0
 	addl	$16,%ecx
 .L007enc4_loop:
-.byte	102,15,56,220,209
-.byte	102,15,56,220,217
-.byte	102,15,56,220,225
-.byte	102,15,56,220,233
+	aesenc	%xmm1,%xmm2
+	aesenc	%xmm1,%xmm3
+	aesenc	%xmm1,%xmm4
+	aesenc	%xmm1,%xmm5
 	movups	(%edx,%ecx,1),%xmm1
 	addl	$32,%ecx
-.byte	102,15,56,220,208
-.byte	102,15,56,220,216
-.byte	102,15,56,220,224
-.byte	102,15,56,220,232
+	aesenc	%xmm0,%xmm2
+	aesenc	%xmm0,%xmm3
+	aesenc	%xmm0,%xmm4
+	aesenc	%xmm0,%xmm5
 	movups	-16(%edx,%ecx,1),%xmm0
 	jnz	.L007enc4_loop
-.byte	102,15,56,220,209
-.byte	102,15,56,220,217
-.byte	102,15,56,220,225
-.byte	102,15,56,220,233
-.byte	102,15,56,221,208
-.byte	102,15,56,221,216
-.byte	102,15,56,221,224
-.byte	102,15,56,221,232
+	aesenc	%xmm1,%xmm2
+	aesenc	%xmm1,%xmm3
+	aesenc	%xmm1,%xmm4
+	aesenc	%xmm1,%xmm5
+	aesenclast	%xmm0,%xmm2
+	aesenclast	%xmm0,%xmm3
+	aesenclast	%xmm0,%xmm4
+	aesenclast	%xmm0,%xmm5
 	ret
 .size	_aesni_encrypt4,.-_aesni_encrypt4
 .hidden	_aesni_decrypt4
@@ -254,26 +254,26 @@ _aesni_decrypt4:
 .byte	15,31,64,0
 	addl	$16,%ecx
 .L008dec4_loop:
-.byte	102,15,56,222,209
-.byte	102,15,56,222,217
-.byte	102,15,56,222,225
-.byte	102,15,56,222,233
+	aesdec	%xmm1,%xmm2
+	aesdec	%xmm1,%xmm3
+	aesdec	%xmm1,%xmm4
+	aesdec	%xmm1,%xmm5
 	movups	(%edx,%ecx,1),%xmm1
 	addl	$32,%ecx
-.byte	102,15,56,222,208
-.byte	102,15,56,222,216
-.byte	102,15,56,222,224
-.byte	102,15,56,222,232
+	aesdec	%xmm0,%xmm2
+	aesdec	%xmm0,%xmm3
+	aesdec	%xmm0,%xmm4
+	aesdec	%xmm0,%xmm5
 	movups	-16(%edx,%ecx,1),%xmm0
 	jnz	.L008dec4_loop
-.byte	102,15,56,222,209
-.byte	102,15,56,222,217
-.byte	102,15,56,222,225
-.byte	102,15,56,222,233
-.byte	102,15,56,223,208
-.byte	102,15,56,223,216
-.byte	102,15,56,223,224
-.byte	102,15,56,223,232
+	aesdec	%xmm1,%xmm2
+	aesdec	%xmm1,%xmm3
+	aesdec	%xmm1,%xmm4
+	aesdec	%xmm1,%xmm5
+	aesdeclast	%xmm0,%xmm2
+	aesdeclast	%xmm0,%xmm3
+	aesdeclast	%xmm0,%xmm4
+	aesdeclast	%xmm0,%xmm5
 	ret
 .size	_aesni_decrypt4,.-_aesni_decrypt4
 .hidden	_aesni_encrypt6
@@ -286,49 +286,49 @@ _aesni_encrypt6:
 	xorps	%xmm0,%xmm2
 	pxor	%xmm0,%xmm3
 	pxor	%xmm0,%xmm4
-.byte	102,15,56,220,209
+	aesenc	%xmm1,%xmm2
 	pxor	%xmm0,%xmm5
 	pxor	%xmm0,%xmm6
-.byte	102,15,56,220,217
+	aesenc	%xmm1,%xmm3
 	leal	32(%edx,%ecx,1),%edx
 	negl	%ecx
-.byte	102,15,56,220,225
+	aesenc	%xmm1,%xmm4
 	pxor	%xmm0,%xmm7
 	movups	(%edx,%ecx,1),%xmm0
 	addl	$16,%ecx
 	jmp	.L009_aesni_encrypt6_inner
 .align	16
 .L010enc6_loop:
-.byte	102,15,56,220,209
-.byte	102,15,56,220,217
-.byte	102,15,56,220,225
+	aesenc	%xmm1,%xmm2
+	aesenc	%xmm1,%xmm3
+	aesenc	%xmm1,%xmm4
 .L009_aesni_encrypt6_inner:
-.byte	102,15,56,220,233
-.byte	102,15,56,220,241
-.byte	102,15,56,220,249
+	aesenc	%xmm1,%xmm5
+	aesenc	%xmm1,%xmm6
+	aesenc	%xmm1,%xmm7
 .L_aesni_encrypt6_enter:
 	movups	(%edx,%ecx,1),%xmm1
 	addl	$32,%ecx
-.byte	102,15,56,220,208
-.byte	102,15,56,220,216
-.byte	102,15,56,220,224
-.byte	102,15,56,220,232
-.byte	102,15,56,220,240
-.byte	102,15,56,220,248
+	aesenc	%xmm0,%xmm2
+	aesenc	%xmm0,%xmm3
+	aesenc	%xmm0,%xmm4
+	aesenc	%xmm0,%xmm5
+	aesenc	%xmm0,%xmm6
+	aesenc	%xmm0,%xmm7
 	movups	-16(%edx,%ecx,1),%xmm0
 	jnz	.L010enc6_loop
-.byte	102,15,56,220,209
-.byte	102,15,56,220,217
-.byte	102,15,56,220,225
-.byte	102,15,56,220,233
-.byte	102,15,56,220,241
-.byte	102,15,56,220,249
-.byte	102,15,56,221,208
-.byte	102,15,56,221,216
-.byte	102,15,56,221,224
-.byte	102,15,56,221,232
-.byte	102,15,56,221,240
-.byte	102,15,56,221,248
+	aesenc	%xmm1,%xmm2
+	aesenc	%xmm1,%xmm3
+	aesenc	%xmm1,%xmm4
+	aesenc	%xmm1,%xmm5
+	aesenc	%xmm1,%xmm6
+	aesenc	%xmm1,%xmm7
+	aesenclast	%xmm0,%xmm2
+	aesenclast	%xmm0,%xmm3
+	aesenclast	%xmm0,%xmm4
+	aesenclast	%xmm0,%xmm5
+	aesenclast	%xmm0,%xmm6
+	aesenclast	%xmm0,%xmm7
 	ret
 .size	_aesni_encrypt6,.-_aesni_encrypt6
 .hidden	_aesni_decrypt6
@@ -341,49 +341,49 @@ _aesni_decrypt6:
 	xorps	%xmm0,%xmm2
 	pxor	%xmm0,%xmm3
 	pxor	%xmm0,%xmm4
-.byte	102,15,56,222,209
+	aesdec	%xmm1,%xmm2
 	pxor	%xmm0,%xmm5
 	pxor	%xmm0,%xmm6
-.byte	102,15,56,222,217
+	aesdec	%xmm1,%xmm3
 	leal	32(%edx,%ecx,1),%edx
 	negl	%ecx
-.byte	102,15,56,222,225
+	aesdec	%xmm1,%xmm4
 	pxor	%xmm0,%xmm7
 	movups	(%edx,%ecx,1),%xmm0
 	addl	$16,%ecx
 	jmp	.L011_aesni_decrypt6_inner
 .align	16
 .L012dec6_loop:
-.byte	102,15,56,222,209
-.byte	102,15,56,222,217
-.byte	102,15,56,222,225
+	aesdec	%xmm1,%xmm2
+	aesdec	%xmm1,%xmm3
+	aesdec	%xmm1,%xmm4
 .L011_aesni_decrypt6_inner:
-.byte	102,15,56,222,233
-.byte	102,15,56,222,241
-.byte	102,15,56,222,249
+	aesdec	%xmm1,%xmm5
+	aesdec	%xmm1,%xmm6
+	aesdec	%xmm1,%xmm7
 .L_aesni_decrypt6_enter:
 	movups	(%edx,%ecx,1),%xmm1
 	addl	$32,%ecx
-.byte	102,15,56,222,208
-.byte	102,15,56,222,216
-.byte	102,15,56,222,224
-.byte	102,15,56,222,232
-.byte	102,15,56,222,240
-.byte	102,15,56,222,248
+	aesdec	%xmm0,%xmm2
+	aesdec	%xmm0,%xmm3
+	aesdec	%xmm0,%xmm4
+	aesdec	%xmm0,%xmm5
+	aesdec	%xmm0,%xmm6
+	aesdec	%xmm0,%xmm7
 	movups	-16(%edx,%ecx,1),%xmm0
 	jnz	.L012dec6_loop
-.byte	102,15,56,222,209
-.byte	102,15,56,222,217
-.byte	102,15,56,222,225
-.byte	102,15,56,222,233
-.byte	102,15,56,222,241
-.byte	102,15,56,222,249
-.byte	102,15,56,223,208
-.byte	102,15,56,223,216
-.byte	102,15,56,223,224
-.byte	102,15,56,223,232
-.byte	102,15,56,223,240
-.byte	102,15,56,223,248
+	aesdec	%xmm1,%xmm2
+	aesdec	%xmm1,%xmm3
+	aesdec	%xmm1,%xmm4
+	aesdec	%xmm1,%xmm5
+	aesdec	%xmm1,%xmm6
+	aesdec	%xmm1,%xmm7
+	aesdeclast	%xmm0,%xmm2
+	aesdeclast	%xmm0,%xmm3
+	aesdeclast	%xmm0,%xmm4
+	aesdeclast	%xmm0,%xmm5
+	aesdeclast	%xmm0,%xmm6
+	aesdeclast	%xmm0,%xmm7
 	ret
 .size	_aesni_decrypt6,.-_aesni_decrypt6
 .globl	aes_hw_ecb_encrypt
@@ -477,12 +477,12 @@ aes_hw_ecb_encrypt:
 	leal	32(%edx),%edx
 	xorps	%xmm0,%xmm2
 .L022enc1_loop_3:
-.byte	102,15,56,220,209
+	aesenc	%xmm1,%xmm2
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L022enc1_loop_3
-.byte	102,15,56,221,209
+	aesenclast	%xmm1,%xmm2
 	movups	%xmm2,(%edi)
 	jmp	.L013ecb_ret
 .align	16
@@ -579,12 +579,12 @@ aes_hw_ecb_encrypt:
 	leal	32(%edx),%edx
 	xorps	%xmm0,%xmm2
 .L030dec1_loop_4:
-.byte	102,15,56,222,209
+	aesdec	%xmm1,%xmm2
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L030dec1_loop_4
-.byte	102,15,56,223,209
+	aesdeclast	%xmm1,%xmm2
 	movups	%xmm2,(%edi)
 	jmp	.L013ecb_ret
 .align	16
@@ -662,7 +662,7 @@ aes_hw_ccm64_encrypt_blocks:
 	movdqa	%xmm7,%xmm2
 	leal	32(%edx,%ecx,1),%edx
 	subl	%ecx,%ebx
-.byte	102,15,56,0,253
+	pshufb	%xmm5,%xmm7
 .L031ccm64_enc_outer:
 	movups	(%ebp),%xmm0
 	movl	%ebx,%ecx
@@ -673,25 +673,25 @@ aes_hw_ccm64_encrypt_blocks:
 	xorps	%xmm0,%xmm3
 	movups	32(%ebp),%xmm0
 .L032ccm64_enc2_loop:
-.byte	102,15,56,220,209
-.byte	102,15,56,220,217
+	aesenc	%xmm1,%xmm2
+	aesenc	%xmm1,%xmm3
 	movups	(%edx,%ecx,1),%xmm1
 	addl	$32,%ecx
-.byte	102,15,56,220,208
-.byte	102,15,56,220,216
+	aesenc	%xmm0,%xmm2
+	aesenc	%xmm0,%xmm3
 	movups	-16(%edx,%ecx,1),%xmm0
 	jnz	.L032ccm64_enc2_loop
-.byte	102,15,56,220,209
-.byte	102,15,56,220,217
+	aesenc	%xmm1,%xmm2
+	aesenc	%xmm1,%xmm3
 	paddq	16(%esp),%xmm7
 	decl	%eax
-.byte	102,15,56,221,208
-.byte	102,15,56,221,216
+	aesenclast	%xmm0,%xmm2
+	aesenclast	%xmm0,%xmm3
 	leal	16(%esi),%esi
 	xorps	%xmm2,%xmm6
 	movdqa	%xmm7,%xmm2
 	movups	%xmm6,(%edi)
-.byte	102,15,56,0,213
+	pshufb	%xmm5,%xmm2
 	leal	16(%edi),%edi
 	jnz	.L031ccm64_enc_outer
 	movl	48(%esp),%esp
@@ -748,18 +748,18 @@ aes_hw_ccm64_decrypt_blocks:
 	movdqa	%xmm7,%xmm2
 	movl	%edx,%ebp
 	movl	%ecx,%ebx
-.byte	102,15,56,0,253
+	pshufb	%xmm5,%xmm7
 	movups	(%edx),%xmm0
 	movups	16(%edx),%xmm1
 	leal	32(%edx),%edx
 	xorps	%xmm0,%xmm2
 .L033enc1_loop_5:
-.byte	102,15,56,220,209
+	aesenc	%xmm1,%xmm2
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L033enc1_loop_5
-.byte	102,15,56,221,209
+	aesenclast	%xmm1,%xmm2
 	shll	$4,%ebx
 	movl	$16,%ecx
 	movups	(%esi),%xmm6
@@ -775,7 +775,7 @@ aes_hw_ccm64_decrypt_blocks:
 	movdqa	%xmm7,%xmm2
 	movups	%xmm6,(%edi)
 	leal	16(%edi),%edi
-.byte	102,15,56,0,213
+	pshufb	%xmm5,%xmm2
 	subl	$1,%eax
 	jz	.L035ccm64_dec_break
 	movups	(%ebp),%xmm0
@@ -786,20 +786,20 @@ aes_hw_ccm64_decrypt_blocks:
 	xorps	%xmm6,%xmm3
 	movups	32(%ebp),%xmm0
 .L036ccm64_dec2_loop:
-.byte	102,15,56,220,209
-.byte	102,15,56,220,217
+	aesenc	%xmm1,%xmm2
+	aesenc	%xmm1,%xmm3
 	movups	(%edx,%ecx,1),%xmm1
 	addl	$32,%ecx
-.byte	102,15,56,220,208
-.byte	102,15,56,220,216
+	aesenc	%xmm0,%xmm2
+	aesenc	%xmm0,%xmm3
 	movups	-16(%edx,%ecx,1),%xmm0
 	jnz	.L036ccm64_dec2_loop
 	movups	(%esi),%xmm6
 	paddq	16(%esp),%xmm7
-.byte	102,15,56,220,209
-.byte	102,15,56,220,217
-.byte	102,15,56,221,208
-.byte	102,15,56,221,216
+	aesenc	%xmm1,%xmm2
+	aesenc	%xmm1,%xmm3
+	aesenclast	%xmm0,%xmm2
+	aesenclast	%xmm0,%xmm3
 	leal	16(%esi),%esi
 	jmp	.L034ccm64_dec_outer
 .align	16
@@ -812,12 +812,12 @@ aes_hw_ccm64_decrypt_blocks:
 	leal	32(%edx),%edx
 	xorps	%xmm6,%xmm3
 .L037enc1_loop_6:
-.byte	102,15,56,220,217
+	aesenc	%xmm1,%xmm3
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L037enc1_loop_6
-.byte	102,15,56,221,217
+	aesenclast	%xmm1,%xmm3
 	movl	48(%esp),%esp
 	movl	40(%esp),%edi
 	movups	%xmm3,(%edi)
@@ -879,29 +879,29 @@ aes_hw_ctr32_encrypt_blocks:
 	movl	%ecx,20(%esp)
 	movl	%ecx,24(%esp)
 	movl	%ebp,28(%esp)
-.byte	102,15,58,22,251,3
-.byte	102,15,58,34,253,3
+	pextrd	$3,%xmm7,%ebx
+	pinsrd	$3,%ebp,%xmm7
 	movl	240(%edx),%ecx
 	bswap	%ebx
 	pxor	%xmm0,%xmm0
 	pxor	%xmm1,%xmm1
 	movdqa	(%esp),%xmm2
-.byte	102,15,58,34,195,0
+	pinsrd	$0,%ebx,%xmm0
 	leal	3(%ebx),%ebp
-.byte	102,15,58,34,205,0
+	pinsrd	$0,%ebp,%xmm1
 	incl	%ebx
-.byte	102,15,58,34,195,1
+	pinsrd	$1,%ebx,%xmm0
 	incl	%ebp
-.byte	102,15,58,34,205,1
+	pinsrd	$1,%ebp,%xmm1
 	incl	%ebx
-.byte	102,15,58,34,195,2
+	pinsrd	$2,%ebx,%xmm0
 	incl	%ebp
-.byte	102,15,58,34,205,2
+	pinsrd	$2,%ebp,%xmm1
 	movdqa	%xmm0,48(%esp)
-.byte	102,15,56,0,194
+	pshufb	%xmm2,%xmm0
 	movdqu	(%edx),%xmm6
 	movdqa	%xmm1,64(%esp)
-.byte	102,15,56,0,202
+	pshufb	%xmm2,%xmm1
 	pshufd	$192,%xmm0,%xmm2
 	pshufd	$128,%xmm0,%xmm3
 	cmpl	$6,%eax
@@ -927,16 +927,16 @@ aes_hw_ctr32_encrypt_blocks:
 	movups	16(%ebp),%xmm1
 	pxor	%xmm0,%xmm4
 	pxor	%xmm0,%xmm5
-.byte	102,15,56,220,209
+	aesenc	%xmm1,%xmm2
 	pxor	%xmm0,%xmm6
 	pxor	%xmm0,%xmm7
-.byte	102,15,56,220,217
+	aesenc	%xmm1,%xmm3
 	movups	32(%ebp),%xmm0
 	movl	%ebx,%ecx
-.byte	102,15,56,220,225
-.byte	102,15,56,220,233
-.byte	102,15,56,220,241
-.byte	102,15,56,220,249
+	aesenc	%xmm1,%xmm4
+	aesenc	%xmm1,%xmm5
+	aesenc	%xmm1,%xmm6
+	aesenc	%xmm1,%xmm7
 	call	.L_aesni_encrypt6_enter
 	movups	(%esi),%xmm1
 	movups	16(%esi),%xmm0
@@ -958,12 +958,12 @@ aes_hw_ctr32_encrypt_blocks:
 	movups	80(%esi),%xmm3
 	leal	96(%esi),%esi
 	movdqa	%xmm0,48(%esp)
-.byte	102,15,56,0,194
+	pshufb	%xmm2,%xmm0
 	xorps	%xmm4,%xmm6
 	movups	%xmm5,48(%edi)
 	xorps	%xmm3,%xmm7
 	movdqa	%xmm1,64(%esp)
-.byte	102,15,56,0,202
+	pshufb	%xmm2,%xmm1
 	movups	%xmm6,64(%edi)
 	pshufd	$192,%xmm0,%xmm2
 	movups	%xmm7,80(%edi)
@@ -1019,12 +1019,12 @@ aes_hw_ctr32_encrypt_blocks:
 	leal	32(%edx),%edx
 	xorps	%xmm0,%xmm2
 .L047enc1_loop_7:
-.byte	102,15,56,220,209
+	aesenc	%xmm1,%xmm2
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L047enc1_loop_7
-.byte	102,15,56,221,209
+	aesenclast	%xmm1,%xmm2
 	movups	(%esi),%xmm6
 	xorps	%xmm2,%xmm6
 	movups	%xmm6,(%edi)
@@ -1105,12 +1105,12 @@ aes_hw_xts_encrypt:
 	leal	32(%edx),%edx
 	xorps	%xmm0,%xmm2
 .L048enc1_loop_8:
-.byte	102,15,56,220,209
+	aesenc	%xmm1,%xmm2
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L048enc1_loop_8
-.byte	102,15,56,221,209
+	aesenclast	%xmm1,%xmm2
 	movl	20(%esp),%esi
 	movl	24(%esp),%edi
 	movl	28(%esp),%eax
@@ -1194,16 +1194,16 @@ aes_hw_xts_encrypt:
 	movups	16(%ebp),%xmm1
 	pxor	16(%esp),%xmm3
 	pxor	32(%esp),%xmm4
-.byte	102,15,56,220,209
+	aesenc	%xmm1,%xmm2
 	pxor	48(%esp),%xmm5
 	pxor	64(%esp),%xmm6
-.byte	102,15,56,220,217
+	aesenc	%xmm1,%xmm3
 	pxor	%xmm0,%xmm7
 	movups	32(%ebp),%xmm0
-.byte	102,15,56,220,225
-.byte	102,15,56,220,233
-.byte	102,15,56,220,241
-.byte	102,15,56,220,249
+	aesenc	%xmm1,%xmm4
+	aesenc	%xmm1,%xmm5
+	aesenc	%xmm1,%xmm6
+	aesenc	%xmm1,%xmm7
 	call	.L_aesni_encrypt6_enter
 	movdqa	80(%esp),%xmm1
 	pxor	%xmm0,%xmm0
@@ -1307,12 +1307,12 @@ aes_hw_xts_encrypt:
 	leal	32(%edx),%edx
 	xorps	%xmm0,%xmm2
 .L057enc1_loop_9:
-.byte	102,15,56,220,209
+	aesenc	%xmm1,%xmm2
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L057enc1_loop_9
-.byte	102,15,56,221,209
+	aesenclast	%xmm1,%xmm2
 	xorps	%xmm5,%xmm2
 	movups	%xmm2,(%edi)
 	leal	16(%edi),%edi
@@ -1417,12 +1417,12 @@ aes_hw_xts_encrypt:
 	leal	32(%edx),%edx
 	xorps	%xmm0,%xmm2
 .L060enc1_loop_10:
-.byte	102,15,56,220,209
+	aesenc	%xmm1,%xmm2
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L060enc1_loop_10
-.byte	102,15,56,221,209
+	aesenclast	%xmm1,%xmm2
 	xorps	%xmm5,%xmm2
 	movups	%xmm2,-16(%edi)
 .L058xts_enc_ret:
@@ -1466,12 +1466,12 @@ aes_hw_xts_decrypt:
 	leal	32(%edx),%edx
 	xorps	%xmm0,%xmm2
 .L061enc1_loop_11:
-.byte	102,15,56,220,209
+	aesenc	%xmm1,%xmm2
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L061enc1_loop_11
-.byte	102,15,56,221,209
+	aesenclast	%xmm1,%xmm2
 	movl	20(%esp),%esi
 	movl	24(%esp),%edi
 	movl	28(%esp),%eax
@@ -1560,16 +1560,16 @@ aes_hw_xts_decrypt:
 	movups	16(%ebp),%xmm1
 	pxor	16(%esp),%xmm3
 	pxor	32(%esp),%xmm4
-.byte	102,15,56,222,209
+	aesdec	%xmm1,%xmm2
 	pxor	48(%esp),%xmm5
 	pxor	64(%esp),%xmm6
-.byte	102,15,56,222,217
+	aesdec	%xmm1,%xmm3
 	pxor	%xmm0,%xmm7
 	movups	32(%ebp),%xmm0
-.byte	102,15,56,222,225
-.byte	102,15,56,222,233
-.byte	102,15,56,222,241
-.byte	102,15,56,222,249
+	aesdec	%xmm1,%xmm4
+	aesdec	%xmm1,%xmm5
+	aesdec	%xmm1,%xmm6
+	aesdec	%xmm1,%xmm7
 	call	.L_aesni_decrypt6_enter
 	movdqa	80(%esp),%xmm1
 	pxor	%xmm0,%xmm0
@@ -1673,12 +1673,12 @@ aes_hw_xts_decrypt:
 	leal	32(%edx),%edx
 	xorps	%xmm0,%xmm2
 .L070dec1_loop_12:
-.byte	102,15,56,222,209
+	aesdec	%xmm1,%xmm2
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L070dec1_loop_12
-.byte	102,15,56,223,209
+	aesdeclast	%xmm1,%xmm2
 	xorps	%xmm5,%xmm2
 	movups	%xmm2,(%edi)
 	leal	16(%edi),%edi
@@ -1781,12 +1781,12 @@ aes_hw_xts_decrypt:
 	leal	32(%edx),%edx
 	xorps	%xmm0,%xmm2
 .L073dec1_loop_13:
-.byte	102,15,56,222,209
+	aesdec	%xmm1,%xmm2
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L073dec1_loop_13
-.byte	102,15,56,223,209
+	aesdeclast	%xmm1,%xmm2
 	xorps	%xmm5,%xmm2
 	movups	%xmm2,(%edi)
 .L074xts_dec_steal:
@@ -1808,12 +1808,12 @@ aes_hw_xts_decrypt:
 	leal	32(%edx),%edx
 	xorps	%xmm0,%xmm2
 .L075dec1_loop_14:
-.byte	102,15,56,222,209
+	aesdec	%xmm1,%xmm2
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L075dec1_loop_14
-.byte	102,15,56,223,209
+	aesdeclast	%xmm1,%xmm2
 	xorps	%xmm6,%xmm2
 	movups	%xmm2,(%edi)
 .L071xts_dec_ret:
@@ -1881,12 +1881,12 @@ aes_hw_cbc_encrypt:
 	leal	32(%edx),%edx
 	xorps	%xmm7,%xmm2
 .L080enc1_loop_15:
-.byte	102,15,56,220,209
+	aesenc	%xmm1,%xmm2
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L080enc1_loop_15
-.byte	102,15,56,221,209
+	aesenclast	%xmm1,%xmm2
 	movl	%ebx,%ecx
 	movl	%ebp,%edx
 	movups	%xmm2,(%edi)
@@ -2008,12 +2008,12 @@ aes_hw_cbc_encrypt:
 	leal	32(%edx),%edx
 	xorps	%xmm0,%xmm2
 .L091dec1_loop_16:
-.byte	102,15,56,222,209
+	aesdec	%xmm1,%xmm2
 	decl	%ecx
 	movups	(%edx),%xmm1
 	leal	16(%edx),%edx
 	jnz	.L091dec1_loop_16
-.byte	102,15,56,223,209
+	aesdeclast	%xmm1,%xmm2
 	xorps	%xmm7,%xmm2
 	movaps	%xmm6,%xmm7
 	subl	$16,%eax
@@ -2139,25 +2139,25 @@ aes_hw_set_encrypt_key_base:
 .L09810rounds:
 	movl	$9,%ecx
 	movups	%xmm0,-16(%edx)
-.byte	102,15,58,223,200,1
+	aeskeygenassist	$1,%xmm0,%xmm1
 	call	.L099key_128_cold
-.byte	102,15,58,223,200,2
+	aeskeygenassist	$2,%xmm0,%xmm1
 	call	.L100key_128
-.byte	102,15,58,223,200,4
+	aeskeygenassist	$4,%xmm0,%xmm1
 	call	.L100key_128
-.byte	102,15,58,223,200,8
+	aeskeygenassist	$8,%xmm0,%xmm1
 	call	.L100key_128
-.byte	102,15,58,223,200,16
+	aeskeygenassist	$16,%xmm0,%xmm1
 	call	.L100key_128
-.byte	102,15,58,223,200,32
+	aeskeygenassist	$32,%xmm0,%xmm1
 	call	.L100key_128
-.byte	102,15,58,223,200,64
+	aeskeygenassist	$64,%xmm0,%xmm1
 	call	.L100key_128
-.byte	102,15,58,223,200,128
+	aeskeygenassist	$128,%xmm0,%xmm1
 	call	.L100key_128
-.byte	102,15,58,223,200,27
+	aeskeygenassist	$27,%xmm0,%xmm1
 	call	.L100key_128
-.byte	102,15,58,223,200,54
+	aeskeygenassist	$54,%xmm0,%xmm1
 	call	.L100key_128
 	movups	%xmm0,(%edx)
 	movl	%ecx,80(%edx)
@@ -2179,21 +2179,21 @@ aes_hw_set_encrypt_key_base:
 	movq	16(%eax),%xmm2
 	movl	$11,%ecx
 	movups	%xmm0,-16(%edx)
-.byte	102,15,58,223,202,1
+	aeskeygenassist	$1,%xmm2,%xmm1
 	call	.L102key_192a_cold
-.byte	102,15,58,223,202,2
+	aeskeygenassist	$2,%xmm2,%xmm1
 	call	.L103key_192b
-.byte	102,15,58,223,202,4
+	aeskeygenassist	$4,%xmm2,%xmm1
 	call	.L104key_192a
-.byte	102,15,58,223,202,8
+	aeskeygenassist	$8,%xmm2,%xmm1
 	call	.L103key_192b
-.byte	102,15,58,223,202,16
+	aeskeygenassist	$16,%xmm2,%xmm1
 	call	.L104key_192a
-.byte	102,15,58,223,202,32
+	aeskeygenassist	$32,%xmm2,%xmm1
 	call	.L103key_192b
-.byte	102,15,58,223,202,64
+	aeskeygenassist	$64,%xmm2,%xmm1
 	call	.L104key_192a
-.byte	102,15,58,223,202,128
+	aeskeygenassist	$128,%xmm2,%xmm1
 	call	.L103key_192b
 	movups	%xmm0,(%edx)
 	movl	%ecx,48(%edx)
@@ -2234,31 +2234,31 @@ aes_hw_set_encrypt_key_base:
 	movl	$13,%ecx
 	movups	%xmm0,-32(%edx)
 	movups	%xmm2,-16(%edx)
-.byte	102,15,58,223,202,1
+	aeskeygenassist	$1,%xmm2,%xmm1
 	call	.L106key_256a_cold
-.byte	102,15,58,223,200,1
+	aeskeygenassist	$1,%xmm0,%xmm1
 	call	.L107key_256b
-.byte	102,15,58,223,202,2
+	aeskeygenassist	$2,%xmm2,%xmm1
 	call	.L108key_256a
-.byte	102,15,58,223,200,2
+	aeskeygenassist	$2,%xmm0,%xmm1
 	call	.L107key_256b
-.byte	102,15,58,223,202,4
+	aeskeygenassist	$4,%xmm2,%xmm1
 	call	.L108key_256a
-.byte	102,15,58,223,200,4
+	aeskeygenassist	$4,%xmm0,%xmm1
 	call	.L107key_256b
-.byte	102,15,58,223,202,8
+	aeskeygenassist	$8,%xmm2,%xmm1
 	call	.L108key_256a
-.byte	102,15,58,223,200,8
+	aeskeygenassist	$8,%xmm0,%xmm1
 	call	.L107key_256b
-.byte	102,15,58,223,202,16
+	aeskeygenassist	$16,%xmm2,%xmm1
 	call	.L108key_256a
-.byte	102,15,58,223,200,16
+	aeskeygenassist	$16,%xmm0,%xmm1
 	call	.L107key_256b
-.byte	102,15,58,223,202,32
+	aeskeygenassist	$32,%xmm2,%xmm1
 	call	.L108key_256a
-.byte	102,15,58,223,200,32
+	aeskeygenassist	$32,%xmm0,%xmm1
 	call	.L107key_256b
-.byte	102,15,58,223,202,64
+	aeskeygenassist	$64,%xmm2,%xmm1
 	call	.L108key_256a
 	movups	%xmm0,(%edx)
 	movl	%ecx,16(%edx)
@@ -2347,8 +2347,8 @@ aes_hw_set_encrypt_key_alt:
 	movdqa	%xmm0,%xmm2
 	movdqu	%xmm0,-16(%edx)
 .L115loop_key128:
-.byte	102,15,56,0,197
-.byte	102,15,56,221,196
+	pshufb	%xmm5,%xmm0
+	aesenclast	%xmm4,%xmm0
 	pslld	$1,%xmm4
 	leal	16(%edx),%edx
 	movdqa	%xmm2,%xmm3
@@ -2364,8 +2364,8 @@ aes_hw_set_encrypt_key_alt:
 	decl	%ecx
 	jnz	.L115loop_key128
 	movdqa	48(%ebx),%xmm4
-.byte	102,15,56,0,197
-.byte	102,15,56,221,196
+	pshufb	%xmm5,%xmm0
+	aesenclast	%xmm4,%xmm0
 	pslld	$1,%xmm4
 	movdqa	%xmm2,%xmm3
 	pslldq	$4,%xmm2
@@ -2377,8 +2377,8 @@ aes_hw_set_encrypt_key_alt:
 	pxor	%xmm2,%xmm0
 	movdqu	%xmm0,(%edx)
 	movdqa	%xmm0,%xmm2
-.byte	102,15,56,0,197
-.byte	102,15,56,221,196
+	pshufb	%xmm5,%xmm0
+	aesenclast	%xmm4,%xmm0
 	movdqa	%xmm2,%xmm3
 	pslldq	$4,%xmm2
 	pxor	%xmm2,%xmm3
@@ -2401,8 +2401,8 @@ aes_hw_set_encrypt_key_alt:
 .L117loop_key192:
 	movq	%xmm2,(%edx)
 	movdqa	%xmm2,%xmm1
-.byte	102,15,56,0,213
-.byte	102,15,56,221,212
+	pshufb	%xmm5,%xmm2
+	aesenclast	%xmm4,%xmm2
 	pslld	$1,%xmm4
 	leal	24(%edx),%edx
 	movdqa	%xmm0,%xmm3
@@ -2435,8 +2435,8 @@ aes_hw_set_encrypt_key_alt:
 	movdqa	%xmm2,%xmm1
 	movdqu	%xmm2,-16(%edx)
 .L118loop_key256:
-.byte	102,15,56,0,213
-.byte	102,15,56,221,212
+	pshufb	%xmm5,%xmm2
+	aesenclast	%xmm4,%xmm2
 	movdqa	%xmm0,%xmm3
 	pslldq	$4,%xmm0
 	pxor	%xmm0,%xmm3
@@ -2451,7 +2451,7 @@ aes_hw_set_encrypt_key_alt:
 	jz	.L119done_key256
 	pshufd	$255,%xmm0,%xmm2
 	pxor	%xmm3,%xmm3
-.byte	102,15,56,221,211
+	aesenclast	%xmm3,%xmm2
 	movdqa	%xmm1,%xmm3
 	pslldq	$4,%xmm1
 	pxor	%xmm1,%xmm3
@@ -2503,8 +2503,8 @@ aes_hw_encrypt_key_to_decrypt_key:
 .L120dec_key_inverse:
 	movups	(%edx),%xmm0
 	movups	(%eax),%xmm1
-.byte	102,15,56,219,192
-.byte	102,15,56,219,201
+	aesimc	%xmm0,%xmm0
+	aesimc	%xmm1,%xmm1
 	leal	16(%edx),%edx
 	leal	-16(%eax),%eax
 	movups	%xmm0,16(%eax)
@@ -2512,7 +2512,7 @@ aes_hw_encrypt_key_to_decrypt_key:
 	cmpl	%edx,%eax
 	ja	.L120dec_key_inverse
 	movups	(%edx),%xmm0
-.byte	102,15,56,219,192
+	aesimc	%xmm0,%xmm0
 	movups	%xmm0,(%edx)
 	pxor	%xmm0,%xmm0
 	pxor	%xmm1,%xmm1

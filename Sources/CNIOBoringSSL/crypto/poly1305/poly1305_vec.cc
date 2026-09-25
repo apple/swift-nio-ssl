@@ -1,16 +1,16 @@
-/* Copyright 2014 The BoringSSL Authors
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2014 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 // This implementation of poly1305 is by Andrew Moon
 // (https://github.com/floodyberry/poly1305-donna) and released as public
@@ -29,29 +29,30 @@
 
 #include <emmintrin.h>
 
+
+using namespace bssl;
+
+namespace {
+
 typedef __m128i xmmi;
 
-alignas(16) static const uint32_t poly1305_x64_sse2_message_mask[4] = {
+alignas(16) const uint32_t poly1305_x64_sse2_message_mask[4] = {
     (1 << 26) - 1, 0, (1 << 26) - 1, 0};
-alignas(16) static const uint32_t poly1305_x64_sse2_5[4] = {5, 0, 5, 0};
-alignas(16) static const uint32_t poly1305_x64_sse2_1shl128[4] = {(1 << 24), 0,
-                                                                  (1 << 24), 0};
+alignas(16) const uint32_t poly1305_x64_sse2_5[4] = {5, 0, 5, 0};
+alignas(16) const uint32_t poly1305_x64_sse2_1shl128[4] = {(1 << 24), 0,
+                                                           (1 << 24), 0};
 
-static inline uint128_t add128(uint128_t a, uint128_t b) { return a + b; }
+uint128_t add128(uint128_t a, uint128_t b) { return a + b; }
 
-static inline uint128_t add128_64(uint128_t a, uint64_t b) { return a + b; }
+uint128_t add128_64(uint128_t a, uint64_t b) { return a + b; }
 
-static inline uint128_t mul64x64_128(uint64_t a, uint64_t b) {
-  return (uint128_t)a * b;
-}
+uint128_t mul64x64_128(uint64_t a, uint64_t b) { return (uint128_t)a * b; }
 
-static inline uint64_t lo128(uint128_t a) { return (uint64_t)a; }
+uint64_t lo128(uint128_t a) { return (uint64_t)a; }
 
-static inline uint64_t shr128(uint128_t v, const int shift) {
-  return (uint64_t)(v >> shift);
-}
+uint64_t shr128(uint128_t v, const int shift) { return (uint64_t)(v >> shift); }
 
-static inline uint64_t shr128_pair(uint64_t hi, uint64_t lo, const int shift) {
+uint64_t shr128_pair(uint64_t hi, uint64_t lo, const int shift) {
   return (uint64_t)((((uint128_t)hi << 64) | lo) >> shift);
 }
 
@@ -83,14 +84,13 @@ static_assert(sizeof(struct poly1305_state_internal_t) + 63 <=
               "poly1305_state isn't large enough to hold aligned "
               "poly1305_state_internal_t");
 
-static inline poly1305_state_internal *poly1305_aligned_state(
-    poly1305_state *state) {
-  return (poly1305_state_internal *)(((uint64_t)state + 63) & ~63);
+poly1305_state_internal *poly1305_aligned_state(poly1305_state *state) {
+  return reinterpret_cast<poly1305_state_internal *>(align_pointer(state, 64));
 }
 
-static inline size_t poly1305_min(size_t a, size_t b) {
-  return (a < b) ? a : b;
-}
+size_t poly1305_min(size_t a, size_t b) { return (a < b) ? a : b; }
+
+}  // namespace
 
 void CRYPTO_poly1305_init(poly1305_state *state, const uint8_t key[32]) {
   poly1305_state_internal *st = poly1305_aligned_state(state);
@@ -134,8 +134,9 @@ void CRYPTO_poly1305_init(poly1305_state *state, const uint8_t key[32]) {
   st->leftover = 0;
 }
 
-static void poly1305_first_block(poly1305_state_internal *st,
-                                 const uint8_t *m) {
+namespace {
+
+void poly1305_first_block(poly1305_state_internal *st, const uint8_t *m) {
   const xmmi MMASK =
       _mm_load_si128((const xmmi *)poly1305_x64_sse2_message_mask);
   const xmmi FIVE = _mm_load_si128((const xmmi *)poly1305_x64_sse2_5);
@@ -158,7 +159,7 @@ static void poly1305_first_block(poly1305_state_internal *st,
   pad0 = ((uint64_t)p->R23.d[3] << 32) | (uint64_t)p->R23.d[1];
   pad1 = ((uint64_t)p->R24.d[3] << 32) | (uint64_t)p->R24.d[1];
 
-  // compute powers r^2,r^4
+  // compute powers r², r⁴
   r20 = r0;
   r21 = r1;
   r22 = r2;
@@ -228,8 +229,8 @@ static void poly1305_first_block(poly1305_state_internal *st,
   st->H[4] = _mm_or_si128(_mm_srli_epi64(T6, 40), HIBIT);
 }
 
-static void poly1305_blocks(poly1305_state_internal *st, const uint8_t *m,
-                            size_t bytes) {
+void poly1305_blocks(poly1305_state_internal *st, const uint8_t *m,
+                     size_t bytes) {
   const xmmi MMASK =
       _mm_load_si128((const xmmi *)poly1305_x64_sse2_message_mask);
   const xmmi FIVE = _mm_load_si128((const xmmi *)poly1305_x64_sse2_5);
@@ -248,7 +249,7 @@ static void poly1305_blocks(poly1305_state_internal *st, const uint8_t *m,
   H4 = st->H[4];
 
   while (bytes >= 64) {
-    // H *= [r^4,r^4]
+    // H *= [r⁴, r⁴]
     p = &st->P[0];
     T0 = _mm_mul_epu32(H0, p->R20.v);
     T1 = _mm_mul_epu32(H0, p->R21.v);
@@ -296,7 +297,7 @@ static void poly1305_blocks(poly1305_state_internal *st, const uint8_t *m,
     T5 = _mm_mul_epu32(H4, p->R20.v);
     T4 = _mm_add_epi64(T4, T5);
 
-    // H += [Mx,My]*[r^2,r^2]
+    // H += [Mx,My]⋅[r², r²]
     T5 = _mm_unpacklo_epi64(_mm_loadl_epi64((const xmmi *)(m + 0)),
                             _mm_loadl_epi64((const xmmi *)(m + 16)));
     T6 = _mm_unpacklo_epi64(_mm_loadl_epi64((const xmmi *)(m + 8)),
@@ -419,8 +420,8 @@ static void poly1305_blocks(poly1305_state_internal *st, const uint8_t *m,
   st->H[4] = H4;
 }
 
-static size_t poly1305_combine(poly1305_state_internal *st, const uint8_t *m,
-                               size_t bytes) {
+size_t poly1305_combine(poly1305_state_internal *st, const uint8_t *m,
+                        size_t bytes) {
   const xmmi MMASK =
       _mm_load_si128((const xmmi *)poly1305_x64_sse2_message_mask);
   const xmmi HIBIT = _mm_load_si128((const xmmi *)poly1305_x64_sse2_1shl128);
@@ -662,6 +663,8 @@ static size_t poly1305_combine(poly1305_state_internal *st, const uint8_t *m,
 
   return consumed;
 }
+
+}  // namespace
 
 void CRYPTO_poly1305_update(poly1305_state *state, const uint8_t *m,
                             size_t bytes) {

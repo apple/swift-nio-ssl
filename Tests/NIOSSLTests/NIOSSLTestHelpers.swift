@@ -501,56 +501,56 @@ func randomSerialNumber() -> ASN1_INTEGER {
 
     // Our 20-byte number needs to be converted into an integer. This is
     // too big for Swift's numbers, but BoringSSL can handle it fine.
-    let bn = CNIOBoringSSL_BN_new()
+    let bn = BN_new()
     defer {
-        CNIOBoringSSL_BN_free(bn)
+        BN_free(bn)
     }
 
     _ = readBytes.withUnsafeBufferPointer {
-        CNIOBoringSSL_BN_bin2bn($0.baseAddress, $0.count, bn)
+        BN_bin2bn($0.baseAddress, $0.count, bn)
     }
 
     // We want to bitshift this right by 1 bit to ensure it's smaller than
     // 2^159.
-    CNIOBoringSSL_BN_rshift1(bn, bn)
+    BN_rshift1(bn, bn)
 
     // Now we can turn this into our ASN1_INTEGER.
     var asn1int = ASN1_INTEGER()
-    CNIOBoringSSL_BN_to_ASN1_INTEGER(bn, &asn1int)
+    BN_to_ASN1_INTEGER(bn, &asn1int)
 
     return asn1int
 }
 
 func generateRSAPrivateKey() -> OpaquePointer {
-    let exponent = CNIOBoringSSL_BN_new()
+    let exponent = BN_new()
     defer {
-        CNIOBoringSSL_BN_free(exponent)
+        BN_free(exponent)
     }
 
-    CNIOBoringSSL_BN_set_u64(exponent, 0x10001)
+    BN_set_u64(exponent, 0x10001)
 
-    let rsa = CNIOBoringSSL_RSA_new()!
-    let generateRC = CNIOBoringSSL_RSA_generate_key_ex(rsa, CInt(2048), exponent, nil)
+    let rsa = RSA_new()!
+    let generateRC = RSA_generate_key_ex(rsa, CInt(2048), exponent, nil)
     precondition(generateRC == 1)
 
-    let pkey = CNIOBoringSSL_EVP_PKEY_new()!
-    let assignRC = CNIOBoringSSL_EVP_PKEY_assign_RSA(pkey, rsa)
+    let pkey = EVP_PKEY_new()!
+    let assignRC = EVP_PKEY_assign_RSA(pkey, rsa)
 
     precondition(assignRC == 1)
     return pkey
 }
 
 func generateECPrivateKey(curveNID: CInt = NID_X9_62_prime256v1) -> OpaquePointer {
-    let ctx = CNIOBoringSSL_EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nil)!
+    let ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nil)!
     defer {
-        CNIOBoringSSL_EVP_PKEY_CTX_free(ctx)
+        EVP_PKEY_CTX_free(ctx)
     }
 
-    precondition(CNIOBoringSSL_EVP_PKEY_keygen_init(ctx) == 1)
-    precondition(CNIOBoringSSL_EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, curveNID) == 1)
+    precondition(EVP_PKEY_keygen_init(ctx) == 1)
+    precondition(EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, curveNID) == 1)
 
     var pkey: OpaquePointer? = nil
-    precondition(CNIOBoringSSL_EVP_PKEY_keygen(ctx, &pkey) == 1)
+    precondition(EVP_PKEY_keygen(ctx, &pkey) == 1)
 
     return pkey!
 }
@@ -558,46 +558,46 @@ func generateECPrivateKey(curveNID: CInt = NID_X9_62_prime256v1) -> OpaquePointe
 func addExtension(x509: OpaquePointer, nid: CInt, value: String) {
     var extensionContext = X509V3_CTX()
 
-    CNIOBoringSSL_X509V3_set_ctx(&extensionContext, x509, x509, nil, nil, 0)
+    X509V3_set_ctx(&extensionContext, x509, x509, nil, nil, 0)
     let ext = value.withCString { (pointer) in
-        CNIOBoringSSL_X509V3_EXT_nconf_nid(nil, &extensionContext, nid, UnsafeMutablePointer(mutating: pointer))
+        X509V3_EXT_nconf_nid(nil, &extensionContext, nid, UnsafeMutablePointer(mutating: pointer))
     }!
-    CNIOBoringSSL_X509_add_ext(x509, ext, -1)
-    CNIOBoringSSL_X509_EXTENSION_free(ext)
+    X509_add_ext(x509, ext, -1)
+    X509_EXTENSION_free(ext)
 }
 
 func generateSelfSignedCert(
     keygenFunction: () -> OpaquePointer = generateRSAPrivateKey
 ) -> (NIOSSLCertificate, NIOSSLPrivateKey) {
     let pkey = keygenFunction()
-    let x = CNIOBoringSSL_X509_new()!
-    CNIOBoringSSL_X509_set_version(x, 2)
+    let x = X509_new()!
+    X509_set_version(x, 2)
 
     // NB: X509_set_serialNumber uses an internal copy of the ASN1_INTEGER, so this is
     // safe, there will be no use-after-free.
     var serial = randomSerialNumber()
-    CNIOBoringSSL_X509_set_serialNumber(x, &serial)
+    X509_set_serialNumber(x, &serial)
 
-    let notBefore = CNIOBoringSSL_ASN1_TIME_new()!
+    let notBefore = ASN1_TIME_new()!
     var now = time(nil)
-    CNIOBoringSSL_ASN1_TIME_set(notBefore, now)
-    CNIOBoringSSL_X509_set_notBefore(x, notBefore)
-    CNIOBoringSSL_ASN1_TIME_free(notBefore)
+    ASN1_TIME_set(notBefore, now)
+    X509_set_notBefore(x, notBefore)
+    ASN1_TIME_free(notBefore)
 
     now += 60 * 60  // Give ourselves an hour
-    let notAfter = CNIOBoringSSL_ASN1_TIME_new()!
-    CNIOBoringSSL_ASN1_TIME_set(notAfter, now)
-    CNIOBoringSSL_X509_set_notAfter(x, notAfter)
-    CNIOBoringSSL_ASN1_TIME_free(notAfter)
+    let notAfter = ASN1_TIME_new()!
+    ASN1_TIME_set(notAfter, now)
+    X509_set_notAfter(x, notAfter)
+    ASN1_TIME_free(notAfter)
 
-    CNIOBoringSSL_X509_set_pubkey(x, pkey)
+    X509_set_pubkey(x, pkey)
 
     let commonName = "localhost"
-    let name = CNIOBoringSSL_X509_get_subject_name(x)
+    let name = X509_get_subject_name(x)
     commonName.withCString { (pointer: UnsafePointer<Int8>) -> Void in
         pointer.withMemoryRebound(to: UInt8.self, capacity: commonName.lengthOfBytes(using: .utf8)) {
             (pointer: UnsafePointer<UInt8>) -> Void in
-            CNIOBoringSSL_X509_NAME_add_entry_by_NID(
+            X509_NAME_add_entry_by_NID(
                 name,
                 NID_commonName,
                 MBSTRING_UTF8,
@@ -608,14 +608,14 @@ func generateSelfSignedCert(
             )
         }
     }
-    CNIOBoringSSL_X509_set_issuer_name(x, name)
+    X509_set_issuer_name(x, name)
 
     addExtension(x509: x, nid: NID_basic_constraints, value: "critical,CA:FALSE")
     addExtension(x509: x, nid: NID_subject_key_identifier, value: "hash")
     addExtension(x509: x, nid: NID_subject_alt_name, value: "DNS:localhost")
     addExtension(x509: x, nid: NID_ext_key_usage, value: "critical,serverAuth,clientAuth")
 
-    CNIOBoringSSL_X509_sign(x, pkey, CNIOBoringSSL_EVP_sha256())
+    X509_sign(x, pkey, EVP_sha256())
 
     return (
         NIOSSLCertificate.fromUnsafePointer(takingOwnership: x),

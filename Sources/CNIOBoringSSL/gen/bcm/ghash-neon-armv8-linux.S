@@ -5,8 +5,6 @@
 #include <CNIOBoringSSL_asm_base.h>
 
 #if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_AARCH64) && defined(__ELF__)
-#include <CNIOBoringSSL_arm_arch.h>
-
 .text
 
 .globl	gcm_init_neon
@@ -324,7 +322,9 @@ gcm_ghash_neon:
 .size	gcm_ghash_neon,.-gcm_ghash_neon
 
 .section	.rodata
+
 .align	4
+ghash_neon_masks:
 .Lmasks:
 .quad	0x0000ffffffffffff	// k48
 .quad	0x00000000ffffffff	// k32

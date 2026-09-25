@@ -1,18 +1,20 @@
-/*
- * Copyright 2011-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 2011-2016 The OpenSSL Project Authors. All Rights Reserved.
+// Copyright (C) 2006, Network Resonance, Inc.
+// Copyright (C) 2011, RTFM, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-/*
-  DTLS code by Eric Rescorla <ekr@rtfm.com>
-
-  Copyright (C) 2006, Network Resonance, Inc.
-  Copyright (C) 2011, RTFM, Inc.
-*/
+// DTLS code by Eric Rescorla <ekr@rtfm.com>
 
 #include <CNIOBoringSSL_ssl.h>
 
@@ -31,7 +33,7 @@ static const SRTP_PROTECTION_PROFILE kSRTPProfiles[] = {
     {"SRTP_AES128_CM_SHA1_32", SRTP_AES128_CM_SHA1_32},
     {"SRTP_AEAD_AES_128_GCM", SRTP_AEAD_AES_128_GCM},
     {"SRTP_AEAD_AES_256_GCM", SRTP_AEAD_AES_256_GCM},
-    {0, 0},
+    {nullptr, 0},
 };
 
 static int find_profile_by_name(const char *profile_name,
@@ -86,31 +88,33 @@ static int ssl_ctx_make_profiles(
 }
 
 int SSL_CTX_set_srtp_profiles(SSL_CTX *ctx, const char *profiles) {
-  return ssl_ctx_make_profiles(profiles, &ctx->srtp_profiles);
+  return ssl_ctx_make_profiles(profiles, &FromOpaque(ctx)->srtp_profiles);
 }
 
 int SSL_set_srtp_profiles(SSL *ssl, const char *profiles) {
-  return ssl->config != nullptr &&
-         ssl_ctx_make_profiles(profiles, &ssl->config->srtp_profiles);
+  auto *ssl_impl = FromOpaque(ssl);
+  return ssl_impl->config != nullptr &&
+         ssl_ctx_make_profiles(profiles, &ssl_impl->config->srtp_profiles);
 }
 
 const STACK_OF(SRTP_PROTECTION_PROFILE) *SSL_get_srtp_profiles(const SSL *ssl) {
-  if (ssl == nullptr) {
+  auto *ssl_impl = FromOpaque(ssl);
+  if (ssl_impl == nullptr) {
     return nullptr;
   }
 
-  if (ssl->config == nullptr) {
+  if (ssl_impl->config == nullptr) {
     assert(0);
     return nullptr;
   }
 
-  return ssl->config->srtp_profiles != nullptr
-             ? ssl->config->srtp_profiles.get()
-             : ssl->ctx->srtp_profiles.get();
+  return ssl_impl->config->srtp_profiles != nullptr
+             ? ssl_impl->config->srtp_profiles.get()
+             : ssl_impl->ctx->srtp_profiles.get();
 }
 
 const SRTP_PROTECTION_PROFILE *SSL_get_selected_srtp_profile(SSL *ssl) {
-  return ssl->s3->srtp_profile;
+  return FromOpaque(ssl)->s3->srtp_profile;
 }
 
 int SSL_CTX_set_tlsext_use_srtp(SSL_CTX *ctx, const char *profiles) {

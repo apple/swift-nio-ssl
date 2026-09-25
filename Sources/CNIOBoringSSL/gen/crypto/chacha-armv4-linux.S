@@ -5,8 +5,6 @@
 #include <CNIOBoringSSL_asm_base.h>
 
 #if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_ARM) && defined(__ELF__)
-#include <CNIOBoringSSL_arm_arch.h>
-
 @ Silence ARMv8 deprecated IT instruction warnings. This file is used by both
 @ ARMv7 and ARMv8 processors and does not use ARMv8 instructions.
 .arch	armv7-a
@@ -26,6 +24,7 @@
 #endif
 
 .align	5
+chacha_constants:
 .Lsigma:
 .long	0x61707865,0x3320646e,0x79622d32,0x6b206574	@ endian-neutral
 .Lone:

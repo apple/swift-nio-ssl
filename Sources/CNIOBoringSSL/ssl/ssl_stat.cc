@@ -1,12 +1,17 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- * Copyright 2005 Nokia. All rights reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+// Copyright 2005 Nokia. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_ssl.h>
 
@@ -15,13 +20,16 @@
 #include "internal.h"
 
 
+using namespace bssl;
+
 const char *SSL_state_string_long(const SSL *ssl) {
-  if (ssl->s3->hs == nullptr) {
+  const auto *ssl_impl = FromOpaque(ssl);
+  if (ssl_impl->s3->hs == nullptr) {
     return "SSL negotiation finished successfully";
   }
 
-  return ssl->server ? ssl_server_handshake_state(ssl->s3->hs.get())
-                     : ssl_client_handshake_state(ssl->s3->hs.get());
+  return ssl_impl->server ? ssl_server_handshake_state(ssl_impl->s3->hs.get())
+                          : ssl_client_handshake_state(ssl_impl->s3->hs.get());
 }
 
 const char *SSL_state_string(const SSL *ssl) { return "!!!!!!"; }

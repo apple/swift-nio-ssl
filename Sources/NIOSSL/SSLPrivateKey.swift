@@ -150,11 +150,11 @@ public final class NIOSSLPrivateKey {
         }
 
         let key = withExtendedLifetime(callbackManager) { callbackManager -> OpaquePointer? in
-            guard let bio = CNIOBoringSSL_BIO_new_fp(fileObject, BIO_NOCLOSE) else {
+            guard let bio = BIO_new_fp(fileObject, BIO_NOCLOSE) else {
                 return nil
             }
             defer {
-                CNIOBoringSSL_BIO_free(bio)
+                BIO_free(bio)
             }
 
             switch format {
@@ -162,17 +162,17 @@ public final class NIOSSLPrivateKey {
                 // This annoying conditional binding is used to work around the fact that I cannot pass
                 // a variable to a function pointer argument.
                 if let callbackManager = callbackManager {
-                    return CNIOBoringSSL_PEM_read_PrivateKey(
+                    return PEM_read_PrivateKey(
                         fileObject,
                         nil,
                         { globalBoringSSLPassphraseCallback(buf: $0, size: $1, rwflag: $2, u: $3) },
                         Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque()
                     )
                 } else {
-                    return CNIOBoringSSL_PEM_read_PrivateKey(fileObject, nil, nil, nil)
+                    return PEM_read_PrivateKey(fileObject, nil, nil, nil)
                 }
             case .der:
-                return CNIOBoringSSL_d2i_PrivateKey_fp(fileObject, nil)
+                return d2i_PrivateKey_fp(fileObject, nil)
             }
         }
 
@@ -190,9 +190,9 @@ public final class NIOSSLPrivateKey {
         callbackManager: CallbackManagerProtocol?
     ) throws {
         let ref = bytes.withUnsafeBytes { (ptr) -> OpaquePointer? in
-            let bio = CNIOBoringSSL_BIO_new_mem_buf(ptr.baseAddress!, ptr.count)!
+            let bio = BIO_new_mem_buf(ptr.baseAddress!, ptr.count)!
             defer {
-                CNIOBoringSSL_BIO_free(bio)
+                BIO_free(bio)
             }
 
             return withExtendedLifetime(callbackManager) { callbackManager -> OpaquePointer? in
@@ -201,17 +201,17 @@ public final class NIOSSLPrivateKey {
                     if let callbackManager = callbackManager {
                         // This annoying conditional binding is used to work around the fact that I cannot pass
                         // a variable to a function pointer argument.
-                        return CNIOBoringSSL_PEM_read_bio_PrivateKey(
+                        return PEM_read_bio_PrivateKey(
                             bio,
                             nil,
                             { globalBoringSSLPassphraseCallback(buf: $0, size: $1, rwflag: $2, u: $3) },
                             Unmanaged.passUnretained(callbackManager as AnyObject).toOpaque()
                         )
                     } else {
-                        return CNIOBoringSSL_PEM_read_bio_PrivateKey(bio, nil, nil, nil)
+                        return PEM_read_bio_PrivateKey(bio, nil, nil, nil)
                     }
                 case .der:
-                    return CNIOBoringSSL_d2i_PrivateKey_bio(bio, nil)
+                    return d2i_PrivateKey_bio(bio, nil)
                 }
             }
         }
@@ -340,7 +340,7 @@ public final class NIOSSLPrivateKey {
     deinit {
         switch self.representation {
         case .native(let ref):
-            CNIOBoringSSL_EVP_PKEY_free(ref)
+            EVP_PKEY_free(ref)
         case .custom:
             // Merely dropping the ref is enough.
             ()
@@ -365,22 +365,22 @@ extension NIOSSLPrivateKey {
         of ref: OpaquePointer,
         _ body: (UnsafeRawBufferPointer) throws -> T
     ) throws -> T {
-        guard let bio = CNIOBoringSSL_BIO_new(CNIOBoringSSL_BIO_s_mem()) else {
+        guard let bio = BIO_new(BIO_s_mem()) else {
             fatalError("Failed to malloc for a BIO handler")
         }
 
         defer {
-            CNIOBoringSSL_BIO_free(bio)
+            BIO_free(bio)
         }
 
-        let rc = CNIOBoringSSL_i2d_PrivateKey_bio(bio, ref)
+        let rc = i2d_PrivateKey_bio(bio, ref)
         guard rc == 1 else {
             let errorStack = BoringSSLError.buildErrorStack()
             throw BoringSSLError.unknownError(errorStack)
         }
 
         var dataPtr: UnsafeMutablePointer<CChar>? = nil
-        let length = CNIOBoringSSL_BIO_get_mem_data(bio, &dataPtr)
+        let length = BIO_get_mem_data(bio, &dataPtr)
 
         guard let bytes = dataPtr.map({ UnsafeRawBufferPointer(start: $0, count: length) }) else {
             fatalError("Failed to map bytes from a private key")
@@ -424,7 +424,7 @@ extension NIOSSLPrivateKey: Equatable {
             // and anyway, BoringSSL considers "these keys aren't of the same type" to be an error, which is in my mind pretty ludicrous.
             return lhs.withUnsafeMutableEVPPKEYPointer { lhsRef in
                 rhs.withUnsafeMutableEVPPKEYPointer { rhsRef in
-                    CNIOBoringSSL_EVP_PKEY_cmp(lhsRef, rhsRef) == 1
+                    EVP_PKEY_cmp(lhsRef, rhsRef) == 1
                 }
             }
 

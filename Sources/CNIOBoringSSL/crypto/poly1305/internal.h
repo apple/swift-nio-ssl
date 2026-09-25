@@ -1,29 +1,45 @@
-/* Copyright 2016 The BoringSSL Authors
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2016 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-#ifndef OPENSSL_HEADER_POLY1305_INTERNAL_H
-#define OPENSSL_HEADER_POLY1305_INTERNAL_H
+#ifndef OPENSSL_HEADER_CRYPTO_POLY1305_INTERNAL_H
+#define OPENSSL_HEADER_CRYPTO_POLY1305_INTERNAL_H
 
 #include <CNIOBoringSSL_base.h>
 #include <CNIOBoringSSL_poly1305.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+
+BSSL_NAMESPACE_BEGIN
 
 #if defined(OPENSSL_ARM) && !defined(OPENSSL_NO_ASM) && !defined(OPENSSL_APPLE)
 #define OPENSSL_POLY1305_NEON
+
+struct alignas(16) fe1305x2 {
+  uint32_t v[12];  // for alignment; only using 10
+};
+
+extern "C" {
+// openssl_poly1305_neon2_addmulmod computes (x * y) + c and writes the result
+// to `r`.
+void openssl_poly1305_neon2_addmulmod(fe1305x2 *r, const fe1305x2 *x,
+                                      const fe1305x2 *y, const fe1305x2 *c);
+
+// openssl_poly1305_neon2_blocks processes `inlen` bytes from `in` and updates
+// the hash state in `h` using the precomputed powers in `precomp`. It returns
+// the number of bytes that were not processed (i.e. the remainder < 32 bytes).
+int openssl_poly1305_neon2_blocks(fe1305x2 *h, const fe1305x2 precomp[2],
+                                  const uint8_t *in, size_t inlen);
+}
 
 void CRYPTO_poly1305_init_neon(poly1305_state *state, const uint8_t key[32]);
 
@@ -33,9 +49,6 @@ void CRYPTO_poly1305_update_neon(poly1305_state *state, const uint8_t *in,
 void CRYPTO_poly1305_finish_neon(poly1305_state *state, uint8_t mac[16]);
 #endif
 
+BSSL_NAMESPACE_END
 
-#if defined(__cplusplus)
-}  // extern C
-#endif
-
-#endif  // OPENSSL_HEADER_POLY1305_INTERNAL_H
+#endif  // OPENSSL_HEADER_CRYPTO_POLY1305_INTERNAL_H

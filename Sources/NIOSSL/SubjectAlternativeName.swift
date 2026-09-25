@@ -60,8 +60,8 @@ public struct _SubjectAlternativeNames {
                 // ASN1_STRING (dNSName/rfc822Name/URI are ASN1_IA5STRING, iPAddress is
                 // ASN1_OCTET_STRING), so reading it as an ASN1_STRING is safe.
                 buffer = UnsafeBufferPointer(
-                    start: CNIOBoringSSL_ASN1_STRING_get0_data(name.pointee.d.ia5),
-                    count: Int(CNIOBoringSSL_ASN1_STRING_length(name.pointee.d.ia5))
+                    start: ASN1_STRING_get0_data(name.pointee.d.ia5),
+                    count: Int(ASN1_STRING_length(name.pointee.d.ia5))
                 )
             default:
                 // Every other type (otherName, x400Address, directoryName, ediPartyName,
@@ -75,7 +75,7 @@ public struct _SubjectAlternativeNames {
 
         deinit {
             if let nameStack = self.nameStack {
-                CNIOBoringSSL_GENERAL_NAMES_free(nameStack)
+                GENERAL_NAMES_free(nameStack)
             }
         }
     }

@@ -11,7 +11,7 @@
 .private_extern _rsaz_1024_sqr_avx2
 
 .p2align	6
-_rsaz_1024_sqr_avx2:
+_rsaz_1024_sqr_avx2:  // 702 cycles, 14% faster than rsaz_1024_mul_avx2
 
 _CET_ENDBR
 	leaq	(%rsp),%rax
@@ -31,23 +31,23 @@ _CET_ENDBR
 	vzeroupper
 	movq	%rax,%rbp
 
-	movq	%rdx,%r13
+	movq	%rdx,%r13  // reassigned argument
 	subq	$832,%rsp
 	movq	%r13,%r15
-	subq	$-128,%rdi
+	subq	$-128,%rdi  // size optimization
 	subq	$-128,%rsi
 	subq	$-128,%r13
 
-	andq	$4095,%r15
+	andq	$4095,%r15  // see if %r13 crosses page
 	addq	$320,%r15
 	shrq	$12,%r15
 	vpxor	%ymm9,%ymm9,%ymm9
 	jz	L$sqr_1024_no_n_copy
 
-
-
-
-
+// unaligned 256-bit load that crosses page boundary can
+// cause >2x performance degradation here, so if %r13 does
+// cross page boundary, copy it to stack and make sure stack
+// frame doesn't...
 	subq	$320,%rsp
 	vmovdqu	0-128(%r13),%ymm0
 	andq	$-2048,%rsp
@@ -69,7 +69,7 @@ _CET_ENDBR
 	vmovdqu	%ymm6,192-128(%r13)
 	vmovdqu	%ymm7,224-128(%r13)
 	vmovdqu	%ymm8,256-128(%r13)
-	vmovdqu	%ymm9,288-128(%r13)
+	vmovdqu	%ymm9,288-128(%r13)  // %ymm9 is zero
 
 L$sqr_1024_no_n_copy:
 	andq	$-1024,%rsp
@@ -83,18 +83,18 @@ L$sqr_1024_no_n_copy:
 	vmovdqu	224-128(%rsi),%ymm7
 	vmovdqu	256-128(%rsi),%ymm8
 
-	leaq	192(%rsp),%rbx
+	leaq	192(%rsp),%rbx  // 64+128=192
 	vmovdqu	L$and_mask(%rip),%ymm15
 	jmp	L$OOP_GRANDE_SQR_1024
 
 .p2align	5
 L$OOP_GRANDE_SQR_1024:
-	leaq	576+128(%rsp),%r9
-	leaq	448(%rsp),%r12
+	leaq	576+128(%rsp),%r9  // size optimization
+	leaq	448(%rsp),%r12  // 64+128+256=448
 
-
-
-
+// the squaring is performed as described in Variant B of
+// "Speeding up Big-Number Squaring", so start by calculating
+// the A*2=A+A vector
 	vpaddq	%ymm1,%ymm1,%ymm1
 	vpbroadcastq	0-128(%rsi),%ymm10
 	vpaddq	%ymm2,%ymm2,%ymm2
@@ -116,7 +116,7 @@ L$OOP_GRANDE_SQR_1024:
 
 	vpmuludq	0-128(%rsi),%ymm10,%ymm0
 	vpbroadcastq	32-128(%rsi),%ymm11
-	vmovdqu	%ymm9,288-192(%rbx)
+	vmovdqu	%ymm9,288-192(%rbx)  // zero upper half
 	vpmuludq	%ymm10,%ymm1,%ymm1
 	vmovdqu	%ymm9,320-448(%r12)
 	vpmuludq	%ymm10,%ymm2,%ymm2
@@ -253,10 +253,10 @@ L$sqr_entry_1024:
 	vpmuludq	192-128(%rsi),%ymm10,%ymm12
 	vpaddq	%ymm12,%ymm3,%ymm3
 	vpmuludq	192-128(%r9),%ymm10,%ymm14
-	vpbroadcastq	256-128(%r15),%ymm0
+	vpbroadcastq	256-128(%r15),%ymm0  // borrow %ymm0 for %ymm10
 	vpaddq	%ymm14,%ymm4,%ymm4
 	vpmuludq	224-128(%r9),%ymm10,%ymm5
-	vpbroadcastq	0+8-128(%r15),%ymm10
+	vpbroadcastq	0+8-128(%r15),%ymm10  // for next iteration
 	vpaddq	448-448(%r12),%ymm5,%ymm5
 
 	vmovdqu	%ymm3,384-448(%r12)
@@ -277,11 +277,11 @@ L$sqr_entry_1024:
 
 	decl	%r14d
 	jnz	L$OOP_SQR_1024
-
-	vmovdqu	256(%rsp),%ymm8
-	vmovdqu	288(%rsp),%ymm1
-	vmovdqu	320(%rsp),%ymm2
-	leaq	192(%rsp),%rbx
+// we need to fix indices 32-39 to avoid overflow
+	vmovdqu	256(%rsp),%ymm8  // 32*8-192(%rbx),
+	vmovdqu	288(%rsp),%ymm1  // 32*9-192(%rbx)
+	vmovdqu	320(%rsp),%ymm2  // 32*10-192(%rbx)
+	leaq	192(%rsp),%rbx  // 64+128=192
 
 	vpsrlq	$29,%ymm8,%ymm14
 	vpand	%ymm15,%ymm8,%ymm8
@@ -377,17 +377,17 @@ L$OOP_REDUCE_1024:
 	vpaddq	%ymm10,%ymm7,%ymm7
 	vpmuludq	256-128(%r13),%ymm12,%ymm14
 	vmovd	%eax,%xmm12
-
+// vmovdqu	32*1-8-128(%r13), %ymm11		# moved below
 	vpaddq	%ymm14,%ymm8,%ymm8
-
+// vmovdqu	32*2-8-128(%r13), %ymm10		# moved below
 	vpbroadcastq	%xmm12,%ymm12
 
-	vpmuludq	32-8-128(%r13),%ymm13,%ymm11
+	vpmuludq	32-8-128(%r13),%ymm13,%ymm11  // see above
 	vmovdqu	96-8-128(%r13),%ymm14
 	movq	%rax,%rdx
 	imulq	-128(%r13),%rax
 	vpaddq	%ymm11,%ymm1,%ymm1
-	vpmuludq	64-8-128(%r13),%ymm13,%ymm10
+	vpmuludq	64-8-128(%r13),%ymm13,%ymm10  // see above
 	vmovdqu	128-8-128(%r13),%ymm11
 	addq	%rax,%r11
 	movq	%rdx,%rax
@@ -406,7 +406,7 @@ L$OOP_REDUCE_1024:
 	imull	%ecx,%eax
 	vpaddq	%ymm11,%ymm4,%ymm4
 	vpmuludq	%ymm13,%ymm10,%ymm10
-.byte	0xc4,0x41,0x7e,0x6f,0x9d,0x58,0x00,0x00,0x00
+.byte	0xc4,0x41,0x7e,0x6f,0x9d,0x58,0x00,0x00,0x00  // vmovdqu		32*7-8-128(%r13), %ymm11
 	andl	$0x1fffffff,%eax
 	vpaddq	%ymm10,%ymm5,%ymm5
 	vpmuludq	%ymm13,%ymm14,%ymm14
@@ -414,7 +414,7 @@ L$OOP_REDUCE_1024:
 	vpaddq	%ymm14,%ymm6,%ymm6
 	vpmuludq	%ymm13,%ymm11,%ymm11
 	vmovdqu	288-8-128(%r13),%ymm9
-	vmovd	%eax,%xmm0
+	vmovd	%eax,%xmm0  // borrow ACC0 for Y2
 	imulq	-128(%r13),%rax
 	vpaddq	%ymm11,%ymm7,%ymm7
 	vpmuludq	%ymm13,%ymm10,%ymm10
@@ -431,14 +431,14 @@ L$OOP_REDUCE_1024:
 	vpaddq	%ymm14,%ymm1,%ymm1
 	vpmuludq	%ymm0,%ymm13,%ymm13
 	vpmuludq	%ymm12,%ymm11,%ymm11
-.byte	0xc4,0x41,0x7e,0x6f,0xb5,0xf0,0xff,0xff,0xff
+.byte	0xc4,0x41,0x7e,0x6f,0xb5,0xf0,0xff,0xff,0xff  // vmovdqu		32*4-16-128(%r13), %ymm14
 	vpaddq	%ymm1,%ymm13,%ymm13
 	vpaddq	%ymm11,%ymm2,%ymm2
 	vpmuludq	%ymm12,%ymm10,%ymm10
 	vmovdqu	160-16-128(%r13),%ymm11
 .byte	0x67
 	vmovq	%xmm13,%rax
-	vmovdqu	%ymm13,(%rsp)
+	vmovdqu	%ymm13,(%rsp)  // transfer %r9-%r12
 	vpaddq	%ymm10,%ymm3,%ymm3
 	vpmuludq	%ymm12,%ymm14,%ymm14
 	vmovdqu	192-16-128(%r13),%ymm10
@@ -455,7 +455,7 @@ L$OOP_REDUCE_1024:
 	addq	%r12,%rax
 	vpaddq	%ymm14,%ymm7,%ymm7
 	vpmuludq	%ymm12,%ymm11,%ymm11
-
+// vmovdqu	32*2-24-128(%r13), %ymm14	# moved below
 	movq	%rax,%r9
 	imull	%ecx,%eax
 	vpaddq	%ymm11,%ymm8,%ymm8
@@ -467,7 +467,7 @@ L$OOP_REDUCE_1024:
 	vpaddq	%ymm10,%ymm9,%ymm9
 	vpbroadcastq	%xmm12,%ymm12
 
-	vpmuludq	64-24-128(%r13),%ymm0,%ymm14
+	vpmuludq	64-24-128(%r13),%ymm0,%ymm14  // see above
 	vmovdqu	128-24-128(%r13),%ymm10
 	movq	%rax,%rdx
 	imulq	-128(%r13),%rax
@@ -490,7 +490,7 @@ L$OOP_REDUCE_1024:
 	vpaddq	%ymm10,%ymm4,%ymm3
 	vpmuludq	%ymm0,%ymm14,%ymm14
 	vmovdqu	224-24-128(%r13),%ymm10
-	imulq	24-128(%r13),%rdx
+	imulq	24-128(%r13),%rdx  // future %r12
 	addq	%rax,%r11
 	leaq	(%r9,%r10,1),%rax
 	vpaddq	%ymm14,%ymm5,%ymm4
@@ -513,7 +513,7 @@ L$OOP_REDUCE_1024:
 
 	decl	%r14d
 	jnz	L$OOP_REDUCE_1024
-	leaq	448(%rsp),%r12
+	leaq	448(%rsp),%r12  // size optimization
 	vpaddq	%ymm9,%ymm13,%ymm0
 	vpxor	%ymm9,%ymm9,%ymm9
 
@@ -656,7 +656,7 @@ L$OOP_REDUCE_1024:
 
 	movq	-8(%rax),%rbx
 
-	leaq	(%rax),%rsp
+	leaq	(%rax),%rsp  // restore %rsp
 
 L$sqr_1024_epilogue:
 	ret
@@ -666,6 +666,7 @@ L$sqr_1024_epilogue:
 .private_extern _rsaz_1024_mul_avx2
 
 .p2align	6
+.alt_entry _rsaz_1024_mul_avx2
 _rsaz_1024_mul_avx2:
 
 _CET_ENDBR
@@ -686,14 +687,14 @@ _CET_ENDBR
 	movq	%rax,%rbp
 
 	vzeroall
-	movq	%rdx,%r13
+	movq	%rdx,%r13  // reassigned argument
 	subq	$64,%rsp
 
-
-
-
-
-
+// unaligned 256-bit load that crosses page boundary can
+// cause severe performance degradation here, so if %rsi does
+// cross page boundary, swap it with %r13 [meaning that caller
+// is advised to lay down %rsi and %r13 next to each other, so
+// that only one can cross page boundary].
 .byte	0x67,0x67
 	movq	%rsi,%r15
 	andq	$4095,%r15
@@ -704,20 +705,20 @@ _CET_ENDBR
 	cmovnzq	%r15,%r13
 
 	movq	%rcx,%r15
-	subq	$-128,%rsi
+	subq	$-128,%rsi  // size optimization
 	subq	$-128,%rcx
 	subq	$-128,%rdi
 
-	andq	$4095,%r15
+	andq	$4095,%r15  // see if %rcx crosses page
 	addq	$320,%r15
 .byte	0x67,0x67
 	shrq	$12,%r15
 	jz	L$mul_1024_no_n_copy
 
-
-
-
-
+// unaligned 256-bit load that crosses page boundary can
+// cause severe performance degradation here, so if %rcx does
+// cross page boundary, copy it to stack and make sure stack
+// frame doesn't...
 	subq	$320,%rsp
 	vmovdqu	0-128(%rcx),%ymm0
 	andq	$-512,%rsp
@@ -748,13 +749,13 @@ _CET_ENDBR
 	vpxor	%ymm7,%ymm7,%ymm7
 	vmovdqu	%ymm8,256-128(%rcx)
 	vmovdqa	%ymm0,%ymm8
-	vmovdqu	%ymm9,288-128(%rcx)
+	vmovdqu	%ymm9,288-128(%rcx)  // %ymm9 is zero after vzeroall
 L$mul_1024_no_n_copy:
 	andq	$-64,%rsp
 
 	movq	(%r13),%rbx
 	vpbroadcastq	(%r13),%ymm10
-	vmovdqu	%ymm0,(%rsp)
+	vmovdqu	%ymm0,(%rsp)  // clear top of stack
 	xorq	%r9,%r9
 .byte	0x67
 	xorq	%r10,%r10
@@ -763,12 +764,12 @@ L$mul_1024_no_n_copy:
 
 	vmovdqu	L$and_mask(%rip),%ymm15
 	movl	$9,%r14d
-	vmovdqu	%ymm9,288-128(%rdi)
+	vmovdqu	%ymm9,288-128(%rdi)  // %ymm9 is zero after vzeroall
 	jmp	L$oop_mul_1024
 
 .p2align	5
 L$oop_mul_1024:
-	vpsrlq	$29,%ymm3,%ymm9
+	vpsrlq	$29,%ymm3,%ymm9  // correct %ymm3(*)
 	movq	%rbx,%rax
 	imulq	-128(%rsi),%rax
 	addq	%r9,%rax
@@ -794,7 +795,7 @@ L$oop_mul_1024:
 	vpbroadcastq	%xmm11,%ymm11
 	vpaddq	%ymm12,%ymm2,%ymm2
 	vpmuludq	96-128(%rsi),%ymm10,%ymm13
-	vpand	%ymm15,%ymm3,%ymm3
+	vpand	%ymm15,%ymm3,%ymm3  // correct %ymm3
 	vpaddq	%ymm13,%ymm3,%ymm3
 	vpmuludq	128-128(%rsi),%ymm10,%ymm0
 	vpaddq	%ymm0,%ymm4,%ymm4
@@ -803,7 +804,7 @@ L$oop_mul_1024:
 	vpmuludq	192-128(%rsi),%ymm10,%ymm13
 	vpaddq	%ymm13,%ymm6,%ymm6
 	vpmuludq	224-128(%rsi),%ymm10,%ymm0
-	vpermq	$0x93,%ymm9,%ymm9
+	vpermq	$0x93,%ymm9,%ymm9  // correct %ymm3
 	vpaddq	%ymm0,%ymm7,%ymm7
 	vpmuludq	256-128(%rsi),%ymm10,%ymm12
 	vpbroadcastq	8(%r13),%ymm10
@@ -837,10 +838,10 @@ L$oop_mul_1024:
 	vpmuludq	192-128(%rcx),%ymm11,%ymm12
 	vpaddq	%ymm12,%ymm6,%ymm6
 	vpmuludq	224-128(%rcx),%ymm11,%ymm13
-	vpblendd	$3,%ymm14,%ymm9,%ymm12
+	vpblendd	$3,%ymm14,%ymm9,%ymm12  // correct %ymm3
 	vpaddq	%ymm13,%ymm7,%ymm7
 	vpmuludq	256-128(%rcx),%ymm11,%ymm0
-	vpaddq	%ymm12,%ymm3,%ymm3
+	vpaddq	%ymm12,%ymm3,%ymm3  // correct %ymm3
 	vpaddq	%ymm0,%ymm8,%ymm8
 
 	movq	%rbx,%rax
@@ -853,9 +854,9 @@ L$oop_mul_1024:
 	vmovdqu	-8+64-128(%rsi),%ymm13
 
 	movq	%r10,%rax
-	vpblendd	$0xfc,%ymm14,%ymm9,%ymm9
+	vpblendd	$0xfc,%ymm14,%ymm9,%ymm9  // correct %ymm3
 	imull	%r8d,%eax
-	vpaddq	%ymm9,%ymm4,%ymm4
+	vpaddq	%ymm9,%ymm4,%ymm4  // correct %ymm3
 	andl	$0x1fffffff,%eax
 
 	imulq	16-128(%rsi),%rbx
@@ -1043,7 +1044,7 @@ L$oop_mul_1024:
 	vpmuludq	%ymm10,%ymm13,%ymm13
 	vpbroadcastq	32(%r13),%ymm10
 	vpaddq	%ymm13,%ymm9,%ymm9
-	addq	$32,%r13
+	addq	$32,%r13  // %r13++
 
 	vmovdqu	-24+32-128(%rcx),%ymm0
 	imulq	-128(%rcx),%rax
@@ -1054,9 +1055,9 @@ L$oop_mul_1024:
 	vpmuludq	%ymm11,%ymm0,%ymm0
 	vmovq	%xmm10,%rbx
 	vmovdqu	-24+96-128(%rcx),%ymm13
-	vpaddq	%ymm0,%ymm1,%ymm0
+	vpaddq	%ymm0,%ymm1,%ymm0  // %ymm0==%ymm0
 	vpmuludq	%ymm11,%ymm12,%ymm12
-	vmovdqu	%ymm0,(%rsp)
+	vmovdqu	%ymm0,(%rsp)  // transfer %r9-%r12
 	vpaddq	%ymm12,%ymm2,%ymm1
 	vmovdqu	-24+128-128(%rcx),%ymm0
 	vpmuludq	%ymm11,%ymm13,%ymm13
@@ -1213,7 +1214,7 @@ L$oop_mul_1024:
 
 	movq	-8(%rax),%rbx
 
-	leaq	(%rax),%rsp
+	leaq	(%rax),%rsp  // restore %rsp
 
 L$mul_1024_epilogue:
 	ret
@@ -1223,10 +1224,11 @@ L$mul_1024_epilogue:
 .private_extern _rsaz_1024_red2norm_avx2
 
 .p2align	5
+.alt_entry _rsaz_1024_red2norm_avx2
 _rsaz_1024_red2norm_avx2:
 
 _CET_ENDBR
-	subq	$-128,%rsi
+	subq	$-128,%rsi  // size optimization
 	xorq	%rax,%rax
 	movq	-128(%rsi),%r8
 	movq	-120(%rsi),%r9
@@ -1239,7 +1241,7 @@ _CET_ENDBR
 	addq	%r8,%rax
 	addq	%r9,%rax
 	addq	%r10,%rax
-	adcq	$0,%r11
+	adcq	$0,%r11  // consume eventual carry
 	movq	%rax,0(%rdi)
 	movq	%r11,%rax
 	movq	-104(%rsi),%r8
@@ -1250,7 +1252,7 @@ _CET_ENDBR
 	shrq	$12,%r10
 	addq	%r8,%rax
 	addq	%r9,%rax
-	adcq	$0,%r10
+	adcq	$0,%r10  // consume eventual carry
 	movq	%rax,8(%rdi)
 	movq	%r10,%rax
 	movq	-88(%rsi),%r11
@@ -1261,7 +1263,7 @@ _CET_ENDBR
 	shrq	$18,%r9
 	addq	%r11,%rax
 	addq	%r8,%rax
-	adcq	$0,%r9
+	adcq	$0,%r9  // consume eventual carry
 	movq	%rax,16(%rdi)
 	movq	%r9,%rax
 	movq	-72(%rsi),%r10
@@ -1272,7 +1274,7 @@ _CET_ENDBR
 	shrq	$24,%r8
 	addq	%r10,%rax
 	addq	%r11,%rax
-	adcq	$0,%r8
+	adcq	$0,%r8  // consume eventual carry
 	movq	%rax,24(%rdi)
 	movq	%r8,%rax
 	movq	-56(%rsi),%r9
@@ -1286,7 +1288,7 @@ _CET_ENDBR
 	addq	%r9,%rax
 	addq	%r10,%rax
 	addq	%r11,%rax
-	adcq	$0,%r8
+	adcq	$0,%r8  // consume eventual carry
 	movq	%rax,32(%rdi)
 	movq	%r8,%rax
 	movq	-32(%rsi),%r9
@@ -1297,7 +1299,7 @@ _CET_ENDBR
 	shrq	$7,%r11
 	addq	%r9,%rax
 	addq	%r10,%rax
-	adcq	$0,%r11
+	adcq	$0,%r11  // consume eventual carry
 	movq	%rax,40(%rdi)
 	movq	%r11,%rax
 	movq	-16(%rsi),%r8
@@ -1308,7 +1310,7 @@ _CET_ENDBR
 	shrq	$13,%r10
 	addq	%r8,%rax
 	addq	%r9,%rax
-	adcq	$0,%r10
+	adcq	$0,%r10  // consume eventual carry
 	movq	%rax,48(%rdi)
 	movq	%r10,%rax
 	movq	0(%rsi),%r11
@@ -1319,7 +1321,7 @@ _CET_ENDBR
 	shrq	$19,%r9
 	addq	%r11,%rax
 	addq	%r8,%rax
-	adcq	$0,%r9
+	adcq	$0,%r9  // consume eventual carry
 	movq	%rax,56(%rdi)
 	movq	%r9,%rax
 	movq	16(%rsi),%r10
@@ -1330,7 +1332,7 @@ _CET_ENDBR
 	shrq	$25,%r8
 	addq	%r10,%rax
 	addq	%r11,%rax
-	adcq	$0,%r8
+	adcq	$0,%r8  // consume eventual carry
 	movq	%rax,64(%rdi)
 	movq	%r8,%rax
 	movq	32(%rsi),%r9
@@ -1344,7 +1346,7 @@ _CET_ENDBR
 	addq	%r9,%rax
 	addq	%r10,%rax
 	addq	%r11,%rax
-	adcq	$0,%r8
+	adcq	$0,%r8  // consume eventual carry
 	movq	%rax,72(%rdi)
 	movq	%r8,%rax
 	movq	56(%rsi),%r9
@@ -1355,7 +1357,7 @@ _CET_ENDBR
 	shrq	$8,%r11
 	addq	%r9,%rax
 	addq	%r10,%rax
-	adcq	$0,%r11
+	adcq	$0,%r11  // consume eventual carry
 	movq	%rax,80(%rdi)
 	movq	%r11,%rax
 	movq	72(%rsi),%r8
@@ -1366,7 +1368,7 @@ _CET_ENDBR
 	shrq	$14,%r10
 	addq	%r8,%rax
 	addq	%r9,%rax
-	adcq	$0,%r10
+	adcq	$0,%r10  // consume eventual carry
 	movq	%rax,88(%rdi)
 	movq	%r10,%rax
 	movq	88(%rsi),%r11
@@ -1377,7 +1379,7 @@ _CET_ENDBR
 	shrq	$20,%r9
 	addq	%r11,%rax
 	addq	%r8,%rax
-	adcq	$0,%r9
+	adcq	$0,%r9  // consume eventual carry
 	movq	%rax,96(%rdi)
 	movq	%r9,%rax
 	movq	104(%rsi),%r10
@@ -1388,7 +1390,7 @@ _CET_ENDBR
 	shrq	$26,%r8
 	addq	%r10,%rax
 	addq	%r11,%rax
-	adcq	$0,%r8
+	adcq	$0,%r8  // consume eventual carry
 	movq	%rax,104(%rdi)
 	movq	%r8,%rax
 	movq	120(%rsi),%r9
@@ -1402,7 +1404,7 @@ _CET_ENDBR
 	addq	%r9,%rax
 	addq	%r10,%rax
 	addq	%r11,%rax
-	adcq	$0,%r8
+	adcq	$0,%r8  // consume eventual carry
 	movq	%rax,112(%rdi)
 	movq	%r8,%rax
 	movq	144(%rsi),%r9
@@ -1413,7 +1415,7 @@ _CET_ENDBR
 	shrq	$9,%r11
 	addq	%r9,%rax
 	addq	%r10,%rax
-	adcq	$0,%r11
+	adcq	$0,%r11  // consume eventual carry
 	movq	%rax,120(%rdi)
 	movq	%r11,%rax
 	ret
@@ -1424,20 +1426,21 @@ _CET_ENDBR
 .private_extern _rsaz_1024_norm2red_avx2
 
 .p2align	5
+.alt_entry _rsaz_1024_norm2red_avx2
 _rsaz_1024_norm2red_avx2:
 
 _CET_ENDBR
-	subq	$-128,%rdi
+	subq	$-128,%rdi  // size optimization
 	movq	(%rsi),%r8
 	movl	$0x1fffffff,%eax
 	movq	8(%rsi),%r9
 	movq	%r8,%r11
 	shrq	$0,%r11
-	andq	%rax,%r11
+	andq	%rax,%r11  // &0x1fffffff
 	movq	%r11,-128(%rdi)
 	movq	%r8,%r10
 	shrq	$29,%r10
-	andq	%rax,%r10
+	andq	%rax,%r10  // &0x1fffffff
 	movq	%r10,-120(%rdi)
 	shrdq	$58,%r9,%r8
 	andq	%rax,%r8
@@ -1445,7 +1448,7 @@ _CET_ENDBR
 	movq	16(%rsi),%r10
 	movq	%r9,%r8
 	shrq	$23,%r8
-	andq	%rax,%r8
+	andq	%rax,%r8  // &0x1fffffff
 	movq	%r8,-104(%rdi)
 	shrdq	$52,%r10,%r9
 	andq	%rax,%r9
@@ -1453,7 +1456,7 @@ _CET_ENDBR
 	movq	24(%rsi),%r11
 	movq	%r10,%r9
 	shrq	$17,%r9
-	andq	%rax,%r9
+	andq	%rax,%r9  // &0x1fffffff
 	movq	%r9,-88(%rdi)
 	shrdq	$46,%r11,%r10
 	andq	%rax,%r10
@@ -1461,7 +1464,7 @@ _CET_ENDBR
 	movq	32(%rsi),%r8
 	movq	%r11,%r10
 	shrq	$11,%r10
-	andq	%rax,%r10
+	andq	%rax,%r10  // &0x1fffffff
 	movq	%r10,-72(%rdi)
 	shrdq	$40,%r8,%r11
 	andq	%rax,%r11
@@ -1469,11 +1472,11 @@ _CET_ENDBR
 	movq	40(%rsi),%r9
 	movq	%r8,%r11
 	shrq	$5,%r11
-	andq	%rax,%r11
+	andq	%rax,%r11  // &0x1fffffff
 	movq	%r11,-56(%rdi)
 	movq	%r8,%r10
 	shrq	$34,%r10
-	andq	%rax,%r10
+	andq	%rax,%r10  // &0x1fffffff
 	movq	%r10,-48(%rdi)
 	shrdq	$63,%r9,%r8
 	andq	%rax,%r8
@@ -1481,7 +1484,7 @@ _CET_ENDBR
 	movq	48(%rsi),%r10
 	movq	%r9,%r8
 	shrq	$28,%r8
-	andq	%rax,%r8
+	andq	%rax,%r8  // &0x1fffffff
 	movq	%r8,-32(%rdi)
 	shrdq	$57,%r10,%r9
 	andq	%rax,%r9
@@ -1489,7 +1492,7 @@ _CET_ENDBR
 	movq	56(%rsi),%r11
 	movq	%r10,%r9
 	shrq	$22,%r9
-	andq	%rax,%r9
+	andq	%rax,%r9  // &0x1fffffff
 	movq	%r9,-16(%rdi)
 	shrdq	$51,%r11,%r10
 	andq	%rax,%r10
@@ -1497,7 +1500,7 @@ _CET_ENDBR
 	movq	64(%rsi),%r8
 	movq	%r11,%r10
 	shrq	$16,%r10
-	andq	%rax,%r10
+	andq	%rax,%r10  // &0x1fffffff
 	movq	%r10,0(%rdi)
 	shrdq	$45,%r8,%r11
 	andq	%rax,%r11
@@ -1505,7 +1508,7 @@ _CET_ENDBR
 	movq	72(%rsi),%r9
 	movq	%r8,%r11
 	shrq	$10,%r11
-	andq	%rax,%r11
+	andq	%rax,%r11  // &0x1fffffff
 	movq	%r11,16(%rdi)
 	shrdq	$39,%r9,%r8
 	andq	%rax,%r8
@@ -1513,11 +1516,11 @@ _CET_ENDBR
 	movq	80(%rsi),%r10
 	movq	%r9,%r8
 	shrq	$4,%r8
-	andq	%rax,%r8
+	andq	%rax,%r8  // &0x1fffffff
 	movq	%r8,32(%rdi)
 	movq	%r9,%r11
 	shrq	$33,%r11
-	andq	%rax,%r11
+	andq	%rax,%r11  // &0x1fffffff
 	movq	%r11,40(%rdi)
 	shrdq	$62,%r10,%r9
 	andq	%rax,%r9
@@ -1525,7 +1528,7 @@ _CET_ENDBR
 	movq	88(%rsi),%r11
 	movq	%r10,%r9
 	shrq	$27,%r9
-	andq	%rax,%r9
+	andq	%rax,%r9  // &0x1fffffff
 	movq	%r9,56(%rdi)
 	shrdq	$56,%r11,%r10
 	andq	%rax,%r10
@@ -1533,7 +1536,7 @@ _CET_ENDBR
 	movq	96(%rsi),%r8
 	movq	%r11,%r10
 	shrq	$21,%r10
-	andq	%rax,%r10
+	andq	%rax,%r10  // &0x1fffffff
 	movq	%r10,72(%rdi)
 	shrdq	$50,%r8,%r11
 	andq	%rax,%r11
@@ -1541,7 +1544,7 @@ _CET_ENDBR
 	movq	104(%rsi),%r9
 	movq	%r8,%r11
 	shrq	$15,%r11
-	andq	%rax,%r11
+	andq	%rax,%r11  // &0x1fffffff
 	movq	%r11,88(%rdi)
 	shrdq	$44,%r9,%r8
 	andq	%rax,%r8
@@ -1549,7 +1552,7 @@ _CET_ENDBR
 	movq	112(%rsi),%r10
 	movq	%r9,%r8
 	shrq	$9,%r8
-	andq	%rax,%r8
+	andq	%rax,%r8  // &0x1fffffff
 	movq	%r8,104(%rdi)
 	shrdq	$38,%r10,%r9
 	andq	%rax,%r9
@@ -1557,11 +1560,11 @@ _CET_ENDBR
 	movq	120(%rsi),%r11
 	movq	%r10,%r9
 	shrq	$3,%r9
-	andq	%rax,%r9
+	andq	%rax,%r9  // &0x1fffffff
 	movq	%r9,120(%rdi)
 	movq	%r10,%r8
 	shrq	$32,%r8
-	andq	%rax,%r8
+	andq	%rax,%r8  // &0x1fffffff
 	movq	%r8,128(%rdi)
 	shrdq	$61,%r11,%r10
 	andq	%rax,%r10
@@ -1569,12 +1572,12 @@ _CET_ENDBR
 	xorq	%r8,%r8
 	movq	%r11,%r10
 	shrq	$26,%r10
-	andq	%rax,%r10
+	andq	%rax,%r10  // &0x1fffffff
 	movq	%r10,144(%rdi)
 	shrdq	$55,%r8,%r11
 	andq	%rax,%r11
 	movq	%r11,152(%rdi)
-	movq	%r8,160(%rdi)
+	movq	%r8,160(%rdi)  // zero
 	movq	%r8,168(%rdi)
 	movq	%r8,176(%rdi)
 	movq	%r8,184(%rdi)
@@ -1585,6 +1588,7 @@ _CET_ENDBR
 .private_extern _rsaz_1024_scatter5_avx2
 
 .p2align	5
+.alt_entry _rsaz_1024_scatter5_avx2
 _rsaz_1024_scatter5_avx2:
 
 _CET_ENDBR
@@ -1614,6 +1618,7 @@ L$oop_scatter_1024:
 .private_extern _rsaz_1024_gather5_avx2
 
 .p2align	5
+.alt_entry _rsaz_1024_gather5_avx2
 _rsaz_1024_gather5_avx2:
 
 _CET_ENDBR
@@ -1623,7 +1628,7 @@ _CET_ENDBR
 	leaq	-256(%rsp),%rsp
 	andq	$-32,%rsp
 	leaq	L$inc(%rip),%r10
-	leaq	-128(%rsp),%rax
+	leaq	-128(%rsp),%rax  // control u-op density
 
 	vmovd	%edx,%xmm4
 	vmovdqa	(%r10),%ymm0
@@ -1670,7 +1675,7 @@ _CET_ENDBR
 	vpcmpeqd	%ymm4,%ymm14,%ymm14
 	vpcmpeqd	%ymm4,%ymm15,%ymm15
 
-	vmovdqa	-32(%r10),%ymm7
+	vmovdqa	-32(%r10),%ymm7  // .Lgather_permd
 	leaq	128(%rsi),%rsi
 	movl	$9,%edx
 
@@ -1716,7 +1721,7 @@ L$oop_gather_1024:
 	vpor	%ymm3,%ymm5,%ymm5
 
 	vpor	%ymm5,%ymm4,%ymm4
-	vextracti128	$1,%ymm4,%xmm5
+	vextracti128	$1,%ymm4,%xmm5  // upper half is cleared
 	vpor	%xmm4,%xmm5,%xmm5
 	vpermd	%ymm5,%ymm7,%ymm5
 	vmovdqu	%ymm5,(%rdi)
@@ -1734,7 +1739,9 @@ L$oop_gather_1024:
 L$SEH_end_rsaz_1024_gather5:
 
 .section	__DATA,__const
+
 .p2align	6
+rsaz_avx2_constants:
 L$and_mask:
 .quad	0x1fffffff,0x1fffffff,0x1fffffff,0x1fffffff
 L$scatter_permd:

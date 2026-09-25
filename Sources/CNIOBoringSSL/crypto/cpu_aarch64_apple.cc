@@ -1,16 +1,16 @@
-/* Copyright 2021 The BoringSSL Authors
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2021 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include "internal.h"
 
@@ -20,13 +20,13 @@
 #include <sys/sysctl.h>
 #include <sys/types.h>
 
-#include <CNIOBoringSSL_arm_arch.h>
 
+using namespace bssl;
 
 static int has_hw_feature(const char *name) {
   int value;
   size_t len = sizeof(value);
-  if (sysctlbyname(name, &value, &len, NULL, 0) != 0) {
+  if (sysctlbyname(name, &value, &len, nullptr, 0) != 0) {
     return 0;
   }
   if (len != sizeof(int)) {
@@ -45,7 +45,7 @@ static int has_hw_feature(const char *name) {
   return value != 0;
 }
 
-void OPENSSL_cpuid_setup(void) {
+void bssl::OPENSSL_cpuid_setup() {
   // Apple ARM64 platforms have NEON and cryptography extensions available
   // statically, so we do not need to query them. In particular, there sometimes
   // are no sysctls corresponding to such features. See below.
@@ -63,12 +63,13 @@ void OPENSSL_cpuid_setup(void) {
   // available in macOS 12. For compatibility with macOS 11, we also support
   // the old names. The old names don't have values for features like FEAT_AES,
   // so instead we detect them statically above.
-  //
-  // If querying new sysctls, update the Chromium sandbox definition. See
-  // https://crrev.com/c/4415225.
   if (has_hw_feature("hw.optional.arm.FEAT_SHA512") ||
       has_hw_feature("hw.optional.armv8_2_sha512")) {
     OPENSSL_armcap_P |= ARMV8_SHA512;
+  }
+  if (has_hw_feature("hw.optional.arm.FEAT_SHA3") ||
+      has_hw_feature("hw.optional.armv8_2_sha3")) {
+    OPENSSL_armcap_P |= ARMV8_SHA3;
   }
 }
 

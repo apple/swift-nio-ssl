@@ -1,11 +1,18 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include <stddef.h>
 
 #include <CNIOBoringSSL_cipher.h>
 #include <CNIOBoringSSL_des.h>
@@ -15,6 +22,8 @@
 #include "../fipsmodule/cipher/internal.h"
 #include "internal.h"
 
+
+using namespace bssl;
 
 typedef struct {
   union {
@@ -30,10 +39,10 @@ static int des_init_key(EVP_CIPHER_CTX *ctx, const uint8_t *key,
   return 1;
 }
 
-static int des_cbc_cipher(EVP_CIPHER_CTX *ctx, uint8_t *out, const uint8_t *in,
-                          size_t in_len) {
+static int des_cbc_cipher_update(EVP_CIPHER_CTX *ctx, uint8_t *out,
+                                 const uint8_t *in, size_t len) {
   EVP_DES_KEY *dat = (EVP_DES_KEY *)ctx->cipher_data;
-  DES_ncbc_encrypt_ex(in, out, in_len, &dat->ks.ks, ctx->iv, ctx->encrypt);
+  DES_ncbc_encrypt_ex(in, out, len, &dat->ks.ks, ctx->iv, ctx->encrypt);
   return 1;
 }
 
@@ -45,22 +54,24 @@ static const EVP_CIPHER evp_des_cbc = {
     /*ctx_size=*/sizeof(EVP_DES_KEY),
     /*flags=*/EVP_CIPH_CBC_MODE,
     /*init=*/des_init_key,
-    /*cipher=*/des_cbc_cipher,
+    /*cipher_update=*/des_cbc_cipher_update,
+    /*cipher_final=*/nullptr,
+    /*update_aad=*/nullptr,
     /*cleanup=*/nullptr,
     /*ctrl=*/nullptr,
 };
 
-const EVP_CIPHER *EVP_des_cbc(void) { return &evp_des_cbc; }
+const EVP_CIPHER *EVP_des_cbc() { return &evp_des_cbc; }
 
-static int des_ecb_cipher(EVP_CIPHER_CTX *ctx, uint8_t *out, const uint8_t *in,
-                          size_t in_len) {
-  if (in_len < ctx->cipher->block_size) {
+static int des_ecb_cipher_update(EVP_CIPHER_CTX *ctx, uint8_t *out,
+                                 const uint8_t *in, size_t len) {
+  if (len < ctx->cipher->block_size) {
     return 1;
   }
-  in_len -= ctx->cipher->block_size;
+  len -= ctx->cipher->block_size;
 
   EVP_DES_KEY *dat = (EVP_DES_KEY *)ctx->cipher_data;
-  for (size_t i = 0; i <= in_len; i += ctx->cipher->block_size) {
+  for (size_t i = 0; i <= len; i += ctx->cipher->block_size) {
     DES_ecb_encrypt_ex(in + i, out + i, &dat->ks.ks, ctx->encrypt);
   }
   return 1;
@@ -74,12 +85,14 @@ static const EVP_CIPHER evp_des_ecb = {
     /*ctx_size=*/sizeof(EVP_DES_KEY),
     /*flags=*/EVP_CIPH_ECB_MODE,
     /*init=*/des_init_key,
-    /*cipher=*/des_ecb_cipher,
+    /*cipher_update=*/des_ecb_cipher_update,
+    /*cipher_final=*/nullptr,
+    /*update_aad=*/nullptr,
     /*cleanup=*/nullptr,
     /*ctrl=*/nullptr,
 };
 
-const EVP_CIPHER *EVP_des_ecb(void) { return &evp_des_ecb; }
+const EVP_CIPHER *EVP_des_ecb() { return &evp_des_ecb; }
 
 typedef struct {
   union {
@@ -97,10 +110,10 @@ static int des_ede3_init_key(EVP_CIPHER_CTX *ctx, const uint8_t *key,
   return 1;
 }
 
-static int des_ede3_cbc_cipher(EVP_CIPHER_CTX *ctx, uint8_t *out,
-                               const uint8_t *in, size_t in_len) {
+static int des_ede3_cbc_cipher_update(EVP_CIPHER_CTX *ctx, uint8_t *out,
+                                      const uint8_t *in, size_t len) {
   DES_EDE_KEY *dat = (DES_EDE_KEY *)ctx->cipher_data;
-  DES_ede3_cbc_encrypt_ex(in, out, in_len, &dat->ks.ks[0], &dat->ks.ks[1],
+  DES_ede3_cbc_encrypt_ex(in, out, len, &dat->ks.ks[0], &dat->ks.ks[1],
                           &dat->ks.ks[2], ctx->iv, ctx->encrypt);
   return 1;
 }
@@ -113,12 +126,14 @@ static const EVP_CIPHER evp_des_ede3_cbc = {
     /*ctx_size=*/sizeof(DES_EDE_KEY),
     /*flags=*/EVP_CIPH_CBC_MODE,
     /*init=*/des_ede3_init_key,
-    /*cipher=*/des_ede3_cbc_cipher,
+    /*cipher_update=*/des_ede3_cbc_cipher_update,
+    /*cipher_final=*/nullptr,
+    /*update_aad=*/nullptr,
     /*cleanup=*/nullptr,
     /*ctrl=*/nullptr,
 };
 
-const EVP_CIPHER *EVP_des_ede3_cbc(void) { return &evp_des_ede3_cbc; }
+const EVP_CIPHER *EVP_des_ede3_cbc() { return &evp_des_ede3_cbc; }
 
 static int des_ede_init_key(EVP_CIPHER_CTX *ctx, const uint8_t *key,
                             const uint8_t *iv, int enc) {
@@ -138,22 +153,24 @@ static const EVP_CIPHER evp_des_ede_cbc = {
     /*ctx_size=*/sizeof(DES_EDE_KEY),
     /*flags=*/EVP_CIPH_CBC_MODE,
     /*init=*/des_ede_init_key,
-    /*cipher=*/des_ede3_cbc_cipher,
+    /*cipher_update=*/des_ede3_cbc_cipher_update,
+    /*cipher_final=*/nullptr,
+    /*update_aad=*/nullptr,
     /*cleanup=*/nullptr,
     /*ctrl=*/nullptr,
 };
 
-const EVP_CIPHER *EVP_des_ede_cbc(void) { return &evp_des_ede_cbc; }
+const EVP_CIPHER *EVP_des_ede_cbc() { return &evp_des_ede_cbc; }
 
-static int des_ede_ecb_cipher(EVP_CIPHER_CTX *ctx, uint8_t *out,
-                              const uint8_t *in, size_t in_len) {
-  if (in_len < ctx->cipher->block_size) {
+static int des_ede_ecb_cipher_update(EVP_CIPHER_CTX *ctx, uint8_t *out,
+                                     const uint8_t *in, size_t len) {
+  if (len < ctx->cipher->block_size) {
     return 1;
   }
-  in_len -= ctx->cipher->block_size;
+  len -= ctx->cipher->block_size;
 
   DES_EDE_KEY *dat = (DES_EDE_KEY *)ctx->cipher_data;
-  for (size_t i = 0; i <= in_len; i += ctx->cipher->block_size) {
+  for (size_t i = 0; i <= len; i += ctx->cipher->block_size) {
     DES_ecb3_encrypt_ex(in + i, out + i, &dat->ks.ks[0], &dat->ks.ks[1],
                         &dat->ks.ks[2], ctx->encrypt);
   }
@@ -168,12 +185,14 @@ static const EVP_CIPHER evp_des_ede = {
     /*ctx_size=*/sizeof(DES_EDE_KEY),
     /*flags=*/EVP_CIPH_ECB_MODE,
     /*init=*/des_ede_init_key,
-    /*cipher=*/des_ede_ecb_cipher,
+    /*cipher_update=*/des_ede_ecb_cipher_update,
+    /*cipher_final=*/nullptr,
+    /*update_aad=*/nullptr,
     /*cleanup=*/nullptr,
     /*ctrl=*/nullptr,
 };
 
-const EVP_CIPHER *EVP_des_ede(void) { return &evp_des_ede; }
+const EVP_CIPHER *EVP_des_ede() { return &evp_des_ede; }
 
 static const EVP_CIPHER evp_des_ede3 = {
     /*nid=*/NID_des_ede3_ecb,
@@ -183,11 +202,13 @@ static const EVP_CIPHER evp_des_ede3 = {
     /*ctx_size=*/sizeof(DES_EDE_KEY),
     /*flags=*/EVP_CIPH_ECB_MODE,
     /*init=*/des_ede3_init_key,
-    /*cipher=*/des_ede_ecb_cipher,
+    /*cipher_update=*/des_ede_ecb_cipher_update,
+    /*cipher_final=*/nullptr,
+    /*update_aad=*/nullptr,
     /*cleanup=*/nullptr,
     /*ctrl=*/nullptr,
 };
 
-const EVP_CIPHER *EVP_des_ede3(void) { return &evp_des_ede3; }
+const EVP_CIPHER *EVP_des_ede3() { return &evp_des_ede3; }
 
-const EVP_CIPHER *EVP_des_ede3_ecb(void) { return EVP_des_ede3(); }
+const EVP_CIPHER *EVP_des_ede3_ecb() { return EVP_des_ede3(); }

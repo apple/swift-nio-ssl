@@ -33,7 +33,7 @@ import Bionic
 /// This specific type signature is annoying (I'd rather have UnsafeRawPointer, and rather than a separate
 /// len I'd like a buffer pointer), but this interface is required because this is passed to an BoringSSL
 /// function pointer and so needs to be @convention(c).
-internal func boringSSLBIOWriteFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafePointer<CChar>?, len: CInt) -> CInt {
+internal func boringSSLBIOWriteFunc(bio: OpaquePointer?, buf: UnsafePointer<CChar>?, len: CInt) -> CInt {
     guard let concreteBIO = bio, let concreteBuf = buf else {
         preconditionFailure(
             "Invalid pointers in boringSSLBIOWriteFunc: bio: \(String(describing: bio)) buf: \(String(describing: buf))"
@@ -42,12 +42,12 @@ internal func boringSSLBIOWriteFunc(bio: UnsafeMutablePointer<BIO>?, buf: Unsafe
 
     // This unwrap may fail if the user has dropped the ref to the ByteBufferBIO but still has
     // a ref to the other pointer. Sigh heavily and just fail.
-    guard let userPtr = CNIOBoringSSL_BIO_get_data(concreteBIO) else {
+    guard let userPtr = BIO_get_data(concreteBIO) else {
         return -1
     }
 
     // Begin by clearing retry flags. We do this at all BoringSSL entry points.
-    CNIOBoringSSL_BIO_clear_retry_flags(concreteBIO)
+    BIO_clear_retry_flags(concreteBIO)
 
     // In the event a write of 0 bytes has been asked for, just return early, don't bother with the other work.
     guard len > 0 else {
@@ -66,7 +66,7 @@ internal func boringSSLBIOWriteFunc(bio: UnsafeMutablePointer<BIO>?, buf: Unsafe
 /// len I'd like a buffer pointer), but this interface is required because this is passed to an BoringSSL
 /// function pointer and so needs to be @convention(c).
 internal func boringSSLBIOReadFunc(
-    bio: UnsafeMutablePointer<BIO>?,
+    bio: OpaquePointer?,
     buf: UnsafeMutablePointer<CChar>?,
     len: CInt
 ) -> CInt {
@@ -78,12 +78,12 @@ internal func boringSSLBIOReadFunc(
 
     // This unwrap may fail if the user has dropped the ref to the ByteBufferBIO but still has
     // a ref to the other pointer. Sigh heavily and just fail.
-    guard let userPtr = CNIOBoringSSL_BIO_get_data(concreteBIO) else {
+    guard let userPtr = BIO_get_data(concreteBIO) else {
         return -1
     }
 
     // Begin by clearing retry flags. We do this at all BoringSSL entry points.
-    CNIOBoringSSL_BIO_clear_retry_flags(concreteBIO)
+    BIO_clear_retry_flags(concreteBIO)
 
     // In the event a read for 0 bytes has been asked for, just return early, don't bother with the other work.
     guard len > 0 else {
@@ -101,7 +101,7 @@ internal func boringSSLBIOReadFunc(
 /// This specific type signature is annoying (I'd rather have UnsafeRawPointer, and rather than a separate
 /// len I'd like a buffer pointer), but this interface is required because this is passed to an BoringSSL
 /// function pointer and so needs to be @convention(c).
-internal func boringSSLBIOPutsFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafePointer<CChar>?) -> CInt {
+internal func boringSSLBIOPutsFunc(bio: OpaquePointer?, buf: UnsafePointer<CChar>?) -> CInt {
     guard let concreteBIO = bio, let concreteBuf = buf else {
         preconditionFailure(
             "Invalid pointers in boringSSLBIOPutsFunc: bio: \(String(describing: bio)) buf: \(String(describing: buf))"
@@ -117,7 +117,7 @@ internal func boringSSLBIOPutsFunc(bio: UnsafeMutablePointer<BIO>?, buf: UnsafeP
 /// len I'd like a buffer pointer), but this interface is required because this is passed to an BoringSSL
 /// function pointer and so needs to be @convention(c).
 internal func boringSSLBIOGetsFunc(
-    bio: UnsafeMutablePointer<BIO>?,
+    bio: OpaquePointer?,
     buf: UnsafeMutablePointer<CChar>?,
     len: CInt
 ) -> CInt {
@@ -126,16 +126,16 @@ internal func boringSSLBIOGetsFunc(
 
 /// The BoringSSL entry point for `BIO_ctrl`. We don't support most of these.
 internal func boringSSLBIOCtrlFunc(
-    bio: UnsafeMutablePointer<BIO>?,
+    bio: OpaquePointer?,
     cmd: CInt,
     larg: CLong,
     parg: UnsafeMutableRawPointer?
 ) -> CLong {
     switch cmd {
     case BIO_CTRL_GET_CLOSE:
-        return CLong(CNIOBoringSSL_BIO_get_shutdown(bio))
+        return CLong(BIO_get_shutdown(bio))
     case BIO_CTRL_SET_CLOSE:
-        CNIOBoringSSL_BIO_set_shutdown(bio, CInt(larg))
+        BIO_set_shutdown(bio, CInt(larg))
         return 1
     case BIO_CTRL_FLUSH:
         return 1
@@ -144,11 +144,11 @@ internal func boringSSLBIOCtrlFunc(
     }
 }
 
-internal func boringSSLBIOCreateFunc(bio: UnsafeMutablePointer<BIO>?) -> CInt {
+internal func boringSSLBIOCreateFunc(bio: OpaquePointer?) -> CInt {
     1
 }
 
-internal func boringSSLBIODestroyFunc(bio: UnsafeMutablePointer<BIO>?) -> CInt {
+internal func boringSSLBIODestroyFunc(bio: OpaquePointer?) -> CInt {
     1
 }
 
@@ -170,26 +170,26 @@ final class ByteBufferBIO {
     /// using a ByteBufferBIO. There will only ever be one value of this in a NIO program,
     /// and it will always be non-NULL. Failure to initialize this structure is fatal to
     /// the program.
-    nonisolated(unsafe) private static let boringSSLBIOMethod: UnsafeMutablePointer<BIO_METHOD> =
+    nonisolated(unsafe) private static let boringSSLBIOMethod: OpaquePointer =
         buildBoringSSLBIOMethod()
 
-    private static func buildBoringSSLBIOMethod() -> UnsafeMutablePointer<BIO_METHOD> {
+    private static func buildBoringSSLBIOMethod() -> OpaquePointer {
         guard boringSSLIsInitialized else {
             preconditionFailure("Failed to initialize BoringSSL")
         }
 
-        let bioType = CNIOBoringSSL_BIO_get_new_index() | BIO_TYPE_SOURCE_SINK
-        guard let method = CNIOBoringSSL_BIO_meth_new(bioType, "ByteBuffer BIO") else {
+        let bioType = BIO_get_new_index() | BIO_TYPE_SOURCE_SINK
+        guard let method = BIO_meth_new(bioType, "ByteBuffer BIO") else {
             preconditionFailure("Unable to allocate new BIO_METHOD")
         }
 
-        CNIOBoringSSL_BIO_meth_set_write(method, boringSSLBIOWriteFunc)
-        CNIOBoringSSL_BIO_meth_set_read(method, boringSSLBIOReadFunc)
-        CNIOBoringSSL_BIO_meth_set_puts(method, boringSSLBIOPutsFunc)
-        CNIOBoringSSL_BIO_meth_set_gets(method, boringSSLBIOGetsFunc)
-        CNIOBoringSSL_BIO_meth_set_ctrl(method, boringSSLBIOCtrlFunc)
-        CNIOBoringSSL_BIO_meth_set_create(method, boringSSLBIOCreateFunc)
-        CNIOBoringSSL_BIO_meth_set_destroy(method, boringSSLBIODestroyFunc)
+        BIO_meth_set_write(method, boringSSLBIOWriteFunc)
+        BIO_meth_set_read(method, boringSSLBIOReadFunc)
+        BIO_meth_set_puts(method, boringSSLBIOPutsFunc)
+        BIO_meth_set_gets(method, boringSSLBIOGetsFunc)
+        BIO_meth_set_ctrl(method, boringSSLBIOCtrlFunc)
+        BIO_meth_set_create(method, boringSSLBIOCreateFunc)
+        BIO_meth_set_destroy(method, boringSSLBIODestroyFunc)
 
         return method
     }
@@ -204,7 +204,7 @@ final class ByteBufferBIO {
     ///
     /// Because of this split initialization dance, we elect to initialize this data structure,
     /// and have it own building an BoringSSL `BIO` structure.
-    private let bioPtr: UnsafeMutablePointer<BIO>
+    private let bioPtr: OpaquePointer  // BIO *
 
     /// The buffer of bytes received from the network.
     ///
@@ -256,7 +256,7 @@ final class ByteBufferBIO {
         // give ourselves the option. We may also write more data than that: if we do, the ByteBuffer will just handle it.
         self.outboundBuffer = allocator.buffer(capacity: SSL_MAX_RECORD_SIZE)
 
-        guard let bio = CNIOBoringSSL_BIO_new(ByteBufferBIO.boringSSLBIOMethod) else {
+        guard let bio = BIO_new(ByteBufferBIO.boringSSLBIOMethod) else {
             preconditionFailure("Unable to initialize custom BIO")
         }
 
@@ -265,31 +265,31 @@ final class ByteBufferBIO {
         self.bioPtr = bio
         self.maximumPreservedOutboundBufferCapacity = maximumPreservedOutboundBufferCapacity
         self.allocator = allocator
-        CNIOBoringSSL_BIO_set_data(self.bioPtr, Unmanaged.passRetained(self).toOpaque())
-        CNIOBoringSSL_BIO_set_init(self.bioPtr, 1)
-        CNIOBoringSSL_BIO_set_shutdown(self.bioPtr, 1)
+        BIO_set_data(self.bioPtr, Unmanaged.passRetained(self).toOpaque())
+        BIO_set_init(self.bioPtr, 1)
+        BIO_set_shutdown(self.bioPtr, 1)
     }
 
     deinit {
         // In debug mode we assert that we've been closed.
-        assert(CNIOBoringSSL_BIO_get_data(self.bioPtr) == nil, "must call close() on ByteBufferBIO before deinit")
+        assert(BIO_get_data(self.bioPtr) == nil, "must call close() on ByteBufferBIO before deinit")
 
         // On deinit we need to drop our reference to the BIO.
-        CNIOBoringSSL_BIO_free(self.bioPtr)
+        BIO_free(self.bioPtr)
     }
 
     /// Shuts down the BIO, rendering it unable to be used.
     ///
     /// This method is idempotent: it is safe to call more than once.
     internal func close() {
-        guard let selfRef = CNIOBoringSSL_BIO_get_data(self.bioPtr) else {
+        guard let selfRef = BIO_get_data(self.bioPtr) else {
             // Shutdown is safe to call more than once.
             return
         }
 
         // We consume the original retain of self, and then nil out the ref in the BIO so that this can't happen again.
         Unmanaged<ByteBufferBIO>.fromOpaque(selfRef).release()
-        CNIOBoringSSL_BIO_set_data(self.bioPtr, nil)
+        BIO_set_data(self.bioPtr, nil)
     }
 
     /// Obtain an owned pointer to the backing BoringSSL BIO object.
@@ -301,8 +301,8 @@ final class ByteBufferBIO {
     /// Note that the BIO may not remain useful for long periods of time: if the `ByteBufferBIO`
     /// object that owns the BIO goes out of scope, the BIO will have its pointers invalidated
     /// and will no longer be able to send/receive data.
-    internal func retainedBIO() -> UnsafeMutablePointer<BIO> {
-        CNIOBoringSSL_BIO_up_ref(self.bioPtr)
+    internal func retainedBIO() -> OpaquePointer {
+        BIO_up_ref(self.bioPtr)
         return self.bioPtr
     }
 
@@ -375,7 +375,7 @@ final class ByteBufferBIO {
     fileprivate func sslRead(buffer: UnsafeMutableRawBufferPointer) -> CInt {
         guard var inboundBuffer = self.inboundBuffer else {
             // We have no bytes to read. Mark this as "needs read retry".
-            CNIOBoringSSL_BIO_set_retry_read(self.bioPtr)
+            BIO_set_retry_read(self.bioPtr)
             return -1
         }
 

@@ -1,11 +1,16 @@
-/*
- * Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_pkcs8.h>
 
@@ -16,22 +21,27 @@
 #include <CNIOBoringSSL_bio.h>
 #include <CNIOBoringSSL_buf.h>
 #include <CNIOBoringSSL_bytestring.h>
+#include <CNIOBoringSSL_cipher.h>
 #include <CNIOBoringSSL_digest.h>
 #include <CNIOBoringSSL_err.h>
 #include <CNIOBoringSSL_evp.h>
 #include <CNIOBoringSSL_hmac.h>
 #include <CNIOBoringSSL_mem.h>
+#include <CNIOBoringSSL_nid.h>
 #include <CNIOBoringSSL_rand.h>
 #include <CNIOBoringSSL_x509.h>
 
 #include "../bytestring/internal.h"
 #include "../internal.h"
+#include "../mem_internal.h"
 #include "../x509/internal.h"
 #include "internal.h"
 
 
-int pkcs12_iterations_acceptable(uint64_t iterations) {
-#if defined(BORINGSSL_UNSAFE_FUZZER_MODE)
+using namespace bssl;
+
+int bssl::pkcs12_iterations_acceptable(uint64_t iterations) {
+#if defined(FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
   static const uint64_t kIterationsLimit = 2048;
 #else
   // Windows imposes a limit of 600K. Mozilla say: “so them increasing
@@ -50,26 +60,27 @@ ASN1_SEQUENCE(PKCS8_PRIV_KEY_INFO) = {
     ASN1_SIMPLE(PKCS8_PRIV_KEY_INFO, version, ASN1_INTEGER),
     ASN1_SIMPLE(PKCS8_PRIV_KEY_INFO, pkeyalg, X509_ALGOR),
     ASN1_SIMPLE(PKCS8_PRIV_KEY_INFO, pkey, ASN1_OCTET_STRING),
-    ASN1_IMP_SET_OF_OPT(PKCS8_PRIV_KEY_INFO, attributes, X509_ATTRIBUTE, 0),
+    ASN1_IMP_SET_OF_OPT(PKCS8_PRIV_KEY_INFO, attributes, bssl::X509_ATTRIBUTE,
+                        0),
 } ASN1_SEQUENCE_END(PKCS8_PRIV_KEY_INFO)
 
 IMPLEMENT_ASN1_FUNCTIONS_const(PKCS8_PRIV_KEY_INFO)
 
 EVP_PKEY *EVP_PKCS82PKEY(const PKCS8_PRIV_KEY_INFO *p8) {
-  uint8_t *der = NULL;
+  uint8_t *der = nullptr;
   int der_len = i2d_PKCS8_PRIV_KEY_INFO(p8, &der);
   if (der_len < 0) {
-    return NULL;
+    return nullptr;
   }
 
   CBS cbs;
   CBS_init(&cbs, der, (size_t)der_len);
   EVP_PKEY *ret = EVP_parse_private_key(&cbs);
-  if (ret == NULL || CBS_len(&cbs) != 0) {
+  if (ret == nullptr || CBS_len(&cbs) != 0) {
     OPENSSL_PUT_ERROR(PKCS8, PKCS8_R_DECODE_ERROR);
     EVP_PKEY_free(ret);
     OPENSSL_free(der);
-    return NULL;
+    return nullptr;
   }
 
   OPENSSL_free(der);
@@ -78,19 +89,19 @@ EVP_PKEY *EVP_PKCS82PKEY(const PKCS8_PRIV_KEY_INFO *p8) {
 
 PKCS8_PRIV_KEY_INFO *EVP_PKEY2PKCS8(const EVP_PKEY *pkey) {
   CBB cbb;
-  uint8_t *der = NULL;
+  uint8_t *der = nullptr;
   size_t der_len;
   if (!CBB_init(&cbb, 0) || !EVP_marshal_private_key(&cbb, pkey) ||
       !CBB_finish(&cbb, &der, &der_len) || der_len > LONG_MAX) {
     CBB_cleanup(&cbb);
     OPENSSL_PUT_ERROR(PKCS8, PKCS8_R_ENCODE_ERROR);
     OPENSSL_free(der);
-    return NULL;
+    return nullptr;
   }
 
   const uint8_t *p = der;
-  PKCS8_PRIV_KEY_INFO *p8 = d2i_PKCS8_PRIV_KEY_INFO(NULL, &p, (long)der_len);
-  if (p8 == NULL || p != der + der_len) {
+  PKCS8_PRIV_KEY_INFO *p8 = d2i_PKCS8_PRIV_KEY_INFO(nullptr, &p, (long)der_len);
+  if (p8 == nullptr || p != der + der_len) {
     PKCS8_PRIV_KEY_INFO_free(p8);
     OPENSSL_PUT_ERROR(PKCS8, PKCS8_R_DECODE_ERROR);
     goto err;
@@ -101,21 +112,21 @@ PKCS8_PRIV_KEY_INFO *EVP_PKEY2PKCS8(const EVP_PKEY *pkey) {
 
 err:
   OPENSSL_free(der);
-  return NULL;
+  return nullptr;
 }
 
 PKCS8_PRIV_KEY_INFO *PKCS8_decrypt(X509_SIG *pkcs8, const char *pass,
                                    int pass_len_in) {
   size_t pass_len;
-  if (pass_len_in == -1 && pass != NULL) {
+  if (pass_len_in == -1 && pass != nullptr) {
     pass_len = strlen(pass);
   } else {
     pass_len = (size_t)pass_len_in;
   }
 
-  PKCS8_PRIV_KEY_INFO *ret = NULL;
-  EVP_PKEY *pkey = NULL;
-  uint8_t *in = NULL;
+  PKCS8_PRIV_KEY_INFO *ret = nullptr;
+  EVP_PKEY *pkey = nullptr;
+  uint8_t *in = nullptr;
 
   // Convert the legacy ASN.1 object to a byte string.
   int in_len = i2d_X509_SIG(pkcs8, &in);
@@ -126,7 +137,7 @@ PKCS8_PRIV_KEY_INFO *PKCS8_decrypt(X509_SIG *pkcs8, const char *pass,
   CBS cbs;
   CBS_init(&cbs, in, in_len);
   pkey = PKCS8_parse_encrypted_private_key(&cbs, pass, pass_len);
-  if (pkey == NULL || CBS_len(&cbs) != 0) {
+  if (pkey == nullptr || CBS_len(&cbs) != 0) {
     goto err;
   }
 
@@ -142,7 +153,7 @@ X509_SIG *PKCS8_encrypt(int pbe_nid, const EVP_CIPHER *cipher, const char *pass,
                         int pass_len_in, const uint8_t *salt, size_t salt_len,
                         int iterations, PKCS8_PRIV_KEY_INFO *p8inf) {
   size_t pass_len;
-  if (pass_len_in == -1 && pass != NULL) {
+  if (pass_len_in == -1 && pass != nullptr) {
     pass_len = strlen(pass);
   } else {
     pass_len = (size_t)pass_len_in;
@@ -150,12 +161,12 @@ X509_SIG *PKCS8_encrypt(int pbe_nid, const EVP_CIPHER *cipher, const char *pass,
 
   // Parse out the private key.
   EVP_PKEY *pkey = EVP_PKCS82PKEY(p8inf);
-  if (pkey == NULL) {
-    return NULL;
+  if (pkey == nullptr) {
+    return nullptr;
   }
 
-  X509_SIG *ret = NULL;
-  uint8_t *der = NULL;
+  X509_SIG *ret = nullptr;
+  uint8_t *der = nullptr;
   const uint8_t *ptr;
   size_t der_len;
   CBB cbb;
@@ -170,11 +181,11 @@ X509_SIG *PKCS8_encrypt(int pbe_nid, const EVP_CIPHER *cipher, const char *pass,
 
   // Convert back to legacy ASN.1 objects.
   ptr = der;
-  ret = d2i_X509_SIG(NULL, &ptr, der_len);
-  if (ret == NULL || ptr != der + der_len) {
+  ret = d2i_X509_SIG(nullptr, &ptr, der_len);
+  if (ret == nullptr || ptr != der + der_len) {
     OPENSSL_PUT_ERROR(PKCS8, ERR_R_INTERNAL_ERROR);
     X509_SIG_free(ret);
-    ret = NULL;
+    ret = nullptr;
   }
 
 err:
@@ -195,11 +206,11 @@ struct pkcs12_context {
 static int PKCS12_handle_sequence(
     CBS *sequence, struct pkcs12_context *ctx,
     int (*handle_element)(CBS *cbs, struct pkcs12_context *ctx)) {
-  uint8_t *storage = NULL;
+  uint8_t *storage = nullptr;
   CBS in;
   int ret = 0;
 
-  // Although a BER->DER conversion is done at the beginning of |PKCS12_parse|,
+  // Although a BER->DER conversion is done at the beginning of `PKCS12_parse`,
   // the ASN.1 data gets wrapped in OCTETSTRINGs and/or encrypted and the
   // conversion cannot see through those wrappings. So each time we step
   // through one we need to convert to DER again.
@@ -258,12 +269,12 @@ static const uint8_t kX509Certificate[] = {0x2a, 0x86, 0x48, 0x86, 0xf7,
                                            0x0d, 0x01, 0x09, 0x16, 0x01};
 
 // parse_bag_attributes parses the bagAttributes field of a SafeBag structure.
-// It sets |*out_friendly_name| to a newly-allocated copy of the friendly name,
+// It sets `*out_friendly_name` to a newly-allocated copy of the friendly name,
 // encoded as a UTF-8 string, or NULL if there is none. It returns one on
 // success and zero on error.
 static int parse_bag_attributes(CBS *attrs, uint8_t **out_friendly_name,
                                 size_t *out_friendly_name_len) {
-  *out_friendly_name = NULL;
+  *out_friendly_name = nullptr;
   *out_friendly_name_len = 0;
 
   // See https://tools.ietf.org/html/rfc7292#section-4.2.
@@ -278,7 +289,7 @@ static int parse_bag_attributes(CBS *attrs, uint8_t **out_friendly_name,
     if (CBS_mem_equal(&oid, kFriendlyName, sizeof(kFriendlyName))) {
       // See https://tools.ietf.org/html/rfc2985, section 5.5.1.
       CBS value;
-      if (*out_friendly_name != NULL ||
+      if (*out_friendly_name != nullptr ||
           !CBS_get_asn1(&values, &value, CBS_ASN1_BMPSTRING) ||
           CBS_len(&values) != 0 || CBS_len(&value) == 0) {
         OPENSSL_PUT_ERROR(PKCS8, PKCS8_R_BAD_PKCS12_DATA);
@@ -308,7 +319,7 @@ static int parse_bag_attributes(CBS *attrs, uint8_t **out_friendly_name,
 
 err:
   OPENSSL_free(*out_friendly_name);
-  *out_friendly_name = NULL;
+  *out_friendly_name = nullptr;
   *out_friendly_name_len = 0;
   return 0;
 }
@@ -324,7 +335,7 @@ static int PKCS12_handle_safe_bag(CBS *safe_bag, struct pkcs12_context *ctx) {
     return 0;
   }
   if (CBS_len(safe_bag) == 0) {
-    CBS_init(&bag_attrs, NULL, 0);
+    CBS_init(&bag_attrs, nullptr, 0);
   } else if (!CBS_get_asn1(safe_bag, &bag_attrs, CBS_ASN1_SET) ||
              CBS_len(safe_bag) != 0) {
     OPENSSL_PUT_ERROR(PKCS8, PKCS8_R_BAD_PKCS12_DATA);
@@ -345,7 +356,7 @@ static int PKCS12_handle_safe_bag(CBS *safe_bag, struct pkcs12_context *ctx) {
         is_key_bag ? EVP_parse_private_key(&wrapped_value)
                    : PKCS8_parse_encrypted_private_key(
                          &wrapped_value, ctx->password, ctx->password_len);
-    if (pkey == NULL) {
+    if (pkey == nullptr) {
       return 0;
     }
 
@@ -383,7 +394,7 @@ static int PKCS12_handle_safe_bag(CBS *safe_bag, struct pkcs12_context *ctx) {
     }
 
     const uint8_t *inp = CBS_data(&cert);
-    X509 *x509 = d2i_X509(NULL, &inp, (long)CBS_len(&cert));
+    X509 *x509 = d2i_X509(nullptr, &inp, (long)CBS_len(&cert));
     if (!x509) {
       OPENSSL_PUT_ERROR(PKCS8, PKCS8_R_BAD_PKCS12_DATA);
       return 0;
@@ -430,7 +441,7 @@ static int PKCS12_handle_content_info(CBS *content_info,
                                       struct pkcs12_context *ctx) {
   CBS content_type, wrapped_contents, contents;
   int ret = 0;
-  uint8_t *storage = NULL;
+  uint8_t *storage = nullptr;
 
   if (!CBS_get_asn1(content_info, &content_type, CBS_ASN1_OBJECT) ||
       !CBS_get_asn1(content_info, &wrapped_contents,
@@ -517,15 +528,15 @@ static int pkcs12_check_mac(int *out_mac_ok, const char *password,
 
   uint8_t hmac[EVP_MAX_MD_SIZE];
   unsigned hmac_len;
-  if (NULL == HMAC(md, hmac_key, EVP_MD_size(md), CBS_data(authsafes),
-                   CBS_len(authsafes), hmac, &hmac_len)) {
+  if (nullptr == HMAC(md, hmac_key, EVP_MD_size(md), CBS_data(authsafes),
+                      CBS_len(authsafes), hmac, &hmac_len)) {
     goto err;
   }
 
   *out_mac_ok = CBS_mem_equal(expected_mac, hmac, hmac_len);
-#if defined(BORINGSSL_UNSAFE_FUZZER_MODE)
-  *out_mac_ok = 1;
-#endif
+  if (CRYPTO_fuzzer_mode_enabled()) {
+    *out_mac_ok = 1;
+  }
   ret = 1;
 
 err:
@@ -536,7 +547,7 @@ err:
 
 int PKCS12_get_key_and_certs(EVP_PKEY **out_key, STACK_OF(X509) *out_certs,
                              CBS *ber_in, const char *password) {
-  uint8_t *storage = NULL;
+  uint8_t *storage = nullptr;
   CBS in, pfx, mac_data, authsafe, content_type, wrapped_authsafes, authsafes;
   uint64_t version;
   int ret = 0;
@@ -549,7 +560,7 @@ int PKCS12_get_key_and_certs(EVP_PKEY **out_key, STACK_OF(X509) *out_certs,
     return 0;
   }
 
-  *out_key = NULL;
+  *out_key = nullptr;
   OPENSSL_memset(&ctx, 0, sizeof(ctx));
 
   // See ftp://ftp.rsasecurity.com/pub/pkcs/pkcs-12/pkcs-12v1.pdf, section
@@ -604,7 +615,7 @@ int PKCS12_get_key_and_certs(EVP_PKEY **out_key, STACK_OF(X509) *out_certs,
   ctx.out_key = out_key;
   ctx.out_certs = out_certs;
   ctx.password = password;
-  ctx.password_len = password != NULL ? strlen(password) : 0;
+  ctx.password_len = password != nullptr ? strlen(password) : 0;
 
   // Verify the MAC.
   {
@@ -615,7 +626,7 @@ int PKCS12_get_key_and_certs(EVP_PKEY **out_key, STACK_OF(X509) *out_certs,
     }
 
     const EVP_MD *md = EVP_parse_digest_algorithm(&mac);
-    if (md == NULL) {
+    if (md == nullptr) {
       goto err;
     }
 
@@ -648,7 +659,7 @@ int PKCS12_get_key_and_certs(EVP_PKEY **out_key, STACK_OF(X509) *out_certs,
       // array for "no password". OpenSSL considers a non-NULL password as {0,
       // 0} and a NULL password as {}. It then, in high-level PKCS#12 parsing
       // code, tries both options. We match this behavior.
-      ctx.password = ctx.password != NULL ? NULL : "";
+      ctx.password = ctx.password != nullptr ? nullptr : "";
       if (!pkcs12_check_mac(&mac_ok, ctx.password, ctx.password_len, &salt,
                             iterations, md, &authsafes, &expected_mac)) {
         goto err;
@@ -671,7 +682,7 @@ err:
   OPENSSL_free(storage);
   if (!ret) {
     EVP_PKEY_free(*out_key);
-    *out_key = NULL;
+    *out_key = nullptr;
     while (sk_X509_num(out_certs) > original_out_certs_len) {
       X509 *x509 = sk_X509_pop(out_certs);
       X509_free(x509);
@@ -681,7 +692,7 @@ err:
   return ret;
 }
 
-void PKCS12_PBE_add(void) {}
+void PKCS12_PBE_add() {}
 
 struct pkcs12_st {
   uint8_t *ber_bytes;
@@ -690,16 +701,16 @@ struct pkcs12_st {
 
 PKCS12 *d2i_PKCS12(PKCS12 **out_p12, const uint8_t **ber_bytes,
                    size_t ber_len) {
-  PKCS12 *p12 = reinterpret_cast<PKCS12 *>(OPENSSL_malloc(sizeof(PKCS12)));
+  PKCS12 *p12 = New<PKCS12>();
   if (!p12) {
-    return NULL;
+    return nullptr;
   }
 
   p12->ber_bytes =
       reinterpret_cast<uint8_t *>(OPENSSL_memdup(*ber_bytes, ber_len));
   if (!p12->ber_bytes) {
-    OPENSSL_free(p12);
-    return NULL;
+    Delete(p12);
+    return nullptr;
   }
 
   p12->ber_len = ber_len;
@@ -718,11 +729,11 @@ PKCS12 *d2i_PKCS12_bio(BIO *bio, PKCS12 **out_p12) {
   BUF_MEM *buf;
   const uint8_t *dummy;
   static const size_t kMaxSize = 256 * 1024;
-  PKCS12 *ret = NULL;
+  PKCS12 *ret = nullptr;
 
   buf = BUF_MEM_new();
-  if (buf == NULL) {
-    return NULL;
+  if (buf == nullptr) {
+    return nullptr;
   }
   if (BUF_MEM_grow(buf, 8192) == 0) {
     goto out;
@@ -769,7 +780,7 @@ PKCS12 *d2i_PKCS12_fp(FILE *fp, PKCS12 **out_p12) {
 
   bio = BIO_new_fp(fp, 0 /* don't take ownership */);
   if (!bio) {
-    return NULL;
+    return nullptr;
   }
 
   ret = d2i_PKCS12_bio(bio, out_p12);
@@ -783,14 +794,14 @@ int i2d_PKCS12(const PKCS12 *p12, uint8_t **out) {
     return -1;
   }
 
-  if (out == NULL) {
+  if (out == nullptr) {
     return (int)p12->ber_len;
   }
 
-  if (*out == NULL) {
+  if (*out == nullptr) {
     *out = reinterpret_cast<uint8_t *>(
         OPENSSL_memdup(p12->ber_bytes, p12->ber_len));
-    if (*out == NULL) {
+    if (*out == nullptr) {
       return -1;
     }
   } else {
@@ -806,7 +817,7 @@ int i2d_PKCS12_bio(BIO *bio, const PKCS12 *p12) {
 
 int i2d_PKCS12_fp(FILE *fp, const PKCS12 *p12) {
   BIO *bio = BIO_new_fp(fp, 0 /* don't take ownership */);
-  if (bio == NULL) {
+  if (bio == nullptr) {
     return 0;
   }
 
@@ -818,16 +829,16 @@ int i2d_PKCS12_fp(FILE *fp, const PKCS12 *p12) {
 int PKCS12_parse(const PKCS12 *p12, const char *password, EVP_PKEY **out_pkey,
                  X509 **out_cert, STACK_OF(X509) **out_ca_certs) {
   CBS ber_bytes;
-  STACK_OF(X509) *ca_certs = NULL;
+  STACK_OF(X509) *ca_certs = nullptr;
   char ca_certs_alloced = 0;
 
-  if (out_ca_certs != NULL && *out_ca_certs != NULL) {
+  if (out_ca_certs != nullptr && *out_ca_certs != nullptr) {
     ca_certs = *out_ca_certs;
   }
 
   if (!ca_certs) {
     ca_certs = sk_X509_new_null();
-    if (ca_certs == NULL) {
+    if (ca_certs == nullptr) {
       return 0;
     }
     ca_certs_alloced = 1;
@@ -842,10 +853,10 @@ int PKCS12_parse(const PKCS12 *p12, const char *password, EVP_PKEY **out_pkey,
   }
 
   // OpenSSL selects the last certificate which matches the private key as
-  // |out_cert|.
-  *out_cert = NULL;
+  // `out_cert`.
+  *out_cert = nullptr;
   size_t num_certs = sk_X509_num(ca_certs);
-  if (*out_pkey != NULL && num_certs > 0) {
+  if (*out_pkey != nullptr && num_certs > 0) {
     for (size_t i = num_certs - 1; i < num_certs; i--) {
       X509 *cert = sk_X509_value(ca_certs, i);
       if (X509_check_private_key(cert, *out_pkey)) {
@@ -868,19 +879,19 @@ int PKCS12_parse(const PKCS12 *p12, const char *password, EVP_PKEY **out_pkey,
 
 int PKCS12_verify_mac(const PKCS12 *p12, const char *password,
                       int password_len) {
-  if (password == NULL) {
+  if (password == nullptr) {
     if (password_len != 0) {
       return 0;
     }
   } else if (password_len != -1 &&
              (password[password_len] != 0 ||
-              OPENSSL_memchr(password, 0, password_len) != NULL)) {
+              OPENSSL_memchr(password, 0, password_len) != nullptr)) {
     return 0;
   }
 
-  EVP_PKEY *pkey = NULL;
-  X509 *cert = NULL;
-  if (!PKCS12_parse(p12, password, &pkey, &cert, NULL)) {
+  EVP_PKEY *pkey = nullptr;
+  X509 *cert = nullptr;
+  if (!PKCS12_parse(p12, password, &pkey, &cert, nullptr)) {
     ERR_clear_error();
     return 0;
   }
@@ -895,19 +906,19 @@ int PKCS12_verify_mac(const PKCS12 *p12, const char *password,
 // containing the specified friendlyName and localKeyId attributes.
 static int add_bag_attributes(CBB *bag, const char *name, size_t name_len,
                               const uint8_t *key_id, size_t key_id_len) {
-  if (name == NULL && key_id_len == 0) {
+  if (name == nullptr && key_id_len == 0) {
     return 1;  // Omit the OPTIONAL SET.
   }
   // See https://tools.ietf.org/html/rfc7292#section-4.2.
-  CBB attrs, attr, oid, values, value;
+  CBB attrs, attr, values, value;
   if (!CBB_add_asn1(bag, &attrs, CBS_ASN1_SET)) {
     return 0;
   }
   if (name_len != 0) {
     // See https://tools.ietf.org/html/rfc2985, section 5.5.1.
     if (!CBB_add_asn1(&attrs, &attr, CBS_ASN1_SEQUENCE) ||
-        !CBB_add_asn1(&attr, &oid, CBS_ASN1_OBJECT) ||
-        !CBB_add_bytes(&oid, kFriendlyName, sizeof(kFriendlyName)) ||
+        !CBB_add_asn1_element(&attr, CBS_ASN1_OBJECT, kFriendlyName,
+                              sizeof(kFriendlyName)) ||
         !CBB_add_asn1(&attr, &values, CBS_ASN1_SET) ||
         !CBB_add_asn1(&values, &value, CBS_ASN1_BMPSTRING)) {
       return 0;
@@ -926,11 +937,10 @@ static int add_bag_attributes(CBB *bag, const char *name, size_t name_len,
   if (key_id_len != 0) {
     // See https://tools.ietf.org/html/rfc2985, section 5.5.2.
     if (!CBB_add_asn1(&attrs, &attr, CBS_ASN1_SEQUENCE) ||
-        !CBB_add_asn1(&attr, &oid, CBS_ASN1_OBJECT) ||
-        !CBB_add_bytes(&oid, kLocalKeyID, sizeof(kLocalKeyID)) ||
+        !CBB_add_asn1_element(&attr, CBS_ASN1_OBJECT, kLocalKeyID,
+                              sizeof(kLocalKeyID)) ||
         !CBB_add_asn1(&attr, &values, CBS_ASN1_SET) ||
-        !CBB_add_asn1(&values, &value, CBS_ASN1_OCTETSTRING) ||
-        !CBB_add_bytes(&value, key_id, key_id_len)) {
+        !CBB_add_asn1_octet_string(&values, key_id, key_id_len)) {
       return 0;
     }
   }
@@ -939,24 +949,24 @@ static int add_bag_attributes(CBB *bag, const char *name, size_t name_len,
 
 static int add_cert_bag(CBB *cbb, X509 *cert, const char *name,
                         const uint8_t *key_id, size_t key_id_len) {
-  CBB bag, bag_oid, bag_contents, cert_bag, cert_type, wrapped_cert, cert_value;
+  CBB bag, bag_contents, cert_bag, wrapped_cert, cert_value;
   if (  // See https://tools.ietf.org/html/rfc7292#section-4.2.
       !CBB_add_asn1(cbb, &bag, CBS_ASN1_SEQUENCE) ||
-      !CBB_add_asn1(&bag, &bag_oid, CBS_ASN1_OBJECT) ||
-      !CBB_add_bytes(&bag_oid, kCertBag, sizeof(kCertBag)) ||
+      !CBB_add_asn1_element(&bag, CBS_ASN1_OBJECT, kCertBag,
+                            sizeof(kCertBag)) ||
       !CBB_add_asn1(&bag, &bag_contents,
                     CBS_ASN1_CONSTRUCTED | CBS_ASN1_CONTEXT_SPECIFIC | 0) ||
       // See https://tools.ietf.org/html/rfc7292#section-4.2.3.
       !CBB_add_asn1(&bag_contents, &cert_bag, CBS_ASN1_SEQUENCE) ||
-      !CBB_add_asn1(&cert_bag, &cert_type, CBS_ASN1_OBJECT) ||
-      !CBB_add_bytes(&cert_type, kX509Certificate, sizeof(kX509Certificate)) ||
+      !CBB_add_asn1_element(&cert_bag, CBS_ASN1_OBJECT, kX509Certificate,
+                            sizeof(kX509Certificate)) ||
       !CBB_add_asn1(&cert_bag, &wrapped_cert,
                     CBS_ASN1_CONSTRUCTED | CBS_ASN1_CONTEXT_SPECIFIC | 0) ||
       !CBB_add_asn1(&wrapped_cert, &cert_value, CBS_ASN1_OCTETSTRING)) {
     return 0;
   }
   uint8_t *buf;
-  int len = i2d_X509(cert, NULL);
+  int len = i2d_X509(cert, nullptr);
 
   int int_name_len = 0;
   const char *cert_name = (const char *)X509_alias_get0(cert, &int_name_len);
@@ -985,14 +995,15 @@ static int add_cert_safe_contents(CBB *cbb, X509 *cert,
                                   const uint8_t *key_id, size_t key_id_len) {
   CBB safe_contents;
   if (!CBB_add_asn1(cbb, &safe_contents, CBS_ASN1_SEQUENCE) ||
-      (cert != NULL &&
+      (cert != nullptr &&
        !add_cert_bag(&safe_contents, cert, name, key_id, key_id_len))) {
     return 0;
   }
 
   for (size_t i = 0; i < sk_X509_num(chain); i++) {
     // Only the leaf certificate gets attributes.
-    if (!add_cert_bag(&safe_contents, sk_X509_value(chain, i), NULL, NULL, 0)) {
+    if (!add_cert_bag(&safe_contents, sk_X509_value(chain, i), nullptr, nullptr,
+                      0)) {
       return 0;
     }
   }
@@ -1000,23 +1011,26 @@ static int add_cert_safe_contents(CBB *cbb, X509 *cert,
   return CBB_flush(cbb);
 }
 
-static int add_encrypted_data(CBB *out, int pbe_nid, const char *password,
-                              size_t password_len, uint32_t iterations,
-                              const uint8_t *in, size_t in_len) {
+// add_encrypted_data encrypts `in` with `pbe_nid` and `pbe_cipher`, writing the
+// result to `out`. It returns one on success and zero on error. `pbe_nid` and
+// `pbe_cipher` are interpreted as in `PKCS8_encrypt`.
+static int add_encrypted_data(CBB *out, int pbe_nid,
+                              const EVP_CIPHER *pbe_cipher,
+                              const char *password, size_t password_len,
+                              uint32_t iterations, const uint8_t *in,
+                              size_t in_len) {
   uint8_t salt[PKCS5_SALT_LEN];
   if (!RAND_bytes(salt, sizeof(salt))) {
     return 0;
   }
 
-  int ret = 0;
-  EVP_CIPHER_CTX ctx;
-  EVP_CIPHER_CTX_init(&ctx);
-  CBB content_info, type, wrapper, encrypted_data, encrypted_content_info,
-      inner_type, encrypted_content;
+  ScopedEVP_CIPHER_CTX ctx;
+  CBB content_info, wrapper, encrypted_data, encrypted_content_info,
+      encrypted_content;
   if (  // Add the ContentInfo wrapping.
       !CBB_add_asn1(out, &content_info, CBS_ASN1_SEQUENCE) ||
-      !CBB_add_asn1(&content_info, &type, CBS_ASN1_OBJECT) ||
-      !CBB_add_bytes(&type, kPKCS7EncryptedData, sizeof(kPKCS7EncryptedData)) ||
+      !CBB_add_asn1_element(&content_info, CBS_ASN1_OBJECT, kPKCS7EncryptedData,
+                            sizeof(kPKCS7EncryptedData)) ||
       !CBB_add_asn1(&content_info, &wrapper,
                     CBS_ASN1_CONSTRUCTED | CBS_ASN1_CONTEXT_SPECIFIC | 0) ||
       // See https://tools.ietf.org/html/rfc2315#section-13.
@@ -1025,41 +1039,35 @@ static int add_encrypted_data(CBB *out, int pbe_nid, const char *password,
       // See https://tools.ietf.org/html/rfc2315#section-10.1.
       !CBB_add_asn1(&encrypted_data, &encrypted_content_info,
                     CBS_ASN1_SEQUENCE) ||
-      !CBB_add_asn1(&encrypted_content_info, &inner_type, CBS_ASN1_OBJECT) ||
-      !CBB_add_bytes(&inner_type, kPKCS7Data, sizeof(kPKCS7Data)) ||
+      !CBB_add_asn1_element(&encrypted_content_info, CBS_ASN1_OBJECT,
+                            kPKCS7Data, sizeof(kPKCS7Data)) ||
       // Set up encryption and fill in contentEncryptionAlgorithm.
-      !pkcs12_pbe_encrypt_init(&encrypted_content_info, &ctx, pbe_nid,
-                               iterations, password, password_len, salt,
-                               sizeof(salt)) ||
+      !pkcs12_pbe_encrypt_init(&encrypted_content_info, ctx.get(), pbe_nid,
+                               pbe_cipher, iterations, password, password_len,
+                               salt, sizeof(salt)) ||
       // Note this tag is primitive. It is an implicitly-tagged OCTET_STRING, so
       // it inherits the inner tag's constructed bit.
       !CBB_add_asn1(&encrypted_content_info, &encrypted_content,
                     CBS_ASN1_CONTEXT_SPECIFIC | 0)) {
-    goto err;
+    return 0;
   }
 
-  {
-    size_t max_out = in_len + EVP_CIPHER_CTX_block_size(&ctx);
-    if (max_out < in_len) {
-      OPENSSL_PUT_ERROR(PKCS8, PKCS8_R_TOO_LONG);
-      goto err;
-    }
-
-    uint8_t *ptr;
-    int n1, n2;
-    if (!CBB_reserve(&encrypted_content, &ptr, max_out) ||
-        !EVP_CipherUpdate(&ctx, ptr, &n1, in, in_len) ||
-        !EVP_CipherFinal_ex(&ctx, ptr + n1, &n2) ||
-        !CBB_did_write(&encrypted_content, n1 + n2) || !CBB_flush(out)) {
-      goto err;
-    }
+  size_t max_out = in_len + EVP_CIPHER_CTX_block_size(ctx.get());
+  if (max_out < in_len) {
+    OPENSSL_PUT_ERROR(PKCS8, PKCS8_R_TOO_LONG);
+    return 0;
   }
 
-  ret = 1;
+  uint8_t *ptr;
+  size_t n1, n2;
+  if (!CBB_reserve(&encrypted_content, &ptr, max_out) ||
+      !EVP_CipherUpdate_ex(ctx.get(), ptr, &n1, max_out, in, in_len) ||
+      !EVP_CipherFinal_ex2(ctx.get(), ptr + n1, &n2, max_out - n1) ||
+      !CBB_did_write(&encrypted_content, n1 + n2) || !CBB_flush(out)) {
+    return 0;
+  }
 
-err:
-  EVP_CIPHER_CTX_cleanup(&ctx);
-  return ret;
+  return 1;
 }
 
 PKCS12 *PKCS12_create(const char *password, const char *name,
@@ -1067,16 +1075,16 @@ PKCS12 *PKCS12_create(const char *password, const char *name,
                       const STACK_OF(X509) *chain, int key_nid, int cert_nid,
                       int iterations, int mac_iterations, int key_type) {
   if (key_nid == 0) {
-    key_nid = NID_pbe_WithSHA1And3_Key_TripleDES_CBC;
+    key_nid = NID_aes_256_cbc;
   }
   if (cert_nid == 0) {
-    cert_nid = NID_pbe_WithSHA1And40BitRC2_CBC;
+    cert_nid = NID_aes_256_cbc;
   }
   if (iterations == 0) {
     iterations = PKCS12_DEFAULT_ITER;
   }
   if (mac_iterations == 0) {
-    mac_iterations = 1;
+    mac_iterations = PKCS12_DEFAULT_ITER;
   }
   if (  // In OpenSSL, this specifies a non-standard Microsoft key usage
         // extension which we do not currently support.
@@ -1086,16 +1094,16 @@ PKCS12 *PKCS12_create(const char *password, const char *name,
       // PKCS#12 file.
       mac_iterations < 0 ||
       // Don't encode empty objects.
-      (pkey == NULL && cert == NULL && sk_X509_num(chain) == 0)) {
+      (pkey == nullptr && cert == nullptr && sk_X509_num(chain) == 0)) {
     OPENSSL_PUT_ERROR(PKCS8, PKCS8_R_UNSUPPORTED_OPTIONS);
-    return 0;
+    return nullptr;
   }
 
   // PKCS#12 is a very confusing recursive data format, built out of another
   // recursive data format. Section 5.1 of RFC 7292 describes the encoding
   // algorithm, but there is no clear overview. A quick summary:
   //
-  // PKCS#7 defines a ContentInfo structure, which is a overgeneralized typed
+  // PKCS#7 defines a ContentInfo structure, which is an overgeneralized typed
   // combinator structure for applying cryptography. We care about two types. A
   // data ContentInfo contains an OCTET STRING and is a leaf node of the
   // combinator tree. An encrypted-data ContentInfo contains encryption
@@ -1121,39 +1129,38 @@ PKCS12 *PKCS12_create(const char *password, const char *name,
   // key-specific encryption container, PKCS8ShroudedKeyBag, which is used
   // instead.
 
-  // Note that |password| may be NULL to specify no password, rather than the
+  // Note that `password` may be NULL to specify no password, rather than the
   // empty string. They are encoded differently in PKCS#12. (One is the empty
   // byte array and the other is NUL-terminated UCS-2.)
-  size_t password_len = password != NULL ? strlen(password) : 0;
+  size_t password_len = password != nullptr ? strlen(password) : 0;
 
   uint8_t key_id[EVP_MAX_MD_SIZE];
   unsigned key_id_len = 0;
-  if (cert != NULL && pkey != NULL) {
+  if (cert != nullptr && pkey != nullptr) {
     if (!X509_check_private_key(cert, pkey) ||
         // Matching OpenSSL, use the SHA-1 hash of the certificate as the local
         // key ID. Some PKCS#12 consumers require one to connect the private key
         // and certificate.
         !X509_digest(cert, EVP_sha1(), key_id, &key_id_len)) {
-      return 0;
+      return nullptr;
     }
   }
 
   // See https://tools.ietf.org/html/rfc7292#section-4.
-  PKCS12 *ret = NULL;
-  CBB cbb, pfx, auth_safe, auth_safe_oid, auth_safe_wrapper, auth_safe_data,
-      content_infos;
+  PKCS12 *ret = nullptr;
+  CBB cbb, pfx, auth_safe, auth_safe_wrapper, auth_safe_data, content_infos;
   uint8_t mac_key[EVP_MAX_MD_SIZE];
   if (!CBB_init(&cbb, 0) || !CBB_add_asn1(&cbb, &pfx, CBS_ASN1_SEQUENCE) ||
       !CBB_add_asn1_uint64(&pfx, 3) ||
       // auth_safe is a data ContentInfo.
       !CBB_add_asn1(&pfx, &auth_safe, CBS_ASN1_SEQUENCE) ||
-      !CBB_add_asn1(&auth_safe, &auth_safe_oid, CBS_ASN1_OBJECT) ||
-      !CBB_add_bytes(&auth_safe_oid, kPKCS7Data, sizeof(kPKCS7Data)) ||
+      !CBB_add_asn1_element(&auth_safe, CBS_ASN1_OBJECT, kPKCS7Data,
+                            sizeof(kPKCS7Data)) ||
       !CBB_add_asn1(&auth_safe, &auth_safe_wrapper,
                     CBS_ASN1_CONSTRUCTED | CBS_ASN1_CONTEXT_SPECIFIC | 0) ||
       !CBB_add_asn1(&auth_safe_wrapper, &auth_safe_data,
                     CBS_ASN1_OCTETSTRING) ||
-      // See https://tools.ietf.org/html/rfc7292#section-4.1. |auth_safe|'s
+      // See https://tools.ietf.org/html/rfc7292#section-4.1. `auth_safe`'s
       // contains a SEQUENCE of ContentInfos.
       !CBB_add_asn1(&auth_safe_data, &content_infos, CBS_ASN1_SEQUENCE)) {
     goto err;
@@ -1161,17 +1168,17 @@ PKCS12 *PKCS12_create(const char *password, const char *name,
 
   // If there are any certificates, place them in CertBags wrapped in a single
   // encrypted ContentInfo.
-  if (cert != NULL || sk_X509_num(chain) > 0) {
+  if (cert != nullptr || sk_X509_num(chain) > 0) {
     if (cert_nid < 0) {
       // Place the certificates in an unencrypted ContentInfo. This could be
       // more compactly-encoded by reusing the same ContentInfo as the key, but
       // OpenSSL does not do this. We keep them separate for consistency. (Keys,
       // even when encrypted, are always placed in unencrypted ContentInfos.
       // PKCS#12 defines bag-level encryption for keys.)
-      CBB content_info, oid, wrapper, data;
+      CBB content_info, wrapper, data;
       if (!CBB_add_asn1(&content_infos, &content_info, CBS_ASN1_SEQUENCE) ||
-          !CBB_add_asn1(&content_info, &oid, CBS_ASN1_OBJECT) ||
-          !CBB_add_bytes(&oid, kPKCS7Data, sizeof(kPKCS7Data)) ||
+          !CBB_add_asn1_element(&content_info, CBS_ASN1_OBJECT, kPKCS7Data,
+                                sizeof(kPKCS7Data)) ||
           !CBB_add_asn1(&content_info, &wrapper,
                         CBS_ASN1_CONSTRUCTED | CBS_ASN1_CONTEXT_SPECIFIC | 0) ||
           !CBB_add_asn1(&wrapper, &data, CBS_ASN1_OCTETSTRING) ||
@@ -1181,13 +1188,21 @@ PKCS12 *PKCS12_create(const char *password, const char *name,
         goto err;
       }
     } else {
+      // This function differs from other OpenSSL functions in how PBES1 and
+      // PBES2 schemes are selected. If the NID matches a cipher, treat this as
+      // PBES2 instead. Convert to the other convention.
+      const EVP_CIPHER *cipher = pkcs5_pbe2_nid_to_cipher(cert_nid);
+      if (cipher != nullptr) {
+        cert_nid = -1;
+      }
       CBB plaintext_cbb;
-      int ok = CBB_init(&plaintext_cbb, 0) &&
-               add_cert_safe_contents(&plaintext_cbb, cert, chain, name, key_id,
-                                      key_id_len) &&
-               add_encrypted_data(
-                   &content_infos, cert_nid, password, password_len, iterations,
-                   CBB_data(&plaintext_cbb), CBB_len(&plaintext_cbb));
+      int ok =
+          CBB_init(&plaintext_cbb, 0) &&
+          add_cert_safe_contents(&plaintext_cbb, cert, chain, name, key_id,
+                                 key_id_len) &&
+          add_encrypted_data(&content_infos, cert_nid, cipher, password,
+                             password_len, iterations, CBB_data(&plaintext_cbb),
+                             CBB_len(&plaintext_cbb));
       CBB_cleanup(&plaintext_cbb);
       if (!ok) {
         goto err;
@@ -1199,37 +1214,43 @@ PKCS12 *PKCS12_create(const char *password, const char *name,
   // wrapped in an unencrypted ContentInfo. (One could also place it in a KeyBag
   // inside an encrypted ContentInfo, but OpenSSL does not do this and some
   // PKCS#12 consumers do not support KeyBags.)
-  if (pkey != NULL) {
-    CBB content_info, oid, wrapper, data, safe_contents, bag, bag_oid,
-        bag_contents;
+  if (pkey != nullptr) {
+    CBB content_info, wrapper, data, safe_contents, bag, bag_contents;
     if (  // Add another data ContentInfo.
         !CBB_add_asn1(&content_infos, &content_info, CBS_ASN1_SEQUENCE) ||
-        !CBB_add_asn1(&content_info, &oid, CBS_ASN1_OBJECT) ||
-        !CBB_add_bytes(&oid, kPKCS7Data, sizeof(kPKCS7Data)) ||
+        !CBB_add_asn1_element(&content_info, CBS_ASN1_OBJECT, kPKCS7Data,
+                              sizeof(kPKCS7Data)) ||
         !CBB_add_asn1(&content_info, &wrapper,
                       CBS_ASN1_CONSTRUCTED | CBS_ASN1_CONTEXT_SPECIFIC | 0) ||
         !CBB_add_asn1(&wrapper, &data, CBS_ASN1_OCTETSTRING) ||
         !CBB_add_asn1(&data, &safe_contents, CBS_ASN1_SEQUENCE) ||
         // Add a SafeBag containing a PKCS8ShroudedKeyBag.
-        !CBB_add_asn1(&safe_contents, &bag, CBS_ASN1_SEQUENCE) ||
-        !CBB_add_asn1(&bag, &bag_oid, CBS_ASN1_OBJECT)) {
+        !CBB_add_asn1(&safe_contents, &bag, CBS_ASN1_SEQUENCE)) {
       goto err;
     }
     if (key_nid < 0) {
-      if (!CBB_add_bytes(&bag_oid, kKeyBag, sizeof(kKeyBag)) ||
+      if (!CBB_add_asn1_element(&bag, CBS_ASN1_OBJECT, kKeyBag,
+                                sizeof(kKeyBag)) ||
           !CBB_add_asn1(&bag, &bag_contents,
                         CBS_ASN1_CONSTRUCTED | CBS_ASN1_CONTEXT_SPECIFIC | 0) ||
           !EVP_marshal_private_key(&bag_contents, pkey)) {
         goto err;
       }
     } else {
-      if (!CBB_add_bytes(&bag_oid, kPKCS8ShroudedKeyBag,
-                         sizeof(kPKCS8ShroudedKeyBag)) ||
+      // This function differs from other OpenSSL functions in how PBES1 and
+      // PBES2 schemes are selected. If the NID matches a cipher, treat this as
+      // PBES2 instead. Convert to the other convention.
+      const EVP_CIPHER *cipher = pkcs5_pbe2_nid_to_cipher(key_nid);
+      if (cipher != nullptr) {
+        key_nid = -1;
+      }
+      if (!CBB_add_asn1_element(&bag, CBS_ASN1_OBJECT, kPKCS8ShroudedKeyBag,
+                                sizeof(kPKCS8ShroudedKeyBag)) ||
           !CBB_add_asn1(&bag, &bag_contents,
                         CBS_ASN1_CONSTRUCTED | CBS_ASN1_CONTEXT_SPECIFIC | 0) ||
           !PKCS8_marshal_encrypted_private_key(
-              &bag_contents, key_nid, NULL, password, password_len,
-              NULL /* generate a random salt */,
+              &bag_contents, key_nid, cipher, password, password_len,
+              nullptr /* generate a random salt */,
               0 /* use default salt length */, iterations, pkey)) {
         goto err;
       }
@@ -1246,7 +1267,7 @@ PKCS12 *PKCS12_create(const char *password, const char *name,
 
   {
     // Compute the MAC. Match OpenSSL in using SHA-1 as the hash function. The
-    // MAC covers |auth_safe_data|.
+    // MAC covers `auth_safe_data`.
     const EVP_MD *mac_md = EVP_sha1();
     uint8_t mac_salt[PKCS5_SALT_LEN];
     uint8_t mac[EVP_MAX_MD_SIZE];
@@ -1261,14 +1282,22 @@ PKCS12 *PKCS12_create(const char *password, const char *name,
       goto err;
     }
 
-    CBB mac_data, digest_info, mac_cbb, mac_salt_cbb;
+    CBB mac_data, digest_info;
     if (!CBB_add_asn1(&pfx, &mac_data, CBS_ASN1_SEQUENCE) ||
         !CBB_add_asn1(&mac_data, &digest_info, CBS_ASN1_SEQUENCE) ||
+        // OpenSSL and NSS always include a NULL parameter with the digest
+        // algorithm. Windows does not. RFC 7292 imports DigestInfo from PKCS
+        // #7. PKCS #7 does not actually use DigestInfo. It just describes
+        // RSASSA-PKCS1-v1_5 signing as encoding a DigestInfo and then
+        // "encrypting" it with the private key. In that context, NULL should be
+        // included. Confusingly, there is also a digestAlgorithm field in
+        // SignerInfo. There, RFC 5754 says to omit the NULL. But that field
+        // does not use DigestInfo per se.
+        //
+        // We match OpenSSL, NSS, and RSASSA-PKCS1-v1_5 in including the NULL.
         !EVP_marshal_digest_algorithm(&digest_info, mac_md) ||
-        !CBB_add_asn1(&digest_info, &mac_cbb, CBS_ASN1_OCTETSTRING) ||
-        !CBB_add_bytes(&mac_cbb, mac, mac_len) ||
-        !CBB_add_asn1(&mac_data, &mac_salt_cbb, CBS_ASN1_OCTETSTRING) ||
-        !CBB_add_bytes(&mac_salt_cbb, mac_salt, sizeof(mac_salt)) ||
+        !CBB_add_asn1_octet_string(&digest_info, mac, mac_len) ||
+        !CBB_add_asn1_octet_string(&mac_data, mac_salt, sizeof(mac_salt)) ||
         // The iteration count has a DEFAULT of 1, but RFC 7292 says "The
         // default is for historical reasons and its use is deprecated." Thus we
         // explicitly encode the iteration count, though it is not valid DER.
@@ -1276,10 +1305,10 @@ PKCS12 *PKCS12_create(const char *password, const char *name,
       goto err;
     }
 
-    ret = reinterpret_cast<PKCS12 *>(OPENSSL_malloc(sizeof(PKCS12)));
-    if (ret == NULL || !CBB_finish(&cbb, &ret->ber_bytes, &ret->ber_len)) {
-      OPENSSL_free(ret);
-      ret = NULL;
+    ret = New<PKCS12>();
+    if (ret == nullptr || !CBB_finish(&cbb, &ret->ber_bytes, &ret->ber_len)) {
+      Delete(ret);
+      ret = nullptr;
       goto err;
     }
   }
@@ -1291,9 +1320,9 @@ err:
 }
 
 void PKCS12_free(PKCS12 *p12) {
-  if (p12 == NULL) {
+  if (p12 == nullptr) {
     return;
   }
   OPENSSL_free(p12->ber_bytes);
-  OPENSSL_free(p12);
+  Delete(p12);
 }

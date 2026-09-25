@@ -1,4 +1,11 @@
 module CNIOBoringSSL {
     umbrella header "CNIOBoringSSL.h"
+    // These are BoringSSL's private prefixing headers, not public API. The _S
+    // variant is for assembly only: outside __APPLE__ it defines the same macro
+    // names as the _c variant, so letting the C compiler see both is a few
+    // hundred macro redefinitions. Assembly still picks up _S.h through
+    // CNIOBoringSSL_asm_base.h, under its own __ASSEMBLER__ guard.
+    exclude header "CNIOBoringSSL_prefix_symbols_internal_c.h"
+    exclude header "CNIOBoringSSL_prefix_symbols_internal_S.h"
     export *
 }

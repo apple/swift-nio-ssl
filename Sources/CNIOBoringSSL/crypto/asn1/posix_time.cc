@@ -1,16 +1,16 @@
-/* Copyright 2022 The BoringSSL Authors
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2022 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 // Time conversion to/from POSIX time_t and struct tm, with no support
 // for time zones other than UTC
@@ -28,6 +28,8 @@
 #define SECS_PER_HOUR (60 * 60)
 #define SECS_PER_DAY (INT64_C(24) * SECS_PER_HOUR)
 
+
+using namespace bssl;
 
 // Is a year/month/day combination valid, in the range from year 0000
 // to 9999?
@@ -183,18 +185,19 @@ int OPENSSL_timegm(const struct tm *tm, time_t *out) {
   return 1;
 }
 
-struct tm *OPENSSL_gmtime(const time_t *time, struct tm *out_tm) {
+struct tm *bssl::OPENSSL_gmtime(const time_t *time, struct tm *out_tm) {
   static_assert(
       sizeof(time_t) == sizeof(int32_t) || sizeof(time_t) == sizeof(int64_t),
       "time_t is broken");
   int64_t posix_time = *time;
   if (!OPENSSL_posix_to_tm(posix_time, out_tm)) {
-    return NULL;
+    return nullptr;
   }
   return out_tm;
 }
 
-int OPENSSL_gmtime_adj(struct tm *tm, int offset_day, int64_t offset_sec) {
+int bssl::OPENSSL_gmtime_adj(struct tm *tm, int offset_day,
+                             int64_t offset_sec) {
   int64_t posix_time;
   if (!OPENSSL_tm_to_posix(tm, &posix_time)) {
     return 0;
@@ -221,8 +224,8 @@ int OPENSSL_gmtime_adj(struct tm *tm, int offset_day, int64_t offset_sec) {
   return 1;
 }
 
-int OPENSSL_gmtime_diff(int *out_days, int *out_secs, const struct tm *from,
-                        const struct tm *to) {
+int bssl::OPENSSL_gmtime_diff(int *out_days, int *out_secs,
+                              const struct tm *from, const struct tm *to) {
   int64_t time_to, time_from;
   if (!OPENSSL_tm_to_posix(to, &time_to) ||
       !OPENSSL_tm_to_posix(from, &time_from)) {

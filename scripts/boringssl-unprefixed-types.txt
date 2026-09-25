@@ -1,0 +1,23 @@
+# BoringSSL types that appear inside unprefixed std:: template instantiations.
+#
+# These instantiations mangle identically in every BoringSSL copy regardless of
+# prefix, because the mangling encodes only the struct tag name and BoringSSL's
+# C types live in the global namespace. Two statically linked copies therefore
+# coalesce onto one definition. That is safe only while the generated code does
+# not depend on the type's layout.
+#
+# Before adding a type here, check how it is used. Behind a pointer or reference
+# is fine -- the type is incomplete as far as the instantiation is concerned, so
+# the emitted code is byte-identical whatever the struct looks like. Stored by
+# value is not fine: size, alignment and member offsets would then differ
+# between copies while the symbol name stayed the same.
+#
+# Reviewed entries:
+#
+# ssl_st  -- ssl/internal.h, `struct CertCb`:
+#            std::variant<std::monostate, int (*)(SSL *, void *),
+#                         int (*)(SSL *, void *, uint8_t *)>
+#            ssl_st appears only as a function-pointer parameter, so the variant
+#            stores two pointers plus a discriminant and its layout and code are
+#            independent of ssl_st.
+ssl_st

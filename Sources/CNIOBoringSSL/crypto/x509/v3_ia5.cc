@@ -1,11 +1,16 @@
-/*
- * Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <stdio.h>
 #include <string.h>
@@ -18,17 +23,19 @@
 #include <CNIOBoringSSL_x509.h>
 
 #include "../internal.h"
-#include "ext_dat.h"
+#include "internal.h"
 
+
+using namespace bssl;
 
 static char *i2s_ASN1_IA5STRING(const X509V3_EXT_METHOD *method, void *ext) {
   const ASN1_IA5STRING *ia5 = reinterpret_cast<const ASN1_IA5STRING *>(ext);
   char *tmp;
   if (!ia5 || !ia5->length) {
-    return NULL;
+    return nullptr;
   }
   if (!(tmp = reinterpret_cast<char *>(OPENSSL_malloc(ia5->length + 1)))) {
-    return NULL;
+    return nullptr;
   }
   OPENSSL_memcpy(tmp, ia5->data, ia5->length);
   tmp[ia5->length] = 0;
@@ -40,7 +47,7 @@ static void *s2i_ASN1_IA5STRING(const X509V3_EXT_METHOD *method,
   ASN1_IA5STRING *ia5;
   if (!str) {
     OPENSSL_PUT_ERROR(X509V3, X509V3_R_INVALID_NULL_ARGUMENT);
-    return NULL;
+    return nullptr;
   }
   if (!(ia5 = ASN1_IA5STRING_new())) {
     goto err;
@@ -51,24 +58,26 @@ static void *s2i_ASN1_IA5STRING(const X509V3_EXT_METHOD *method,
   }
   return ia5;
 err:
-  return NULL;
+  return nullptr;
 }
 
 #define EXT_IA5STRING(nid)                                                 \
   {                                                                        \
     nid, 0, ASN1_ITEM_ref(ASN1_IA5STRING), 0, 0, 0, 0, i2s_ASN1_IA5STRING, \
-        s2i_ASN1_IA5STRING, 0, 0, 0, 0, NULL                               \
+        s2i_ASN1_IA5STRING, 0, 0, 0, 0, nullptr                            \
   }
 
-#define EXT_END \
-  { -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
-
-const X509V3_EXT_METHOD v3_ns_ia5_list[] = {
-    EXT_IA5STRING(NID_netscape_base_url),
-    EXT_IA5STRING(NID_netscape_revocation_url),
-    EXT_IA5STRING(NID_netscape_ca_revocation_url),
-    EXT_IA5STRING(NID_netscape_renewal_url),
-    EXT_IA5STRING(NID_netscape_ca_policy_url),
-    EXT_IA5STRING(NID_netscape_ssl_server_name),
-    EXT_IA5STRING(NID_netscape_comment),
-    EXT_END};
+const X509V3_EXT_METHOD bssl::v3_netscape_base_url =
+    EXT_IA5STRING(NID_netscape_base_url);
+const X509V3_EXT_METHOD bssl::v3_netscape_revocation_url =
+    EXT_IA5STRING(NID_netscape_revocation_url);
+const X509V3_EXT_METHOD bssl::v3_netscape_ca_revocation_url =
+    EXT_IA5STRING(NID_netscape_ca_revocation_url);
+const X509V3_EXT_METHOD bssl::v3_netscape_renewal_url =
+    EXT_IA5STRING(NID_netscape_renewal_url);
+const X509V3_EXT_METHOD bssl::v3_netscape_ca_policy_url =
+    EXT_IA5STRING(NID_netscape_ca_policy_url);
+const X509V3_EXT_METHOD bssl::v3_netscape_ssl_server_name =
+    EXT_IA5STRING(NID_netscape_ssl_server_name);
+const X509V3_EXT_METHOD bssl::v3_netscape_comment =
+    EXT_IA5STRING(NID_netscape_comment);

@@ -1,11 +1,16 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_bn.h>
 
@@ -17,6 +22,16 @@
 #include "../../internal.h"
 #include "internal.h"
 
+
+using namespace bssl;
+
+BN_ULONG bssl::bn_add_carry_words(BN_ULONG *rp, const BN_ULONG *ap,
+                                  BN_ULONG carry, size_t num) {
+  for (size_t i = 0; i < num; i++) {
+    rp[i] = CRYPTO_addc_w(ap[i], 0, carry, &carry);
+  }
+  return carry;
+}
 
 int BN_add(BIGNUM *r, const BIGNUM *a, const BIGNUM *b) {
   const BIGNUM *tmp;
@@ -54,8 +69,8 @@ int BN_add(BIGNUM *r, const BIGNUM *a, const BIGNUM *b) {
   return ret;
 }
 
-int bn_uadd_consttime(BIGNUM *r, const BIGNUM *a, const BIGNUM *b) {
-  // Widths are public, so we normalize to make |a| the larger one.
+int bssl::bn_uadd_consttime(BIGNUM *r, const BIGNUM *a, const BIGNUM *b) {
+  // Widths are public, so we normalize to make `a` the larger one.
   if (a->width < b->width) {
     const BIGNUM *tmp = a;
     a = b;
@@ -70,10 +85,7 @@ int bn_uadd_consttime(BIGNUM *r, const BIGNUM *a, const BIGNUM *b) {
   r->width = max + 1;
 
   BN_ULONG carry = bn_add_words(r->d, a->d, b->d, min);
-  for (int i = min; i < max; i++) {
-    r->d[i] = CRYPTO_addc_w(a->d[i], 0, carry, &carry);
-  }
-
+  carry = bn_add_carry_words(r->d + min, a->d + min, carry, max - min);
   r->d[max] = carry;
   return 1;
 }
@@ -174,9 +186,9 @@ int BN_sub(BIGNUM *r, const BIGNUM *a, const BIGNUM *b) {
   return 1;
 }
 
-int bn_usub_consttime(BIGNUM *r, const BIGNUM *a, const BIGNUM *b) {
-  // |b| may have more words than |a| given non-minimal inputs, but all words
-  // beyond |a->width| must then be zero.
+int bssl::bn_usub_consttime(BIGNUM *r, const BIGNUM *a, const BIGNUM *b) {
+  // `b` may have more words than `a` given non-minimal inputs, but all words
+  // beyond `a->width` must then be zero.
   int b_width = b->width;
   if (b_width > a->width) {
     if (!bn_fits_in_words(b, a->width)) {
