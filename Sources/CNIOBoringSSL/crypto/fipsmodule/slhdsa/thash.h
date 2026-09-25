@@ -1,85 +1,71 @@
-/* Copyright 2024 The BoringSSL Authors
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2024 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #ifndef OPENSSL_HEADER_CRYPTO_FIPSMODULE_SLHDSA_THASH_H
 #define OPENSSL_HEADER_CRYPTO_FIPSMODULE_SLHDSA_THASH_H
 
 #include "./params.h"
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
 
+BSSL_NAMESPACE_BEGIN
 
 // Implements PRF_msg: a pseudo-random function that is used to generate the
 // randomizer r for the randomized hashing of the message to be signed.
 // (Section 4.1, page 11)
-void slhdsa_thash_prfmsg(uint8_t output[BCM_SLHDSA_SHA2_128S_N],
-                         const uint8_t sk_prf[BCM_SLHDSA_SHA2_128S_N],
-                         const uint8_t opt_rand[BCM_SLHDSA_SHA2_128S_N],
-                         const uint8_t header[BCM_SLHDSA_M_PRIME_HEADER_LEN],
-                         const uint8_t *ctx, size_t ctx_len, const uint8_t *msg,
-                         size_t msg_len);
+void slhdsa_thash_prfmsg(const slh_dsa_config *config, uint8_t *output,
+                         const uint8_t *sk_prf, const uint8_t *opt_rand,
+                         const uint8_t *header, const uint8_t *ctx,
+                         size_t ctx_len, const uint8_t *msg, size_t msg_len);
 
 // Implements H_msg: a hash function used to generate the digest of the message
 // to be signed. (Section 4.1, page 11)
-void slhdsa_thash_hmsg(uint8_t output[SLHDSA_SHA2_128S_DIGEST_SIZE],
-                       const uint8_t r[BCM_SLHDSA_SHA2_128S_N],
-                       const uint8_t pk_seed[BCM_SLHDSA_SHA2_128S_N],
-                       const uint8_t pk_root[BCM_SLHDSA_SHA2_128S_N],
-                       const uint8_t header[BCM_SLHDSA_M_PRIME_HEADER_LEN],
+void slhdsa_thash_hmsg(const slh_dsa_config *config, uint8_t *output,
+                       const uint8_t *r, const uint8_t *pk_seed,
+                       const uint8_t *pk_root, const uint8_t *header,
                        const uint8_t *ctx, size_t ctx_len, const uint8_t *msg,
                        size_t msg_len);
 
 // Implements PRF: a pseudo-random function that is used to generate the secret
 // values in WOTS+ and FORS private keys. (Section 4.1, page 11)
-void slhdsa_thash_prf(uint8_t output[BCM_SLHDSA_SHA2_128S_N],
-                      const uint8_t pk_seed[BCM_SLHDSA_SHA2_128S_N],
-                      const uint8_t sk_seed[BCM_SLHDSA_SHA2_128S_N],
+void slhdsa_thash_prf(const slh_dsa_config *config, uint8_t *output,
+                      const uint8_t *pk_seed, const uint8_t *sk_seed,
                       uint8_t addr[32]);
 
 // Implements T_l: a hash function that maps an l*n-byte message to an n-byte
 // message. Used for WOTS+ public key compression. (Section 4.1, page 11)
-void slhdsa_thash_tl(uint8_t output[BCM_SLHDSA_SHA2_128S_N],
-                     const uint8_t input[SLHDSA_SHA2_128S_WOTS_BYTES],
-                     const uint8_t pk_seed[BCM_SLHDSA_SHA2_128S_N],
+void slhdsa_thash_tl(const slh_dsa_config *config, uint8_t *output,
+                     const uint8_t *input, const uint8_t *pk_seed,
                      uint8_t addr[32]);
 
 // Implements H: a hash function that takes a 2*n-byte message as input and
 // produces an n-byte output. (Section 4.1, page 11)
-void slhdsa_thash_h(uint8_t output[BCM_SLHDSA_SHA2_128S_N],
-                    const uint8_t input[2 * BCM_SLHDSA_SHA2_128S_N],
-                    const uint8_t pk_seed[BCM_SLHDSA_SHA2_128S_N],
+void slhdsa_thash_h(const slh_dsa_config *config, uint8_t *output,
+                    const uint8_t *input, const uint8_t *pk_seed,
                     uint8_t addr[32]);
 
 // Implements F: a hash function that takes an n-byte message as input and
 // produces an n-byte output. (Section 4.1, page 11)
-void slhdsa_thash_f(uint8_t output[BCM_SLHDSA_SHA2_128S_N],
-                    const uint8_t input[BCM_SLHDSA_SHA2_128S_N],
-                    const uint8_t pk_seed[BCM_SLHDSA_SHA2_128S_N],
+void slhdsa_thash_f(const slh_dsa_config *config, uint8_t *output,
+                    const uint8_t *input, const uint8_t *pk_seed,
                     uint8_t addr[32]);
 
 // Implements T_k: a hash function that maps a k*n-byte message to an n-byte
 // message. Used for FORS public key compression. (Section 4.1, page 11)
-void slhdsa_thash_tk(
-    uint8_t output[BCM_SLHDSA_SHA2_128S_N],
-    const uint8_t input[SLHDSA_SHA2_128S_FORS_TREES * BCM_SLHDSA_SHA2_128S_N],
-    const uint8_t pk_seed[BCM_SLHDSA_SHA2_128S_N], uint8_t addr[32]);
+void slhdsa_thash_tk(const slh_dsa_config *config, uint8_t *output,
+                     const uint8_t *input, const uint8_t *pk_seed,
+                     uint8_t addr[32]);
 
-
-#if defined(__cplusplus)
-}  // extern C
-#endif
+BSSL_NAMESPACE_END
 
 #endif  // OPENSSL_HEADER_CRYPTO_FIPSMODULE_SLHDSA_THASH_H

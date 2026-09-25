@@ -1,11 +1,16 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <assert.h>
 #include <string.h>
@@ -25,11 +30,11 @@ static int rc4_init_key(EVP_CIPHER_CTX *ctx, const uint8_t *key,
   return 1;
 }
 
-static int rc4_cipher(EVP_CIPHER_CTX *ctx, uint8_t *out, const uint8_t *in,
-                      size_t in_len) {
+static int rc4_cipher_update(EVP_CIPHER_CTX *ctx, uint8_t *out,
+                             const uint8_t *in, size_t len) {
   RC4_KEY *rc4key = (RC4_KEY *)ctx->cipher_data;
 
-  RC4(rc4key, in_len, in, out);
+  RC4(rc4key, len, in, out);
   return 1;
 }
 
@@ -41,9 +46,11 @@ static const EVP_CIPHER rc4 = {
     /*ctx_size=*/sizeof(RC4_KEY),
     /*flags=*/EVP_CIPH_VARIABLE_LENGTH,
     /*init=*/rc4_init_key,
-    /*cipher=*/rc4_cipher,
+    /*cipher_update=*/rc4_cipher_update,
+    /*cipher_final=*/nullptr,
+    /*update_aad=*/nullptr,
     /*cleanup=*/nullptr,
     /*ctrl=*/nullptr,
 };
 
-const EVP_CIPHER *EVP_rc4(void) { return &rc4; }
+const EVP_CIPHER *EVP_rc4() { return &rc4; }

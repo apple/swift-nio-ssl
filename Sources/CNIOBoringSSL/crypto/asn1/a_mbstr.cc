@@ -1,11 +1,16 @@
-/*
- * Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_asn1.h>
 
@@ -18,6 +23,9 @@
 
 #include "../bytestring/internal.h"
 #include "internal.h"
+
+
+using namespace bssl;
 
 // These functions take a string in UTF8, ASCII or multibyte form and a mask
 // of permissible ASN1 string types. It then works out the minimal type
@@ -74,7 +82,7 @@ int ASN1_mbstring_ncopy(ASN1_STRING **out, const unsigned char *in,
       return -1;
   }
 
-  // Check |minsize| and |maxsize| and work out the minimal type, if any.
+  // Check `minsize` and `maxsize` and work out the minimal type, if any.
   CBS cbs;
   CBS_init(&cbs, in, len);
   size_t utf8_len = 0, nchar = 0;
@@ -179,7 +187,7 @@ int ASN1_mbstring_ncopy(ASN1_STRING **out, const unsigned char *in,
   CBB cbb;
   CBB_zero(&cbb);
   // If both the same type just copy across
-  uint8_t *data = NULL;
+  uint8_t *data = nullptr;
   size_t data_len = 0;
   if (inform == outform) {
     if (!ASN1_STRING_set(dest, in, len)) {
@@ -201,7 +209,7 @@ int ASN1_mbstring_ncopy(ASN1_STRING **out, const unsigned char *in,
     }
   }
   if (/* OpenSSL historically NUL-terminated this value with a single byte,
-       * even for |MBSTRING_BMP| and |MBSTRING_UNIV|. */
+       * even for `MBSTRING_BMP` and `MBSTRING_UNIV`. */
       !CBB_add_u8(&cbb, 0) ||                 //
       !CBB_finish(&cbb, &data, &data_len) ||  //
       data_len < 1 ||                         //
@@ -223,7 +231,7 @@ err:
   return -1;
 }
 
-int asn1_is_printable(uint32_t value) {
+int bssl::asn1_is_printable(uint32_t value) {
   if (value > 0x7f) {
     return 0;
   }

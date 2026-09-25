@@ -5,8 +5,6 @@
 #include <CNIOBoringSSL_asm_base.h>
 
 #if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_AARCH64) && defined(__APPLE__)
-#include "CNIOBoringSSL_arm_arch.h"
-
 .text
 .globl	_beeu_mod_inverse_vartime
 .private_extern	_beeu_mod_inverse_vartime
@@ -84,6 +82,7 @@ Lbeeu_loop:
 
     // shift := number of trailing 0s in x25
     // (      = number of leading 0s in x15; see the "rbit" instruction in TEST_B_ZERO)
+	orr	x15, x15, #1	// Clamp the shift to 63 bits (see SHIFT256)
 	clz	x13, x15
 
     // If there is no shift, goto shift_A_Y
@@ -141,6 +140,7 @@ Lshift1_0:
     // - The loop is only used to call SHIFT1(X)
     //   and x13 is decreased while executing the X loop.
     // - SHIFT256(B, x13) is performed before right-shifting X; they are independent
+    // - "x13" is clamped to 63 bits.
 
 Lbeeu_shift_A_Y:
     // Same for A and Y.
@@ -148,6 +148,7 @@ Lbeeu_shift_A_Y:
     // Reverse the bit order of x21
     // x13 := number of trailing 0s in x21 (= number of leading 0s in x15)
 	rbit	x15, x21
+	orr	x15, x15, #1	// Clamp the shift to 63 bits (see SHIFT256)
 	clz	x13, x15
 
     // If there is no shift, goto |B-A|, X+Y update

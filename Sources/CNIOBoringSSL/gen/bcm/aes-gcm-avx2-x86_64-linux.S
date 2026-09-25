@@ -6,28 +6,30 @@
 
 #if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_X86_64) && defined(__ELF__)
 .section	.rodata
+
 .align	16
+aes_gcm_avx2_constants:
 
-
+// A shuffle mask that reflects the bytes of 16-byte blocks
 .Lbswap_mask:
 .quad	0x08090a0b0c0d0e0f, 0x0001020304050607
 
-
-
-
-
-
-
-
+// This is the GHASH reducing polynomial without its constant term, i.e.
+// x^128 + x^7 + x^2 + x, represented using the backwards mapping
+// between bits and polynomial coefficients.
+// 
+// Alternatively, it can be interpreted as the naturally-ordered
+// representation of the polynomial x^127 + x^126 + x^121 + 1, i.e. the
+// "reversed" GHASH reducing polynomial without its x^128 term.
 .Lgfpoly:
 .quad	1, 0xc200000000000000
 
-
+// Same as above, but with the (1 << 64) bit set.
 .Lgfpoly_and_internal_carrybit:
 .quad	1, 0xc200000000000001
 
 .align	32
-
+// The below constants are used for incrementing the counter blocks.
 .Lctr_pattern:
 .quad	0, 0
 .quad	1, 0
@@ -47,14 +49,14 @@ _CET_ENDBR
 
 
 
-
-
+// Load the byte-reflected hash subkey.  BoringSSL provides it in
+// byte-reflected form except the two halves are in the wrong order.
 	vpshufd	$0x4e,(%rsi),%xmm3
 
-
-
-
-
+// Finish preprocessing the byte-reflected hash subkey by multiplying it by
+// x^-1 ("standard" interpretation of polynomial coefficients) or
+// equivalently x^1 (natural interpretation).  This gets the key into a
+// format that avoids having to bit-reflect the data blocks later.
 	vpshufd	$0xd3,%xmm3,%xmm0
 	vpsrad	$31,%xmm0,%xmm0
 	vpaddq	%xmm3,%xmm3,%xmm3
@@ -63,87 +65,83 @@ _CET_ENDBR
 
 	vbroadcasti128	.Lgfpoly(%rip),%ymm6
 
-
-	vpclmulqdq	$0x00,%xmm3,%xmm3,%xmm0
-	vpclmulqdq	$0x01,%xmm3,%xmm3,%xmm1
-	vpclmulqdq	$0x10,%xmm3,%xmm3,%xmm2
-	vpxor	%xmm2,%xmm1,%xmm1
-	vpclmulqdq	$0x01,%xmm0,%xmm6,%xmm2
-	vpshufd	$0x4e,%xmm0,%xmm0
-	vpxor	%xmm0,%xmm1,%xmm1
-	vpxor	%xmm2,%xmm1,%xmm1
-	vpclmulqdq	$0x11,%xmm3,%xmm3,%xmm5
-	vpclmulqdq	$0x01,%xmm1,%xmm6,%xmm0
-	vpshufd	$0x4e,%xmm1,%xmm1
-	vpxor	%xmm1,%xmm5,%xmm5
-	vpxor	%xmm0,%xmm5,%xmm5
+// Square H^1 to get H^2.
+	vpclmulqdq	$0x00,%xmm3,%xmm3,%xmm0  // LO = a_L * a_L
+	vpclmulqdq	$0x11,%xmm3,%xmm3,%xmm5  // HI = a_H * a_H
+	vpclmulqdq	$0x01,%xmm0,%xmm6,%xmm1  // LO_L*(x^63 + x^62 + x^57)
+	vpshufd	$0x4e,%xmm0,%xmm0  // Swap halves of LO
+	vpxor	%xmm0,%xmm1,%xmm1  // Fold LO into MI
+	vpclmulqdq	$0x01,%xmm1,%xmm6,%xmm0  // MI_L*(x^63 + x^62 + x^57)
+	vpshufd	$0x4e,%xmm1,%xmm1  // Swap halves of MI
+	vpxor	%xmm1,%xmm5,%xmm5  // Fold MI into HI (part 1)
+	vpxor	%xmm0,%xmm5,%xmm5  // Fold MI into HI (part 2)
 
 
-
+// Create H_CUR = [H^2, H^1] and H_INC = [H^2, H^2].
 	vinserti128	$1,%xmm3,%ymm5,%ymm3
 	vinserti128	$1,%xmm5,%ymm5,%ymm5
 
+// Compute H_CUR2 = [H^4, H^3].
+	vpclmulqdq	$0x00,%ymm5,%ymm3,%ymm0  // LO = a_L * b_L
+	vpclmulqdq	$0x01,%ymm5,%ymm3,%ymm1  // MI_0 = a_L * b_H
+	vpclmulqdq	$0x10,%ymm5,%ymm3,%ymm2  // MI_1 = a_H * b_L
+	vpxor	%ymm2,%ymm1,%ymm1  // MI = MI_0 + MI_1
+	vpclmulqdq	$0x01,%ymm0,%ymm6,%ymm2  // LO_L*(x^63 + x^62 + x^57)
+	vpshufd	$0x4e,%ymm0,%ymm0  // Swap halves of LO
+	vpxor	%ymm0,%ymm1,%ymm1  // Fold LO into MI (part 1)
+	vpxor	%ymm2,%ymm1,%ymm1  // Fold LO into MI (part 2)
+	vpclmulqdq	$0x11,%ymm5,%ymm3,%ymm4  // HI = a_H * b_H
+	vpclmulqdq	$0x01,%ymm1,%ymm6,%ymm0  // MI_L*(x^63 + x^62 + x^57)
+	vpshufd	$0x4e,%ymm1,%ymm1  // Swap halves of MI
+	vpxor	%ymm1,%ymm4,%ymm4  // Fold MI into HI (part 1)
+	vpxor	%ymm0,%ymm4,%ymm4  // Fold MI into HI (part 2)
 
-	vpclmulqdq	$0x00,%ymm5,%ymm3,%ymm0
-	vpclmulqdq	$0x01,%ymm5,%ymm3,%ymm1
-	vpclmulqdq	$0x10,%ymm5,%ymm3,%ymm2
-	vpxor	%ymm2,%ymm1,%ymm1
-	vpclmulqdq	$0x01,%ymm0,%ymm6,%ymm2
-	vpshufd	$0x4e,%ymm0,%ymm0
-	vpxor	%ymm0,%ymm1,%ymm1
-	vpxor	%ymm2,%ymm1,%ymm1
-	vpclmulqdq	$0x11,%ymm5,%ymm3,%ymm4
-	vpclmulqdq	$0x01,%ymm1,%ymm6,%ymm0
-	vpshufd	$0x4e,%ymm1,%ymm1
-	vpxor	%ymm1,%ymm4,%ymm4
-	vpxor	%ymm0,%ymm4,%ymm4
 
-
-
+// Store [H^2, H^1] and [H^4, H^3].
 	vmovdqu	%ymm3,96(%rdi)
 	vmovdqu	%ymm4,64(%rdi)
 
-
-
+// For Karatsuba multiplication: compute and store the two 64-bit halves of
+// each key power XOR'd together.  Order is 4,2,3,1.
 	vpunpcklqdq	%ymm3,%ymm4,%ymm0
 	vpunpckhqdq	%ymm3,%ymm4,%ymm1
 	vpxor	%ymm1,%ymm0,%ymm0
 	vmovdqu	%ymm0,128+32(%rdi)
 
+// Compute and store H_CUR = [H^6, H^5] and H_CUR2 = [H^8, H^7].
+	vpclmulqdq	$0x00,%ymm5,%ymm4,%ymm0  // LO = a_L * b_L
+	vpclmulqdq	$0x01,%ymm5,%ymm4,%ymm1  // MI_0 = a_L * b_H
+	vpclmulqdq	$0x10,%ymm5,%ymm4,%ymm2  // MI_1 = a_H * b_L
+	vpxor	%ymm2,%ymm1,%ymm1  // MI = MI_0 + MI_1
+	vpclmulqdq	$0x01,%ymm0,%ymm6,%ymm2  // LO_L*(x^63 + x^62 + x^57)
+	vpshufd	$0x4e,%ymm0,%ymm0  // Swap halves of LO
+	vpxor	%ymm0,%ymm1,%ymm1  // Fold LO into MI (part 1)
+	vpxor	%ymm2,%ymm1,%ymm1  // Fold LO into MI (part 2)
+	vpclmulqdq	$0x11,%ymm5,%ymm4,%ymm3  // HI = a_H * b_H
+	vpclmulqdq	$0x01,%ymm1,%ymm6,%ymm0  // MI_L*(x^63 + x^62 + x^57)
+	vpshufd	$0x4e,%ymm1,%ymm1  // Swap halves of MI
+	vpxor	%ymm1,%ymm3,%ymm3  // Fold MI into HI (part 1)
+	vpxor	%ymm0,%ymm3,%ymm3  // Fold MI into HI (part 2)
 
-	vpclmulqdq	$0x00,%ymm5,%ymm4,%ymm0
-	vpclmulqdq	$0x01,%ymm5,%ymm4,%ymm1
-	vpclmulqdq	$0x10,%ymm5,%ymm4,%ymm2
-	vpxor	%ymm2,%ymm1,%ymm1
-	vpclmulqdq	$0x01,%ymm0,%ymm6,%ymm2
-	vpshufd	$0x4e,%ymm0,%ymm0
-	vpxor	%ymm0,%ymm1,%ymm1
-	vpxor	%ymm2,%ymm1,%ymm1
-	vpclmulqdq	$0x11,%ymm5,%ymm4,%ymm3
-	vpclmulqdq	$0x01,%ymm1,%ymm6,%ymm0
-	vpshufd	$0x4e,%ymm1,%ymm1
-	vpxor	%ymm1,%ymm3,%ymm3
-	vpxor	%ymm0,%ymm3,%ymm3
-
-	vpclmulqdq	$0x00,%ymm5,%ymm3,%ymm0
-	vpclmulqdq	$0x01,%ymm5,%ymm3,%ymm1
-	vpclmulqdq	$0x10,%ymm5,%ymm3,%ymm2
-	vpxor	%ymm2,%ymm1,%ymm1
-	vpclmulqdq	$0x01,%ymm0,%ymm6,%ymm2
-	vpshufd	$0x4e,%ymm0,%ymm0
-	vpxor	%ymm0,%ymm1,%ymm1
-	vpxor	%ymm2,%ymm1,%ymm1
-	vpclmulqdq	$0x11,%ymm5,%ymm3,%ymm4
-	vpclmulqdq	$0x01,%ymm1,%ymm6,%ymm0
-	vpshufd	$0x4e,%ymm1,%ymm1
-	vpxor	%ymm1,%ymm4,%ymm4
-	vpxor	%ymm0,%ymm4,%ymm4
+	vpclmulqdq	$0x00,%ymm5,%ymm3,%ymm0  // LO = a_L * b_L
+	vpclmulqdq	$0x01,%ymm5,%ymm3,%ymm1  // MI_0 = a_L * b_H
+	vpclmulqdq	$0x10,%ymm5,%ymm3,%ymm2  // MI_1 = a_H * b_L
+	vpxor	%ymm2,%ymm1,%ymm1  // MI = MI_0 + MI_1
+	vpclmulqdq	$0x01,%ymm0,%ymm6,%ymm2  // LO_L*(x^63 + x^62 + x^57)
+	vpshufd	$0x4e,%ymm0,%ymm0  // Swap halves of LO
+	vpxor	%ymm0,%ymm1,%ymm1  // Fold LO into MI (part 1)
+	vpxor	%ymm2,%ymm1,%ymm1  // Fold LO into MI (part 2)
+	vpclmulqdq	$0x11,%ymm5,%ymm3,%ymm4  // HI = a_H * b_H
+	vpclmulqdq	$0x01,%ymm1,%ymm6,%ymm0  // MI_L*(x^63 + x^62 + x^57)
+	vpshufd	$0x4e,%ymm1,%ymm1  // Swap halves of MI
+	vpxor	%ymm1,%ymm4,%ymm4  // Fold MI into HI (part 1)
+	vpxor	%ymm0,%ymm4,%ymm4  // Fold MI into HI (part 2)
 
 	vmovdqu	%ymm3,32(%rdi)
 	vmovdqu	%ymm4,0(%rdi)
 
-
-
+// Again, compute and store the two 64-bit halves of each key power XOR'd
+// together.  Order is 8,6,7,5.
 	vpunpcklqdq	%ymm3,%ymm4,%ymm0
 	vpunpckhqdq	%ymm3,%ymm4,%ymm1
 	vpxor	%ymm1,%ymm0,%ymm0
@@ -171,23 +169,25 @@ _CET_ENDBR
 	vmovdqu	.Lgfpoly(%rip),%xmm3
 	vpshufb	%xmm1,%xmm0,%xmm0
 
-	vpclmulqdq	$0x00,%xmm2,%xmm0,%xmm4
-	vpclmulqdq	$0x01,%xmm2,%xmm0,%xmm5
-	vpclmulqdq	$0x10,%xmm2,%xmm0,%xmm6
-	vpxor	%xmm6,%xmm5,%xmm5
-	vpclmulqdq	$0x01,%xmm4,%xmm3,%xmm6
-	vpshufd	$0x4e,%xmm4,%xmm4
-	vpxor	%xmm4,%xmm5,%xmm5
-	vpxor	%xmm6,%xmm5,%xmm5
-	vpclmulqdq	$0x11,%xmm2,%xmm0,%xmm0
-	vpclmulqdq	$0x01,%xmm5,%xmm3,%xmm4
-	vpshufd	$0x4e,%xmm5,%xmm5
-	vpxor	%xmm5,%xmm0,%xmm0
-	vpxor	%xmm4,%xmm0,%xmm0
+	vpclmulqdq	$0x00,%xmm2,%xmm0,%xmm4  // LO = a_L * b_L
+	vpclmulqdq	$0x01,%xmm2,%xmm0,%xmm5  // MI_0 = a_L * b_H
+	vpclmulqdq	$0x10,%xmm2,%xmm0,%xmm6  // MI_1 = a_H * b_L
+	vpxor	%xmm6,%xmm5,%xmm5  // MI = MI_0 + MI_1
+	vpclmulqdq	$0x01,%xmm4,%xmm3,%xmm6  // LO_L*(x^63 + x^62 + x^57)
+	vpshufd	$0x4e,%xmm4,%xmm4  // Swap halves of LO
+	vpxor	%xmm4,%xmm5,%xmm5  // Fold LO into MI (part 1)
+	vpxor	%xmm6,%xmm5,%xmm5  // Fold LO into MI (part 2)
+	vpclmulqdq	$0x11,%xmm2,%xmm0,%xmm0  // HI = a_H * b_H
+	vpclmulqdq	$0x01,%xmm5,%xmm3,%xmm4  // MI_L*(x^63 + x^62 + x^57)
+	vpshufd	$0x4e,%xmm5,%xmm5  // Swap halves of MI
+	vpxor	%xmm5,%xmm0,%xmm0  // Fold MI into HI (part 1)
+	vpxor	%xmm4,%xmm0,%xmm0  // Fold MI into HI (part 2)
 
 
 	vpshufb	%xmm1,%xmm0,%xmm0
 	vmovdqu	%xmm0,(%rdi)
+
+// No need for vzeroupper, since only xmm registers were used.
 	ret
 
 .cfi_endproc	
@@ -203,23 +203,33 @@ _CET_ENDBR
 
 
 
-	vbroadcasti128	.Lbswap_mask(%rip),%ymm6
+// Load the bswap_mask and gfpoly constants.  Since AADLEN is usually small,
+// usually only 128-bit vectors will be used.  So as an optimization, don't
+// broadcast these constants to both 128-bit lanes quite yet.
+	vmovdqu	.Lbswap_mask(%rip),%xmm6
+	vmovdqu	.Lgfpoly(%rip),%xmm7
+
+// Load the GHASH accumulator.
 	vmovdqu	(%rdi),%xmm5
 	vpshufb	%xmm6,%xmm5,%xmm5
-	vbroadcasti128	.Lgfpoly(%rip),%ymm7
 
-
+// Optimize for AADLEN < 32 by checking for AADLEN < 32 before AADLEN < 128.
 	cmpq	$32,%rcx
 	jb	.Lghash_lastblock
+
+// AADLEN >= 32, so we'll operate on full vectors.  Broadcast bswap_mask and
+// gfpoly to both 128-bit lanes.
+	vinserti128	$1,%xmm6,%ymm6,%ymm6
+	vinserti128	$1,%xmm7,%ymm7,%ymm7
 
 	cmpq	$127,%rcx
 	jbe	.Lghash_loop_1x
 
-
+// Update GHASH with 128 bytes of AAD at a time.
 	vmovdqu	128(%rsi),%ymm8
 	vmovdqu	128+32(%rsi),%ymm9
 .Lghash_loop_4x:
-
+// First vector
 	vmovdqu	0(%rdx),%ymm1
 	vpshufb	%ymm6,%ymm1,%ymm1
 	vmovdqu	0(%rsi),%ymm2
@@ -229,7 +239,7 @@ _CET_ENDBR
 	vpunpckhqdq	%ymm1,%ymm1,%ymm0
 	vpxor	%ymm1,%ymm0,%ymm0
 	vpclmulqdq	$0x00,%ymm8,%ymm0,%ymm4
-
+// Second vector
 	vmovdqu	32(%rdx),%ymm1
 	vpshufb	%ymm6,%ymm1,%ymm1
 	vmovdqu	32(%rsi),%ymm2
@@ -241,7 +251,7 @@ _CET_ENDBR
 	vpxor	%ymm1,%ymm0,%ymm0
 	vpclmulqdq	$0x10,%ymm8,%ymm0,%ymm0
 	vpxor	%ymm0,%ymm4,%ymm4
-
+// Third vector
 	vmovdqu	64(%rdx),%ymm1
 	vpshufb	%ymm6,%ymm1,%ymm1
 	vmovdqu	64(%rsi),%ymm2
@@ -254,7 +264,7 @@ _CET_ENDBR
 	vpclmulqdq	$0x00,%ymm9,%ymm0,%ymm0
 	vpxor	%ymm0,%ymm4,%ymm4
 
-
+// Fourth vector
 	vmovdqu	96(%rdx),%ymm1
 	vpshufb	%ymm6,%ymm1,%ymm1
 	vmovdqu	96(%rsi),%ymm2
@@ -266,17 +276,17 @@ _CET_ENDBR
 	vpxor	%ymm1,%ymm0,%ymm0
 	vpclmulqdq	$0x10,%ymm9,%ymm0,%ymm0
 	vpxor	%ymm0,%ymm4,%ymm4
-
+// Finalize 'mi' following Karatsuba multiplication.
 	vpxor	%ymm3,%ymm4,%ymm4
 	vpxor	%ymm5,%ymm4,%ymm4
 
-
+// Fold lo into mi.
 	vbroadcasti128	.Lgfpoly(%rip),%ymm2
 	vpclmulqdq	$0x01,%ymm3,%ymm2,%ymm0
 	vpshufd	$0x4e,%ymm3,%ymm3
 	vpxor	%ymm3,%ymm4,%ymm4
 	vpxor	%ymm0,%ymm4,%ymm4
-
+// Fold mi into hi.
 	vpclmulqdq	$0x01,%ymm4,%ymm2,%ymm0
 	vpshufd	$0x4e,%ymm4,%ymm4
 	vpxor	%ymm4,%ymm5,%ymm5
@@ -284,12 +294,12 @@ _CET_ENDBR
 	vextracti128	$1,%ymm5,%xmm0
 	vpxor	%xmm0,%xmm5,%xmm5
 
-	subq	$-128,%rdx
+	subq	$-128,%rdx  // 128 is 4 bytes, -128 is 1 byte
 	addq	$-128,%rcx
 	cmpq	$127,%rcx
 	ja	.Lghash_loop_4x
 
-
+// Update GHASH with 32 bytes of AAD at a time.
 	cmpq	$32,%rcx
 	jb	.Lghash_loop_1x_done
 .Lghash_loop_1x:
@@ -297,19 +307,19 @@ _CET_ENDBR
 	vpshufb	%ymm6,%ymm0,%ymm0
 	vpxor	%ymm0,%ymm5,%ymm5
 	vmovdqu	128-32(%rsi),%ymm0
-	vpclmulqdq	$0x00,%ymm0,%ymm5,%ymm1
-	vpclmulqdq	$0x01,%ymm0,%ymm5,%ymm2
-	vpclmulqdq	$0x10,%ymm0,%ymm5,%ymm3
-	vpxor	%ymm3,%ymm2,%ymm2
-	vpclmulqdq	$0x01,%ymm1,%ymm7,%ymm3
-	vpshufd	$0x4e,%ymm1,%ymm1
-	vpxor	%ymm1,%ymm2,%ymm2
-	vpxor	%ymm3,%ymm2,%ymm2
-	vpclmulqdq	$0x11,%ymm0,%ymm5,%ymm5
-	vpclmulqdq	$0x01,%ymm2,%ymm7,%ymm1
-	vpshufd	$0x4e,%ymm2,%ymm2
-	vpxor	%ymm2,%ymm5,%ymm5
-	vpxor	%ymm1,%ymm5,%ymm5
+	vpclmulqdq	$0x00,%ymm0,%ymm5,%ymm1  // LO = a_L * b_L
+	vpclmulqdq	$0x01,%ymm0,%ymm5,%ymm2  // MI_0 = a_L * b_H
+	vpclmulqdq	$0x10,%ymm0,%ymm5,%ymm3  // MI_1 = a_H * b_L
+	vpxor	%ymm3,%ymm2,%ymm2  // MI = MI_0 + MI_1
+	vpclmulqdq	$0x01,%ymm1,%ymm7,%ymm3  // LO_L*(x^63 + x^62 + x^57)
+	vpshufd	$0x4e,%ymm1,%ymm1  // Swap halves of LO
+	vpxor	%ymm1,%ymm2,%ymm2  // Fold LO into MI (part 1)
+	vpxor	%ymm3,%ymm2,%ymm2  // Fold LO into MI (part 2)
+	vpclmulqdq	$0x11,%ymm0,%ymm5,%ymm5  // HI = a_H * b_H
+	vpclmulqdq	$0x01,%ymm2,%ymm7,%ymm1  // MI_L*(x^63 + x^62 + x^57)
+	vpshufd	$0x4e,%ymm2,%ymm2  // Swap halves of MI
+	vpxor	%ymm2,%ymm5,%ymm5  // Fold MI into HI (part 1)
+	vpxor	%ymm1,%ymm5,%ymm5  // Fold MI into HI (part 2)
 
 	vextracti128	$1,%ymm5,%xmm0
 	vpxor	%xmm0,%xmm5,%xmm5
@@ -319,10 +329,7 @@ _CET_ENDBR
 	jae	.Lghash_loop_1x
 .Lghash_loop_1x_done:
 
-
-	vzeroupper
-
-
+// Update GHASH with the remaining 16-byte block if any.
 .Lghash_lastblock:
 	testq	%rcx,%rcx
 	jz	.Lghash_done
@@ -330,25 +337,27 @@ _CET_ENDBR
 	vpshufb	%xmm6,%xmm0,%xmm0
 	vpxor	%xmm0,%xmm5,%xmm5
 	vmovdqu	128-16(%rsi),%xmm0
-	vpclmulqdq	$0x00,%xmm0,%xmm5,%xmm1
-	vpclmulqdq	$0x01,%xmm0,%xmm5,%xmm2
-	vpclmulqdq	$0x10,%xmm0,%xmm5,%xmm3
-	vpxor	%xmm3,%xmm2,%xmm2
-	vpclmulqdq	$0x01,%xmm1,%xmm7,%xmm3
-	vpshufd	$0x4e,%xmm1,%xmm1
-	vpxor	%xmm1,%xmm2,%xmm2
-	vpxor	%xmm3,%xmm2,%xmm2
-	vpclmulqdq	$0x11,%xmm0,%xmm5,%xmm5
-	vpclmulqdq	$0x01,%xmm2,%xmm7,%xmm1
-	vpshufd	$0x4e,%xmm2,%xmm2
-	vpxor	%xmm2,%xmm5,%xmm5
-	vpxor	%xmm1,%xmm5,%xmm5
+	vpclmulqdq	$0x00,%xmm0,%xmm5,%xmm1  // LO = a_L * b_L
+	vpclmulqdq	$0x01,%xmm0,%xmm5,%xmm2  // MI_0 = a_L * b_H
+	vpclmulqdq	$0x10,%xmm0,%xmm5,%xmm3  // MI_1 = a_H * b_L
+	vpxor	%xmm3,%xmm2,%xmm2  // MI = MI_0 + MI_1
+	vpclmulqdq	$0x01,%xmm1,%xmm7,%xmm3  // LO_L*(x^63 + x^62 + x^57)
+	vpshufd	$0x4e,%xmm1,%xmm1  // Swap halves of LO
+	vpxor	%xmm1,%xmm2,%xmm2  // Fold LO into MI (part 1)
+	vpxor	%xmm3,%xmm2,%xmm2  // Fold LO into MI (part 2)
+	vpclmulqdq	$0x11,%xmm0,%xmm5,%xmm5  // HI = a_H * b_H
+	vpclmulqdq	$0x01,%xmm2,%xmm7,%xmm1  // MI_L*(x^63 + x^62 + x^57)
+	vpshufd	$0x4e,%xmm2,%xmm2  // Swap halves of MI
+	vpxor	%xmm2,%xmm5,%xmm5  // Fold MI into HI (part 1)
+	vpxor	%xmm1,%xmm5,%xmm5  // Fold MI into HI (part 2)
 
 
 .Lghash_done:
-
+// Store the updated GHASH accumulator back to memory.
 	vpshufb	%xmm6,%xmm5,%xmm5
 	vmovdqu	%xmm5,(%rdi)
+
+	vzeroupper
 	ret
 
 .cfi_endproc	
@@ -365,46 +374,46 @@ _CET_ENDBR
 .cfi_adjust_cfa_offset	8
 .cfi_offset	%r12,-16
 
-	movq	16(%rsp),%r12
+	movq	16(%rsp),%r12  // arg7
 #ifdef BORINGSSL_DISPATCH_TEST
 .extern	BORINGSSL_function_hit
 .hidden BORINGSSL_function_hit
-	movb	$1,BORINGSSL_function_hit+8(%rip)
+	movb	$1,BORINGSSL_function_hit+6(%rip)
 #endif
 	vbroadcasti128	.Lbswap_mask(%rip),%ymm0
 
-
-
+// Load the GHASH accumulator and the starting counter.
+// BoringSSL passes these values in big endian format.
 	vmovdqu	(%r12),%xmm1
 	vpshufb	%xmm0,%xmm1,%xmm1
 	vbroadcasti128	(%r8),%ymm11
 	vpshufb	%ymm0,%ymm11,%ymm11
 
-
-
+// Load the AES key length in bytes.  BoringSSL stores number of rounds
+// minus 1, so convert using: AESKEYLEN = 4 * aeskey->rounds - 20.
 	movl	240(%rcx),%r10d
 	leal	-20(,%r10,4),%r10d
 
-
-
-
+// Make RNDKEYLAST_PTR point to the last AES round key.  This is the
+// round key with index 10, 12, or 14 for AES-128, AES-192, or AES-256
+// respectively.  Then load the zero-th and last round keys.
 	leaq	96(%rcx,%r10,4),%r11
 	vbroadcasti128	(%rcx),%ymm9
 	vbroadcasti128	(%r11),%ymm10
 
-
+// Finish initializing LE_CTR by adding 1 to the second block.
 	vpaddd	.Lctr_pattern(%rip),%ymm11,%ymm11
 
-
-
+// If there are at least 128 bytes of data, then continue into the loop that
+// processes 128 bytes of data at a time.  Otherwise skip it.
 	cmpq	$127,%rdx
 	jbe	.Lcrypt_loop_4x_done__func1
 
 	vmovdqu	128(%r9),%ymm7
 	vmovdqu	128+32(%r9),%ymm8
-
-
-
+// Encrypt the first 4 vectors of plaintext blocks.
+// Increment le_ctr four times to generate four vectors of little-endian
+// counter blocks, swap each to big-endian, and store them in aesdata[0-3].
 	vmovdqu	.Linc_2blocks(%rip),%ymm2
 	vpshufb	%ymm0,%ymm11,%ymm12
 	vpaddd	%ymm2,%ymm11,%ymm11
@@ -415,7 +424,7 @@ _CET_ENDBR
 	vpshufb	%ymm0,%ymm11,%ymm15
 	vpaddd	%ymm2,%ymm11,%ymm11
 
-
+// AES "round zero": XOR in the zero-th round key.
 	vpxor	%ymm9,%ymm12,%ymm12
 	vpxor	%ymm9,%ymm13,%ymm13
 	vpxor	%ymm9,%ymm14,%ymm14
@@ -445,16 +454,16 @@ _CET_ENDBR
 	vmovdqu	%ymm14,64(%rsi)
 	vmovdqu	%ymm15,96(%rsi)
 
-	subq	$-128,%rdi
+	subq	$-128,%rdi  // 128 is 4 bytes, -128 is 1 byte
 	addq	$-128,%rdx
 	cmpq	$127,%rdx
 	jbe	.Lghash_last_ciphertext_4x__func1
 .align	16
 .Lcrypt_loop_4x__func1:
 
-
-
-
+// Start the AES encryption of the counter blocks.
+// Increment le_ctr four times to generate four vectors of little-endian
+// counter blocks, swap each to big-endian, and store them in aesdata[0-3].
 	vmovdqu	.Linc_2blocks(%rip),%ymm2
 	vpshufb	%ymm0,%ymm11,%ymm12
 	vpaddd	%ymm2,%ymm11,%ymm11
@@ -465,7 +474,7 @@ _CET_ENDBR
 	vpshufb	%ymm0,%ymm11,%ymm15
 	vpaddd	%ymm2,%ymm11,%ymm11
 
-
+// AES "round zero": XOR in the zero-th round key.
 	vpxor	%ymm9,%ymm12,%ymm12
 	vpxor	%ymm9,%ymm13,%ymm13
 	vpxor	%ymm9,%ymm14,%ymm14
@@ -474,7 +483,7 @@ _CET_ENDBR
 	cmpl	$24,%r10d
 	jl	.Laes128__func1
 	je	.Laes192__func1
-
+// AES-256
 	vbroadcasti128	-208(%r11),%ymm2
 	vaesenc	%ymm2,%ymm12,%ymm12
 	vaesenc	%ymm2,%ymm13,%ymm13
@@ -503,7 +512,7 @@ _CET_ENDBR
 .Laes128__func1:
 	prefetcht0	512(%rdi)
 	prefetcht0	512+64(%rdi)
-
+// First vector
 	vmovdqu	0(%rsi),%ymm3
 	vpshufb	%ymm0,%ymm3,%ymm3
 	vmovdqu	0(%r9),%ymm4
@@ -527,7 +536,7 @@ _CET_ENDBR
 	vaesenc	%ymm2,%ymm14,%ymm14
 	vaesenc	%ymm2,%ymm15,%ymm15
 
-
+// Second vector
 	vmovdqu	32(%rsi),%ymm3
 	vpshufb	%ymm0,%ymm3,%ymm3
 	vmovdqu	32(%r9),%ymm4
@@ -546,7 +555,7 @@ _CET_ENDBR
 	vaesenc	%ymm2,%ymm14,%ymm14
 	vaesenc	%ymm2,%ymm15,%ymm15
 
-
+// Third vector
 	vmovdqu	64(%rsi),%ymm3
 	vpshufb	%ymm0,%ymm3,%ymm3
 	vmovdqu	64(%r9),%ymm4
@@ -573,7 +582,7 @@ _CET_ENDBR
 	vpclmulqdq	$0x00,%ymm8,%ymm2,%ymm2
 	vpxor	%ymm2,%ymm6,%ymm6
 
-
+// Fourth vector
 	vmovdqu	96(%rsi),%ymm3
 	vpshufb	%ymm0,%ymm3,%ymm3
 
@@ -599,11 +608,11 @@ _CET_ENDBR
 	vaesenc	%ymm2,%ymm14,%ymm14
 	vaesenc	%ymm2,%ymm15,%ymm15
 
-
+// Finalize 'mi' following Karatsuba multiplication.
 	vpxor	%ymm5,%ymm6,%ymm6
 	vpxor	%ymm1,%ymm6,%ymm6
 
-
+// Fold lo into mi.
 	vbroadcasti128	.Lgfpoly(%rip),%ymm4
 	vpclmulqdq	$0x01,%ymm5,%ymm4,%ymm2
 	vpshufd	$0x4e,%ymm5,%ymm5
@@ -616,7 +625,7 @@ _CET_ENDBR
 	vaesenc	%ymm2,%ymm14,%ymm14
 	vaesenc	%ymm2,%ymm15,%ymm15
 
-
+// Fold mi into hi.
 	vpclmulqdq	$0x01,%ymm6,%ymm4,%ymm2
 	vpshufd	$0x4e,%ymm6,%ymm6
 	vpxor	%ymm6,%ymm1,%ymm1
@@ -632,7 +641,7 @@ _CET_ENDBR
 	vpxor	%xmm2,%xmm1,%xmm1
 
 
-	subq	$-128,%rsi
+	subq	$-128,%rsi  // 128 is 4 bytes, -128 is 1 byte
 	vpxor	0(%rdi),%ymm10,%ymm2
 	vpxor	32(%rdi),%ymm10,%ymm3
 	vpxor	64(%rdi),%ymm10,%ymm5
@@ -652,7 +661,7 @@ _CET_ENDBR
 	cmpq	$127,%rdx
 	ja	.Lcrypt_loop_4x__func1
 .Lghash_last_ciphertext_4x__func1:
-
+// First vector
 	vmovdqu	0(%rsi),%ymm3
 	vpshufb	%ymm0,%ymm3,%ymm3
 	vmovdqu	0(%r9),%ymm4
@@ -662,7 +671,7 @@ _CET_ENDBR
 	vpunpckhqdq	%ymm3,%ymm3,%ymm2
 	vpxor	%ymm3,%ymm2,%ymm2
 	vpclmulqdq	$0x00,%ymm7,%ymm2,%ymm6
-
+// Second vector
 	vmovdqu	32(%rsi),%ymm3
 	vpshufb	%ymm0,%ymm3,%ymm3
 	vmovdqu	32(%r9),%ymm4
@@ -674,7 +683,7 @@ _CET_ENDBR
 	vpxor	%ymm3,%ymm2,%ymm2
 	vpclmulqdq	$0x10,%ymm7,%ymm2,%ymm2
 	vpxor	%ymm2,%ymm6,%ymm6
-
+// Third vector
 	vmovdqu	64(%rsi),%ymm3
 	vpshufb	%ymm0,%ymm3,%ymm3
 	vmovdqu	64(%r9),%ymm4
@@ -687,7 +696,7 @@ _CET_ENDBR
 	vpclmulqdq	$0x00,%ymm8,%ymm2,%ymm2
 	vpxor	%ymm2,%ymm6,%ymm6
 
-
+// Fourth vector
 	vmovdqu	96(%rsi),%ymm3
 	vpshufb	%ymm0,%ymm3,%ymm3
 	vmovdqu	96(%r9),%ymm4
@@ -699,17 +708,17 @@ _CET_ENDBR
 	vpxor	%ymm3,%ymm2,%ymm2
 	vpclmulqdq	$0x10,%ymm8,%ymm2,%ymm2
 	vpxor	%ymm2,%ymm6,%ymm6
-
+// Finalize 'mi' following Karatsuba multiplication.
 	vpxor	%ymm5,%ymm6,%ymm6
 	vpxor	%ymm1,%ymm6,%ymm6
 
-
+// Fold lo into mi.
 	vbroadcasti128	.Lgfpoly(%rip),%ymm4
 	vpclmulqdq	$0x01,%ymm5,%ymm4,%ymm2
 	vpshufd	$0x4e,%ymm5,%ymm5
 	vpxor	%ymm5,%ymm6,%ymm6
 	vpxor	%ymm2,%ymm6,%ymm6
-
+// Fold mi into hi.
 	vpclmulqdq	$0x01,%ymm6,%ymm4,%ymm2
 	vpshufd	$0x4e,%ymm6,%ymm6
 	vpxor	%ymm6,%ymm1,%ymm1
@@ -719,18 +728,18 @@ _CET_ENDBR
 
 	subq	$-128,%rsi
 .Lcrypt_loop_4x_done__func1:
-
+// Check whether any data remains.
 	testq	%rdx,%rdx
 	jz	.Ldone__func1
 
+// DATALEN is in [16, 32, 48, 64, 80, 96, 112].
 
-
-
-
+// Make POWERS_PTR point to the key powers [H^N, H^(N-1), ...] where N
+// is the number of blocks that remain.
 	leaq	128(%r9),%r8
 	subq	%rdx,%r8
 
-
+// Start collecting the unreduced GHASH intermediate value LO, MI, HI.
 	vpxor	%xmm5,%xmm5,%xmm5
 	vpxor	%xmm6,%xmm6,%xmm6
 	vpxor	%xmm7,%xmm7,%xmm7
@@ -738,7 +747,7 @@ _CET_ENDBR
 	cmpq	$64,%rdx
 	jb	.Llessthan64bytes__func1
 
-
+// DATALEN is in [64, 80, 96, 112].  Encrypt two vectors of counter blocks.
 	vpshufb	%ymm0,%ymm11,%ymm12
 	vpaddd	.Linc_2blocks(%rip),%ymm11,%ymm11
 	vpshufb	%ymm0,%ymm11,%ymm13
@@ -756,7 +765,7 @@ _CET_ENDBR
 	vaesenclast	%ymm10,%ymm12,%ymm12
 	vaesenclast	%ymm10,%ymm13,%ymm13
 
-
+// XOR the data with the two vectors of keystream blocks.
 	vmovdqu	0(%rdi),%ymm2
 	vmovdqu	32(%rdi),%ymm3
 	vpxor	%ymm2,%ymm12,%ymm12
@@ -764,7 +773,7 @@ _CET_ENDBR
 	vmovdqu	%ymm12,0(%rsi)
 	vmovdqu	%ymm13,32(%rsi)
 
-
+// Update GHASH with two vectors of ciphertext blocks, without reducing.
 	vpshufb	%ymm0,%ymm12,%ymm12
 	vpshufb	%ymm0,%ymm13,%ymm13
 	vpxor	%ymm1,%ymm12,%ymm12
@@ -792,7 +801,7 @@ _CET_ENDBR
 
 	vpxor	%xmm1,%xmm1,%xmm1
 
-
+// DATALEN is in [16, 32, 48].  Encrypt two last vectors of counter blocks.
 .Llessthan64bytes__func1:
 	vpshufb	%ymm0,%ymm11,%ymm12
 	vpaddd	.Linc_2blocks(%rip),%ymm11,%ymm11
@@ -810,8 +819,8 @@ _CET_ENDBR
 	vaesenclast	%ymm10,%ymm12,%ymm12
 	vaesenclast	%ymm10,%ymm13,%ymm13
 
-
-
+// XOR the remaining data with the keystream blocks, and update GHASH with
+// the remaining ciphertext blocks without reducing.
 
 	cmpq	$32,%rdx
 	jb	.Lxor_one_block__func1
@@ -868,7 +877,7 @@ _CET_ENDBR
 	vpxor	%ymm4,%ymm7,%ymm7
 
 .Lreduce__func1:
-
+// Finally, do the GHASH reduction.
 	vbroadcasti128	.Lgfpoly(%rip),%ymm2
 	vpclmulqdq	$0x01,%ymm5,%ymm2,%ymm3
 	vpshufd	$0x4e,%ymm5,%ymm5
@@ -882,7 +891,7 @@ _CET_ENDBR
 	vpxor	%xmm7,%xmm1,%xmm1
 
 .Ldone__func1:
-
+// Store the updated GHASH accumulator back to memory.
 	vpshufb	%xmm0,%xmm1,%xmm1
 	vmovdqu	%xmm1,(%r12)
 
@@ -906,33 +915,33 @@ _CET_ENDBR
 .cfi_adjust_cfa_offset	8
 .cfi_offset	%r12,-16
 
-	movq	16(%rsp),%r12
+	movq	16(%rsp),%r12  // arg7
 	vbroadcasti128	.Lbswap_mask(%rip),%ymm0
 
-
-
+// Load the GHASH accumulator and the starting counter.
+// BoringSSL passes these values in big endian format.
 	vmovdqu	(%r12),%xmm1
 	vpshufb	%xmm0,%xmm1,%xmm1
 	vbroadcasti128	(%r8),%ymm11
 	vpshufb	%ymm0,%ymm11,%ymm11
 
-
-
+// Load the AES key length in bytes.  BoringSSL stores number of rounds
+// minus 1, so convert using: AESKEYLEN = 4 * aeskey->rounds - 20.
 	movl	240(%rcx),%r10d
 	leal	-20(,%r10,4),%r10d
 
-
-
-
+// Make RNDKEYLAST_PTR point to the last AES round key.  This is the
+// round key with index 10, 12, or 14 for AES-128, AES-192, or AES-256
+// respectively.  Then load the zero-th and last round keys.
 	leaq	96(%rcx,%r10,4),%r11
 	vbroadcasti128	(%rcx),%ymm9
 	vbroadcasti128	(%r11),%ymm10
 
-
+// Finish initializing LE_CTR by adding 1 to the second block.
 	vpaddd	.Lctr_pattern(%rip),%ymm11,%ymm11
 
-
-
+// If there are at least 128 bytes of data, then continue into the loop that
+// processes 128 bytes of data at a time.  Otherwise skip it.
 	cmpq	$127,%rdx
 	jbe	.Lcrypt_loop_4x_done__func2
 
@@ -941,9 +950,9 @@ _CET_ENDBR
 .align	16
 .Lcrypt_loop_4x__func2:
 
-
-
-
+// Start the AES encryption of the counter blocks.
+// Increment le_ctr four times to generate four vectors of little-endian
+// counter blocks, swap each to big-endian, and store them in aesdata[0-3].
 	vmovdqu	.Linc_2blocks(%rip),%ymm2
 	vpshufb	%ymm0,%ymm11,%ymm12
 	vpaddd	%ymm2,%ymm11,%ymm11
@@ -954,7 +963,7 @@ _CET_ENDBR
 	vpshufb	%ymm0,%ymm11,%ymm15
 	vpaddd	%ymm2,%ymm11,%ymm11
 
-
+// AES "round zero": XOR in the zero-th round key.
 	vpxor	%ymm9,%ymm12,%ymm12
 	vpxor	%ymm9,%ymm13,%ymm13
 	vpxor	%ymm9,%ymm14,%ymm14
@@ -963,7 +972,7 @@ _CET_ENDBR
 	cmpl	$24,%r10d
 	jl	.Laes128__func2
 	je	.Laes192__func2
-
+// AES-256
 	vbroadcasti128	-208(%r11),%ymm2
 	vaesenc	%ymm2,%ymm12,%ymm12
 	vaesenc	%ymm2,%ymm13,%ymm13
@@ -992,7 +1001,7 @@ _CET_ENDBR
 .Laes128__func2:
 	prefetcht0	512(%rdi)
 	prefetcht0	512+64(%rdi)
-
+// First vector
 	vmovdqu	0(%rdi),%ymm3
 	vpshufb	%ymm0,%ymm3,%ymm3
 	vmovdqu	0(%r9),%ymm4
@@ -1016,7 +1025,7 @@ _CET_ENDBR
 	vaesenc	%ymm2,%ymm14,%ymm14
 	vaesenc	%ymm2,%ymm15,%ymm15
 
-
+// Second vector
 	vmovdqu	32(%rdi),%ymm3
 	vpshufb	%ymm0,%ymm3,%ymm3
 	vmovdqu	32(%r9),%ymm4
@@ -1035,7 +1044,7 @@ _CET_ENDBR
 	vaesenc	%ymm2,%ymm14,%ymm14
 	vaesenc	%ymm2,%ymm15,%ymm15
 
-
+// Third vector
 	vmovdqu	64(%rdi),%ymm3
 	vpshufb	%ymm0,%ymm3,%ymm3
 	vmovdqu	64(%r9),%ymm4
@@ -1062,7 +1071,7 @@ _CET_ENDBR
 	vpclmulqdq	$0x00,%ymm8,%ymm2,%ymm2
 	vpxor	%ymm2,%ymm6,%ymm6
 
-
+// Fourth vector
 	vmovdqu	96(%rdi),%ymm3
 	vpshufb	%ymm0,%ymm3,%ymm3
 
@@ -1088,11 +1097,11 @@ _CET_ENDBR
 	vaesenc	%ymm2,%ymm14,%ymm14
 	vaesenc	%ymm2,%ymm15,%ymm15
 
-
+// Finalize 'mi' following Karatsuba multiplication.
 	vpxor	%ymm5,%ymm6,%ymm6
 	vpxor	%ymm1,%ymm6,%ymm6
 
-
+// Fold lo into mi.
 	vbroadcasti128	.Lgfpoly(%rip),%ymm4
 	vpclmulqdq	$0x01,%ymm5,%ymm4,%ymm2
 	vpshufd	$0x4e,%ymm5,%ymm5
@@ -1105,7 +1114,7 @@ _CET_ENDBR
 	vaesenc	%ymm2,%ymm14,%ymm14
 	vaesenc	%ymm2,%ymm15,%ymm15
 
-
+// Fold mi into hi.
 	vpclmulqdq	$0x01,%ymm6,%ymm4,%ymm2
 	vpshufd	$0x4e,%ymm6,%ymm6
 	vpxor	%ymm6,%ymm1,%ymm1
@@ -1121,7 +1130,7 @@ _CET_ENDBR
 	vpxor	%xmm2,%xmm1,%xmm1
 
 
-
+// 128 is 4 bytes, -128 is 1 byte
 	vpxor	0(%rdi),%ymm10,%ymm2
 	vpxor	32(%rdi),%ymm10,%ymm3
 	vpxor	64(%rdi),%ymm10,%ymm5
@@ -1141,18 +1150,18 @@ _CET_ENDBR
 	cmpq	$127,%rdx
 	ja	.Lcrypt_loop_4x__func2
 .Lcrypt_loop_4x_done__func2:
-
+// Check whether any data remains.
 	testq	%rdx,%rdx
 	jz	.Ldone__func2
 
+// DATALEN is in [16, 32, 48, 64, 80, 96, 112].
 
-
-
-
+// Make POWERS_PTR point to the key powers [H^N, H^(N-1), ...] where N
+// is the number of blocks that remain.
 	leaq	128(%r9),%r8
 	subq	%rdx,%r8
 
-
+// Start collecting the unreduced GHASH intermediate value LO, MI, HI.
 	vpxor	%xmm5,%xmm5,%xmm5
 	vpxor	%xmm6,%xmm6,%xmm6
 	vpxor	%xmm7,%xmm7,%xmm7
@@ -1160,7 +1169,7 @@ _CET_ENDBR
 	cmpq	$64,%rdx
 	jb	.Llessthan64bytes__func2
 
-
+// DATALEN is in [64, 80, 96, 112].  Encrypt two vectors of counter blocks.
 	vpshufb	%ymm0,%ymm11,%ymm12
 	vpaddd	.Linc_2blocks(%rip),%ymm11,%ymm11
 	vpshufb	%ymm0,%ymm11,%ymm13
@@ -1178,7 +1187,7 @@ _CET_ENDBR
 	vaesenclast	%ymm10,%ymm12,%ymm12
 	vaesenclast	%ymm10,%ymm13,%ymm13
 
-
+// XOR the data with the two vectors of keystream blocks.
 	vmovdqu	0(%rdi),%ymm2
 	vmovdqu	32(%rdi),%ymm3
 	vpxor	%ymm2,%ymm12,%ymm12
@@ -1186,7 +1195,7 @@ _CET_ENDBR
 	vmovdqu	%ymm12,0(%rsi)
 	vmovdqu	%ymm13,32(%rsi)
 
-
+// Update GHASH with two vectors of ciphertext blocks, without reducing.
 	vpshufb	%ymm0,%ymm2,%ymm12
 	vpshufb	%ymm0,%ymm3,%ymm13
 	vpxor	%ymm1,%ymm12,%ymm12
@@ -1214,7 +1223,7 @@ _CET_ENDBR
 
 	vpxor	%xmm1,%xmm1,%xmm1
 
-
+// DATALEN is in [16, 32, 48].  Encrypt two last vectors of counter blocks.
 .Llessthan64bytes__func2:
 	vpshufb	%ymm0,%ymm11,%ymm12
 	vpaddd	.Linc_2blocks(%rip),%ymm11,%ymm11
@@ -1232,8 +1241,8 @@ _CET_ENDBR
 	vaesenclast	%ymm10,%ymm12,%ymm12
 	vaesenclast	%ymm10,%ymm13,%ymm13
 
-
-
+// XOR the remaining data with the keystream blocks, and update GHASH with
+// the remaining ciphertext blocks without reducing.
 
 	cmpq	$32,%rdx
 	jb	.Lxor_one_block__func2
@@ -1290,7 +1299,7 @@ _CET_ENDBR
 	vpxor	%ymm4,%ymm7,%ymm7
 
 .Lreduce__func2:
-
+// Finally, do the GHASH reduction.
 	vbroadcasti128	.Lgfpoly(%rip),%ymm2
 	vpclmulqdq	$0x01,%ymm5,%ymm2,%ymm3
 	vpshufd	$0x4e,%ymm5,%ymm5
@@ -1304,7 +1313,7 @@ _CET_ENDBR
 	vpxor	%xmm7,%xmm1,%xmm1
 
 .Ldone__func2:
-
+// Store the updated GHASH accumulator back to memory.
 	vpshufb	%xmm0,%xmm1,%xmm1
 	vmovdqu	%xmm1,(%r12)
 

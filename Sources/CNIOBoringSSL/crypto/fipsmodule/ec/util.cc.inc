@@ -1,16 +1,16 @@
-/* Copyright 2015 The BoringSSL Authors
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2015 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_base.h>
 
@@ -18,6 +18,8 @@
 
 #include "internal.h"
 
+
+using namespace bssl;
 
 // This function looks at 5+1 scalar bits (5 current, 1 adjacent less
 // significant bit), and recodes them into a signed digit for use in fast point
@@ -108,7 +110,7 @@
 // is a prime that is much larger than 2^w. It also only holds when windows
 // are applied from most significant to least significant, doubling between each
 // window. It does not apply to more complex table strategies such as
-// |EC_GFp_nistz256_method|.
+// `EC_GFp_nistz256_method`.
 //
 // PROOF:
 //
@@ -240,8 +242,9 @@
 //   P-384: ...01110011; w = 2, 5, 6, 7 are okay
 //   P-256: ...01010001; w = 5, 7 are okay
 //   P-224: ...00111101; w = 3, 4, 5, 6 are okay
-void ec_GFp_nistp_recode_scalar_bits(crypto_word_t *sign, crypto_word_t *digit,
-                                     crypto_word_t in) {
+void bssl::ec_GFp_nistp_recode_scalar_bits(crypto_word_t *sign,
+                                           crypto_word_t *digit,
+                                           crypto_word_t in) {
   crypto_word_t s, d;
 
   s = ~((in >> 5) - 1); /* sets all bits to MSB(in), 'in' seen as

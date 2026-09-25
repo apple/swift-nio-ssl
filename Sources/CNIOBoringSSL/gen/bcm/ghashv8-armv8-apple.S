@@ -5,10 +5,9 @@
 #include <CNIOBoringSSL_asm_base.h>
 
 #if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_AARCH64) && defined(__APPLE__)
-#include <CNIOBoringSSL_arm_arch.h>
-
 #if __ARM_MAX_ARCH__>=7
 .text
+.arch_extension crypto
 
 .globl	_gcm_init_v8
 .private_extern	_gcm_init_v8
@@ -106,6 +105,7 @@ _gcm_init_v8:
 .private_extern	_gcm_gmult_v8
 
 .align	4
+.alt_entry _gcm_gmult_v8
 _gcm_gmult_v8:
 	AARCH64_VALID_CALL_TARGET
 	ld1	{v17.2d},[x0]		//load Xi
@@ -149,6 +149,7 @@ _gcm_gmult_v8:
 .private_extern	_gcm_ghash_v8
 
 .align	4
+.alt_entry _gcm_ghash_v8
 _gcm_ghash_v8:
 	AARCH64_VALID_CALL_TARGET
 	cmp	x3,#64
@@ -281,6 +282,7 @@ Ldone_v8:
 
 
 .align	4
+.alt_entry gcm_ghash_v8_4x
 gcm_ghash_v8_4x:
 Lgcm_ghash_v8_4x:
 	ld1	{v0.2d},[x0]		//load [rotated] Xi

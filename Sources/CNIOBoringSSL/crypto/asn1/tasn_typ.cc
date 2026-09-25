@@ -1,22 +1,33 @@
-/*
- * Copyright 2000-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 2000-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_asn1.h>
 
 #include <CNIOBoringSSL_asn1t.h>
 
-// Declarations for string types
+#include "internal.h"
 
-#define IMPLEMENT_ASN1_STRING_FUNCTIONS(sname)                         \
-  IMPLEMENT_ASN1_TYPE(sname)                                           \
-  IMPLEMENT_ASN1_ENCODE_FUNCTIONS_const_fname(sname, sname, sname)     \
-  sname *sname##_new(void) { return ASN1_STRING_type_new(V_##sname); } \
+
+using namespace bssl;
+
+// TODO(crbug.com/42290417): While we need `ASN1_ITEM`s, the exposed new, free,
+// i2d, and d2i functions should call the underlying implementations directly.
+
+#define IMPLEMENT_ASN1_STRING_FUNCTIONS(sname)                     \
+  IMPLEMENT_ASN1_TYPE(sname)                                       \
+  IMPLEMENT_ASN1_ENCODE_FUNCTIONS_const_fname(sname, sname, sname) \
+  sname *sname##_new() { return ASN1_STRING_type_new(V_##sname); } \
   void sname##_free(sname *x) { ASN1_STRING_free(x); }
 
 IMPLEMENT_ASN1_STRING_FUNCTIONS(ASN1_OCTET_STRING)
@@ -44,18 +55,20 @@ IMPLEMENT_ASN1_TYPE(ASN1_ANY)
 // Just swallow an ASN1_SEQUENCE in an ASN1_STRING
 IMPLEMENT_ASN1_TYPE(ASN1_SEQUENCE)
 
-IMPLEMENT_ASN1_FUNCTIONS_const_fname(ASN1_TYPE, ASN1_ANY, ASN1_TYPE)
-
-// Multistring types
-
-IMPLEMENT_ASN1_MSTRING(ASN1_PRINTABLE, B_ASN1_PRINTABLE)
-IMPLEMENT_ASN1_FUNCTIONS_const_fname(ASN1_STRING, ASN1_PRINTABLE,
-                                     ASN1_PRINTABLE)
+BSSL_NAMESPACE_BEGIN
 
 IMPLEMENT_ASN1_MSTRING(DISPLAYTEXT, B_ASN1_DISPLAYTEXT)
+
+BSSL_NAMESPACE_END
+
 IMPLEMENT_ASN1_FUNCTIONS_const_fname(ASN1_STRING, DISPLAYTEXT, DISPLAYTEXT)
 
+BSSL_NAMESPACE_BEGIN
+
 IMPLEMENT_ASN1_MSTRING(DIRECTORYSTRING, B_ASN1_DIRECTORYSTRING)
+
+BSSL_NAMESPACE_END
+
 IMPLEMENT_ASN1_FUNCTIONS_const_fname(ASN1_STRING, DIRECTORYSTRING,
                                      DIRECTORYSTRING)
 

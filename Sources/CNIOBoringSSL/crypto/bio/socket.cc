@@ -1,11 +1,16 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_bio.h>
 
@@ -13,47 +18,43 @@
 
 #include <fcntl.h>
 #include <string.h>
+#include <limits.h>
+
+#include <algorithm>
 
 #if !defined(OPENSSL_WINDOWS)
 #include <unistd.h>
 #else
-OPENSSL_MSVC_PRAGMA(warning(push, 3))
 #include <winsock2.h>
-OPENSSL_MSVC_PRAGMA(warning(pop))
-
 OPENSSL_MSVC_PRAGMA(comment(lib, "Ws2_32.lib"))
 #endif
 
 #include "internal.h"
 
 
+using namespace bssl;
+
 #if !defined(OPENSSL_WINDOWS)
-static int closesocket(int sock) {
-  return close(sock);
-}
+static int closesocket(int sock) { return close(sock); }
 #endif
 
 static int sock_free(BIO *bio) {
-  if (bio->shutdown) {
-    if (bio->init) {
-      closesocket(bio->num);
+  if (BIO_get_shutdown(bio)) {
+    if (BIO_get_init(bio)) {
+      closesocket(FromOpaque(bio)->num);
     }
-    bio->init = 0;
-    bio->flags = 0;
+    BIO_set_init(bio, 0);
+    BIO_clear_retry_flags(bio);
   }
   return 1;
 }
 
 static int sock_read(BIO *b, char *out, int outl) {
-  if (out == NULL) {
-    return 0;
-  }
-
   bio_clear_socket_error();
 #if defined(OPENSSL_WINDOWS)
-  int ret = recv(b->num, out, outl, 0);
+  int ret = recv(FromOpaque(b)->num, out, outl, 0);
 #else
-  int ret = (int)read(b->num, out, outl);
+  int ret = (int)read(FromOpaque(b)->num, out, outl);
 #endif
   BIO_clear_retry_flags(b);
   if (ret <= 0) {
@@ -64,79 +65,146 @@ static int sock_read(BIO *b, char *out, int outl) {
   return ret;
 }
 
-static int sock_write(BIO *b, const char *in, int inl) {
+static int sock_write_ex(BIO *b, const char *in, size_t inl,
+                         size_t *out_written) {
   bio_clear_socket_error();
 #if defined(OPENSSL_WINDOWS)
-  int ret = send(b->num, in, inl, 0);
+  inl = std::min(inl, size_t{INT_MAX});
+  int ret = send(FromOpaque(b)->num, in, static_cast<int>(inl), 0);
 #else
-  int ret = (int)write(b->num, in, inl);
+  ssize_t ret = write(FromOpaque(b)->num, in, inl);
 #endif
   BIO_clear_retry_flags(b);
   if (ret <= 0) {
     if (bio_socket_should_retry(ret)) {
       BIO_set_retry_write(b);
     }
+    return 0;
   }
-  return ret;
+
+  *out_written = ret;
+  return 1;
 }
 
 static long sock_ctrl(BIO *b, int cmd, long num, void *ptr) {
-  long ret = 1;
-  int *ip;
-
   switch (cmd) {
     case BIO_C_SET_FD:
       sock_free(b);
-      b->num = *((int *)ptr);
-      b->shutdown = (int)num;
-      b->init = 1;
-      break;
+      FromOpaque(b)->num = *static_cast<int *>(ptr);
+      BIO_set_shutdown(b, static_cast<int>(num));
+      BIO_set_init(b, 1);
+      return 1;
     case BIO_C_GET_FD:
-      if (b->init) {
-        ip = (int *)ptr;
-        if (ip != NULL) {
-          *ip = b->num;
+      if (BIO_get_init(b)) {
+        int *out = static_cast<int *>(ptr);
+        if (out != nullptr) {
+          *out = FromOpaque(b)->num;
         }
-        ret = b->num;
-      } else {
-        ret = -1;
+        return FromOpaque(b)->num;
       }
-      break;
+      return -1;
     case BIO_CTRL_GET_CLOSE:
-      ret = b->shutdown;
-      break;
+      return BIO_get_shutdown(b);
     case BIO_CTRL_SET_CLOSE:
-      b->shutdown = (int)num;
-      break;
+      BIO_set_shutdown(b, static_cast<int>(num));
+      return 1;
     case BIO_CTRL_FLUSH:
-      ret = 1;
-      break;
+      return 1;
     default:
-      ret = 0;
-      break;
+      return 0;
   }
-  return ret;
 }
 
 static const BIO_METHOD methods_sockp = {
-    BIO_TYPE_SOCKET, "socket",
-    sock_write,      sock_read,
-    NULL /* puts */, NULL /* gets, */,
-    sock_ctrl,       NULL /* create */,
-    sock_free,       NULL /* callback_ctrl */,
+    BIO_TYPE_SOCKET,
+    /*bwrite=*/nullptr, sock_write_ex,
+    sock_read,          nullptr /* gets, */,
+    sock_ctrl,          nullptr /* create */,
+    sock_free,          nullptr /* callback_ctrl */,
 };
 
-const BIO_METHOD *BIO_s_socket(void) { return &methods_sockp; }
+const BIO_METHOD *BIO_s_socket() { return &methods_sockp; }
 
 BIO *BIO_new_socket(int fd, int close_flag) {
   BIO *ret;
 
   ret = BIO_new(BIO_s_socket());
-  if (ret == NULL) {
-    return NULL;
+  if (ret == nullptr) {
+    return nullptr;
   }
   BIO_set_fd(ret, fd, close_flag);
   return ret;
+}
+
+// These functions are provided solely for compatibility with software that
+// tries to copy and then modify `BIO_s_socket`. See bio.h for details.
+// PostgreSQL's use makes several fragile assumptions on `BIO_s_socket`:
+//
+// - We do not store anything in `BIO_set_data`. (Broken in upstream OpenSSL,
+//   which broke PostgreSQL.)
+// - We do not store anything in `BIO_set_app_data`.
+// - `BIO_s_socket` is implemented internally using the non-`size_t`-clean
+//   I/O functions rather than the `size_t`-clean ones.
+// - `BIO_METHOD` never gains another function pointer that is used in concert
+//   with any of the functions here.
+//
+// Some other projects doing similar things use `BIO_meth_get_read` and
+// `BIO_meth_get_write` and in turn assume that `BIO_s_socket` has not been
+// ported to the `size_t`-clean `BIO_read_ex` and `BIO_write_ex`. (Not yet
+// implemented in BoringSSL.)
+//
+// This is hopelessly fragile. PostgreSQL 18 will include a fix to stop using
+// these APIs, but older versions and other software remain impacted, so we
+// implement these functions, but only support `BIO_s_socket`. For now they just
+// return the underlying functions, but if we ever need to break the above
+// assumptions, we can return an older, frozen version of `BIO_s_socket`.
+// Limiting to exactly one allowed `BIO_METHOD` lets us do this.
+//
+// These functions are also deprecated in upstream OpenSSL. See
+// https://github.com/openssl/openssl/issues/26047
+//
+// TODO(davidben): Once Folly and all versions of PostgreSQL we care about are
+// updated or patched, remove these functions.
+
+int (*BIO_meth_get_write(const BIO_METHOD *method))(BIO *, const char *, int) {
+  BSSL_CHECK(method == BIO_s_socket());
+  return method->bwrite;
+}
+
+int (*BIO_meth_get_read(const BIO_METHOD *method))(BIO *, char *, int) {
+  BSSL_CHECK(method == BIO_s_socket());
+  return method->bread;
+}
+
+int (*BIO_meth_get_gets(const BIO_METHOD *method))(BIO *, char *, int) {
+  BSSL_CHECK(method == BIO_s_socket());
+  return method->bgets;
+}
+
+int (*BIO_meth_get_puts(const BIO_METHOD *method))(BIO *, const char *) {
+  BSSL_CHECK(method == BIO_s_socket());
+  return nullptr;
+}
+
+long (*BIO_meth_get_ctrl(const BIO_METHOD *method))(BIO *, int, long, void *) {
+  BSSL_CHECK(method == BIO_s_socket());
+  return method->ctrl;
+}
+
+int (*BIO_meth_get_create(const BIO_METHOD *method))(BIO *) {
+  BSSL_CHECK(method == BIO_s_socket());
+  return method->create;
+}
+
+int (*BIO_meth_get_destroy(const BIO_METHOD *method))(BIO *) {
+  BSSL_CHECK(method == BIO_s_socket());
+  return method->destroy;
+}
+
+long (*BIO_meth_get_callback_ctrl(const BIO_METHOD *method))(BIO *, int,
+                                                             bio_info_cb) {
+  BSSL_CHECK(method == BIO_s_socket());
+  return method->callback_ctrl;
 }
 
 #endif  // OPENSSL_NO_SOCK

@@ -1,18 +1,26 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_des.h>
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "internal.h"
 
+
+using namespace bssl;
 
 /* IP and FP
  * The problem is more of a geometric problem that random bit fiddling.
@@ -335,7 +343,7 @@ void DES_set_key(const DES_cblock *key, DES_key_schedule *schedule) {
   DES_set_key_ex(key->bytes, schedule);
 }
 
-void DES_set_key_ex(const uint8_t key[8], DES_key_schedule *schedule) {
+void bssl::DES_set_key_ex(const uint8_t key[8], DES_key_schedule *schedule) {
   static const int shifts2[16] = {0, 0, 1, 1, 1, 1, 1, 1,
                                   0, 1, 1, 1, 1, 1, 1, 0};
   uint32_t c, d, t, s, t2;
@@ -543,8 +551,9 @@ static void DES_encrypt2(uint32_t data[2], const DES_key_schedule *ks,
   data[1] = CRYPTO_rotr_u32(r, 3);
 }
 
-void DES_encrypt3(uint32_t data[2], const DES_key_schedule *ks1,
-                  const DES_key_schedule *ks2, const DES_key_schedule *ks3) {
+void bssl::DES_encrypt3(uint32_t data[2], const DES_key_schedule *ks1,
+                        const DES_key_schedule *ks2,
+                        const DES_key_schedule *ks3) {
   uint32_t l, r;
 
   l = data[0];
@@ -562,8 +571,9 @@ void DES_encrypt3(uint32_t data[2], const DES_key_schedule *ks1,
   data[1] = r;
 }
 
-void DES_decrypt3(uint32_t data[2], const DES_key_schedule *ks1,
-                  const DES_key_schedule *ks2, const DES_key_schedule *ks3) {
+void bssl::DES_decrypt3(uint32_t data[2], const DES_key_schedule *ks1,
+                        const DES_key_schedule *ks2,
+                        const DES_key_schedule *ks3) {
   uint32_t l, r;
 
   l = data[0];
@@ -586,8 +596,9 @@ void DES_ecb_encrypt(const DES_cblock *in_block, DES_cblock *out_block,
   DES_ecb_encrypt_ex(in_block->bytes, out_block->bytes, schedule, is_encrypt);
 }
 
-void DES_ecb_encrypt_ex(const uint8_t in[8], uint8_t out[8],
-                        const DES_key_schedule *schedule, int is_encrypt) {
+void bssl::DES_ecb_encrypt_ex(const uint8_t in[8], uint8_t out[8],
+                              const DES_key_schedule *schedule,
+                              int is_encrypt) {
   uint32_t ll[2];
   ll[0] = CRYPTO_load_u32_le(in);
   ll[1] = CRYPTO_load_u32_le(in + 4);
@@ -602,13 +613,14 @@ void DES_ncbc_encrypt(const uint8_t *in, uint8_t *out, size_t len,
   DES_ncbc_encrypt_ex(in, out, len, schedule, ivec->bytes, enc);
 }
 
-void DES_ncbc_encrypt_ex(const uint8_t *in, uint8_t *out, size_t len,
-                         const DES_key_schedule *schedule, uint8_t ivec[8],
-                         int enc) {
+void bssl::DES_ncbc_encrypt_ex(const uint8_t *in, uint8_t *out, size_t len,
+                               const DES_key_schedule *schedule,
+                               uint8_t ivec[8], int enc) {
   uint32_t tin0, tin1;
   uint32_t tout0, tout1, xor0, xor1;
   uint32_t tin[2];
   unsigned char *iv;
+  assert(len % 8 == 0);
 
   iv = ivec;
 
@@ -684,10 +696,10 @@ void DES_ecb3_encrypt(const DES_cblock *input, DES_cblock *output,
   DES_ecb3_encrypt_ex(input->bytes, output->bytes, ks1, ks2, ks3, enc);
 }
 
-void DES_ecb3_encrypt_ex(const uint8_t in[8], uint8_t out[8],
-                         const DES_key_schedule *ks1,
-                         const DES_key_schedule *ks2,
-                         const DES_key_schedule *ks3, int enc) {
+void bssl::DES_ecb3_encrypt_ex(const uint8_t in[8], uint8_t out[8],
+                               const DES_key_schedule *ks1,
+                               const DES_key_schedule *ks2,
+                               const DES_key_schedule *ks3, int enc) {
   uint32_t ll[2];
   ll[0] = CRYPTO_load_u32_le(in);
   ll[1] = CRYPTO_load_u32_le(in + 4);
@@ -708,15 +720,16 @@ void DES_ede3_cbc_encrypt(const uint8_t *in, uint8_t *out, size_t len,
   DES_ede3_cbc_encrypt_ex(in, out, len, ks1, ks2, ks3, ivec->bytes, enc);
 }
 
-void DES_ede3_cbc_encrypt_ex(const uint8_t *in, uint8_t *out, size_t len,
-                             const DES_key_schedule *ks1,
-                             const DES_key_schedule *ks2,
-                             const DES_key_schedule *ks3, uint8_t ivec[8],
-                             int enc) {
+void bssl::DES_ede3_cbc_encrypt_ex(const uint8_t *in, uint8_t *out, size_t len,
+                                   const DES_key_schedule *ks1,
+                                   const DES_key_schedule *ks2,
+                                   const DES_key_schedule *ks3, uint8_t ivec[8],
+                                   int enc) {
   uint32_t tin0, tin1;
   uint32_t tout0, tout1, xor0, xor1;
   uint32_t tin[2];
   uint8_t *iv;
+  assert(len % 8 == 0);
 
   iv = ivec;
 

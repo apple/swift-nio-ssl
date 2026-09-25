@@ -1,11 +1,16 @@
-/*
- * Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <stdio.h>
 
@@ -16,6 +21,8 @@
 
 #include "internal.h"
 
+
+using namespace bssl;
 
 ASN1_SEQUENCE(OTHERNAME) = {
     ASN1_SIMPLE(OTHERNAME, type_id, ASN1_OBJECT),
@@ -33,6 +40,8 @@ ASN1_SEQUENCE(EDIPARTYNAME) = {
 
 IMPLEMENT_ASN1_ALLOC_FUNCTIONS(EDIPARTYNAME)
 
+BSSL_NAMESPACE_BEGIN
+
 ASN1_CHOICE(GENERAL_NAME) = {
     ASN1_IMP(GENERAL_NAME, d.otherName, OTHERNAME, GEN_OTHERNAME),
     ASN1_IMP(GENERAL_NAME, d.rfc822Name, ASN1_IA5STRING, GEN_EMAIL),
@@ -48,25 +57,31 @@ ASN1_CHOICE(GENERAL_NAME) = {
     ASN1_IMP(GENERAL_NAME, d.registeredID, ASN1_OBJECT, GEN_RID),
 } ASN1_CHOICE_END(GENERAL_NAME)
 
-IMPLEMENT_ASN1_FUNCTIONS(GENERAL_NAME)
+BSSL_NAMESPACE_END
+
+IMPLEMENT_ASN1_FUNCTIONS_const(GENERAL_NAME)
+
+BSSL_NAMESPACE_BEGIN
 
 ASN1_ITEM_TEMPLATE(GENERAL_NAMES) = ASN1_EX_TEMPLATE_TYPE(ASN1_TFLG_SEQUENCE_OF,
                                                           0, GeneralNames,
                                                           GENERAL_NAME)
 ASN1_ITEM_TEMPLATE_END(GENERAL_NAMES)
 
-IMPLEMENT_ASN1_FUNCTIONS(GENERAL_NAMES)
+BSSL_NAMESPACE_END
 
-IMPLEMENT_ASN1_DUP_FUNCTION(GENERAL_NAME)
+IMPLEMENT_ASN1_FUNCTIONS_const(GENERAL_NAMES)
+
+IMPLEMENT_ASN1_DUP_FUNCTION_const(GENERAL_NAME)
 
 static int edipartyname_cmp(const EDIPARTYNAME *a, const EDIPARTYNAME *b) {
   // nameAssigner is optional and may be NULL.
-  if (a->nameAssigner == NULL) {
-    if (b->nameAssigner != NULL) {
+  if (a->nameAssigner == nullptr) {
+    if (b->nameAssigner != nullptr) {
       return -1;
     }
   } else {
-    if (b->nameAssigner == NULL ||
+    if (b->nameAssigner == nullptr ||
         ASN1_STRING_cmp(a->nameAssigner, b->nameAssigner) != 0) {
       return -1;
     }
@@ -93,7 +108,7 @@ static int othername_cmp(const OTHERNAME *a, const OTHERNAME *b) {
 }
 
 // Returns 0 if they are equal, != 0 otherwise.
-int GENERAL_NAME_cmp(const GENERAL_NAME *a, const GENERAL_NAME *b) {
+int bssl::GENERAL_NAME_cmp(const GENERAL_NAME *a, const GENERAL_NAME *b) {
   if (!a || !b || a->type != b->type) {
     return -1;
   }
@@ -190,7 +205,7 @@ void *GENERAL_NAME_get0_value(const GENERAL_NAME *a, int *out_type) {
       return a->d.rid;
 
     default:
-      return NULL;
+      return nullptr;
   }
 }
 
@@ -213,10 +228,10 @@ int GENERAL_NAME_get0_otherName(const GENERAL_NAME *gen, ASN1_OBJECT **out_oid,
   if (gen->type != GEN_OTHERNAME) {
     return 0;
   }
-  if (out_oid != NULL) {
+  if (out_oid != nullptr) {
     *out_oid = gen->d.otherName->type_id;
   }
-  if (out_value != NULL) {
+  if (out_value != nullptr) {
     *out_value = gen->d.otherName->value;
   }
   return 1;

@@ -1,11 +1,16 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_bio.h>
 
@@ -18,6 +23,8 @@
 #include <unistd.h>
 #else
 #include <io.h>
+#include <limits.h>
+#include <algorithm>
 #endif
 
 #include <CNIOBoringSSL_err.h>
@@ -31,18 +38,18 @@
   #define BORINGSSL_CLOSE _close
   #define BORINGSSL_LSEEK _lseek
   #define BORINGSSL_READ _read
-  #define BORINGSSL_WRITE _write
 #else
   #define BORINGSSL_CLOSE close
   #define BORINGSSL_LSEEK lseek
   #define BORINGSSL_READ read
-  #define BORINGSSL_WRITE write
 #endif
+
+using namespace bssl;
 
 BIO *BIO_new_fd(int fd, int close_flag) {
   BIO *ret = BIO_new(BIO_s_fd());
-  if (ret == NULL) {
-    return NULL;
+  if (ret == nullptr) {
+    return nullptr;
   }
   BIO_set_fd(ret, fd, close_flag);
   return ret;
@@ -50,24 +57,22 @@ BIO *BIO_new_fd(int fd, int close_flag) {
 
 static int fd_new(BIO *bio) {
   // num is used to store the file descriptor.
-  bio->num = -1;
+  FromOpaque(bio)->num = -1;
   return 1;
 }
 
 static int fd_free(BIO *bio) {
-  if (bio->shutdown) {
-    if (bio->init) {
-      BORINGSSL_CLOSE(bio->num);
+  if (BIO_get_shutdown(bio)) {
+    if (BIO_get_init(bio)) {
+      BORINGSSL_CLOSE(FromOpaque(bio)->num);
     }
-    bio->init = 0;
+    BIO_set_init(bio, 0);
   }
   return 1;
 }
 
 static int fd_read(BIO *b, char *out, int outl) {
-  int ret = 0;
-
-  ret = (int)BORINGSSL_READ(b->num, out, outl);
+  int ret = (int)BORINGSSL_READ(FromOpaque(b)->num, out, outl);
   BIO_clear_retry_flags(b);
   if (ret <= 0) {
     if (bio_errno_should_retry(ret)) {
@@ -78,75 +83,68 @@ static int fd_read(BIO *b, char *out, int outl) {
   return ret;
 }
 
-static int fd_write(BIO *b, const char *in, int inl) {
-  int ret = (int)BORINGSSL_WRITE(b->num, in, inl);
+static int fd_write_ex(BIO *b, const char *in, size_t inl,
+                       size_t *out_written) {
+#if defined(OPENSSL_WINDOWS)
+  inl = std::min(inl, size_t{UINT_MAX});
+  int ret = _write(FromOpaque(b)->num, in, static_cast<unsigned>(inl));
+#else
+  ssize_t ret = write(FromOpaque(b)->num, in, inl);
+#endif
   BIO_clear_retry_flags(b);
   if (ret <= 0) {
     if (bio_errno_should_retry(ret)) {
       BIO_set_retry_write(b);
     }
+    return 0;
   }
 
-  return ret;
+  *out_written = ret;
+  return 1;
 }
 
 static long fd_ctrl(BIO *b, int cmd, long num, void *ptr) {
-  long ret = 1;
-  int *ip;
-
   switch (cmd) {
     case BIO_CTRL_RESET:
       num = 0;
       [[fallthrough]];
     case BIO_C_FILE_SEEK:
-      ret = 0;
-      if (b->init) {
-        ret = (long)BORINGSSL_LSEEK(b->num, num, SEEK_SET);
+      if (BIO_get_init(b)) {
+        return (long)BORINGSSL_LSEEK(FromOpaque(b)->num, num, SEEK_SET);
       }
-      break;
+      return 0;
     case BIO_C_FILE_TELL:
     case BIO_CTRL_INFO:
-      ret = 0;
-      if (b->init) {
-        ret = (long)BORINGSSL_LSEEK(b->num, 0, SEEK_CUR);
+      if (BIO_get_init(b)) {
+        return (long)BORINGSSL_LSEEK(FromOpaque(b)->num, 0, SEEK_CUR);
       }
-      break;
+      return 0;
     case BIO_C_SET_FD:
       fd_free(b);
-      b->num = *((int *)ptr);
-      b->shutdown = (int)num;
-      b->init = 1;
-      break;
+      FromOpaque(b)->num = *static_cast<int *>(ptr);
+      BIO_set_shutdown(b, static_cast<int>(num));
+      BIO_set_init(b, 1);
+      return 1;
     case BIO_C_GET_FD:
-      if (b->init) {
-        ip = (int *)ptr;
-        if (ip != NULL) {
-          *ip = b->num;
+      if (BIO_get_init(b)) {
+        int *out = static_cast<int *>(ptr);
+        if (out != nullptr) {
+          *out = FromOpaque(b)->num;
         }
-        return b->num;
+        return FromOpaque(b)->num;
       } else {
-        ret = -1;
+        return -1;
       }
-      break;
     case BIO_CTRL_GET_CLOSE:
-      ret = b->shutdown;
-      break;
+      return BIO_get_shutdown(b);
     case BIO_CTRL_SET_CLOSE:
-      b->shutdown = (int)num;
-      break;
-    case BIO_CTRL_PENDING:
-    case BIO_CTRL_WPENDING:
-      ret = 0;
-      break;
+      BIO_set_shutdown(b, static_cast<int>(num));
+      return 1;
     case BIO_CTRL_FLUSH:
-      ret = 1;
-      break;
+      return 1;
     default:
-      ret = 0;
-      break;
+      return 0;
   }
-
-  return ret;
 }
 
 static int fd_gets(BIO *bp, char *buf, int size) {
@@ -166,16 +164,23 @@ static int fd_gets(BIO *bp, char *buf, int size) {
 
   ptr[0] = '\0';
 
-  // The output length is bounded by |size|.
+  // The output length is bounded by `size`.
   return (int)(ptr - buf);
 }
 
 static const BIO_METHOD methods_fdp = {
-    BIO_TYPE_FD, "file descriptor", fd_write, fd_read, NULL /* puts */,
-    fd_gets,     fd_ctrl,           fd_new,   fd_free, NULL /* callback_ctrl */,
+    BIO_TYPE_FD,
+    /*bwrite=*/nullptr,
+    fd_write_ex,
+    fd_read,
+    fd_gets,
+    fd_ctrl,
+    fd_new,
+    fd_free,
+    /*callback_ctrl=*/nullptr,
 };
 
-const BIO_METHOD *BIO_s_fd(void) { return &methods_fdp; }
+const BIO_METHOD *BIO_s_fd() { return &methods_fdp; }
 
 #endif  // OPENSSL_NO_POSIX_IO
 

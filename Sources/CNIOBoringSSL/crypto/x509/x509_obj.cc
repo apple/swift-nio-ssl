@@ -1,11 +1,16 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <string.h>
 
@@ -20,9 +25,11 @@
 
 
 // Limit to ensure we don't overflow: much greater than
-// anything enountered in practice.
+// anything encountered in practice.
 
 #define NAME_ONELINE_MAX (1024 * 1024)
+
+using namespace bssl;
 
 char *X509_NAME_oneline(const X509_NAME *a, char *buf, int len) {
   X509_NAME_ENTRY *ne;
@@ -31,13 +38,15 @@ char *X509_NAME_oneline(const X509_NAME *a, char *buf, int len) {
   const char *s;
   char *p;
   unsigned char *q;
-  BUF_MEM *b = NULL;
+  BUF_MEM *b = nullptr;
   static const char hex[17] = "0123456789ABCDEF";
   int gs_doit[4];
   char tmp_buf[80];
 
-  if (buf == NULL) {
-    if ((b = BUF_MEM_new()) == NULL) {
+  const auto *name = a ? FromOpaque(a) : nullptr;
+
+  if (buf == nullptr) {
+    if ((b = BUF_MEM_new()) == nullptr) {
       goto err;
     }
     if (!BUF_MEM_grow(b, 200)) {
@@ -46,9 +55,9 @@ char *X509_NAME_oneline(const X509_NAME *a, char *buf, int len) {
     b->data[0] = '\0';
     len = 200;
   } else if (len <= 0) {
-    return NULL;
+    return nullptr;
   }
-  if (a == NULL) {
+  if (a == nullptr) {
     if (b) {
       buf = b->data;
       OPENSSL_free(b);
@@ -59,22 +68,23 @@ char *X509_NAME_oneline(const X509_NAME *a, char *buf, int len) {
 
   len--;  // space for '\0'
   l = 0;
-  for (i = 0; i < sk_X509_NAME_ENTRY_num(a->entries); i++) {
-    ne = sk_X509_NAME_ENTRY_value(a->entries, i);
-    n = OBJ_obj2nid(ne->object);
-    if ((n == NID_undef) || ((s = OBJ_nid2sn(n)) == NULL)) {
-      i2t_ASN1_OBJECT(tmp_buf, sizeof(tmp_buf), ne->object);
+  for (i = 0; i < sk_X509_NAME_ENTRY_num(name->entries.get()); i++) {
+    ne = sk_X509_NAME_ENTRY_value(name->entries.get(), i);
+    n = OBJ_obj2nid(X509_NAME_ENTRY_get_object(ne));
+    if ((n == NID_undef) || ((s = OBJ_nid2sn(n)) == nullptr)) {
+      i2t_ASN1_OBJECT(tmp_buf, sizeof(tmp_buf), X509_NAME_ENTRY_get_object(ne));
       s = tmp_buf;
     }
     l1 = strlen(s);
 
-    type = ne->value->type;
-    num = ne->value->length;
+    const ASN1_STRING *value = X509_NAME_ENTRY_get_data(ne);
+    type = value->type;
+    num = value->length;
     if (num > NAME_ONELINE_MAX) {
       OPENSSL_PUT_ERROR(X509, X509_R_NAME_TOO_LONG);
       goto err;
     }
-    q = ne->value->data;
+    q = value->data;
 
     if ((type == V_ASN1_GENERALSTRING) && ((num % 4) == 0)) {
       gs_doit[0] = gs_doit[1] = gs_doit[2] = gs_doit[3] = 0;
@@ -110,7 +120,7 @@ char *X509_NAME_oneline(const X509_NAME *a, char *buf, int len) {
       OPENSSL_PUT_ERROR(X509, X509_R_NAME_TOO_LONG);
       goto err;
     }
-    if (b != NULL) {
+    if (b != nullptr) {
       if (!BUF_MEM_grow(b, l + 1)) {
         goto err;
       }
@@ -125,7 +135,7 @@ char *X509_NAME_oneline(const X509_NAME *a, char *buf, int len) {
     p += l1;
     *(p++) = '=';
 
-    q = ne->value->data;
+    q = value->data;
 
     for (j = 0; j < num; j++) {
       if (!gs_doit[j & 3]) {
@@ -143,7 +153,7 @@ char *X509_NAME_oneline(const X509_NAME *a, char *buf, int len) {
     }
     *p = '\0';
   }
-  if (b != NULL) {
+  if (b != nullptr) {
     p = b->data;
     OPENSSL_free(b);
   } else {
@@ -155,5 +165,5 @@ char *X509_NAME_oneline(const X509_NAME *a, char *buf, int len) {
   return p;
 err:
   BUF_MEM_free(b);
-  return NULL;
+  return nullptr;
 }

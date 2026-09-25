@@ -26,11 +26,11 @@ _CET_ENDBR
 
 	pushq	%r14
 
-	movq	%rdi,%r8
+	movq	%rdi,%r8  // reassigned argument
 	subq	$72,%rsp
-	movq	%rsi,%r9
+	movq	%rsi,%r9  // reassigned argument
 	andq	$-64,%rsp
-	movq	%rdx,%r10
+	movq	%rdx,%r10  // reassigned argument
 	movq	%rax,64(%rsp)
 
 L$prologue:
@@ -1248,164 +1248,165 @@ L$epilogue:
 .private_extern _sha1_block_data_order_hw
 
 .p2align	5
+.alt_entry _sha1_block_data_order_hw
 _sha1_block_data_order_hw:
 
 _CET_ENDBR
 	movdqu	(%rdi),%xmm0
 	movd	16(%rdi),%xmm1
-	movdqa	K_XX_XX+160(%rip),%xmm3
+	movdqa	K_XX_XX+160(%rip),%xmm3  // byte-n-word swap
 
 	movdqu	(%rsi),%xmm4
-	pshufd	$27,%xmm0,%xmm0
+	pshufd	$27,%xmm0,%xmm0  // flip word order
 	movdqu	16(%rsi),%xmm5
-	pshufd	$27,%xmm1,%xmm1
+	pshufd	$27,%xmm1,%xmm1  // flip word order
 	movdqu	32(%rsi),%xmm6
-.byte	102,15,56,0,227
+	pshufb	%xmm3,%xmm4
 	movdqu	48(%rsi),%xmm7
-.byte	102,15,56,0,235
-.byte	102,15,56,0,243
-	movdqa	%xmm1,%xmm9
-.byte	102,15,56,0,251
+	pshufb	%xmm3,%xmm5
+	pshufb	%xmm3,%xmm6
+	movdqa	%xmm1,%xmm9  // offload %xmm1
+	pshufb	%xmm3,%xmm7
 	jmp	L$oop_shaext
 
 .p2align	4
 L$oop_shaext:
 	decq	%rdx
-	leaq	64(%rsi),%r8
+	leaq	64(%rsi),%r8  // next input block
 	paddd	%xmm4,%xmm1
 	cmovneq	%r8,%rsi
 	prefetcht0	512(%rsi)
-	movdqa	%xmm0,%xmm8
-.byte	15,56,201,229
+	movdqa	%xmm0,%xmm8  // offload %xmm0
+	sha1msg1	%xmm5,%xmm4
 	movdqa	%xmm0,%xmm2
-.byte	15,58,204,193,0
-.byte	15,56,200,213
+	sha1rnds4	$0,%xmm1,%xmm0  // 0-3...
+	sha1nexte	%xmm5,%xmm2
 	pxor	%xmm6,%xmm4
-.byte	15,56,201,238
-.byte	15,56,202,231
+	sha1msg1	%xmm6,%xmm5
+	sha1msg2	%xmm7,%xmm4
 
 	movdqa	%xmm0,%xmm1
-.byte	15,58,204,194,0
-.byte	15,56,200,206
+	sha1rnds4	$0,%xmm2,%xmm0
+	sha1nexte	%xmm6,%xmm1
 	pxor	%xmm7,%xmm5
-.byte	15,56,202,236
-.byte	15,56,201,247
+	sha1msg2	%xmm4,%xmm5
+	sha1msg1	%xmm7,%xmm6
 	movdqa	%xmm0,%xmm2
-.byte	15,58,204,193,0
-.byte	15,56,200,215
+	sha1rnds4	$0,%xmm1,%xmm0  // 0-3...
+	sha1nexte	%xmm7,%xmm2
 	pxor	%xmm4,%xmm6
-.byte	15,56,201,252
-.byte	15,56,202,245
+	sha1msg1	%xmm4,%xmm7
+	sha1msg2	%xmm5,%xmm6
 
 	movdqa	%xmm0,%xmm1
-.byte	15,58,204,194,0
-.byte	15,56,200,204
+	sha1rnds4	$0,%xmm2,%xmm0
+	sha1nexte	%xmm4,%xmm1
 	pxor	%xmm5,%xmm7
-.byte	15,56,202,254
-.byte	15,56,201,229
+	sha1msg2	%xmm6,%xmm7
+	sha1msg1	%xmm5,%xmm4
 	movdqa	%xmm0,%xmm2
-.byte	15,58,204,193,0
-.byte	15,56,200,213
+	sha1rnds4	$0,%xmm1,%xmm0  // 0-3...
+	sha1nexte	%xmm5,%xmm2
 	pxor	%xmm6,%xmm4
-.byte	15,56,201,238
-.byte	15,56,202,231
+	sha1msg1	%xmm6,%xmm5
+	sha1msg2	%xmm7,%xmm4
 
 	movdqa	%xmm0,%xmm1
-.byte	15,58,204,194,1
-.byte	15,56,200,206
+	sha1rnds4	$1,%xmm2,%xmm0
+	sha1nexte	%xmm6,%xmm1
 	pxor	%xmm7,%xmm5
-.byte	15,56,202,236
-.byte	15,56,201,247
+	sha1msg2	%xmm4,%xmm5
+	sha1msg1	%xmm7,%xmm6
 	movdqa	%xmm0,%xmm2
-.byte	15,58,204,193,1
-.byte	15,56,200,215
+	sha1rnds4	$1,%xmm1,%xmm0  // 0-3...
+	sha1nexte	%xmm7,%xmm2
 	pxor	%xmm4,%xmm6
-.byte	15,56,201,252
-.byte	15,56,202,245
+	sha1msg1	%xmm4,%xmm7
+	sha1msg2	%xmm5,%xmm6
 
 	movdqa	%xmm0,%xmm1
-.byte	15,58,204,194,1
-.byte	15,56,200,204
+	sha1rnds4	$1,%xmm2,%xmm0
+	sha1nexte	%xmm4,%xmm1
 	pxor	%xmm5,%xmm7
-.byte	15,56,202,254
-.byte	15,56,201,229
+	sha1msg2	%xmm6,%xmm7
+	sha1msg1	%xmm5,%xmm4
 	movdqa	%xmm0,%xmm2
-.byte	15,58,204,193,1
-.byte	15,56,200,213
+	sha1rnds4	$1,%xmm1,%xmm0  // 0-3...
+	sha1nexte	%xmm5,%xmm2
 	pxor	%xmm6,%xmm4
-.byte	15,56,201,238
-.byte	15,56,202,231
+	sha1msg1	%xmm6,%xmm5
+	sha1msg2	%xmm7,%xmm4
 
 	movdqa	%xmm0,%xmm1
-.byte	15,58,204,194,1
-.byte	15,56,200,206
+	sha1rnds4	$1,%xmm2,%xmm0
+	sha1nexte	%xmm6,%xmm1
 	pxor	%xmm7,%xmm5
-.byte	15,56,202,236
-.byte	15,56,201,247
+	sha1msg2	%xmm4,%xmm5
+	sha1msg1	%xmm7,%xmm6
 	movdqa	%xmm0,%xmm2
-.byte	15,58,204,193,2
-.byte	15,56,200,215
+	sha1rnds4	$2,%xmm1,%xmm0  // 0-3...
+	sha1nexte	%xmm7,%xmm2
 	pxor	%xmm4,%xmm6
-.byte	15,56,201,252
-.byte	15,56,202,245
+	sha1msg1	%xmm4,%xmm7
+	sha1msg2	%xmm5,%xmm6
 
 	movdqa	%xmm0,%xmm1
-.byte	15,58,204,194,2
-.byte	15,56,200,204
+	sha1rnds4	$2,%xmm2,%xmm0
+	sha1nexte	%xmm4,%xmm1
 	pxor	%xmm5,%xmm7
-.byte	15,56,202,254
-.byte	15,56,201,229
+	sha1msg2	%xmm6,%xmm7
+	sha1msg1	%xmm5,%xmm4
 	movdqa	%xmm0,%xmm2
-.byte	15,58,204,193,2
-.byte	15,56,200,213
+	sha1rnds4	$2,%xmm1,%xmm0  // 0-3...
+	sha1nexte	%xmm5,%xmm2
 	pxor	%xmm6,%xmm4
-.byte	15,56,201,238
-.byte	15,56,202,231
+	sha1msg1	%xmm6,%xmm5
+	sha1msg2	%xmm7,%xmm4
 
 	movdqa	%xmm0,%xmm1
-.byte	15,58,204,194,2
-.byte	15,56,200,206
+	sha1rnds4	$2,%xmm2,%xmm0
+	sha1nexte	%xmm6,%xmm1
 	pxor	%xmm7,%xmm5
-.byte	15,56,202,236
-.byte	15,56,201,247
+	sha1msg2	%xmm4,%xmm5
+	sha1msg1	%xmm7,%xmm6
 	movdqa	%xmm0,%xmm2
-.byte	15,58,204,193,2
-.byte	15,56,200,215
+	sha1rnds4	$2,%xmm1,%xmm0  // 0-3...
+	sha1nexte	%xmm7,%xmm2
 	pxor	%xmm4,%xmm6
-.byte	15,56,201,252
-.byte	15,56,202,245
+	sha1msg1	%xmm4,%xmm7
+	sha1msg2	%xmm5,%xmm6
 
 	movdqa	%xmm0,%xmm1
-.byte	15,58,204,194,3
-.byte	15,56,200,204
+	sha1rnds4	$3,%xmm2,%xmm0
+	sha1nexte	%xmm4,%xmm1
 	pxor	%xmm5,%xmm7
-.byte	15,56,202,254
+	sha1msg2	%xmm6,%xmm7
 	movdqu	(%rsi),%xmm4
 	movdqa	%xmm0,%xmm2
-.byte	15,58,204,193,3
-.byte	15,56,200,213
+	sha1rnds4	$3,%xmm1,%xmm0  // 64-67
+	sha1nexte	%xmm5,%xmm2
 	movdqu	16(%rsi),%xmm5
-.byte	102,15,56,0,227
+	pshufb	%xmm3,%xmm4
 
 	movdqa	%xmm0,%xmm1
-.byte	15,58,204,194,3
-.byte	15,56,200,206
+	sha1rnds4	$3,%xmm2,%xmm0  // 68-71
+	sha1nexte	%xmm6,%xmm1
 	movdqu	32(%rsi),%xmm6
-.byte	102,15,56,0,235
+	pshufb	%xmm3,%xmm5
 
 	movdqa	%xmm0,%xmm2
-.byte	15,58,204,193,3
-.byte	15,56,200,215
+	sha1rnds4	$3,%xmm1,%xmm0  // 72-75
+	sha1nexte	%xmm7,%xmm2
 	movdqu	48(%rsi),%xmm7
-.byte	102,15,56,0,243
+	pshufb	%xmm3,%xmm6
 
 	movdqa	%xmm0,%xmm1
-.byte	15,58,204,194,3
-.byte	65,15,56,200,201
-.byte	102,15,56,0,251
+	sha1rnds4	$3,%xmm2,%xmm0  // 76-79
+	sha1nexte	%xmm9,%xmm1
+	pshufb	%xmm3,%xmm7
 
 	paddd	%xmm8,%xmm0
-	movdqa	%xmm1,%xmm9
+	movdqa	%xmm1,%xmm9  // offload %xmm1
 
 	jnz	L$oop_shaext
 
@@ -1420,10 +1421,11 @@ L$oop_shaext:
 .private_extern _sha1_block_data_order_ssse3
 
 .p2align	4
+.alt_entry _sha1_block_data_order_ssse3
 _sha1_block_data_order_ssse3:
 
 _CET_ENDBR
-	movq	%rsp,%r11
+	movq	%rsp,%r11  // frame pointer
 
 	pushq	%rbx
 
@@ -1431,46 +1433,46 @@ _CET_ENDBR
 
 	pushq	%r12
 
-	pushq	%r13
+	pushq	%r13  // redundant, done to share Win64 SE handler
 
 	pushq	%r14
 
 	leaq	-64(%rsp),%rsp
 	andq	$-64,%rsp
-	movq	%rdi,%r8
-	movq	%rsi,%r9
-	movq	%rdx,%r10
+	movq	%rdi,%r8  // reassigned argument
+	movq	%rsi,%r9  // reassigned argument
+	movq	%rdx,%r10  // reassigned argument
 
 	shlq	$6,%r10
 	addq	%r9,%r10
 	leaq	K_XX_XX+64(%rip),%r14
 
-	movl	0(%r8),%eax
+	movl	0(%r8),%eax  // load context
 	movl	4(%r8),%ebx
 	movl	8(%r8),%ecx
 	movl	12(%r8),%edx
-	movl	%ebx,%esi
+	movl	%ebx,%esi  // magic seed
 	movl	16(%r8),%ebp
 	movl	%ecx,%edi
 	xorl	%edx,%edi
 	andl	%edi,%esi
 
-	movdqa	64(%r14),%xmm6
-	movdqa	-64(%r14),%xmm9
-	movdqu	0(%r9),%xmm0
+	movdqa	64(%r14),%xmm6  // pbswap mask
+	movdqa	-64(%r14),%xmm9  // K_00_19
+	movdqu	0(%r9),%xmm0  // load input to %xmm[0-3]
 	movdqu	16(%r9),%xmm1
 	movdqu	32(%r9),%xmm2
 	movdqu	48(%r9),%xmm3
-.byte	102,15,56,0,198
-.byte	102,15,56,0,206
-.byte	102,15,56,0,214
+	pshufb	%xmm6,%xmm0  // byte swap
+	pshufb	%xmm6,%xmm1
+	pshufb	%xmm6,%xmm2
 	addq	$64,%r9
-	paddd	%xmm9,%xmm0
-.byte	102,15,56,0,222
+	paddd	%xmm9,%xmm0  // add K_00_19
+	pshufb	%xmm6,%xmm3
 	paddd	%xmm9,%xmm1
 	paddd	%xmm9,%xmm2
-	movdqa	%xmm0,0(%rsp)
-	psubd	%xmm9,%xmm0
+	movdqa	%xmm0,0(%rsp)  // X[]+K xfer to IALU
+	psubd	%xmm9,%xmm0  // restore X[]
 	movdqa	%xmm1,16(%rsp)
 	psubd	%xmm9,%xmm1
 	movdqa	%xmm2,32(%rsp)
@@ -2358,12 +2360,12 @@ L$oop_ssse3:
 	movdqu	16(%r9),%xmm1
 	movdqu	32(%r9),%xmm2
 	movdqu	48(%r9),%xmm3
-.byte	102,15,56,0,198
+	pshufb	%xmm6,%xmm0
 	addq	$64,%r9
 	addl	16(%rsp),%ebx
 	xorl	%ebp,%esi
 	movl	%ecx,%edi
-.byte	102,15,56,0,206
+	pshufb	%xmm6,%xmm1
 	roll	$5,%ecx
 	addl	%esi,%ebx
 	xorl	%ebp,%edi
@@ -2399,7 +2401,7 @@ L$oop_ssse3:
 	addl	32(%rsp),%ecx
 	xorl	%eax,%esi
 	movl	%edx,%edi
-.byte	102,15,56,0,214
+	pshufb	%xmm6,%xmm2
 	roll	$5,%edx
 	addl	%esi,%ecx
 	xorl	%eax,%edi
@@ -2435,7 +2437,7 @@ L$oop_ssse3:
 	addl	48(%rsp),%edx
 	xorl	%ebx,%esi
 	movl	%ebp,%edi
-.byte	102,15,56,0,222
+	pshufb	%xmm6,%xmm3
 	roll	$5,%ebp
 	addl	%esi,%edx
 	xorl	%ebx,%edi
@@ -2467,14 +2469,14 @@ L$oop_ssse3:
 	addl	%edi,%eax
 	rorl	$7,%ecx
 	addl	%ebx,%eax
-	addl	0(%r8),%eax
+	addl	0(%r8),%eax  // update context
 	addl	4(%r8),%esi
 	addl	8(%r8),%ecx
 	addl	12(%r8),%edx
 	movl	%eax,0(%r8)
 	addl	16(%r8),%ebp
 	movl	%esi,4(%r8)
-	movl	%esi,%ebx
+	movl	%esi,%ebx  // magic seed
 	movl	%ecx,8(%r8)
 	movl	%ecx,%edi
 	movl	%edx,12(%r8)
@@ -2580,7 +2582,7 @@ L$done_ssse3:
 	addl	%edi,%eax
 	rorl	$7,%ecx
 	addl	%ebx,%eax
-	addl	0(%r8),%eax
+	addl	0(%r8),%eax  // update context
 	addl	4(%r8),%esi
 	addl	8(%r8),%ecx
 	movl	%eax,0(%r8)
@@ -2610,6 +2612,7 @@ L$epilogue_ssse3:
 .private_extern _sha1_block_data_order_avx
 
 .p2align	4
+.alt_entry _sha1_block_data_order_avx
 _sha1_block_data_order_avx:
 
 _CET_ENDBR
@@ -2621,46 +2624,46 @@ _CET_ENDBR
 
 	pushq	%r12
 
-	pushq	%r13
+	pushq	%r13  // redundant, done to share Win64 SE handler
 
 	pushq	%r14
 
 	leaq	-64(%rsp),%rsp
 	vzeroupper
 	andq	$-64,%rsp
-	movq	%rdi,%r8
-	movq	%rsi,%r9
-	movq	%rdx,%r10
+	movq	%rdi,%r8  // reassigned argument
+	movq	%rsi,%r9  // reassigned argument
+	movq	%rdx,%r10  // reassigned argument
 
 	shlq	$6,%r10
 	addq	%r9,%r10
 	leaq	K_XX_XX+64(%rip),%r14
 
-	movl	0(%r8),%eax
+	movl	0(%r8),%eax  // load context
 	movl	4(%r8),%ebx
 	movl	8(%r8),%ecx
 	movl	12(%r8),%edx
-	movl	%ebx,%esi
+	movl	%ebx,%esi  // magic seed
 	movl	16(%r8),%ebp
 	movl	%ecx,%edi
 	xorl	%edx,%edi
 	andl	%edi,%esi
 
-	vmovdqa	64(%r14),%xmm6
-	vmovdqa	-64(%r14),%xmm11
-	vmovdqu	0(%r9),%xmm0
+	vmovdqa	64(%r14),%xmm6  // pbswap mask
+	vmovdqa	-64(%r14),%xmm11  // K_00_19
+	vmovdqu	0(%r9),%xmm0  // load input to %xmm[0-3]
 	vmovdqu	16(%r9),%xmm1
 	vmovdqu	32(%r9),%xmm2
 	vmovdqu	48(%r9),%xmm3
-	vpshufb	%xmm6,%xmm0,%xmm0
+	vpshufb	%xmm6,%xmm0,%xmm0  // byte swap
 	addq	$64,%r9
 	vpshufb	%xmm6,%xmm1,%xmm1
 	vpshufb	%xmm6,%xmm2,%xmm2
 	vpshufb	%xmm6,%xmm3,%xmm3
-	vpaddd	%xmm11,%xmm0,%xmm4
+	vpaddd	%xmm11,%xmm0,%xmm4  // add K_00_19
 	vpaddd	%xmm11,%xmm1,%xmm5
 	vpaddd	%xmm11,%xmm2,%xmm6
-	vmovdqa	%xmm4,0(%rsp)
+	vmovdqa	%xmm4,0(%rsp)  // X[]+K xfer to IALU
 	vmovdqa	%xmm5,16(%rsp)
 	vmovdqa	%xmm6,32(%rsp)
 	jmp	L$oop_avx
@@ -3595,14 +3598,14 @@ L$oop_avx:
 	addl	%edi,%eax
 	shrdl	$7,%ecx,%ecx
 	addl	%ebx,%eax
-	addl	0(%r8),%eax
+	addl	0(%r8),%eax  // update context
 	addl	4(%r8),%esi
 	addl	8(%r8),%ecx
 	addl	12(%r8),%edx
 	movl	%eax,0(%r8)
 	addl	16(%r8),%ebp
 	movl	%esi,4(%r8)
-	movl	%esi,%ebx
+	movl	%esi,%ebx  // magic seed
 	movl	%ecx,8(%r8)
 	movl	%ecx,%edi
 	movl	%edx,12(%r8)
@@ -3710,7 +3713,7 @@ L$done_avx:
 	addl	%ebx,%eax
 	vzeroupper
 
-	addl	0(%r8),%eax
+	addl	0(%r8),%eax  // update context
 	addl	4(%r8),%esi
 	addl	8(%r8),%ecx
 	movl	%eax,0(%r8)
@@ -3740,6 +3743,7 @@ L$epilogue_avx:
 .private_extern _sha1_block_data_order_avx2
 
 .p2align	4
+.alt_entry _sha1_block_data_order_avx2
 _sha1_block_data_order_avx2:
 
 _CET_ENDBR
@@ -3756,9 +3760,9 @@ _CET_ENDBR
 	pushq	%r14
 
 	vzeroupper
-	movq	%rdi,%r8
-	movq	%rsi,%r9
-	movq	%rdx,%r10
+	movq	%rdi,%r8  // reassigned argument
+	movq	%rsi,%r9  // reassigned argument
+	movq	%rdx,%r10  // reassigned argument
 
 	leaq	-640(%rsp),%rsp
 	shlq	$6,%r10
@@ -3767,14 +3771,14 @@ _CET_ENDBR
 	addq	%r9,%r10
 	leaq	K_XX_XX+64(%rip),%r14
 
-	movl	0(%r8),%eax
+	movl	0(%r8),%eax  // load context
 	cmpq	%r10,%r13
-	cmovaeq	%r9,%r13
+	cmovaeq	%r9,%r13  // next or same block
 	movl	4(%r8),%ebp
 	movl	8(%r8),%ecx
 	movl	12(%r8),%edx
 	movl	16(%r8),%esi
-	vmovdqu	64(%r14),%ymm6
+	vmovdqu	64(%r14),%ymm6  // pbswap mask
 
 	vmovdqu	(%r9),%xmm0
 	vmovdqu	16(%r9),%xmm1
@@ -3788,12 +3792,12 @@ _CET_ENDBR
 	vpshufb	%ymm6,%ymm1,%ymm1
 	vinserti128	$1,48(%r13),%ymm3,%ymm3
 	vpshufb	%ymm6,%ymm2,%ymm2
-	vmovdqu	-64(%r14),%ymm11
+	vmovdqu	-64(%r14),%ymm11  // K_00_19
 	vpshufb	%ymm6,%ymm3,%ymm3
 
-	vpaddd	%ymm11,%ymm0,%ymm4
+	vpaddd	%ymm11,%ymm0,%ymm4  // add K_00_19
 	vpaddd	%ymm11,%ymm1,%ymm5
-	vmovdqu	%ymm4,0(%rsp)
+	vmovdqu	%ymm4,0(%rsp)  // X[]+K xfer to IALU
 	vpaddd	%ymm11,%ymm2,%ymm6
 	vmovdqu	%ymm5,32(%rsp)
 	vpaddd	%ymm11,%ymm3,%ymm7
@@ -3868,7 +3872,7 @@ L$oop_avx2:
 	andnl	%edx,%ebp,%edi
 	andl	%ecx,%ebp
 	xorl	%edi,%ebp
-	jmp	L$align32_1
+	jmp	L$align32_1  // see "Decoded ICache" in manual
 .p2align	5
 L$align32_1:
 	vpalignr	$8,%ymm6,%ymm7,%ymm8
@@ -4247,7 +4251,7 @@ L$align32_1:
 	xorl	%esi,%ecx
 	addl	%r12d,%ebx
 	andl	%edi,%ecx
-	jmp	L$align32_2
+	jmp	L$align32_2  // see "Decoded ICache" in manual
 .p2align	5
 L$align32_2:
 	vpalignr	$8,%ymm6,%ymm7,%ymm8
@@ -4623,38 +4627,38 @@ L$align32_2:
 	rorxl	$27,%esi,%r12d
 	addl	%r12d,%edx
 	leaq	128(%r9),%r13
-	leaq	128(%r9),%rdi
+	leaq	128(%r9),%rdi  // borrow %edi
 	cmpq	%r10,%r13
-	cmovaeq	%r9,%r13
+	cmovaeq	%r9,%r13  // next or previous block
 
-
-	addl	0(%r8),%edx
+// output is d-e-[a]-f-b-c => A=d,F=e,C=f,D=b,E=c
+	addl	0(%r8),%edx  // update context
 	addl	4(%r8),%esi
 	addl	8(%r8),%ebp
 	movl	%edx,0(%r8)
 	addl	12(%r8),%ebx
 	movl	%esi,4(%r8)
-	movl	%edx,%eax
+	movl	%edx,%eax  // A=d
 	addl	16(%r8),%ecx
 	movl	%ebp,%r12d
 	movl	%ebp,8(%r8)
-	movl	%ebx,%edx
-
+	movl	%ebx,%edx  // D=b
+// xchg	%ecx,%ebp			# F=c, C=f
 	movl	%ebx,12(%r8)
-	movl	%esi,%ebp
+	movl	%esi,%ebp  // F=e
 	movl	%ecx,16(%r8)
-
-	movl	%ecx,%esi
-	movl	%r12d,%ecx
-
+// mov	%ebp,16(%r8)
+	movl	%ecx,%esi  // E=c
+	movl	%r12d,%ecx  // C=f
+// xchg	%ebp,%esi				# E=c, F=e
 
 	cmpq	%r10,%r9
 	je	L$done_avx2
-	vmovdqu	64(%r14),%ymm6
-	cmpq	%r10,%rdi
+	vmovdqu	64(%r14),%ymm6  // pbswap mask
+	cmpq	%r10,%rdi  // borrowed %edi
 	ja	L$ast_avx2
 
-	vmovdqu	-64(%rdi),%xmm0
+	vmovdqu	-64(%rdi),%xmm0  // low part of %ymm0
 	vmovdqu	-48(%rdi),%xmm1
 	vmovdqu	-32(%rdi),%xmm2
 	vmovdqu	-16(%rdi),%xmm3
@@ -5034,7 +5038,7 @@ L$ast_avx2:
 	xorl	%eax,%edx
 	addl	%r12d,%ecx
 	andl	%edi,%edx
-	jmp	L$align32_3
+	jmp	L$align32_3  // see "Decoded ICache" in manual
 .p2align	5
 L$align32_3:
 	vmovdqu	%ymm6,64(%rsp)
@@ -5389,26 +5393,26 @@ L$align32_3:
 	addl	%r12d,%edx
 	leaq	128(%rsp),%r13
 
-
-	addl	0(%r8),%edx
+// output is d-e-[a]-f-b-c => A=d,F=e,C=f,D=b,E=c
+	addl	0(%r8),%edx  // update context
 	addl	4(%r8),%esi
 	addl	8(%r8),%ebp
 	movl	%edx,0(%r8)
 	addl	12(%r8),%ebx
 	movl	%esi,4(%r8)
-	movl	%edx,%eax
+	movl	%edx,%eax  // A=d
 	addl	16(%r8),%ecx
 	movl	%ebp,%r12d
 	movl	%ebp,8(%r8)
-	movl	%ebx,%edx
-
+	movl	%ebx,%edx  // D=b
+// xchg	%ecx,%ebp			# F=c, C=f
 	movl	%ebx,12(%r8)
-	movl	%esi,%ebp
+	movl	%esi,%ebp  // F=e
 	movl	%ecx,16(%r8)
-
-	movl	%ecx,%esi
-	movl	%r12d,%ecx
-
+// mov	%ebp,16(%r8)
+	movl	%ecx,%esi  // E=c
+	movl	%r12d,%ecx  // C=f
+// xchg	%ebp,%esi				# E=c, F=e
 
 	cmpq	%r10,%r9
 	jbe	L$oop_avx2
@@ -5434,16 +5438,16 @@ L$epilogue_avx2:
 .section	__DATA,__const
 .p2align	6
 K_XX_XX:
-.long	0x5a827999,0x5a827999,0x5a827999,0x5a827999
-.long	0x5a827999,0x5a827999,0x5a827999,0x5a827999
-.long	0x6ed9eba1,0x6ed9eba1,0x6ed9eba1,0x6ed9eba1
-.long	0x6ed9eba1,0x6ed9eba1,0x6ed9eba1,0x6ed9eba1
-.long	0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc
-.long	0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc
-.long	0xca62c1d6,0xca62c1d6,0xca62c1d6,0xca62c1d6
-.long	0xca62c1d6,0xca62c1d6,0xca62c1d6,0xca62c1d6
-.long	0x00010203,0x04050607,0x08090a0b,0x0c0d0e0f
-.long	0x00010203,0x04050607,0x08090a0b,0x0c0d0e0f
+.long	0x5a827999,0x5a827999,0x5a827999,0x5a827999  // K_00_19
+.long	0x5a827999,0x5a827999,0x5a827999,0x5a827999  // K_00_19
+.long	0x6ed9eba1,0x6ed9eba1,0x6ed9eba1,0x6ed9eba1  // K_20_39
+.long	0x6ed9eba1,0x6ed9eba1,0x6ed9eba1,0x6ed9eba1  // K_20_39
+.long	0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc  // K_40_59
+.long	0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc,0x8f1bbcdc  // K_40_59
+.long	0xca62c1d6,0xca62c1d6,0xca62c1d6,0xca62c1d6  // K_60_79
+.long	0xca62c1d6,0xca62c1d6,0xca62c1d6,0xca62c1d6  // K_60_79
+.long	0x00010203,0x04050607,0x08090a0b,0x0c0d0e0f  // pbswap mask
+.long	0x00010203,0x04050607,0x08090a0b,0x0c0d0e0f  // pbswap mask
 .byte	0xf,0xe,0xd,0xc,0xb,0xa,0x9,0x8,0x7,0x6,0x5,0x4,0x3,0x2,0x1,0x0
 .byte	83,72,65,49,32,98,108,111,99,107,32,116,114,97,110,115,102,111,114,109,32,102,111,114,32,120,56,54,95,54,52,44,32,67,82,89,80,84,79,71,65,77,83,32,98,121,32,60,97,112,112,114,111,64,111,112,101,110,115,115,108,46,111,114,103,62,0
 .p2align	6

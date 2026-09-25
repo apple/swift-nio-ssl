@@ -5,11 +5,10 @@
 #include <CNIOBoringSSL_asm_base.h>
 
 #if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_AARCH64) && defined(_WIN32)
-#include <CNIOBoringSSL_arm_arch.h>
-
 .section	.rodata
 
 .align	5
+chacha_constants:
 Lsigma:
 .quad	0x3320646e61707865,0x6b20657479622d32		// endian-neutral
 Lone:

@@ -1,11 +1,16 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_bn.h>
 
@@ -16,6 +21,8 @@
 #include "internal.h"
 #include "../../internal.h"
 
+
+using namespace bssl;
 
 static int bn_cmp_words_consttime(const BN_ULONG *a, size_t a_len,
                                   const BN_ULONG *b, size_t b_len) {
@@ -31,7 +38,7 @@ static int bn_cmp_words_consttime(const BN_ULONG *a, size_t a_len,
         constant_time_select_int(eq, ret, constant_time_select_int(lt, -1, 1));
   }
 
-  // If |a| or |b| has non-zero words beyond |min|, they take precedence.
+  // If `a` or `b` has non-zero words beyond `min`, they take precedence.
   if (a_len < b_len) {
     crypto_word_t mask = 0;
     for (size_t i = a_len; i < b_len; i++) {
@@ -54,10 +61,10 @@ int BN_ucmp(const BIGNUM *a, const BIGNUM *b) {
 }
 
 int BN_cmp(const BIGNUM *a, const BIGNUM *b) {
-  if ((a == NULL) || (b == NULL)) {
-    if (a != NULL) {
+  if ((a == nullptr) || (b == nullptr)) {
+    if (a != nullptr) {
       return -1;
-    } else if (b != NULL) {
+    } else if (b != nullptr) {
       return 1;
     } else {
       return 0;
@@ -65,7 +72,7 @@ int BN_cmp(const BIGNUM *a, const BIGNUM *b) {
   }
 
   // We do not attempt to process the sign bit in constant time. Negative
-  // |BIGNUM|s should never occur in crypto, only calculators.
+  // `BIGNUM`s should never occur in crypto, only calculators.
   if (a->neg != b->neg) {
     if (a->neg) {
       return -1;
@@ -77,7 +84,7 @@ int BN_cmp(const BIGNUM *a, const BIGNUM *b) {
   return a->neg ? -ret : ret;
 }
 
-int bn_less_than_words(const BN_ULONG *a, const BN_ULONG *b, size_t len) {
+int bssl::bn_less_than_words(const BN_ULONG *a, const BN_ULONG *b, size_t len) {
   return bn_cmp_words_consttime(a, len, b, len) < 0;
 }
 
@@ -136,7 +143,7 @@ int BN_is_pow2(const BIGNUM *bn) {
 
 int BN_equal_consttime(const BIGNUM *a, const BIGNUM *b) {
   BN_ULONG mask = 0;
-  // If |a| or |b| has more words than the other, all those words must be zero.
+  // If `a` or `b` has more words than the other, all those words must be zero.
   for (int i = a->width; i < b->width; i++) {
     mask |= b->d[i];
   }

@@ -1,16 +1,16 @@
-/* Copyright 2014 The BoringSSL Authors
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2014 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_pkcs7.h>
 
@@ -24,6 +24,8 @@
 #include "internal.h"
 
 
+using namespace bssl;
+
 // 1.2.840.113549.1.7.1
 static const uint8_t kPKCS7Data[] = {0x2a, 0x86, 0x48, 0x86, 0xf7,
                                      0x0d, 0x01, 0x07, 0x01};
@@ -33,19 +35,19 @@ static const uint8_t kPKCS7SignedData[] = {0x2a, 0x86, 0x48, 0x86, 0xf7,
                                            0x0d, 0x01, 0x07, 0x02};
 
 // pkcs7_parse_header reads the non-certificate/non-CRL prefix of a PKCS#7
-// SignedData blob from |cbs| and sets |*out| to point to the rest of the
-// input. If the input is in BER format, then |*der_bytes| will be set to a
+// SignedData blob from `cbs` and sets `*out` to point to the rest of the
+// input. If the input is in BER format, then `*der_bytes` will be set to a
 // pointer that needs to be freed by the caller once they have finished
-// processing |*out| (which will be pointing into |*der_bytes|).
+// processing `*out` (which will be pointing into `*der_bytes`).
 //
-// It returns one on success or zero on error. On error, |*der_bytes| is
+// It returns one on success or zero on error. On error, `*der_bytes` is
 // NULL.
-int pkcs7_parse_header(uint8_t **der_bytes, CBS *out, CBS *cbs) {
+int bssl::pkcs7_parse_header(uint8_t **der_bytes, CBS *out, CBS *cbs) {
   CBS in, content_info, content_type, wrapped_signed_data, signed_data;
   uint64_t version;
 
   // The input may be in BER format.
-  *der_bytes = NULL;
+  *der_bytes = nullptr;
   if (!CBS_asn1_ber_to_der(cbs, &in, der_bytes) ||
       // See https://tools.ietf.org/html/rfc2315#section-7
       !CBS_get_asn1(&in, &content_info, CBS_ASN1_SEQUENCE) ||
@@ -64,8 +66,8 @@ int pkcs7_parse_header(uint8_t **der_bytes, CBS *out, CBS *cbs) {
                     CBS_ASN1_CONTEXT_SPECIFIC | CBS_ASN1_CONSTRUCTED | 0) ||
       !CBS_get_asn1(&wrapped_signed_data, &signed_data, CBS_ASN1_SEQUENCE) ||
       !CBS_get_asn1_uint64(&signed_data, &version) ||
-      !CBS_get_asn1(&signed_data, NULL /* digests */, CBS_ASN1_SET) ||
-      !CBS_get_asn1(&signed_data, NULL /* content */, CBS_ASN1_SEQUENCE)) {
+      !CBS_get_asn1(&signed_data, nullptr /* digests */, CBS_ASN1_SET) ||
+      !CBS_get_asn1(&signed_data, nullptr /* content */, CBS_ASN1_SEQUENCE)) {
     goto err;
   }
 
@@ -79,14 +81,14 @@ int pkcs7_parse_header(uint8_t **der_bytes, CBS *out, CBS *cbs) {
 
 err:
   OPENSSL_free(*der_bytes);
-  *der_bytes = NULL;
+  *der_bytes = nullptr;
   return 0;
 }
 
 int PKCS7_get_raw_certificates(STACK_OF(CRYPTO_BUFFER) *out_certs, CBS *cbs,
                                CRYPTO_BUFFER_POOL *pool) {
   CBS signed_data, certificates;
-  uint8_t *der_bytes = NULL;
+  uint8_t *der_bytes = nullptr;
   int ret = 0, has_certificates;
   const size_t initial_certs_len = sk_CRYPTO_BUFFER_num(out_certs);
 
@@ -99,7 +101,7 @@ int PKCS7_get_raw_certificates(STACK_OF(CRYPTO_BUFFER) *out_certs, CBS *cbs,
   }
 
   if (!has_certificates) {
-    CBS_init(&certificates, NULL, 0);
+    CBS_init(&certificates, nullptr, 0);
   }
 
   while (CBS_len(&certificates) > 0) {
@@ -109,7 +111,7 @@ int PKCS7_get_raw_certificates(STACK_OF(CRYPTO_BUFFER) *out_certs, CBS *cbs,
     }
 
     CRYPTO_BUFFER *buf = CRYPTO_BUFFER_new_from_CBS(&cert, pool);
-    if (buf == NULL || !sk_CRYPTO_BUFFER_push(out_certs, buf)) {
+    if (buf == nullptr || !sk_CRYPTO_BUFFER_push(out_certs, buf)) {
       CRYPTO_BUFFER_free(buf);
       goto err;
     }
@@ -130,7 +132,7 @@ err:
   return ret;
 }
 
-static int pkcs7_bundle_raw_certificates_cb(CBB *out, const void *arg) {
+static int pkcs7_bundle_raw_certificates_cb(CBB *out, void *arg) {
   const STACK_OF(CRYPTO_BUFFER) *certs =
       reinterpret_cast<const STACK_OF(CRYPTO_BUFFER) *>(arg);
   CBB certificates;
@@ -149,43 +151,46 @@ static int pkcs7_bundle_raw_certificates_cb(CBB *out, const void *arg) {
     }
   }
 
-  // |certificates| is a implicitly-tagged SET OF.
+  // `certificates` is an implicitly-tagged SET OF.
   return CBB_flush_asn1_set_of(&certificates) && CBB_flush(out);
 }
 
 int PKCS7_bundle_raw_certificates(CBB *out,
                                   const STACK_OF(CRYPTO_BUFFER) *certs) {
-  return pkcs7_add_signed_data(out, /*digest_algos_cb=*/NULL,
+  return pkcs7_add_signed_data(out, /*signed_data_version=*/1,
+                               /*digest_algos_cb=*/nullptr,
                                pkcs7_bundle_raw_certificates_cb,
-                               /*signer_infos_cb=*/NULL, certs);
+                               /*signer_infos_cb=*/nullptr,
+                               const_cast<STACK_OF(CRYPTO_BUFFER) *>(certs));
 }
 
-int pkcs7_add_signed_data(CBB *out,
-                          int (*digest_algos_cb)(CBB *out, const void *arg),
-                          int (*cert_crl_cb)(CBB *out, const void *arg),
-                          int (*signer_infos_cb)(CBB *out, const void *arg),
-                          const void *arg) {
-  CBB outer_seq, oid, wrapped_seq, seq, version_bytes, digest_algos_set,
-      content_info, signer_infos;
+int bssl::pkcs7_add_signed_data(CBB *out, uint64_t signed_data_version,
+                                int (*digest_algos_cb)(CBB *out, void *arg),
+                                int (*cert_crl_cb)(CBB *out, void *arg),
+                                int (*signer_infos_cb)(CBB *out, void *arg),
+                                void *arg) {
+  CBB outer_seq, wrapped_seq, seq, digest_algos_set, content_info, signer_infos;
 
   // See https://tools.ietf.org/html/rfc2315#section-7
   if (!CBB_add_asn1(out, &outer_seq, CBS_ASN1_SEQUENCE) ||
-      !CBB_add_asn1(&outer_seq, &oid, CBS_ASN1_OBJECT) ||
-      !CBB_add_bytes(&oid, kPKCS7SignedData, sizeof(kPKCS7SignedData)) ||
+      !CBB_add_asn1_element(&outer_seq, CBS_ASN1_OBJECT, kPKCS7SignedData,
+                            sizeof(kPKCS7SignedData)) ||
       !CBB_add_asn1(&outer_seq, &wrapped_seq,
                     CBS_ASN1_CONTEXT_SPECIFIC | CBS_ASN1_CONSTRUCTED | 0) ||
       // See https://tools.ietf.org/html/rfc2315#section-9.1
       !CBB_add_asn1(&wrapped_seq, &seq, CBS_ASN1_SEQUENCE) ||
-      !CBB_add_asn1(&seq, &version_bytes, CBS_ASN1_INTEGER) ||
-      !CBB_add_u8(&version_bytes, 1) ||
+      !CBB_add_asn1_uint64(&seq, signed_data_version) ||
       !CBB_add_asn1(&seq, &digest_algos_set, CBS_ASN1_SET) ||
-      (digest_algos_cb != NULL && !digest_algos_cb(&digest_algos_set, arg)) ||
+      (digest_algos_cb != nullptr &&
+       !digest_algos_cb(&digest_algos_set, arg)) ||
+      !CBB_flush_asn1_set_of(&digest_algos_set) ||
       !CBB_add_asn1(&seq, &content_info, CBS_ASN1_SEQUENCE) ||
-      !CBB_add_asn1(&content_info, &oid, CBS_ASN1_OBJECT) ||
-      !CBB_add_bytes(&oid, kPKCS7Data, sizeof(kPKCS7Data)) ||
-      (cert_crl_cb != NULL && !cert_crl_cb(&seq, arg)) ||
+      !CBB_add_asn1_element(&content_info, CBS_ASN1_OBJECT, kPKCS7Data,
+                            sizeof(kPKCS7Data)) ||
+      (cert_crl_cb != nullptr && !cert_crl_cb(&seq, arg)) ||
       !CBB_add_asn1(&seq, &signer_infos, CBS_ASN1_SET) ||
-      (signer_infos_cb != NULL && !signer_infos_cb(&signer_infos, arg))) {
+      (signer_infos_cb != nullptr && !signer_infos_cb(&signer_infos, arg)) ||
+      !CBB_flush_asn1_set_of(&signer_infos)) {
     return 0;
   }
 

@@ -1,11 +1,16 @@
-/*
- * Copyright 2003-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 2003-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <stdio.h>
 
@@ -15,9 +20,10 @@
 #include <CNIOBoringSSL_obj.h>
 #include <CNIOBoringSSL_x509.h>
 
-#include "ext_dat.h"
 #include "internal.h"
 
+
+using namespace bssl;
 
 static void *v2i_POLICY_MAPPINGS(const X509V3_EXT_METHOD *method,
                                  const X509V3_CTX *ctx,
@@ -25,21 +31,21 @@ static void *v2i_POLICY_MAPPINGS(const X509V3_EXT_METHOD *method,
 static STACK_OF(CONF_VALUE) *i2v_POLICY_MAPPINGS(
     const X509V3_EXT_METHOD *method, void *pmps, STACK_OF(CONF_VALUE) *extlist);
 
-const X509V3_EXT_METHOD v3_policy_mappings = {
+const X509V3_EXT_METHOD bssl::v3_policy_mappings = {
     NID_policy_mappings,
     0,
     ASN1_ITEM_ref(POLICY_MAPPINGS),
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
     i2v_POLICY_MAPPINGS,
     v2i_POLICY_MAPPINGS,
-    0,
-    0,
-    NULL,
+    nullptr,
+    nullptr,
+    nullptr,
 };
 
 ASN1_SEQUENCE(POLICY_MAPPING) = {
@@ -70,8 +76,8 @@ static void *v2i_POLICY_MAPPINGS(const X509V3_EXT_METHOD *method,
                                  const X509V3_CTX *ctx,
                                  const STACK_OF(CONF_VALUE) *nval) {
   POLICY_MAPPINGS *pmaps = sk_POLICY_MAPPING_new_null();
-  if (pmaps == NULL) {
-    return NULL;
+  if (pmaps == nullptr) {
+    return nullptr;
   }
 
   for (size_t i = 0; i < sk_CONF_VALUE_num(nval); i++) {
@@ -83,7 +89,7 @@ static void *v2i_POLICY_MAPPINGS(const X509V3_EXT_METHOD *method,
     }
 
     POLICY_MAPPING *pmap = POLICY_MAPPING_new();
-    if (pmap == NULL || !sk_POLICY_MAPPING_push(pmaps, pmap)) {
+    if (pmap == nullptr || !sk_POLICY_MAPPING_push(pmaps, pmap)) {
       POLICY_MAPPING_free(pmap);
       goto err;
     }
@@ -100,5 +106,5 @@ static void *v2i_POLICY_MAPPINGS(const X509V3_EXT_METHOD *method,
 
 err:
   sk_POLICY_MAPPING_pop_free(pmaps, POLICY_MAPPING_free);
-  return NULL;
+  return nullptr;
 }
