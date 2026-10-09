@@ -3,7 +3,7 @@ index 93a214e..eee4e58 100644
 --- a/Sources/CNIOBoringSSL/crypto/hrss/hrss.cc
 +++ b/Sources/CNIOBoringSSL/crypto/hrss/hrss.cc
 @@ -13,6 +13,7 @@
-  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+ // limitations under the License.
  
  #include <CNIOBoringSSL_hrss.h>
 +#include <inttypes.h>
@@ -14,9 +14,8 @@ diff --git a/Sources/CNIOBoringSSL/include/CNIOBoringSSL_bn.h b/Sources/CNIOBori
 index c86c1ef..7013140 100644
 --- a/Sources/CNIOBoringSSL/include/CNIOBoringSSL_bn.h
 +++ b/Sources/CNIOBoringSSL/include/CNIOBoringSSL_bn.h
-@@ -126,7 +126,8 @@
- #include "CNIOBoringSSL_base.h"
- #include "CNIOBoringSSL_thread.h"
+@@ -19,6 +19,7 @@
+ #include "CNIOBoringSSL_base.h"   // IWYU pragma: export
  
  #include <inttypes.h>  // for PRIu64 and friends
 +#include <sys/types.h>

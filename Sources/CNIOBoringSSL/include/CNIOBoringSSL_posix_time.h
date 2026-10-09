@@ -1,21 +1,21 @@
-/* Copyright 2022 The BoringSSL Authors
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2022 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #ifndef OPENSSL_HEADER_POSIX_TIME_H
 #define OPENSSL_HEADER_POSIX_TIME_H
 
-#include "CNIOBoringSSL_base.h"
+#include "CNIOBoringSSL_base.h"  // IWYU pragma: export
 
 #include <time.h>
 
@@ -27,18 +27,18 @@ extern "C" {
 // Time functions.
 
 
-// OPENSSL_posix_to_tm converts a int64_t POSIX time value in |time|, which must
-// be in the range of year 0000 to 9999, to a broken out time value in |tm|. It
-// returns one on success and zero on error.
+// OPENSSL_posix_to_tm converts an int64_t POSIX time value in `time`, which
+// must be in the range of year 0000 to 9999, to a broken out time value in
+// `tm`. It returns one on success and zero on error.
 OPENSSL_EXPORT int OPENSSL_posix_to_tm(int64_t time, struct tm *out_tm);
 
 // OPENSSL_tm_to_posix converts a time value between the years 0 and 9999 in
-// |tm| to a POSIX time value in |out|. One is returned on success, zero is
-// returned on failure. It is a failure if |tm| contains out of range values.
+// `tm` to a POSIX time value in `out`. One is returned on success, zero is
+// returned on failure. It is a failure if `tm` contains out of range values.
 OPENSSL_EXPORT int OPENSSL_tm_to_posix(const struct tm *tm, int64_t *out);
 
-// OPENSSL_timegm converts a time value between the years 0 and 9999 in |tm| to
-// a time_t value in |out|. One is returned on success, zero is returned on
+// OPENSSL_timegm converts a time value between the years 0 and 9999 in `tm` to
+// a time_t value in `out`. One is returned on success, zero is returned on
 // failure. It is a failure if the converted time can not be represented in a
 // time_t, or if the tm contains out of range values.
 OPENSSL_EXPORT int OPENSSL_timegm(const struct tm *tm, time_t *out);

@@ -1,11 +1,16 @@
-/*
- * Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <stdio.h>
 #include <string.h>
@@ -17,9 +22,10 @@
 #include <CNIOBoringSSL_obj.h>
 #include <CNIOBoringSSL_x509.h>
 
-#include "ext_dat.h"
 #include "internal.h"
 
+
+using namespace bssl;
 
 static STACK_OF(CONF_VALUE) *i2v_BASIC_CONSTRAINTS(
     const X509V3_EXT_METHOD *method, void *ext, STACK_OF(CONF_VALUE) *extlist);
@@ -27,21 +33,21 @@ static void *v2i_BASIC_CONSTRAINTS(const X509V3_EXT_METHOD *method,
                                    const X509V3_CTX *ctx,
                                    const STACK_OF(CONF_VALUE) *values);
 
-const X509V3_EXT_METHOD v3_bcons = {
+const X509V3_EXT_METHOD bssl::v3_bcons = {
     NID_basic_constraints,
     0,
     ASN1_ITEM_ref(BASIC_CONSTRAINTS),
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
     i2v_BASIC_CONSTRAINTS,
     v2i_BASIC_CONSTRAINTS,
-    NULL,
-    NULL,
-    NULL,
+    nullptr,
+    nullptr,
+    nullptr,
 };
 
 ASN1_SEQUENCE(BASIC_CONSTRAINTS) = {
@@ -63,9 +69,9 @@ static STACK_OF(CONF_VALUE) *i2v_BASIC_CONSTRAINTS(
 static void *v2i_BASIC_CONSTRAINTS(const X509V3_EXT_METHOD *method,
                                    const X509V3_CTX *ctx,
                                    const STACK_OF(CONF_VALUE) *values) {
-  BASIC_CONSTRAINTS *bcons = NULL;
+  BASIC_CONSTRAINTS *bcons = nullptr;
   if (!(bcons = BASIC_CONSTRAINTS_new())) {
-    return NULL;
+    return nullptr;
   }
   for (size_t i = 0; i < sk_CONF_VALUE_num(values); i++) {
     const CONF_VALUE *val = sk_CONF_VALUE_value(values, i);
@@ -86,5 +92,5 @@ static void *v2i_BASIC_CONSTRAINTS(const X509V3_EXT_METHOD *method,
   return bcons;
 err:
   BASIC_CONSTRAINTS_free(bcons);
-  return NULL;
+  return nullptr;
 }

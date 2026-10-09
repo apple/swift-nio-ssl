@@ -1,11 +1,16 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_buf.h>
 
@@ -15,18 +20,19 @@
 #include <CNIOBoringSSL_mem.h>
 
 #include "../internal.h"
+#include "../mem_internal.h"
 
 
-BUF_MEM *BUF_MEM_new(void) {
-  return reinterpret_cast<BUF_MEM *>(OPENSSL_zalloc(sizeof(BUF_MEM)));
-}
+using namespace bssl;
+
+BUF_MEM *BUF_MEM_new() { return New<BUF_MEM>(); }
 
 void BUF_MEM_free(BUF_MEM *buf) {
   if (buf == nullptr) {
     return;
   }
   OPENSSL_free(buf->data);
-  OPENSSL_free(buf);
+  Delete(buf);
 }
 
 int BUF_MEM_reserve(BUF_MEM *buf, size_t cap) {
@@ -48,7 +54,7 @@ int BUF_MEM_reserve(BUF_MEM *buf, size_t cap) {
 
   char *new_buf =
       reinterpret_cast<char *>(OPENSSL_realloc(buf->data, alloc_size));
-  if (new_buf == NULL) {
+  if (new_buf == nullptr) {
     return 0;
   }
 

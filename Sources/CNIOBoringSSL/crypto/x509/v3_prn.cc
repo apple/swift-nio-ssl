@@ -1,11 +1,16 @@
-/*
- * Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1999-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 // X509 v3 extension utilities
 
@@ -58,19 +63,19 @@ static void X509V3_EXT_val_prn(BIO *out, const STACK_OF(CONF_VALUE) *val,
 int X509V3_EXT_print(BIO *out, const X509_EXTENSION *ext, unsigned long flag,
                      int indent) {
   const X509V3_EXT_METHOD *method = X509V3_EXT_get(ext);
-  if (method == NULL) {
+  if (method == nullptr) {
     return unknown_ext_print(out, ext, flag, indent, 0);
   }
   const ASN1_STRING *ext_data = X509_EXTENSION_get_data(ext);
   const unsigned char *p = ASN1_STRING_get0_data(ext_data);
-  void *ext_str = ASN1_item_d2i(NULL, &p, ASN1_STRING_length(ext_data),
+  void *ext_str = ASN1_item_d2i(nullptr, &p, ASN1_STRING_length(ext_data),
                                 ASN1_ITEM_ptr(method->it));
   if (!ext_str) {
     return unknown_ext_print(out, ext, flag, indent, 1);
   }
 
-  char *value = NULL;
-  STACK_OF(CONF_VALUE) *nval = NULL;
+  char *value = nullptr;
+  STACK_OF(CONF_VALUE) *nval = nullptr;
   int ok = 0;
   if (method->i2s) {
     if (!(value = method->i2s(method, ext_str))) {
@@ -78,7 +83,7 @@ int X509V3_EXT_print(BIO *out, const X509_EXTENSION *ext, unsigned long flag,
     }
     BIO_printf(out, "%*s%s", indent, "", value);
   } else if (method->i2v) {
-    if (!(nval = method->i2v(method, ext_str, NULL))) {
+    if (!(nval = method->i2v(method, ext_str, nullptr))) {
       goto err;
     }
     X509V3_EXT_val_prn(out, nval, indent,
@@ -125,7 +130,7 @@ int X509V3_extensions_print(BIO *bp, const char *title,
     const ASN1_OBJECT *obj = X509_EXTENSION_get_object(ex);
     i2a_ASN1_OBJECT(bp, obj);
     j = X509_EXTENSION_get_critical(ex);
-    if (BIO_printf(bp, ": %s\n", j ? "critical" : "") <= 0) {
+    if (BIO_printf(bp, ":%s\n", j ? " critical" : "") <= 0) {
       return 0;
     }
     if (!X509V3_EXT_print(bp, ex, flag, indent + 4)) {

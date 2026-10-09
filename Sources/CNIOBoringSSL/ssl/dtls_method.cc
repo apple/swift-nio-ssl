@@ -1,11 +1,16 @@
-/*
- * Copyright 2005-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 2005-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_ssl.h>
 
@@ -20,7 +25,7 @@
 
 using namespace bssl;
 
-static void dtls1_on_handshake_complete(SSL *ssl) {
+static void dtls1_on_handshake_complete(SSLImpl *ssl) {
   if (ssl_protocol_version(ssl) <= TLS1_2_VERSION) {
     // Stop the reply timer left by the last flight we sent. In DTLS 1.2, the
     // retransmission timer ends when the handshake completes. If we sent the
@@ -35,7 +40,7 @@ static void dtls1_on_handshake_complete(SSL *ssl) {
   }
 }
 
-static bool next_epoch(const SSL *ssl, uint16_t *out,
+static bool next_epoch(const SSLImpl *ssl, uint16_t *out,
                        ssl_encryption_level_t level, uint16_t prev) {
   switch (level) {
     case ssl_encryption_initial:
@@ -63,7 +68,7 @@ static bool next_epoch(const SSL *ssl, uint16_t *out,
   return false;
 }
 
-static bool dtls1_set_read_state(SSL *ssl, ssl_encryption_level_t level,
+static bool dtls1_set_read_state(SSLImpl *ssl, ssl_encryption_level_t level,
                                  UniquePtr<SSLAEADContext> aead_ctx,
                                  Span<const uint8_t> traffic_secret) {
   // Cipher changes are forbidden if the current epoch has leftover data.
@@ -75,6 +80,7 @@ static bool dtls1_set_read_state(SSL *ssl, ssl_encryption_level_t level,
 
   DTLSReadEpoch new_epoch;
   new_epoch.aead = std::move(aead_ctx);
+  new_epoch.traffic_secret.CopyFrom(traffic_secret);
   if (!next_epoch(ssl, &new_epoch.epoch, level, ssl->d1->read_epoch.epoch)) {
     ssl_send_alert(ssl, SSL3_AL_FATAL, SSL_AD_UNEXPECTED_MESSAGE);
     return false;
@@ -102,7 +108,7 @@ static bool dtls1_set_read_state(SSL *ssl, ssl_encryption_level_t level,
   return true;
 }
 
-static bool dtls1_set_write_state(SSL *ssl, ssl_encryption_level_t level,
+static bool dtls1_set_write_state(SSLImpl *ssl, ssl_encryption_level_t level,
                                   UniquePtr<SSLAEADContext> aead_ctx,
                                   Span<const uint8_t> traffic_secret) {
   uint16_t epoch;
@@ -113,6 +119,7 @@ static bool dtls1_set_write_state(SSL *ssl, ssl_encryption_level_t level,
   DTLSWriteEpoch new_epoch;
   new_epoch.aead = std::move(aead_ctx);
   new_epoch.next_record = DTLSRecordNumber(epoch, 0);
+  new_epoch.traffic_secret.CopyFrom(traffic_secret);
   if (ssl_protocol_version(ssl) > TLS1_2_VERSION) {
     new_epoch.rn_encrypter =
         RecordNumberEncrypter::Create(new_epoch.aead->cipher(), traffic_secret);
@@ -156,7 +163,7 @@ static const SSL_PROTOCOL_METHOD kDTLSProtocolMethod = {
     dtls1_set_write_state,
 };
 
-const SSL_METHOD *DTLS_method(void) {
+const SSL_METHOD *DTLS_method() {
   static const SSL_METHOD kMethod = {
       0,
       &kDTLSProtocolMethod,
@@ -165,7 +172,7 @@ const SSL_METHOD *DTLS_method(void) {
   return &kMethod;
 }
 
-const SSL_METHOD *DTLS_with_buffers_method(void) {
+const SSL_METHOD *DTLS_with_buffers_method() {
   static const SSL_METHOD kMethod = {
       0,
       &kDTLSProtocolMethod,
@@ -176,7 +183,7 @@ const SSL_METHOD *DTLS_with_buffers_method(void) {
 
 // Legacy version-locked methods.
 
-const SSL_METHOD *DTLSv1_2_method(void) {
+const SSL_METHOD *DTLSv1_2_method() {
   static const SSL_METHOD kMethod = {
       DTLS1_2_VERSION,
       &kDTLSProtocolMethod,
@@ -185,7 +192,7 @@ const SSL_METHOD *DTLSv1_2_method(void) {
   return &kMethod;
 }
 
-const SSL_METHOD *DTLSv1_method(void) {
+const SSL_METHOD *DTLSv1_method() {
   static const SSL_METHOD kMethod = {
       DTLS1_VERSION,
       &kDTLSProtocolMethod,
@@ -196,14 +203,14 @@ const SSL_METHOD *DTLSv1_method(void) {
 
 // Legacy side-specific methods.
 
-const SSL_METHOD *DTLSv1_2_server_method(void) { return DTLSv1_2_method(); }
+const SSL_METHOD *DTLSv1_2_server_method() { return DTLSv1_2_method(); }
 
-const SSL_METHOD *DTLSv1_server_method(void) { return DTLSv1_method(); }
+const SSL_METHOD *DTLSv1_server_method() { return DTLSv1_method(); }
 
-const SSL_METHOD *DTLSv1_2_client_method(void) { return DTLSv1_2_method(); }
+const SSL_METHOD *DTLSv1_2_client_method() { return DTLSv1_2_method(); }
 
-const SSL_METHOD *DTLSv1_client_method(void) { return DTLSv1_method(); }
+const SSL_METHOD *DTLSv1_client_method() { return DTLSv1_method(); }
 
-const SSL_METHOD *DTLS_server_method(void) { return DTLS_method(); }
+const SSL_METHOD *DTLS_server_method() { return DTLS_method(); }
 
-const SSL_METHOD *DTLS_client_method(void) { return DTLS_method(); }
+const SSL_METHOD *DTLS_client_method() { return DTLS_method(); }

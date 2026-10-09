@@ -1,11 +1,16 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_pem.h>
 
@@ -22,17 +27,17 @@
 
 void *PEM_ASN1_read_bio(d2i_of_void *d2i, const char *name, BIO *bp, void **x,
                         pem_password_cb *cb, void *u) {
-  const unsigned char *p = NULL;
-  unsigned char *data = NULL;
+  const unsigned char *p = nullptr;
+  unsigned char *data = nullptr;
   long len;
-  char *ret = NULL;
+  char *ret = nullptr;
 
-  if (!PEM_bytes_read_bio(&data, &len, NULL, name, bp, cb, u)) {
-    return NULL;
+  if (!PEM_bytes_read_bio(&data, &len, nullptr, name, bp, cb, u)) {
+    return nullptr;
   }
   p = data;
   ret = reinterpret_cast<char *>(d2i(x, &p, len));
-  if (ret == NULL) {
+  if (ret == nullptr) {
     OPENSSL_PUT_ERROR(PEM, ERR_R_ASN1_LIB);
   }
   OPENSSL_free(data);

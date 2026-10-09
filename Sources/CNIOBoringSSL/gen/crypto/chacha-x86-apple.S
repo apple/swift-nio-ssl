@@ -851,7 +851,7 @@ L011outer1x:
 L010loop1x:
 	paddd	%xmm1,%xmm0
 	pxor	%xmm0,%xmm3
-.byte	102,15,56,0,222
+	pshufb	%xmm6,%xmm3
 	paddd	%xmm3,%xmm2
 	pxor	%xmm2,%xmm1
 	movdqa	%xmm1,%xmm4
@@ -860,7 +860,7 @@ L010loop1x:
 	por	%xmm4,%xmm1
 	paddd	%xmm1,%xmm0
 	pxor	%xmm0,%xmm3
-.byte	102,15,56,0,223
+	pshufb	%xmm7,%xmm3
 	paddd	%xmm3,%xmm2
 	pxor	%xmm2,%xmm1
 	movdqa	%xmm1,%xmm4
@@ -873,7 +873,7 @@ L010loop1x:
 	nop
 	paddd	%xmm1,%xmm0
 	pxor	%xmm0,%xmm3
-.byte	102,15,56,0,222
+	pshufb	%xmm6,%xmm3
 	paddd	%xmm3,%xmm2
 	pxor	%xmm2,%xmm1
 	movdqa	%xmm1,%xmm4
@@ -882,7 +882,7 @@ L010loop1x:
 	por	%xmm4,%xmm1
 	paddd	%xmm1,%xmm0
 	pxor	%xmm0,%xmm3
-.byte	102,15,56,0,223
+	pshufb	%xmm7,%xmm3
 	paddd	%xmm3,%xmm2
 	pxor	%xmm2,%xmm1
 	movdqa	%xmm1,%xmm4

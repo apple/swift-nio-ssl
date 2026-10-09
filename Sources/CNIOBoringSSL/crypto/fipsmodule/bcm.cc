@@ -1,16 +1,16 @@
-/* Copyright 2017 The BoringSSL Authors
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2017 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #if !defined(_GNU_SOURCE)
 #define _GNU_SOURCE  // needed for syscall() on Linux.
@@ -26,14 +26,21 @@
 
 #include <CNIOBoringSSL_digest.h>
 #include <CNIOBoringSSL_hmac.h>
-#include <CNIOBoringSSL_sha.h>
+#include <CNIOBoringSSL_sha2.h>
+#include <CNIOBoringSSL_tls_prf.h>
 
 #include "../bcm_support.h"
 #include "../internal.h"
 #include "bcm_interface.h"
 
+// The .cc.inc files are not written as headers, but .cc files which we
+// currently need to combine together in the style of a unity or jumbo build.
+// -Wheader-hygiene interprets them as headers.
+//
 // TODO(crbug.com/362530616): When delocate is removed, build these files as
 // separate compilation units again.
+OPENSSL_CLANG_PRAGMA("clang diagnostic push")
+OPENSSL_CLANG_PRAGMA("clang diagnostic ignored \"-Wheader-hygiene\"")
 #include "aes/aes.cc.inc"
 #include "aes/aes_nohw.cc.inc"
 #include "aes/cbc.cc.inc"
@@ -44,7 +51,6 @@
 #include "aes/key_wrap.cc.inc"
 #include "aes/mode_wrappers.cc.inc"
 #include "aes/ofb.cc.inc"
-#include "aes/polyval.cc.inc"
 #include "bn/add.cc.inc"
 #include "bn/asm/x86_64-gcc.cc.inc"
 #include "bn/bn.cc.inc"
@@ -81,7 +87,6 @@
 #include "ec/ec_montgomery.cc.inc"
 #include "ec/felem.cc.inc"
 #include "ec/oct.cc.inc"
-#include "ec/p224-64.cc.inc"
 #include "ec/p256-nistz.cc.inc"
 #include "ec/p256.cc.inc"
 #include "ec/scalar.cc.inc"
@@ -91,14 +96,15 @@
 #include "ec/wnaf.cc.inc"
 #include "ecdh/ecdh.cc.inc"
 #include "ecdsa/ecdsa.cc.inc"
+#include "entropy/jitter.cc.inc"
 #include "hkdf/hkdf.cc.inc"
 #include "hmac/hmac.cc.inc"
 #include "keccak/keccak.cc.inc"
 #include "mldsa/mldsa.cc.inc"
 #include "mlkem/mlkem.cc.inc"
+#include "rand/android_entropy_client.cc.inc"
 #include "rand/ctrdrbg.cc.inc"
 #include "rand/rand.cc.inc"
-#include "rsa/blinding.cc.inc"
 #include "rsa/padding.cc.inc"
 #include "rsa/rsa.cc.inc"
 #include "rsa/rsa_impl.cc.inc"
@@ -114,7 +120,10 @@
 #include "slhdsa/thash.cc.inc"
 #include "slhdsa/wots.cc.inc"
 #include "tls/kdf.cc.inc"
+OPENSSL_CLANG_PRAGMA("clang diagnostic pop")
 
+
+using namespace bssl;
 
 #if defined(BORINGSSL_FIPS)
 
@@ -125,7 +134,7 @@
 // the location of the integrity hash, respectively.
 extern const uint8_t BORINGSSL_bcm_text_start[];
 extern const uint8_t BORINGSSL_bcm_text_end[];
-extern const uint8_t BORINGSSL_bcm_text_hash[];
+extern const uint8_t BORINGSSL_bcm_text_hash[SHA256_DIGEST_LENGTH];
 #if defined(BORINGSSL_SHARED_LIBRARY)
 extern const uint8_t BORINGSSL_bcm_rodata_start[];
 extern const uint8_t BORINGSSL_bcm_rodata_end[];
@@ -154,7 +163,7 @@ static void assert_within(const void *start, const void *symbol,
 static void BORINGSSL_maybe_set_module_text_permissions(int permission) {
   // Android may be compiled in execute-only-memory mode, in which case the
   // .text segment cannot be read. That conflicts with the need for a FIPS
-  // module to hash its own contents, therefore |mprotect| is used to make
+  // module to hash its own contents, therefore `mprotect` is used to make
   // the module's .text readable for the duration of the hashing process. In
   // other build configurations this is a no-op.
   const uintptr_t page_size = getpagesize();
@@ -173,8 +182,8 @@ static void BORINGSSL_maybe_set_module_text_permissions(int permission) {}
 
 #endif  // !ASAN
 
-static void __attribute__((constructor))
-BORINGSSL_bcm_power_on_self_test(void) {
+static void __attribute__((constructor)) BORINGSSL_bcm_power_on_self_test(
+    void) {
 #if !defined(OPENSSL_ASAN)
   // Integrity tests cannot run under ASAN because it involves reading the full
   // .text section, which triggers the global-buffer overflow detection.
@@ -194,11 +203,11 @@ err:
 }
 
 #if !defined(OPENSSL_ASAN)
-int BORINGSSL_integrity_test(void) {
+int BORINGSSL_integrity_test() {
   const uint8_t *const start = BORINGSSL_bcm_text_start;
   const uint8_t *const end = BORINGSSL_bcm_text_end;
 
-  assert_within(start, reinterpret_cast<const void *>(AES_encrypt), end);
+  assert_within(start, reinterpret_cast<const void *>(BCM_aes_encrypt), end);
   assert_within(start, reinterpret_cast<const void *>(RSA_sign), end);
   assert_within(start, reinterpret_cast<const void *>(BCM_rand_bytes), end);
   assert_within(start, reinterpret_cast<const void *>(EC_GROUP_cmp), end);
@@ -220,7 +229,6 @@ int BORINGSSL_integrity_test(void) {
   assert_within(rodata_start, kPKCS1SigPrefixes, rodata_end);
 
   uint8_t result[SHA256_DIGEST_LENGTH];
-  const EVP_MD *const kHashFunction = EVP_sha256();
   if (!boringssl_self_test_sha256() || !boringssl_self_test_hmac_sha256()) {
     return 0;
   }
@@ -229,8 +237,8 @@ int BORINGSSL_integrity_test(void) {
   unsigned result_len;
   HMAC_CTX hmac_ctx;
   HMAC_CTX_init(&hmac_ctx);
-  if (!HMAC_Init_ex(&hmac_ctx, kHMACKey, sizeof(kHMACKey), kHashFunction,
-                    NULL /* no ENGINE */)) {
+  if (!HMAC_Init_ex(&hmac_ctx, kHMACKey, sizeof(kHMACKey), EVP_sha256(),
+                    nullptr /* no ENGINE */)) {
     fprintf(CRYPTO_get_stderr(), "HMAC_Init_ex failed.\n");
     return 0;
   }
@@ -249,16 +257,14 @@ int BORINGSSL_integrity_test(void) {
 #endif
   BORINGSSL_maybe_set_module_text_permissions(PROT_EXEC);
 
-  if (!HMAC_Final(&hmac_ctx, result, &result_len) ||
-      result_len != sizeof(result)) {
+  if (!HMAC_Final(&hmac_ctx, result, &result_len)) {
     fprintf(CRYPTO_get_stderr(), "HMAC failed.\n");
     return 0;
   }
   HMAC_CTX_cleanse(&hmac_ctx);  // FIPS 140-3, AS05.10.
 
-  const uint8_t *expected = BORINGSSL_bcm_text_hash;
-
-  if (!check_test(expected, result, sizeof(result), "FIPS integrity test")) {
+  if (!BORINGSSL_check_test(BORINGSSL_bcm_text_hash, Span(result, result_len),
+                            "FIPS integrity test")) {
 #if !defined(BORINGSSL_FIPS_BREAK_TESTS)
     return 0;
 #endif
@@ -268,11 +274,11 @@ int BORINGSSL_integrity_test(void) {
   return 1;
 }
 
-const uint8_t *FIPS_module_hash(void) { return BORINGSSL_bcm_text_hash; }
+const uint8_t *FIPS_module_hash() { return BORINGSSL_bcm_text_hash; }
 
 #endif  // OPENSSL_ASAN
 
-void BORINGSSL_FIPS_abort(void) {
+void bssl::BORINGSSL_FIPS_abort() {
   for (;;) {
     abort();
     exit(1);

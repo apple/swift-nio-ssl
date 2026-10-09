@@ -1,11 +1,16 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_digest.h>
 
@@ -13,10 +18,13 @@
 
 #include <CNIOBoringSSL_blake2.h>
 #include <CNIOBoringSSL_bytestring.h>
+#include <CNIOBoringSSL_evp_errors.h>
 #include <CNIOBoringSSL_md4.h>
 #include <CNIOBoringSSL_md5.h>
 #include <CNIOBoringSSL_nid.h>
 #include <CNIOBoringSSL_obj.h>
+#include <CNIOBoringSSL_sha.h>
+#include <CNIOBoringSSL_span.h>
 
 #include "../asn1/internal.h"
 #include "../fipsmodule/digest/internal.h"
@@ -25,7 +33,7 @@
 
 struct nid_to_digest {
   int nid;
-  const EVP_MD *(*md_func)(void);
+  const EVP_MD *(*md_func)();
   const char *short_name;
   const char *long_name;
 };
@@ -40,14 +48,14 @@ static const struct nid_to_digest nid_to_digest_mapping[] = {
     {NID_sha512, EVP_sha512, SN_sha512, LN_sha512},
     {NID_sha512_256, EVP_sha512_256, SN_sha512_256, LN_sha512_256},
     {NID_md5_sha1, EVP_md5_sha1, SN_md5_sha1, LN_md5_sha1},
-    // As a remnant of signing |EVP_MD|s, OpenSSL returned the corresponding
+    // As a remnant of signing `EVP_MD`s, OpenSSL returned the corresponding
     // hash function when given a signature OID. To avoid unintended lax parsing
     // of hash OIDs, this is no longer supported for lookup by OID or NID.
-    // Node.js, however, exposes |EVP_get_digestbyname|'s full behavior to
+    // Node.js, however, exposes `EVP_get_digestbyname`'s full behavior to
     // consumers so we retain it there.
     {NID_undef, EVP_sha1, SN_dsaWithSHA, LN_dsaWithSHA},
     {NID_undef, EVP_sha1, SN_dsaWithSHA1, LN_dsaWithSHA1},
-    {NID_undef, EVP_sha1, SN_ecdsa_with_SHA1, NULL},
+    {NID_undef, EVP_sha1, SN_ecdsa_with_SHA1, nullptr},
     {NID_undef, EVP_md5, SN_md5WithRSAEncryption, LN_md5WithRSAEncryption},
     {NID_undef, EVP_sha1, SN_sha1WithRSAEncryption, LN_sha1WithRSAEncryption},
     {NID_undef, EVP_sha224, SN_sha224WithRSAEncryption,
@@ -62,17 +70,17 @@ static const struct nid_to_digest nid_to_digest_mapping[] = {
 
 const EVP_MD *EVP_get_digestbynid(int nid) {
   if (nid == NID_undef) {
-    // Skip the |NID_undef| entries in |nid_to_digest_mapping|.
-    return NULL;
+    // Skip the `NID_undef` entries in `nid_to_digest_mapping`.
+    return nullptr;
   }
 
-  for (unsigned i = 0; i < OPENSSL_ARRAY_SIZE(nid_to_digest_mapping); i++) {
-    if (nid_to_digest_mapping[i].nid == nid) {
-      return nid_to_digest_mapping[i].md_func();
+  for (const auto &mapping : nid_to_digest_mapping) {
+    if (mapping.nid == nid) {
+      return mapping.md_func();
     }
   }
 
-  return NULL;
+  return nullptr;
 }
 
 static const struct {
@@ -96,42 +104,41 @@ static const struct {
     {{0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x04}, 9, NID_sha224},
 };
 
-static const EVP_MD *cbs_to_md(const CBS *cbs) {
-  for (size_t i = 0; i < OPENSSL_ARRAY_SIZE(kMDOIDs); i++) {
-    if (CBS_len(cbs) == kMDOIDs[i].oid_len &&
-        OPENSSL_memcmp(CBS_data(cbs), kMDOIDs[i].oid, kMDOIDs[i].oid_len) ==
-            0) {
-      return EVP_get_digestbynid(kMDOIDs[i].nid);
+static int cbs_to_digest_nid(const CBS *cbs) {
+  for (const auto &md : kMDOIDs) {
+    if (bssl::Span<const uint8_t>(*cbs) ==
+        bssl::Span(md.oid).first(md.oid_len)) {
+      return md.nid;
     }
   }
-
-  return NULL;
+  return NID_undef;
 }
 
 const EVP_MD *EVP_get_digestbyobj(const ASN1_OBJECT *obj) {
-  // Handle objects with no corresponding OID. Note we don't use |OBJ_obj2nid|
-  // here to avoid pulling in the OID table.
-  if (obj->nid != NID_undef) {
-    return EVP_get_digestbynid(obj->nid);
+  int nid = obj->nid;
+  if (nid == NID_undef) {
+    // Handle objects with no saved NID. Note we don't use `OBJ_obj2nid` here to
+    // avoid pulling in the OID table.
+    CBS cbs;
+    CBS_init(&cbs, OBJ_get0_data(obj), OBJ_length(obj));
+    nid = cbs_to_digest_nid(&cbs);
   }
 
-  CBS cbs;
-  CBS_init(&cbs, OBJ_get0_data(obj), OBJ_length(obj));
-  return cbs_to_md(&cbs);
+  return nid == NID_undef ? nullptr : EVP_get_digestbynid(nid);
 }
 
-const EVP_MD *EVP_parse_digest_algorithm(CBS *cbs) {
+int EVP_parse_digest_algorithm_nid(CBS *cbs) {
   CBS algorithm, oid;
   if (!CBS_get_asn1(cbs, &algorithm, CBS_ASN1_SEQUENCE) ||
       !CBS_get_asn1(&algorithm, &oid, CBS_ASN1_OBJECT)) {
     OPENSSL_PUT_ERROR(DIGEST, DIGEST_R_DECODE_ERROR);
-    return NULL;
+    return NID_undef;
   }
 
-  const EVP_MD *ret = cbs_to_md(&oid);
-  if (ret == NULL) {
+  int ret = cbs_to_digest_nid(&oid);
+  if (ret == NID_undef) {
     OPENSSL_PUT_ERROR(DIGEST, DIGEST_R_UNKNOWN_HASH);
-    return NULL;
+    return NID_undef;
   }
 
   // The parameters, if present, must be NULL. Historically, whether the NULL
@@ -144,28 +151,37 @@ const EVP_MD *EVP_parse_digest_algorithm(CBS *cbs) {
         CBS_len(&param) != 0 ||  //
         CBS_len(&algorithm) != 0) {
       OPENSSL_PUT_ERROR(DIGEST, DIGEST_R_DECODE_ERROR);
-      return NULL;
+      return NID_undef;
     }
   }
 
   return ret;
 }
 
-int EVP_marshal_digest_algorithm(CBB *cbb, const EVP_MD *md) {
+const EVP_MD *EVP_parse_digest_algorithm(CBS *cbs) {
+  int nid = EVP_parse_digest_algorithm_nid(cbs);
+  if (nid == NID_undef) {
+    return nullptr;
+  }
+  return EVP_get_digestbynid(nid);
+}
+
+static int marshal_digest_algorithm(CBB *cbb, const EVP_MD *md,
+                                    bool with_null) {
   CBB algorithm, oid, null;
   if (!CBB_add_asn1(cbb, &algorithm, CBS_ASN1_SEQUENCE) ||
       !CBB_add_asn1(&algorithm, &oid, CBS_ASN1_OBJECT)) {
     return 0;
   }
 
-  int found = 0;
+  bool found = false;
   int nid = EVP_MD_type(md);
-  for (size_t i = 0; i < OPENSSL_ARRAY_SIZE(kMDOIDs); i++) {
-    if (nid == kMDOIDs[i].nid) {
-      if (!CBB_add_bytes(&oid, kMDOIDs[i].oid, kMDOIDs[i].oid_len)) {
+  for (const auto &mdoid : kMDOIDs) {
+    if (nid == mdoid.nid) {
+      if (!CBB_add_bytes(&oid, mdoid.oid, mdoid.oid_len)) {
         return 0;
       }
-      found = 1;
+      found = true;
       break;
     }
   }
@@ -175,8 +191,7 @@ int EVP_marshal_digest_algorithm(CBB *cbb, const EVP_MD *md) {
     return 0;
   }
 
-  // TODO(crbug.com/boringssl/710): Is this correct? See RFC 4055, section 2.1.
-  if (!CBB_add_asn1(&algorithm, &null, CBS_ASN1_NULL) ||  //
+  if ((with_null && !CBB_add_asn1(&algorithm, &null, CBS_ASN1_NULL)) ||  //
       !CBB_flush(cbb)) {
     return 0;
   }
@@ -184,17 +199,52 @@ int EVP_marshal_digest_algorithm(CBB *cbb, const EVP_MD *md) {
   return 1;
 }
 
+int EVP_marshal_digest_algorithm(CBB *cbb, const EVP_MD *md) {
+  return marshal_digest_algorithm(cbb, md, /*with_null=*/true);
+}
+
+int EVP_marshal_digest_algorithm_no_params(CBB *cbb, const EVP_MD *md) {
+  return marshal_digest_algorithm(cbb, md, /*with_null=*/false);
+}
+
 const EVP_MD *EVP_get_digestbyname(const char *name) {
-  for (unsigned i = 0; i < OPENSSL_ARRAY_SIZE(nid_to_digest_mapping); i++) {
-    const char *short_name = nid_to_digest_mapping[i].short_name;
-    const char *long_name = nid_to_digest_mapping[i].long_name;
+  for (const auto &mapping : nid_to_digest_mapping) {
+    const char *short_name = mapping.short_name;
+    const char *long_name = mapping.long_name;
     if ((short_name && strcmp(short_name, name) == 0) ||
         (long_name && strcmp(long_name, name) == 0)) {
-      return nid_to_digest_mapping[i].md_func();
+      return mapping.md_func();
     }
   }
 
-  return NULL;
+  return nullptr;
+}
+
+EVP_MD *EVP_MD_fetch(OSSL_LIB_CTX *libctx, const char *name,
+                     const char *propq) {
+  EVP_MD *ret = const_cast<EVP_MD *>(EVP_get_digestbyname(name));
+  if (ret == nullptr) {
+    OPENSSL_PUT_ERROR(EVP, EVP_R_UNSUPPORTED_ALGORITHM);
+  }
+  return ret;
+}
+
+int EVP_MD_up_ref(EVP_MD *md) { return 1; }
+
+void EVP_MD_free(EVP_MD *md) {}
+
+int EVP_Q_digest(OSSL_LIB_CTX *libctx, const char *name, const char *propq,
+                 const void *in, size_t in_len, uint8_t *out, size_t *out_len) {
+  const EVP_MD *md = EVP_MD_fetch(libctx, name, propq);
+  if (md == nullptr) {
+    return 0;
+  }
+  unsigned len_u;
+  if (!EVP_Digest(in, in_len, out, &len_u, md, nullptr)) {
+    return 0;
+  }
+  *out_len = len_u;
+  return 1;
 }
 
 static void blake2b256_init(EVP_MD_CTX *ctx) {
@@ -215,7 +265,9 @@ static const EVP_MD evp_md_blake2b256 = {
     BLAKE2B_CBLOCK,  sizeof(BLAKE2B_CTX),
 };
 
-const EVP_MD *EVP_blake2b256(void) { return &evp_md_blake2b256; }
+const EVP_MD *EVP_blake2b256() { return &evp_md_blake2b256; }
+
+static_assert(sizeof(BLAKE2B_CTX) <= EVP_MAX_MD_DATA_SIZE);
 
 
 static void md4_init(EVP_MD_CTX *ctx) {
@@ -242,7 +294,10 @@ static const EVP_MD evp_md_md4 = {
     sizeof(MD4_CTX),
 };
 
-const EVP_MD *EVP_md4(void) { return &evp_md_md4; }
+const EVP_MD *EVP_md4() { return &evp_md_md4; }
+
+static_assert(sizeof(MD4_CTX) <= EVP_MAX_MD_DATA_SIZE);
+
 
 static void md5_init(EVP_MD_CTX *ctx) {
   BSSL_CHECK(MD5_Init(reinterpret_cast<MD5_CTX *>(ctx->md_data)));
@@ -262,7 +317,10 @@ static const EVP_MD evp_md_md5 = {
     md5_update, md5_final,         64, sizeof(MD5_CTX),
 };
 
-const EVP_MD *EVP_md5(void) { return &evp_md_md5; }
+const EVP_MD *EVP_md5() { return &evp_md_md5; }
+
+static_assert(sizeof(MD5_CTX) <= EVP_MAX_MD_DATA_SIZE);
+
 
 typedef struct {
   MD5_CTX md5;
@@ -298,4 +356,6 @@ const EVP_MD evp_md_md5_sha1 = {
     sizeof(MD5_SHA1_CTX),
 };
 
-const EVP_MD *EVP_md5_sha1(void) { return &evp_md_md5_sha1; }
+const EVP_MD *EVP_md5_sha1() { return &evp_md_md5_sha1; }
+
+static_assert(sizeof(MD5_SHA1_CTX) <= EVP_MAX_MD_DATA_SIZE);

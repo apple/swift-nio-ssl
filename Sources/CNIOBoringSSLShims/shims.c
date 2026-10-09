@@ -23,6 +23,10 @@ size_t CNIOBoringSSLShims_sk_X509_EXTENSION_num(const STACK_OF(X509_EXTENSION) *
     return sk_X509_EXTENSION_num(sk);
 }
 
+void CNIOBoringSSLShims_sk_X509_EXTENSION_free(STACK_OF(X509_EXTENSION) *sk) {
+    return sk_X509_EXTENSION_free(sk);
+}
+
 GENERAL_NAME *CNIOBoringSSLShims_sk_GENERAL_NAME_value(const STACK_OF(GENERAL_NAME) *sk, size_t i) {
     return sk_GENERAL_NAME_value(sk, i);
 }
@@ -45,4 +49,44 @@ int CNIOBoringSSLShims_ERR_GET_LIB(uint32_t err) {
 
 int CNIOBoringSSLShims_ERR_GET_REASON(uint32_t err) {
   return ERR_GET_REASON(err);
+}
+
+size_t CNIOBoringSSLShims_sk_X509_num(const STACK_OF(X509) *sk) {
+    return sk_X509_num(sk);
+}
+
+X509 *CNIOBoringSSLShims_sk_X509_value(const STACK_OF(X509) *sk, size_t i) {
+    return sk_X509_value(sk, i);
+}
+
+STACK_OF(X509) *CNIOBoringSSLShims_sk_X509_new_null(void) {
+    return sk_X509_new_null();
+}
+
+void CNIOBoringSSLShims_sk_X509_pop_free(STACK_OF(X509) *sk, sk_X509_free_func free_func) {
+    return sk_X509_pop_free(sk, free_func);
+}
+
+size_t CNIOBoringSSLShims_sk_X509_push(STACK_OF(X509) *sk, X509 *p) {
+    return sk_X509_push(sk, p);
+}
+
+size_t CNIOBoringSSLShims_sk_CRYPTO_BUFFER_num(const STACK_OF(CRYPTO_BUFFER) *sk) {
+    return sk_CRYPTO_BUFFER_num(sk);
+}
+
+CRYPTO_BUFFER *CNIOBoringSSLShims_sk_CRYPTO_BUFFER_value(const STACK_OF(CRYPTO_BUFFER) *sk, size_t i) {
+    return sk_CRYPTO_BUFFER_value(sk, i);
+}
+
+size_t CNIOBoringSSLShims_sk_X509_NAME_num(const STACK_OF(X509_NAME) *sk) {
+    return sk_X509_NAME_num(sk);
+}
+
+size_t CNIOBoringSSLShims_sk_SSL_CIPHER_num(const STACK_OF(SSL_CIPHER) *sk) {
+    return sk_SSL_CIPHER_num(sk);
+}
+
+const SSL_CIPHER *CNIOBoringSSLShims_sk_SSL_CIPHER_value(const STACK_OF(SSL_CIPHER) *sk, size_t i) {
+    return sk_SSL_CIPHER_value(sk, i);
 }

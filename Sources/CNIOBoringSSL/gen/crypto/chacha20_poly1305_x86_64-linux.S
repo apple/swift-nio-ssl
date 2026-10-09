@@ -57,7 +57,7 @@ poly_hash_ad_internal:
 	cmpq	$13,%r8
 	jne	.Lhash_ad_loop
 .Lpoly_fast_tls_ad:
-
+// Special treatment for the TLS case of 13 bytes
 	movq	(%rcx),%r10
 	movq	5(%rcx),%r11
 	shrq	$24,%r11
@@ -88,21 +88,21 @@ poly_hash_ad_internal:
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
 
 	ret
 .Lhash_ad_loop:
-
+// Hash in 16 byte chunk
 	cmpq	$16,%r8
 	jb	.Lhash_ad_tail
 	addq	0+0(%rcx),%r10
@@ -134,14 +134,14 @@ poly_hash_ad_internal:
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -152,7 +152,7 @@ poly_hash_ad_internal:
 .Lhash_ad_tail:
 	cmpq	$0,%r8
 	je	.Lhash_ad_done
-
+// Hash last < 16 byte tail
 	xorq	%r13,%r13
 	xorq	%r14,%r14
 	xorq	%r15,%r15
@@ -195,29 +195,29 @@ poly_hash_ad_internal:
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
 
-
+// Finished AD
 .Lhash_ad_done:
 	ret
 .cfi_endproc	
 .size	poly_hash_ad_internal, .-poly_hash_ad_internal
 
-.globl	chacha20_poly1305_open_nohw
-.hidden chacha20_poly1305_open_nohw
-.type	chacha20_poly1305_open_nohw,@function
+.globl	chacha20_poly1305_open_sse41
+.hidden chacha20_poly1305_open_sse41
+.type	chacha20_poly1305_open_sse41,@function
 .align	64
-chacha20_poly1305_open_nohw:
+chacha20_poly1305_open_sse41:
 .cfi_startproc	
 _CET_ENDBR
 	pushq	%rbp
@@ -238,8 +238,8 @@ _CET_ENDBR
 	pushq	%r15
 .cfi_adjust_cfa_offset	8
 .cfi_offset	%r15,-56
-
-
+// We write the calculated authenticator back to keyp at the end, so save
+// the pointer on the stack too.
 	pushq	%r9
 .cfi_adjust_cfa_offset	8
 .cfi_offset	%r9,-64
@@ -255,14 +255,14 @@ _CET_ENDBR
 
 	cmpq	$128,%rbx
 	jbe	.Lopen_sse_128
-
+// For long buffers, prepare the poly key first
 	movdqa	.Lchacha20_consts(%rip),%xmm0
 	movdqu	0(%r9),%xmm4
 	movdqu	16(%r9),%xmm8
 	movdqu	32(%r9),%xmm12
 
 	movdqa	%xmm12,%xmm7
-
+// Store on stack, to free keyp
 	movdqa	%xmm4,0+48(%rbp)
 	movdqa	%xmm8,0+64(%rbp)
 	movdqa	%xmm12,0+96(%rbp)
@@ -286,9 +286,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,4
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,12
+	palignr	$4,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$12,%xmm12,%xmm12
 	paddd	%xmm4,%xmm0
 	pxor	%xmm0,%xmm12
 	pshufb	.Lrol16(%rip),%xmm12
@@ -307,26 +307,26 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,12
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,4
+	palignr	$12,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$4,%xmm12,%xmm12
 
 	decq	%r10
 	jne	.Lopen_sse_init_rounds
-
+// A0|B0 hold the Poly1305 32-byte key, C0,D0 can be discarded
 	paddd	.Lchacha20_consts(%rip),%xmm0
 	paddd	0+48(%rbp),%xmm4
-
+// Clamp and store the key
 	pand	.Lclamp(%rip),%xmm0
 	movdqa	%xmm0,0+0(%rbp)
 	movdqa	%xmm4,0+16(%rbp)
-
+// Hash
 	movq	%r8,%r8
 	call	poly_hash_ad_internal
 .Lopen_sse_main_loop:
 	cmpq	$256,%rbx
 	jb	.Lopen_sse_tail
-
+// Load state, increment counter blocks
 	movdqa	.Lchacha20_consts(%rip),%xmm0
 	movdqa	0+48(%rbp),%xmm4
 	movdqa	0+64(%rbp),%xmm8
@@ -352,8 +352,8 @@ _CET_ENDBR
 	movdqa	%xmm14,0+128(%rbp)
 	movdqa	%xmm15,0+144(%rbp)
 
-
-
+// There are 10 ChaCha20 iterations of 2QR each, so for 6 iterations we
+// hash 2 blocks, and for the remaining 4 only 1 block - for a total of 16
 	movq	$4,%rcx
 	movq	%rsi,%r8
 .Lopen_sse_main_loop_rounds:
@@ -367,10 +367,10 @@ _CET_ENDBR
 	pxor	%xmm2,%xmm14
 	pxor	%xmm1,%xmm13
 	pxor	%xmm0,%xmm12
-.byte	102,69,15,56,0,248
-.byte	102,69,15,56,0,240
-.byte	102,69,15,56,0,232
-.byte	102,69,15,56,0,224
+	pshufb	%xmm8,%xmm15
+	pshufb	%xmm8,%xmm14
+	pshufb	%xmm8,%xmm13
+	pshufb	%xmm8,%xmm12
 	movdqa	0+80(%rbp),%xmm8
 	paddd	%xmm15,%xmm11
 	paddd	%xmm14,%xmm10
@@ -421,10 +421,10 @@ _CET_ENDBR
 	pxor	%xmm2,%xmm14
 	pxor	%xmm1,%xmm13
 	pxor	%xmm0,%xmm12
-.byte	102,69,15,56,0,248
-.byte	102,69,15,56,0,240
-.byte	102,69,15,56,0,232
-.byte	102,69,15,56,0,224
+	pshufb	%xmm8,%xmm15
+	pshufb	%xmm8,%xmm14
+	pshufb	%xmm8,%xmm13
+	pshufb	%xmm8,%xmm12
 	movdqa	0+80(%rbp),%xmm8
 	paddd	%xmm15,%xmm11
 	paddd	%xmm14,%xmm10
@@ -465,18 +465,18 @@ _CET_ENDBR
 	imulq	%r12,%r9
 	addq	%r10,%r15
 	adcq	%rdx,%r9
-.byte	102,15,58,15,255,4
-.byte	102,69,15,58,15,219,8
-.byte	102,69,15,58,15,255,12
-.byte	102,15,58,15,246,4
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,12
-.byte	102,15,58,15,237,4
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,12
-.byte	102,15,58,15,228,4
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,12
+	palignr	$4,%xmm7,%xmm7
+	palignr	$8,%xmm11,%xmm11
+	palignr	$12,%xmm15,%xmm15
+	palignr	$4,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$12,%xmm14,%xmm14
+	palignr	$4,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$12,%xmm13,%xmm13
+	palignr	$4,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$12,%xmm12,%xmm12
 	movdqa	%xmm8,0+80(%rbp)
 	movdqa	.Lrol16(%rip),%xmm8
 	paddd	%xmm7,%xmm3
@@ -488,23 +488,23 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
 	pxor	%xmm1,%xmm13
 	pxor	%xmm0,%xmm12
-.byte	102,69,15,56,0,248
-.byte	102,69,15,56,0,240
-.byte	102,69,15,56,0,232
-.byte	102,69,15,56,0,224
+	pshufb	%xmm8,%xmm15
+	pshufb	%xmm8,%xmm14
+	pshufb	%xmm8,%xmm13
+	pshufb	%xmm8,%xmm12
 	movdqa	0+80(%rbp),%xmm8
 	paddd	%xmm15,%xmm11
 	paddd	%xmm14,%xmm10
@@ -540,10 +540,10 @@ _CET_ENDBR
 	pxor	%xmm2,%xmm14
 	pxor	%xmm1,%xmm13
 	pxor	%xmm0,%xmm12
-.byte	102,69,15,56,0,248
-.byte	102,69,15,56,0,240
-.byte	102,69,15,56,0,232
-.byte	102,69,15,56,0,224
+	pshufb	%xmm8,%xmm15
+	pshufb	%xmm8,%xmm14
+	pshufb	%xmm8,%xmm13
+	pshufb	%xmm8,%xmm12
 	movdqa	0+80(%rbp),%xmm8
 	paddd	%xmm15,%xmm11
 	paddd	%xmm14,%xmm10
@@ -571,18 +571,18 @@ _CET_ENDBR
 	pslld	$32-25,%xmm4
 	pxor	%xmm8,%xmm4
 	movdqa	0+80(%rbp),%xmm8
-.byte	102,15,58,15,255,12
-.byte	102,69,15,58,15,219,8
-.byte	102,69,15,58,15,255,4
-.byte	102,15,58,15,246,12
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,4
-.byte	102,15,58,15,237,12
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,4
-.byte	102,15,58,15,228,12
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,4
+	palignr	$12,%xmm7,%xmm7
+	palignr	$8,%xmm11,%xmm11
+	palignr	$4,%xmm15,%xmm15
+	palignr	$12,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$4,%xmm14,%xmm14
+	palignr	$12,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$4,%xmm13,%xmm13
+	palignr	$12,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$4,%xmm12,%xmm12
 
 	decq	%rcx
 	jge	.Lopen_sse_main_loop_rounds
@@ -615,14 +615,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -701,7 +701,7 @@ _CET_ENDBR
 	subq	$256,%rbx
 	jmp	.Lopen_sse_main_loop
 .Lopen_sse_tail:
-
+// Handle the various tail sizes efficiently
 	testq	%rbx,%rbx
 	jz	.Lopen_sse_finalize
 	cmpq	$192,%rbx
@@ -751,14 +751,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -784,9 +784,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,4
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,12
+	palignr	$4,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$12,%xmm12,%xmm12
 	paddd	%xmm4,%xmm0
 	pxor	%xmm0,%xmm12
 	pshufb	.Lrol16(%rip),%xmm12
@@ -805,9 +805,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,12
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,4
+	palignr	$12,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$4,%xmm12,%xmm12
 
 	cmpq	$16,%rcx
 	jae	.Lopen_sse_tail_64_rounds_and_x1hash
@@ -819,7 +819,7 @@ _CET_ENDBR
 	paddd	0+96(%rbp),%xmm12
 
 	jmp	.Lopen_sse_tail_64_dec_loop
-
+// ############################################################################# 
 .Lopen_sse_tail_128:
 	movdqa	.Lchacha20_consts(%rip),%xmm0
 	movdqa	0+48(%rbp),%xmm4
@@ -867,14 +867,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -899,9 +899,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,4
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,12
+	palignr	$4,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$12,%xmm12,%xmm12
 	paddd	%xmm5,%xmm1
 	pxor	%xmm1,%xmm13
 	pshufb	.Lrol16(%rip),%xmm13
@@ -920,9 +920,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm5
 	pxor	%xmm3,%xmm5
-.byte	102,15,58,15,237,4
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,12
+	palignr	$4,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$12,%xmm13,%xmm13
 	paddd	%xmm4,%xmm0
 	pxor	%xmm0,%xmm12
 	pshufb	.Lrol16(%rip),%xmm12
@@ -941,9 +941,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,12
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,4
+	palignr	$12,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$4,%xmm12,%xmm12
 	paddd	%xmm5,%xmm1
 	pxor	%xmm1,%xmm13
 	pshufb	.Lrol16(%rip),%xmm13
@@ -962,9 +962,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm5
 	pxor	%xmm3,%xmm5
-.byte	102,15,58,15,237,12
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,4
+	palignr	$12,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$4,%xmm13,%xmm13
 
 	cmpq	%rcx,%r8
 	jb	.Lopen_sse_tail_128_rounds_and_x1hash
@@ -995,7 +995,7 @@ _CET_ENDBR
 	leaq	64(%rsi),%rsi
 	leaq	64(%rdi),%rdi
 	jmp	.Lopen_sse_tail_64_dec_loop
-
+// ############################################################################# 
 .Lopen_sse_tail_192:
 	movdqa	.Lchacha20_consts(%rip),%xmm0
 	movdqa	0+48(%rbp),%xmm4
@@ -1052,14 +1052,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -1084,9 +1084,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,4
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,12
+	palignr	$4,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$12,%xmm12,%xmm12
 	paddd	%xmm5,%xmm1
 	pxor	%xmm1,%xmm13
 	pshufb	.Lrol16(%rip),%xmm13
@@ -1105,9 +1105,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm5
 	pxor	%xmm3,%xmm5
-.byte	102,15,58,15,237,4
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,12
+	palignr	$4,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$12,%xmm13,%xmm13
 	paddd	%xmm6,%xmm2
 	pxor	%xmm2,%xmm14
 	pshufb	.Lrol16(%rip),%xmm14
@@ -1126,9 +1126,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm6
 	pxor	%xmm3,%xmm6
-.byte	102,15,58,15,246,4
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,12
+	palignr	$4,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$12,%xmm14,%xmm14
 	paddd	%xmm4,%xmm0
 	pxor	%xmm0,%xmm12
 	pshufb	.Lrol16(%rip),%xmm12
@@ -1147,9 +1147,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,12
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,4
+	palignr	$12,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$4,%xmm12,%xmm12
 	paddd	%xmm5,%xmm1
 	pxor	%xmm1,%xmm13
 	pshufb	.Lrol16(%rip),%xmm13
@@ -1168,9 +1168,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm5
 	pxor	%xmm3,%xmm5
-.byte	102,15,58,15,237,12
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,4
+	palignr	$12,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$4,%xmm13,%xmm13
 	paddd	%xmm6,%xmm2
 	pxor	%xmm2,%xmm14
 	pshufb	.Lrol16(%rip),%xmm14
@@ -1189,9 +1189,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm6
 	pxor	%xmm3,%xmm6
-.byte	102,15,58,15,246,12
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,4
+	palignr	$12,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$4,%xmm14,%xmm14
 
 	cmpq	%rcx,%r8
 	jb	.Lopen_sse_tail_192_rounds_and_x1hash
@@ -1228,14 +1228,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -1271,14 +1271,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -1325,7 +1325,7 @@ _CET_ENDBR
 	leaq	128(%rsi),%rsi
 	leaq	128(%rdi),%rdi
 	jmp	.Lopen_sse_tail_64_dec_loop
-
+// ############################################################################# 
 .Lopen_sse_tail_256:
 	movdqa	.Lchacha20_consts(%rip),%xmm0
 	movdqa	0+48(%rbp),%xmm4
@@ -1376,9 +1376,9 @@ _CET_ENDBR
 	pslld	$7,%xmm11
 	psrld	$25,%xmm4
 	pxor	%xmm11,%xmm4
-.byte	102,15,58,15,228,4
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,12
+	palignr	$4,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$12,%xmm12,%xmm12
 	paddd	%xmm5,%xmm1
 	pxor	%xmm1,%xmm13
 	pshufb	.Lrol16(%rip),%xmm13
@@ -1397,9 +1397,9 @@ _CET_ENDBR
 	pslld	$7,%xmm11
 	psrld	$25,%xmm5
 	pxor	%xmm11,%xmm5
-.byte	102,15,58,15,237,4
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,12
+	palignr	$4,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$12,%xmm13,%xmm13
 	paddd	%xmm6,%xmm2
 	pxor	%xmm2,%xmm14
 	pshufb	.Lrol16(%rip),%xmm14
@@ -1418,9 +1418,9 @@ _CET_ENDBR
 	pslld	$7,%xmm11
 	psrld	$25,%xmm6
 	pxor	%xmm11,%xmm6
-.byte	102,15,58,15,246,4
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,12
+	palignr	$4,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$12,%xmm14,%xmm14
 	movdqa	0+80(%rbp),%xmm11
 	movq	0+0+0(%rbp),%rax
 	movq	%rax,%r15
@@ -1451,9 +1451,9 @@ _CET_ENDBR
 	pslld	$7,%xmm9
 	psrld	$25,%xmm7
 	pxor	%xmm9,%xmm7
-.byte	102,15,58,15,255,4
-.byte	102,69,15,58,15,219,8
-.byte	102,69,15,58,15,255,12
+	palignr	$4,%xmm7,%xmm7
+	palignr	$8,%xmm11,%xmm11
+	palignr	$12,%xmm15,%xmm15
 	movdqa	0+80(%rbp),%xmm9
 	movq	8+0+0(%rbp),%rax
 	movq	%rax,%r9
@@ -1484,9 +1484,9 @@ _CET_ENDBR
 	pslld	$7,%xmm11
 	psrld	$25,%xmm4
 	pxor	%xmm11,%xmm4
-.byte	102,15,58,15,228,12
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,4
+	palignr	$12,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$4,%xmm12,%xmm12
 	paddd	%xmm5,%xmm1
 	pxor	%xmm1,%xmm13
 	pshufb	.Lrol16(%rip),%xmm13
@@ -1505,9 +1505,9 @@ _CET_ENDBR
 	pslld	$7,%xmm11
 	psrld	$25,%xmm5
 	pxor	%xmm11,%xmm5
-.byte	102,15,58,15,237,12
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,4
+	palignr	$12,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$4,%xmm13,%xmm13
 	imulq	%r12,%r9
 	addq	%r10,%r15
 	adcq	%rdx,%r9
@@ -1529,21 +1529,21 @@ _CET_ENDBR
 	pslld	$7,%xmm11
 	psrld	$25,%xmm6
 	pxor	%xmm11,%xmm6
-.byte	102,15,58,15,246,12
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,4
+	palignr	$12,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$4,%xmm14,%xmm14
 	movdqa	0+80(%rbp),%xmm11
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -1566,9 +1566,9 @@ _CET_ENDBR
 	pslld	$7,%xmm9
 	psrld	$25,%xmm7
 	pxor	%xmm9,%xmm7
-.byte	102,15,58,15,255,12
-.byte	102,69,15,58,15,219,8
-.byte	102,69,15,58,15,255,4
+	palignr	$12,%xmm7,%xmm7
+	palignr	$8,%xmm11,%xmm11
+	palignr	$4,%xmm15,%xmm15
 	movdqa	0+80(%rbp),%xmm9
 
 	addq	$16,%r8
@@ -1607,14 +1607,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -1680,8 +1680,8 @@ _CET_ENDBR
 	subq	$192,%rbx
 	leaq	192(%rsi),%rsi
 	leaq	192(%rdi),%rdi
-
-
+// ############################################################################# 
+// Decrypt the remaining data, 16B at a time, using existing stream
 .Lopen_sse_tail_64_dec_loop:
 	cmpq	$16,%rbx
 	jb	.Lopen_sse_tail_16_init
@@ -1698,13 +1698,13 @@ _CET_ENDBR
 .Lopen_sse_tail_16_init:
 	movdqa	%xmm0,%xmm1
 
-
+// Decrypt up to 16 bytes at the end.
 .Lopen_sse_tail_16:
 	testq	%rbx,%rbx
 	jz	.Lopen_sse_finalize
 
-
-
+// Read the final bytes into %xmm3. They need to be read in reverse order so
+// that they end up in the correct order in %xmm3.
 	pxor	%xmm3,%xmm3
 	leaq	-1(%rsi,%rbx,1),%rsi
 	movq	%rbx,%r8
@@ -1715,12 +1715,12 @@ _CET_ENDBR
 	subq	$1,%r8
 	jnz	.Lopen_sse_tail_16_compose
 
-.byte	102,73,15,126,221
+	movq	%xmm3,%r13
 	pextrq	$1,%xmm3,%r14
-
+// The final bytes of keystream are in %xmm1.
 	pxor	%xmm1,%xmm3
 
-
+// Copy the plaintext bytes out.
 .Lopen_sse_tail_16_extract:
 	pextrb	$0,%xmm3,(%rdi)
 	psrldq	$1,%xmm3
@@ -1757,14 +1757,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -1800,19 +1800,19 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
 
-
+// Final reduce
 	movq	%r10,%r13
 	movq	%r11,%r14
 	movq	%r12,%r15
@@ -1822,14 +1822,14 @@ _CET_ENDBR
 	cmovcq	%r13,%r10
 	cmovcq	%r14,%r11
 	cmovcq	%r15,%r12
-
+// Add in s part of the key
 	addq	0+0+16(%rbp),%r10
 	adcq	8+0+16(%rbp),%r11
 
 .cfi_remember_state	
 	addq	$288 + 0 + 32,%rsp
 .cfi_adjust_cfa_offset	-(288 + 32)
-
+// The tag replaces the key on return
 	popq	%r9
 .cfi_adjust_cfa_offset	-8
 .cfi_restore	%r9
@@ -1854,7 +1854,7 @@ _CET_ENDBR
 .cfi_adjust_cfa_offset	-8
 .cfi_restore	%rbp
 	ret
-
+// ############################################################################# 
 .Lopen_sse_128:
 .cfi_restore_state	
 	movdqu	.Lchacha20_consts(%rip),%xmm0
@@ -1895,9 +1895,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,4
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,12
+	palignr	$4,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$12,%xmm12,%xmm12
 	paddd	%xmm5,%xmm1
 	pxor	%xmm1,%xmm13
 	pshufb	.Lrol16(%rip),%xmm13
@@ -1916,9 +1916,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm5
 	pxor	%xmm3,%xmm5
-.byte	102,15,58,15,237,4
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,12
+	palignr	$4,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$12,%xmm13,%xmm13
 	paddd	%xmm6,%xmm2
 	pxor	%xmm2,%xmm14
 	pshufb	.Lrol16(%rip),%xmm14
@@ -1937,9 +1937,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm6
 	pxor	%xmm3,%xmm6
-.byte	102,15,58,15,246,4
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,12
+	palignr	$4,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$12,%xmm14,%xmm14
 	paddd	%xmm4,%xmm0
 	pxor	%xmm0,%xmm12
 	pshufb	.Lrol16(%rip),%xmm12
@@ -1958,9 +1958,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,12
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,4
+	palignr	$12,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$4,%xmm12,%xmm12
 	paddd	%xmm5,%xmm1
 	pxor	%xmm1,%xmm13
 	pshufb	.Lrol16(%rip),%xmm13
@@ -1979,9 +1979,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm5
 	pxor	%xmm3,%xmm5
-.byte	102,15,58,15,237,12
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,4
+	palignr	$12,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$4,%xmm13,%xmm13
 	paddd	%xmm6,%xmm2
 	pxor	%xmm2,%xmm14
 	pshufb	.Lrol16(%rip),%xmm14
@@ -2000,9 +2000,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm6
 	pxor	%xmm3,%xmm6
-.byte	102,15,58,15,246,12
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,4
+	palignr	$12,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$4,%xmm14,%xmm14
 
 	decq	%r10
 	jnz	.Lopen_sse_128_rounds
@@ -2017,11 +2017,11 @@ _CET_ENDBR
 	paddd	%xmm15,%xmm13
 	paddd	.Lsse_inc(%rip),%xmm15
 	paddd	%xmm15,%xmm14
-
+// Clamp and store the key
 	pand	.Lclamp(%rip),%xmm0
 	movdqa	%xmm0,0+0(%rbp)
 	movdqa	%xmm4,0+16(%rbp)
-
+// Hash
 	movq	%r8,%r8
 	call	poly_hash_ad_internal
 .Lopen_sse_128_xor_hash:
@@ -2032,7 +2032,7 @@ _CET_ENDBR
 	adcq	8+0(%rsi),%r11
 	adcq	$1,%r12
 
-
+// Load for decryption
 	movdqu	0(%rsi),%xmm3
 	pxor	%xmm3,%xmm1
 	movdqu	%xmm1,0(%rdi)
@@ -2064,19 +2064,19 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
 
-
+// Shift the stream left
 	movdqa	%xmm5,%xmm1
 	movdqa	%xmm9,%xmm5
 	movdqa	%xmm13,%xmm9
@@ -2085,20 +2085,20 @@ _CET_ENDBR
 	movdqa	%xmm10,%xmm6
 	movdqa	%xmm14,%xmm10
 	jmp	.Lopen_sse_128_xor_hash
-.size	chacha20_poly1305_open_nohw, .-chacha20_poly1305_open_nohw
+.size	chacha20_poly1305_open_sse41, .-chacha20_poly1305_open_sse41
 .cfi_endproc	
 
-
-
-
-
-
-
-.globl	chacha20_poly1305_seal_nohw
-.hidden chacha20_poly1305_seal_nohw
-.type	chacha20_poly1305_seal_nohw,@function
+// ############################################################################## 
+// ############################################################################## 
+// void chacha20_poly1305_seal(uint8_t *out_ciphertext, const uint8_t *plaintext,
+// size_t plaintext_len, const uint8_t *ad,
+// size_t ad_len,
+// union chacha20_poly1305_seal_data *data);
+.globl	chacha20_poly1305_seal_sse41
+.hidden chacha20_poly1305_seal_sse41
+.type	chacha20_poly1305_seal_sse41,@function
 .align	64
-chacha20_poly1305_seal_nohw:
+chacha20_poly1305_seal_sse41:
 .cfi_startproc	
 _CET_ENDBR
 	pushq	%rbp
@@ -2119,8 +2119,8 @@ _CET_ENDBR
 	pushq	%r15
 .cfi_adjust_cfa_offset	8
 .cfi_offset	%r15,-56
-
-
+// We write the calculated authenticator back to keyp at the end, so save
+// the pointer on the stack too.
 	pushq	%r9
 .cfi_adjust_cfa_offset	8
 .cfi_offset	%r9,-64
@@ -2129,7 +2129,7 @@ _CET_ENDBR
 	leaq	32(%rsp),%rbp
 	andq	$-32,%rbp
 
-	movq	56(%r9),%rbx
+	movq	56(%r9),%rbx  // extra_in_len
 	addq	%rdx,%rbx
 	movq	%r8,0+0+32(%rbp)
 	movq	%rbx,8+0+32(%rbp)
@@ -2137,7 +2137,7 @@ _CET_ENDBR
 
 	cmpq	$128,%rbx
 	jbe	.Lseal_sse_128
-
+// For longer buffers, prepare the poly key + some stream
 	movdqa	.Lchacha20_consts(%rip),%xmm0
 	movdqu	0(%r9),%xmm4
 	movdqu	16(%r9),%xmm8
@@ -2158,7 +2158,7 @@ _CET_ENDBR
 	paddd	.Lsse_inc(%rip),%xmm12
 	movdqa	%xmm12,%xmm13
 	paddd	.Lsse_inc(%rip),%xmm12
-
+// Store on stack
 	movdqa	%xmm4,0+48(%rbp)
 	movdqa	%xmm8,0+64(%rbp)
 	movdqa	%xmm12,0+96(%rbp)
@@ -2177,10 +2177,10 @@ _CET_ENDBR
 	pxor	%xmm2,%xmm14
 	pxor	%xmm1,%xmm13
 	pxor	%xmm0,%xmm12
-.byte	102,69,15,56,0,248
-.byte	102,69,15,56,0,240
-.byte	102,69,15,56,0,232
-.byte	102,69,15,56,0,224
+	pshufb	%xmm8,%xmm15
+	pshufb	%xmm8,%xmm14
+	pshufb	%xmm8,%xmm13
+	pshufb	%xmm8,%xmm12
 	movdqa	0+80(%rbp),%xmm8
 	paddd	%xmm15,%xmm11
 	paddd	%xmm14,%xmm10
@@ -2216,10 +2216,10 @@ _CET_ENDBR
 	pxor	%xmm2,%xmm14
 	pxor	%xmm1,%xmm13
 	pxor	%xmm0,%xmm12
-.byte	102,69,15,56,0,248
-.byte	102,69,15,56,0,240
-.byte	102,69,15,56,0,232
-.byte	102,69,15,56,0,224
+	pshufb	%xmm8,%xmm15
+	pshufb	%xmm8,%xmm14
+	pshufb	%xmm8,%xmm13
+	pshufb	%xmm8,%xmm12
 	movdqa	0+80(%rbp),%xmm8
 	paddd	%xmm15,%xmm11
 	paddd	%xmm14,%xmm10
@@ -2247,18 +2247,18 @@ _CET_ENDBR
 	pslld	$32-25,%xmm4
 	pxor	%xmm8,%xmm4
 	movdqa	0+80(%rbp),%xmm8
-.byte	102,15,58,15,255,4
-.byte	102,69,15,58,15,219,8
-.byte	102,69,15,58,15,255,12
-.byte	102,15,58,15,246,4
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,12
-.byte	102,15,58,15,237,4
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,12
-.byte	102,15,58,15,228,4
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,12
+	palignr	$4,%xmm7,%xmm7
+	palignr	$8,%xmm11,%xmm11
+	palignr	$12,%xmm15,%xmm15
+	palignr	$4,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$12,%xmm14,%xmm14
+	palignr	$4,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$12,%xmm13,%xmm13
+	palignr	$4,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$12,%xmm12,%xmm12
 	movdqa	%xmm8,0+80(%rbp)
 	movdqa	.Lrol16(%rip),%xmm8
 	paddd	%xmm7,%xmm3
@@ -2269,10 +2269,10 @@ _CET_ENDBR
 	pxor	%xmm2,%xmm14
 	pxor	%xmm1,%xmm13
 	pxor	%xmm0,%xmm12
-.byte	102,69,15,56,0,248
-.byte	102,69,15,56,0,240
-.byte	102,69,15,56,0,232
-.byte	102,69,15,56,0,224
+	pshufb	%xmm8,%xmm15
+	pshufb	%xmm8,%xmm14
+	pshufb	%xmm8,%xmm13
+	pshufb	%xmm8,%xmm12
 	movdqa	0+80(%rbp),%xmm8
 	paddd	%xmm15,%xmm11
 	paddd	%xmm14,%xmm10
@@ -2308,10 +2308,10 @@ _CET_ENDBR
 	pxor	%xmm2,%xmm14
 	pxor	%xmm1,%xmm13
 	pxor	%xmm0,%xmm12
-.byte	102,69,15,56,0,248
-.byte	102,69,15,56,0,240
-.byte	102,69,15,56,0,232
-.byte	102,69,15,56,0,224
+	pshufb	%xmm8,%xmm15
+	pshufb	%xmm8,%xmm14
+	pshufb	%xmm8,%xmm13
+	pshufb	%xmm8,%xmm12
 	movdqa	0+80(%rbp),%xmm8
 	paddd	%xmm15,%xmm11
 	paddd	%xmm14,%xmm10
@@ -2339,18 +2339,18 @@ _CET_ENDBR
 	pslld	$32-25,%xmm4
 	pxor	%xmm8,%xmm4
 	movdqa	0+80(%rbp),%xmm8
-.byte	102,15,58,15,255,12
-.byte	102,69,15,58,15,219,8
-.byte	102,69,15,58,15,255,4
-.byte	102,15,58,15,246,12
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,4
-.byte	102,15,58,15,237,12
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,4
-.byte	102,15,58,15,228,12
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,4
+	palignr	$12,%xmm7,%xmm7
+	palignr	$8,%xmm11,%xmm11
+	palignr	$4,%xmm15,%xmm15
+	palignr	$12,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$4,%xmm14,%xmm14
+	palignr	$12,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$4,%xmm13,%xmm13
+	palignr	$12,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$4,%xmm12,%xmm12
 
 	decq	%r10
 	jnz	.Lseal_sse_init_rounds
@@ -2371,11 +2371,11 @@ _CET_ENDBR
 	paddd	0+64(%rbp),%xmm8
 	paddd	0+96(%rbp),%xmm12
 
-
+// Clamp and store the key
 	pand	.Lclamp(%rip),%xmm3
 	movdqa	%xmm3,0+0(%rbp)
 	movdqa	%xmm7,0+16(%rbp)
-
+// Hash
 	movq	%r8,%r8
 	call	poly_hash_ad_internal
 	movdqu	0 + 0(%rsi),%xmm3
@@ -2473,10 +2473,10 @@ _CET_ENDBR
 	pxor	%xmm2,%xmm14
 	pxor	%xmm1,%xmm13
 	pxor	%xmm0,%xmm12
-.byte	102,69,15,56,0,248
-.byte	102,69,15,56,0,240
-.byte	102,69,15,56,0,232
-.byte	102,69,15,56,0,224
+	pshufb	%xmm8,%xmm15
+	pshufb	%xmm8,%xmm14
+	pshufb	%xmm8,%xmm13
+	pshufb	%xmm8,%xmm12
 	movdqa	0+80(%rbp),%xmm8
 	paddd	%xmm15,%xmm11
 	paddd	%xmm14,%xmm10
@@ -2525,10 +2525,10 @@ _CET_ENDBR
 	pxor	%xmm2,%xmm14
 	pxor	%xmm1,%xmm13
 	pxor	%xmm0,%xmm12
-.byte	102,69,15,56,0,248
-.byte	102,69,15,56,0,240
-.byte	102,69,15,56,0,232
-.byte	102,69,15,56,0,224
+	pshufb	%xmm8,%xmm15
+	pshufb	%xmm8,%xmm14
+	pshufb	%xmm8,%xmm13
+	pshufb	%xmm8,%xmm12
 	movdqa	0+80(%rbp),%xmm8
 	paddd	%xmm15,%xmm11
 	paddd	%xmm14,%xmm10
@@ -2569,18 +2569,18 @@ _CET_ENDBR
 	imulq	%r12,%r9
 	addq	%r10,%r15
 	adcq	%rdx,%r9
-.byte	102,15,58,15,255,4
-.byte	102,69,15,58,15,219,8
-.byte	102,69,15,58,15,255,12
-.byte	102,15,58,15,246,4
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,12
-.byte	102,15,58,15,237,4
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,12
-.byte	102,15,58,15,228,4
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,12
+	palignr	$4,%xmm7,%xmm7
+	palignr	$8,%xmm11,%xmm11
+	palignr	$12,%xmm15,%xmm15
+	palignr	$4,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$12,%xmm14,%xmm14
+	palignr	$4,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$12,%xmm13,%xmm13
+	palignr	$4,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$12,%xmm12,%xmm12
 	movdqa	%xmm8,0+80(%rbp)
 	movdqa	.Lrol16(%rip),%xmm8
 	paddd	%xmm7,%xmm3
@@ -2592,23 +2592,23 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
 	pxor	%xmm1,%xmm13
 	pxor	%xmm0,%xmm12
-.byte	102,69,15,56,0,248
-.byte	102,69,15,56,0,240
-.byte	102,69,15,56,0,232
-.byte	102,69,15,56,0,224
+	pshufb	%xmm8,%xmm15
+	pshufb	%xmm8,%xmm14
+	pshufb	%xmm8,%xmm13
+	pshufb	%xmm8,%xmm12
 	movdqa	0+80(%rbp),%xmm8
 	paddd	%xmm15,%xmm11
 	paddd	%xmm14,%xmm10
@@ -2644,10 +2644,10 @@ _CET_ENDBR
 	pxor	%xmm2,%xmm14
 	pxor	%xmm1,%xmm13
 	pxor	%xmm0,%xmm12
-.byte	102,69,15,56,0,248
-.byte	102,69,15,56,0,240
-.byte	102,69,15,56,0,232
-.byte	102,69,15,56,0,224
+	pshufb	%xmm8,%xmm15
+	pshufb	%xmm8,%xmm14
+	pshufb	%xmm8,%xmm13
+	pshufb	%xmm8,%xmm12
 	movdqa	0+80(%rbp),%xmm8
 	paddd	%xmm15,%xmm11
 	paddd	%xmm14,%xmm10
@@ -2675,18 +2675,18 @@ _CET_ENDBR
 	pslld	$32-25,%xmm4
 	pxor	%xmm8,%xmm4
 	movdqa	0+80(%rbp),%xmm8
-.byte	102,15,58,15,255,12
-.byte	102,69,15,58,15,219,8
-.byte	102,69,15,58,15,255,4
-.byte	102,15,58,15,246,12
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,4
-.byte	102,15,58,15,237,12
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,4
-.byte	102,15,58,15,228,12
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,4
+	palignr	$12,%xmm7,%xmm7
+	palignr	$8,%xmm11,%xmm11
+	palignr	$4,%xmm15,%xmm15
+	palignr	$12,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$4,%xmm14,%xmm14
+	palignr	$12,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$4,%xmm13,%xmm13
+	palignr	$12,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$4,%xmm12,%xmm12
 
 	leaq	16(%rdi),%rdi
 	decq	%r8
@@ -2720,14 +2720,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -2828,7 +2828,7 @@ _CET_ENDBR
 	ja	.Lseal_sse_tail_192
 	cmpq	$64,%rbx
 	ja	.Lseal_sse_tail_128
-
+// ############################################################################# 
 .Lseal_sse_tail_64:
 	movdqa	.Lchacha20_consts(%rip),%xmm0
 	movdqa	0+48(%rbp),%xmm4
@@ -2867,14 +2867,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -2899,9 +2899,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,4
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,12
+	palignr	$4,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$12,%xmm12,%xmm12
 	paddd	%xmm4,%xmm0
 	pxor	%xmm0,%xmm12
 	pshufb	.Lrol16(%rip),%xmm12
@@ -2920,9 +2920,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,12
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,4
+	palignr	$12,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$4,%xmm12,%xmm12
 	addq	0+0(%rdi),%r10
 	adcq	8+0(%rdi),%r11
 	adcq	$1,%r12
@@ -2952,14 +2952,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -2975,7 +2975,7 @@ _CET_ENDBR
 	paddd	0+96(%rbp),%xmm12
 
 	jmp	.Lseal_sse_128_tail_xor
-
+// ############################################################################# 
 .Lseal_sse_tail_128:
 	movdqa	.Lchacha20_consts(%rip),%xmm0
 	movdqa	0+48(%rbp),%xmm4
@@ -3020,14 +3020,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -3052,9 +3052,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,4
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,12
+	palignr	$4,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$12,%xmm12,%xmm12
 	paddd	%xmm5,%xmm1
 	pxor	%xmm1,%xmm13
 	pshufb	.Lrol16(%rip),%xmm13
@@ -3073,9 +3073,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm5
 	pxor	%xmm3,%xmm5
-.byte	102,15,58,15,237,4
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,12
+	palignr	$4,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$12,%xmm13,%xmm13
 	addq	0+0(%rdi),%r10
 	adcq	8+0(%rdi),%r11
 	adcq	$1,%r12
@@ -3105,14 +3105,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -3134,9 +3134,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,12
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,4
+	palignr	$12,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$4,%xmm12,%xmm12
 	paddd	%xmm5,%xmm1
 	pxor	%xmm1,%xmm13
 	pshufb	.Lrol16(%rip),%xmm13
@@ -3155,9 +3155,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm5
 	pxor	%xmm3,%xmm5
-.byte	102,15,58,15,237,12
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,4
+	palignr	$12,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$4,%xmm13,%xmm13
 
 	leaq	16(%rdi),%rdi
 	decq	%rcx
@@ -3189,7 +3189,7 @@ _CET_ENDBR
 	subq	$64,%rbx
 	leaq	64(%rsi),%rsi
 	jmp	.Lseal_sse_128_tail_hash
-
+// ############################################################################# 
 .Lseal_sse_tail_192:
 	movdqa	.Lchacha20_consts(%rip),%xmm0
 	movdqa	0+48(%rbp),%xmm4
@@ -3240,14 +3240,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -3272,9 +3272,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,4
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,12
+	palignr	$4,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$12,%xmm12,%xmm12
 	paddd	%xmm5,%xmm1
 	pxor	%xmm1,%xmm13
 	pshufb	.Lrol16(%rip),%xmm13
@@ -3293,9 +3293,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm5
 	pxor	%xmm3,%xmm5
-.byte	102,15,58,15,237,4
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,12
+	palignr	$4,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$12,%xmm13,%xmm13
 	paddd	%xmm6,%xmm2
 	pxor	%xmm2,%xmm14
 	pshufb	.Lrol16(%rip),%xmm14
@@ -3314,9 +3314,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm6
 	pxor	%xmm3,%xmm6
-.byte	102,15,58,15,246,4
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,12
+	palignr	$4,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$12,%xmm14,%xmm14
 	addq	0+0(%rdi),%r10
 	adcq	8+0(%rdi),%r11
 	adcq	$1,%r12
@@ -3346,14 +3346,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -3375,9 +3375,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,12
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,4
+	palignr	$12,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$4,%xmm12,%xmm12
 	paddd	%xmm5,%xmm1
 	pxor	%xmm1,%xmm13
 	pshufb	.Lrol16(%rip),%xmm13
@@ -3396,9 +3396,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm5
 	pxor	%xmm3,%xmm5
-.byte	102,15,58,15,237,12
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,4
+	palignr	$12,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$4,%xmm13,%xmm13
 	paddd	%xmm6,%xmm2
 	pxor	%xmm2,%xmm14
 	pshufb	.Lrol16(%rip),%xmm14
@@ -3417,9 +3417,9 @@ _CET_ENDBR
 	pslld	$7,%xmm3
 	psrld	$25,%xmm6
 	pxor	%xmm3,%xmm6
-.byte	102,15,58,15,246,12
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,4
+	palignr	$12,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$4,%xmm14,%xmm14
 
 	leaq	16(%rdi),%rdi
 	decq	%rcx
@@ -3466,7 +3466,7 @@ _CET_ENDBR
 	movq	$128,%rcx
 	subq	$128,%rbx
 	leaq	128(%rsi),%rsi
-
+// ############################################################################# 
 .Lseal_sse_128_tail_hash:
 	cmpq	$16,%rcx
 	jb	.Lseal_sse_128_tail_xor
@@ -3499,14 +3499,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -3519,11 +3519,11 @@ _CET_ENDBR
 	cmpq	$16,%rbx
 	jb	.Lseal_sse_tail_16
 	subq	$16,%rbx
-
+// Load for decryption
 	movdqu	0(%rsi),%xmm3
 	pxor	%xmm3,%xmm0
 	movdqu	%xmm0,0(%rdi)
-
+// Then hash
 	addq	0(%rdi),%r10
 	adcq	8(%rdi),%r11
 	adcq	$1,%r12
@@ -3555,19 +3555,19 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
 
-
+// Shift the stream left
 	movdqa	%xmm4,%xmm0
 	movdqa	%xmm8,%xmm4
 	movdqa	%xmm12,%xmm8
@@ -3580,7 +3580,7 @@ _CET_ENDBR
 .Lseal_sse_tail_16:
 	testq	%rbx,%rbx
 	jz	.Lprocess_blocks_of_extra_in
-
+// We can only load the PT one byte at a time to avoid buffer overread
 	movq	%rbx,%r8
 	movq	%rbx,%rcx
 	leaq	-1(%rsi,%rbx,1),%rsi
@@ -3592,10 +3592,10 @@ _CET_ENDBR
 	decq	%rcx
 	jne	.Lseal_sse_tail_16_compose
 
-
+// XOR the keystream with the plaintext.
 	pxor	%xmm0,%xmm15
 
-
+// Write ciphertext out, byte-by-byte.
 	movq	%rbx,%rcx
 	movdqu	%xmm15,%xmm0
 .Lseal_sse_tail_16_extract:
@@ -3605,42 +3605,42 @@ _CET_ENDBR
 	subq	$1,%rcx
 	jnz	.Lseal_sse_tail_16_extract
 
-
-
-
-
-
-
-
+// %xmm15 contains the final (partial, non-empty) block of ciphertext which
+// needs to be fed into the Poly1305 state. The right-most %rbx bytes of it
+// are valid. We need to fill it with extra_in bytes until full, or until we
+// run out of bytes.
+// 
+// %r9 points to the tag output, which is actually a struct with the
+// extra_in pointer and length at offset 48.
 	movq	288 + 0 + 32(%rsp),%r9
-	movq	56(%r9),%r14
-	movq	48(%r9),%r13
+	movq	56(%r9),%r14  // extra_in_len
+	movq	48(%r9),%r13  // extra_in
 	testq	%r14,%r14
-	jz	.Lprocess_partial_block
+	jz	.Lprocess_partial_block  // Common case: no bytes of extra_in
 
 	movq	$16,%r15
-	subq	%rbx,%r15
-	cmpq	%r15,%r14
-
+	subq	%rbx,%r15  // 16-%rbx is the number of bytes that fit into %xmm15.
+	cmpq	%r15,%r14  // if extra_in_len < 16-%rbx, only copy extra_in_len
+// (note that AT&T syntax reverses the arguments)
 	jge	.Lload_extra_in
 	movq	%r14,%r15
 
 .Lload_extra_in:
-
-
+// %r15 contains the number of bytes of extra_in (pointed to by %r13) to load
+// into %xmm15. They are loaded in reverse order.
 	leaq	-1(%r13,%r15,1),%rsi
-
-
+// Update extra_in and extra_in_len to reflect the bytes that are about to
+// be read.
 	addq	%r15,%r13
 	subq	%r15,%r14
 	movq	%r13,48(%r9)
 	movq	%r14,56(%r9)
 
-
-
+// Update %r8, which is used to select the mask later on, to reflect the
+// extra bytes about to be added.
 	addq	%r15,%r8
 
-
+// Load %r15 bytes of extra_in into %xmm11.
 	pxor	%xmm11,%xmm11
 .Lload_extra_load_loop:
 	pslldq	$1,%xmm11
@@ -3649,9 +3649,9 @@ _CET_ENDBR
 	subq	$1,%r15
 	jnz	.Lload_extra_load_loop
 
-
-
-
+// Shift %xmm11 up the length of the remainder from the main encryption. Sadly,
+// the shift for an XMM register has to be a constant, thus we loop to do
+// this.
 	movq	%rbx,%r15
 
 .Lload_extra_shift_loop:
@@ -3659,19 +3659,19 @@ _CET_ENDBR
 	subq	$1,%r15
 	jnz	.Lload_extra_shift_loop
 
-
-
-
+// Mask %xmm15 (the remainder from the main encryption) so that superfluous
+// bytes are zero. This means that the non-zero bytes in %xmm11 and %xmm15 are
+// disjoint and so we can merge them with an OR.
 	leaq	.Land_masks(%rip),%r15
 	shlq	$4,%rbx
 	pand	-16(%r15,%rbx,1),%xmm15
 
-
+// Merge %xmm11 into %xmm15, forming the remainder block.
 	por	%xmm11,%xmm15
 
-
-
-.byte	102,77,15,126,253
+// The block of ciphertext + extra_in is ready to be included in the
+// Poly1305 state.
+	movq	%xmm15,%r13
 	pextrq	$1,%xmm15,%r14
 	addq	%r13,%r10
 	adcq	%r14,%r11
@@ -3702,26 +3702,26 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
 
 
 .Lprocess_blocks_of_extra_in:
-
+// There may be additional bytes of extra_in to process.
 	movq	288+32+0 (%rsp),%r9
-	movq	48(%r9),%rsi
-	movq	56(%r9),%r8
+	movq	48(%r9),%rsi  // extra_in
+	movq	56(%r9),%r8  // extra_in_len
 	movq	%r8,%rcx
-	shrq	$4,%r8
+	shrq	$4,%r8  // number of blocks
 
 .Lprocess_extra_hash_loop:
 	jz	process_extra_in_trailer
@@ -3754,14 +3754,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -3770,7 +3770,7 @@ _CET_ENDBR
 	subq	$1,%r8
 	jmp	.Lprocess_extra_hash_loop
 process_extra_in_trailer:
-	andq	$15,%rcx
+	andq	$15,%rcx  // remaining num bytes (<16) of extra_in
 	movq	%rcx,%rbx
 	jz	.Ldo_length_block
 	leaq	-1(%rsi,%rcx,1),%rsi
@@ -3783,11 +3783,11 @@ process_extra_in_trailer:
 	jnz	.Lprocess_extra_in_trailer_load
 
 .Lprocess_partial_block:
-
+// %xmm15 contains %rbx bytes of data to be fed into Poly1305. %rbx
 	leaq	.Land_masks(%rip),%r15
 	shlq	$4,%rbx
 	pand	-16(%r15,%rbx,1),%xmm15
-.byte	102,77,15,126,253
+	movq	%xmm15,%r13
 	pextrq	$1,%xmm15,%r14
 	addq	%r13,%r10
 	adcq	%r14,%r11
@@ -3818,14 +3818,14 @@ process_extra_in_trailer:
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -3861,19 +3861,19 @@ process_extra_in_trailer:
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
 
-
+// Final reduce
 	movq	%r10,%r13
 	movq	%r11,%r14
 	movq	%r12,%r15
@@ -3883,14 +3883,14 @@ process_extra_in_trailer:
 	cmovcq	%r13,%r10
 	cmovcq	%r14,%r11
 	cmovcq	%r15,%r12
-
+// Add in s part of the key
 	addq	0+0+16(%rbp),%r10
 	adcq	8+0+16(%rbp),%r11
 
 .cfi_remember_state	
 	addq	$288 + 0 + 32,%rsp
 .cfi_adjust_cfa_offset	-(288 + 32)
-
+// The tag replaces the key on return
 	popq	%r9
 .cfi_adjust_cfa_offset	-8
 .cfi_restore	%r9
@@ -3915,7 +3915,7 @@ process_extra_in_trailer:
 .cfi_adjust_cfa_offset	-8
 .cfi_restore	%rbp
 	ret
-
+// ############################################################################## 
 .Lseal_sse_128:
 .cfi_restore_state	
 	movdqu	.Lchacha20_consts(%rip),%xmm0
@@ -3956,9 +3956,9 @@ process_extra_in_trailer:
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,4
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,12
+	palignr	$4,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$12,%xmm12,%xmm12
 	paddd	%xmm5,%xmm1
 	pxor	%xmm1,%xmm13
 	pshufb	.Lrol16(%rip),%xmm13
@@ -3977,9 +3977,9 @@ process_extra_in_trailer:
 	pslld	$7,%xmm3
 	psrld	$25,%xmm5
 	pxor	%xmm3,%xmm5
-.byte	102,15,58,15,237,4
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,12
+	palignr	$4,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$12,%xmm13,%xmm13
 	paddd	%xmm6,%xmm2
 	pxor	%xmm2,%xmm14
 	pshufb	.Lrol16(%rip),%xmm14
@@ -3998,9 +3998,9 @@ process_extra_in_trailer:
 	pslld	$7,%xmm3
 	psrld	$25,%xmm6
 	pxor	%xmm3,%xmm6
-.byte	102,15,58,15,246,4
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,12
+	palignr	$4,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$12,%xmm14,%xmm14
 	paddd	%xmm4,%xmm0
 	pxor	%xmm0,%xmm12
 	pshufb	.Lrol16(%rip),%xmm12
@@ -4019,9 +4019,9 @@ process_extra_in_trailer:
 	pslld	$7,%xmm3
 	psrld	$25,%xmm4
 	pxor	%xmm3,%xmm4
-.byte	102,15,58,15,228,12
-.byte	102,69,15,58,15,192,8
-.byte	102,69,15,58,15,228,4
+	palignr	$12,%xmm4,%xmm4
+	palignr	$8,%xmm8,%xmm8
+	palignr	$4,%xmm12,%xmm12
 	paddd	%xmm5,%xmm1
 	pxor	%xmm1,%xmm13
 	pshufb	.Lrol16(%rip),%xmm13
@@ -4040,9 +4040,9 @@ process_extra_in_trailer:
 	pslld	$7,%xmm3
 	psrld	$25,%xmm5
 	pxor	%xmm3,%xmm5
-.byte	102,15,58,15,237,12
-.byte	102,69,15,58,15,201,8
-.byte	102,69,15,58,15,237,4
+	palignr	$12,%xmm5,%xmm5
+	palignr	$8,%xmm9,%xmm9
+	palignr	$4,%xmm13,%xmm13
 	paddd	%xmm6,%xmm2
 	pxor	%xmm2,%xmm14
 	pshufb	.Lrol16(%rip),%xmm14
@@ -4061,9 +4061,9 @@ process_extra_in_trailer:
 	pslld	$7,%xmm3
 	psrld	$25,%xmm6
 	pxor	%xmm3,%xmm6
-.byte	102,15,58,15,246,12
-.byte	102,69,15,58,15,210,8
-.byte	102,69,15,58,15,246,4
+	palignr	$12,%xmm6,%xmm6
+	palignr	$8,%xmm10,%xmm10
+	palignr	$4,%xmm14,%xmm14
 
 	decq	%r10
 	jnz	.Lseal_sse_128_rounds
@@ -4078,18 +4078,18 @@ process_extra_in_trailer:
 	paddd	%xmm15,%xmm12
 	paddd	.Lsse_inc(%rip),%xmm15
 	paddd	%xmm15,%xmm13
-
+// Clamp and store the key
 	pand	.Lclamp(%rip),%xmm2
 	movdqa	%xmm2,0+0(%rbp)
 	movdqa	%xmm6,0+16(%rbp)
-
+// Hash
 	movq	%r8,%r8
 	call	poly_hash_ad_internal
 	jmp	.Lseal_sse_128_tail_xor
-.size	chacha20_poly1305_seal_nohw, .-chacha20_poly1305_seal_nohw
+.size	chacha20_poly1305_seal_sse41, .-chacha20_poly1305_seal_sse41
 .cfi_endproc	
 
-
+// ############################################################################# 
 .globl	chacha20_poly1305_open_avx2
 .hidden chacha20_poly1305_open_avx2
 .type	chacha20_poly1305_open_avx2,@function
@@ -4115,8 +4115,8 @@ _CET_ENDBR
 	pushq	%r15
 .cfi_adjust_cfa_offset	8
 .cfi_offset	%r15,-56
-
-
+// We write the calculated authenticator back to keyp at the end, so save
+// the pointer on the stack too.
 	pushq	%r9
 .cfi_adjust_cfa_offset	8
 .cfi_offset	%r9,-64
@@ -4193,16 +4193,16 @@ _CET_ENDBR
 	vpaddd	0+160(%rbp),%ymm12,%ymm12
 
 	vperm2i128	$0x02,%ymm0,%ymm4,%ymm3
-
+// Clamp and store key
 	vpand	.Lclamp(%rip),%ymm3,%ymm3
 	vmovdqa	%ymm3,0+0(%rbp)
-
+// Stream for the first 64 bytes
 	vperm2i128	$0x13,%ymm0,%ymm4,%ymm0
 	vperm2i128	$0x13,%ymm8,%ymm12,%ymm4
-
+// Hash AD + first 64 bytes
 	movq	%r8,%r8
 	call	poly_hash_ad_internal
-
+// Hash first 64 bytes
 	xorq	%rcx,%rcx
 .Lopen_avx2_init_hash:
 	addq	0+0(%rsi,%rcx,1),%r10
@@ -4234,14 +4234,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -4249,17 +4249,17 @@ _CET_ENDBR
 	addq	$16,%rcx
 	cmpq	$64,%rcx
 	jne	.Lopen_avx2_init_hash
-
+// Decrypt first 64 bytes
 	vpxor	0(%rsi),%ymm0,%ymm0
 	vpxor	32(%rsi),%ymm4,%ymm4
-
+// Store first 64 bytes of decrypted data
 	vmovdqu	%ymm0,0(%rdi)
 	vmovdqu	%ymm4,32(%rdi)
 	leaq	64(%rsi),%rsi
 	leaq	64(%rdi),%rdi
 	subq	$64,%rbx
 .Lopen_avx2_main_loop:
-
+// Hash and decrypt 512 bytes each iteration
 	cmpq	$512,%rbx
 	jb	.Lopen_avx2_main_loop_done
 	vmovdqa	.Lchacha20_consts(%rip),%ymm0
@@ -4349,14 +4349,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -4444,14 +4444,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -4539,14 +4539,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -4615,14 +4615,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -4679,14 +4679,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -4729,7 +4729,7 @@ _CET_ENDBR
 	movq	%rbx,%rcx
 	andq	$-16,%rcx
 	testq	%rcx,%rcx
-	je	.Lopen_avx2_tail_128_rounds
+	je	.Lopen_avx2_tail_128_rounds  // Have nothing to hash
 .Lopen_avx2_tail_128_rounds_and_x1hash:
 	addq	0+0(%rsi,%r8,1),%r10
 	adcq	8+0(%rsi,%r8,1),%r11
@@ -4760,14 +4760,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -4828,7 +4828,7 @@ _CET_ENDBR
 	vmovdqa	%ymm3,%ymm8
 
 	jmp	.Lopen_avx2_tail_128_xor
-
+// ############################################################################# 
 .Lopen_avx2_tail_256:
 	vmovdqa	.Lchacha20_consts(%rip),%ymm0
 	vmovdqa	0+64(%rbp),%ymm4
@@ -4874,14 +4874,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -5020,14 +5020,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -5065,7 +5065,7 @@ _CET_ENDBR
 	leaq	128(%rdi),%rdi
 	subq	$128,%rbx
 	jmp	.Lopen_avx2_tail_128_xor
-
+// ############################################################################# 
 .Lopen_avx2_tail_384:
 	vmovdqa	.Lchacha20_consts(%rip),%ymm0
 	vmovdqa	0+64(%rbp),%ymm4
@@ -5117,14 +5117,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -5217,14 +5217,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -5323,14 +5323,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -5384,7 +5384,7 @@ _CET_ENDBR
 	leaq	256(%rdi),%rdi
 	subq	$256,%rbx
 	jmp	.Lopen_avx2_tail_128_xor
-
+// ############################################################################# 
 .Lopen_avx2_tail_512:
 	vmovdqa	.Lchacha20_consts(%rip),%ymm0
 	vmovdqa	0+64(%rbp),%ymm4
@@ -5440,14 +5440,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -5513,14 +5513,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -5594,14 +5594,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -5720,14 +5720,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -5818,7 +5818,7 @@ _CET_ENDBR
 	vmovdqa	%xmm0,%xmm1
 	jb	.Lopen_avx2_exit
 	subq	$16,%rbx
-
+// load for decryption
 	vpxor	(%rsi),%xmm0,%xmm1
 	vmovdqu	%xmm1,(%rdi)
 	leaq	16(%rsi),%rsi
@@ -5828,7 +5828,7 @@ _CET_ENDBR
 .Lopen_avx2_exit:
 	vzeroupper
 	jmp	.Lopen_sse_tail_16
-
+// ############################################################################# 
 .Lopen_avx2_192:
 	vmovdqa	%ymm0,%ymm1
 	vmovdqa	%ymm0,%ymm2
@@ -5929,10 +5929,10 @@ _CET_ENDBR
 	vpaddd	%ymm11,%ymm12,%ymm12
 	vpaddd	%ymm15,%ymm13,%ymm13
 	vperm2i128	$0x02,%ymm0,%ymm4,%ymm3
-
+// Clamp and store the key
 	vpand	.Lclamp(%rip),%ymm3,%ymm3
 	vmovdqa	%ymm3,0+0(%rbp)
-
+// Stream for up to 192 bytes
 	vperm2i128	$0x13,%ymm0,%ymm4,%ymm0
 	vperm2i128	$0x13,%ymm8,%ymm12,%ymm4
 	vperm2i128	$0x02,%ymm1,%ymm5,%ymm8
@@ -5975,14 +5975,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -6015,24 +6015,24 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
 
-
+// Load + decrypt
 	vpxor	(%rsi),%ymm0,%ymm0
 	vmovdqu	%ymm0,(%rdi)
 	leaq	32(%rsi),%rsi
 	leaq	32(%rdi),%rdi
-
+// Shift stream
 	vmovdqa	%ymm4,%ymm0
 	vmovdqa	%ymm8,%ymm4
 	vmovdqa	%ymm12,%ymm8
@@ -6077,14 +6077,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -6097,7 +6097,7 @@ _CET_ENDBR
 .Lopen_avx2_short_tail_32_exit:
 	vzeroupper
 	jmp	.Lopen_sse_tail_16
-
+// ############################################################################# 
 .Lopen_avx2_320:
 	vmovdqa	%ymm0,%ymm1
 	vmovdqa	%ymm0,%ymm2
@@ -6244,10 +6244,10 @@ _CET_ENDBR
 	vpaddd	0+192(%rbp),%ymm13,%ymm13
 	vpaddd	0+224(%rbp),%ymm14,%ymm14
 	vperm2i128	$0x02,%ymm0,%ymm4,%ymm3
-
+// Clamp and store the key
 	vpand	.Lclamp(%rip),%ymm3,%ymm3
 	vmovdqa	%ymm3,0+0(%rbp)
-
+// Stream for up to 320 bytes
 	vperm2i128	$0x13,%ymm0,%ymm4,%ymm0
 	vperm2i128	$0x13,%ymm8,%ymm12,%ymm4
 	vperm2i128	$0x02,%ymm1,%ymm5,%ymm8
@@ -6261,8 +6261,8 @@ _CET_ENDBR
 	jmp	.Lopen_avx2_short
 .size	chacha20_poly1305_open_avx2, .-chacha20_poly1305_open_avx2
 .cfi_endproc	
-
-
+// ############################################################################# 
+// ############################################################################# 
 .globl	chacha20_poly1305_seal_avx2
 .hidden chacha20_poly1305_seal_avx2
 .type	chacha20_poly1305_seal_avx2,@function
@@ -6288,8 +6288,8 @@ _CET_ENDBR
 	pushq	%r15
 .cfi_adjust_cfa_offset	8
 .cfi_offset	%r15,-56
-
-
+// We write the calculated authenticator back to keyp at the end, so save
+// the pointer on the stack too.
 	pushq	%r9
 .cfi_adjust_cfa_offset	8
 .cfi_offset	%r9,-64
@@ -6298,7 +6298,7 @@ _CET_ENDBR
 	leaq	32(%rsp),%rbp
 	andq	$-32,%rbp
 
-	movq	56(%r9),%rbx
+	movq	56(%r9),%rbx  // extra_in_len
 	addq	%rdx,%rbx
 	movq	%r8,0+0+32(%rbp)
 	movq	%rbx,8+0+32(%rbp)
@@ -6526,7 +6526,7 @@ _CET_ENDBR
 	vmovdqa	%ymm15,0+0(%rbp)
 	movq	%r8,%r8
 	call	poly_hash_ad_internal
-
+// Safely store 320 bytes (otherwise would handle with optimized call)
 	vpxor	0(%rsi),%ymm3,%ymm3
 	vpxor	32(%rsi),%ymm11,%ymm11
 	vmovdqu	%ymm3,0(%rdi)
@@ -6906,14 +6906,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -7003,14 +7003,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -7098,14 +7098,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -7153,14 +7153,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -7186,14 +7186,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -7277,14 +7277,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -7310,14 +7310,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -7332,7 +7332,7 @@ _CET_ENDBR
 	ja	.Lseal_avx2_tail_384
 	cmpq	$128,%rbx
 	ja	.Lseal_avx2_tail_256
-
+// ############################################################################# 
 .Lseal_avx2_tail_128:
 	vmovdqa	.Lchacha20_consts(%rip),%ymm0
 	vmovdqa	0+64(%rbp),%ymm4
@@ -7364,14 +7364,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -7419,14 +7419,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -7471,14 +7471,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -7499,7 +7499,7 @@ _CET_ENDBR
 	vmovdqa	%ymm3,%ymm8
 
 	jmp	.Lseal_avx2_short_loop
-
+// ############################################################################# 
 .Lseal_avx2_tail_256:
 	vmovdqa	.Lchacha20_consts(%rip),%ymm0
 	vmovdqa	0+64(%rbp),%ymm4
@@ -7543,14 +7543,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -7624,14 +7624,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -7702,14 +7702,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -7749,7 +7749,7 @@ _CET_ENDBR
 	leaq	128(%rsi),%rsi
 	subq	$128,%rbx
 	jmp	.Lseal_avx2_short_hash_remainder
-
+// ############################################################################# 
 .Lseal_avx2_tail_384:
 	vmovdqa	.Lchacha20_consts(%rip),%ymm0
 	vmovdqa	0+64(%rbp),%ymm4
@@ -7798,14 +7798,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -7879,14 +7879,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -7957,14 +7957,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -8058,7 +8058,7 @@ _CET_ENDBR
 	leaq	256(%rsi),%rsi
 	subq	$256,%rbx
 	jmp	.Lseal_avx2_short_hash_remainder
-
+// ############################################################################# 
 .Lseal_avx2_tail_512:
 	vmovdqa	.Lchacha20_consts(%rip),%ymm0
 	vmovdqa	0+64(%rbp),%ymm4
@@ -8105,14 +8105,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -8241,14 +8241,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -8374,14 +8374,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -8457,7 +8457,7 @@ _CET_ENDBR
 	leaq	384(%rsi),%rsi
 	subq	$384,%rbx
 	jmp	.Lseal_avx2_short_hash_remainder
-
+// ############################################################################## 
 .Lseal_avx2_320:
 	vmovdqa	%ymm0,%ymm1
 	vmovdqa	%ymm0,%ymm2
@@ -8604,10 +8604,10 @@ _CET_ENDBR
 	vpaddd	0+192(%rbp),%ymm13,%ymm13
 	vpaddd	0+224(%rbp),%ymm14,%ymm14
 	vperm2i128	$0x02,%ymm0,%ymm4,%ymm3
-
+// Clamp and store the key
 	vpand	.Lclamp(%rip),%ymm3,%ymm3
 	vmovdqa	%ymm3,0+0(%rbp)
-
+// Stream for up to 320 bytes
 	vperm2i128	$0x13,%ymm0,%ymm4,%ymm0
 	vperm2i128	$0x13,%ymm8,%ymm12,%ymm4
 	vperm2i128	$0x02,%ymm1,%ymm5,%ymm8
@@ -8619,7 +8619,7 @@ _CET_ENDBR
 	vperm2i128	$0x13,%ymm2,%ymm6,%ymm2
 	vperm2i128	$0x13,%ymm10,%ymm14,%ymm6
 	jmp	.Lseal_avx2_short
-
+// ############################################################################## 
 .Lseal_avx2_192:
 	vmovdqa	%ymm0,%ymm1
 	vmovdqa	%ymm0,%ymm2
@@ -8720,10 +8720,10 @@ _CET_ENDBR
 	vpaddd	%ymm11,%ymm12,%ymm12
 	vpaddd	%ymm15,%ymm13,%ymm13
 	vperm2i128	$0x02,%ymm0,%ymm4,%ymm3
-
+// Clamp and store the key
 	vpand	.Lclamp(%rip),%ymm3,%ymm3
 	vmovdqa	%ymm3,0+0(%rbp)
-
+// Stream for up to 192 bytes
 	vperm2i128	$0x13,%ymm0,%ymm4,%ymm0
 	vperm2i128	$0x13,%ymm8,%ymm12,%ymm4
 	vperm2i128	$0x02,%ymm1,%ymm5,%ymm8
@@ -8766,14 +8766,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -8785,11 +8785,11 @@ _CET_ENDBR
 	cmpq	$32,%rbx
 	jb	.Lseal_avx2_short_tail
 	subq	$32,%rbx
-
+// Encrypt
 	vpxor	(%rsi),%ymm0,%ymm0
 	vmovdqu	%ymm0,(%rdi)
 	leaq	32(%rsi),%rsi
-
+// Load + hash
 	addq	0+0(%rdi),%r10
 	adcq	8+0(%rdi),%r11
 	adcq	$1,%r12
@@ -8819,14 +8819,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
@@ -8859,20 +8859,20 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12
 
 	leaq	32(%rdi),%rdi
-
+// Shift stream
 	vmovdqa	%ymm4,%ymm0
 	vmovdqa	%ymm8,%ymm4
 	vmovdqa	%ymm12,%ymm8
@@ -8919,14 +8919,14 @@ _CET_ENDBR
 	movq	%r13,%r10
 	movq	%r14,%r11
 	movq	%r15,%r12
-	andq	$3,%r12
+	andq	$3,%r12  // At this point acc2 is 2 bits at most (value of 3)
 	movq	%r15,%r13
 	andq	$-4,%r13
 	movq	%r9,%r14
 	shrdq	$2,%r9,%r15
 	shrq	$2,%r9
 	addq	%r13,%r15
-	adcq	%r14,%r9
+	adcq	%r14,%r9  // No carry out since t3 is 61 bits and t1 is 63 bits
 	addq	%r15,%r10
 	adcq	%r9,%r11
 	adcq	$0,%r12

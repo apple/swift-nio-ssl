@@ -21,7 +21,7 @@ private final class OIDMemoryOwner {
     var reference: OpaquePointer!
     public init?(_ string: String) {
         let result = string.withCString { string in
-            CNIOBoringSSL_OBJ_txt2obj(string, 1)
+            OBJ_txt2obj(string, 1)
         }
         guard let reference = result else {
             return nil
@@ -29,7 +29,7 @@ private final class OIDMemoryOwner {
         self.reference = reference
     }
     deinit {
-        CNIOBoringSSL_ASN1_OBJECT_free(self.reference)
+        ASN1_OBJECT_free(self.reference)
     }
 }
 

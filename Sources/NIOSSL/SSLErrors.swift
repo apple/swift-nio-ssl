@@ -30,7 +30,7 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible, Sendab
             // TODO(cory): This should become non-optional in the future, as it always succeeds.
             var scratchBuffer = [CChar](repeating: 0, count: 512)
             return scratchBuffer.withUnsafeMutableBufferPointer { pointer in
-                CNIOBoringSSL_ERR_error_string_n(errorCode, pointer.baseAddress!, pointer.count)
+                ERR_error_string_n(errorCode, pointer.baseAddress!, pointer.count)
                 let errorString = String(cString: pointer.baseAddress!)
                 return "\(errorString) at \(filepath):\(line)"
             }
@@ -152,7 +152,7 @@ extension BoringSSLError {
         while true {
             var file: UnsafePointer<CChar>? = nil
             var line: CInt = 0
-            let errorCode = CNIOBoringSSL_ERR_get_error_line(&file, &line)
+            let errorCode = ERR_get_error_line(&file, &line)
             if errorCode == 0 { break }
             let fileAsString = String(cString: file!)
             errorStack.append(BoringSSLInternalError(errorCode: errorCode, filename: fileAsString, line: UInt(line)))

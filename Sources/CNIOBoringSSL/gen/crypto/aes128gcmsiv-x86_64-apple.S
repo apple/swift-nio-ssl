@@ -10,33 +10,47 @@
 .p2align	4
 one:
 .quad	1,0
+.alt_entry two
 two:
 .quad	2,0
+.alt_entry three
 three:
 .quad	3,0
+.alt_entry four
 four:
 .quad	4,0
+.alt_entry five
 five:
 .quad	5,0
+.alt_entry six
 six:
 .quad	6,0
+.alt_entry seven
 seven:
 .quad	7,0
+.alt_entry eight
 eight:
 .quad	8,0
 
+.alt_entry OR_MASK
 OR_MASK:
 .long	0x00000000,0x00000000,0x00000000,0x80000000
+.alt_entry poly
 poly:
 .quad	0x1, 0xc200000000000000
+.alt_entry mask
 mask:
 .long	0x0c0f0e0d,0x0c0f0e0d,0x0c0f0e0d,0x0c0f0e0d
+.alt_entry con1
 con1:
 .long	1,1,1,1
+.alt_entry con2
 con2:
 .long	0x1b,0x1b,0x1b,0x1b
+.alt_entry con3
 con3:
 .byte	-1,-1,-1,-1,-1,-1,-1,-1,4,5,6,7,4,5,6,7
+.alt_entry and_mask
 and_mask:
 .long	0,0xffffffff, 0xffffffff, 0xffffffff
 .text	
@@ -70,26 +84,27 @@ GFMUL:
 .private_extern _aesgcmsiv_htable_init
 
 .p2align	4
+.alt_entry _aesgcmsiv_htable_init
 _aesgcmsiv_htable_init:
 
 _CET_ENDBR
 	vmovdqa	(%rsi),%xmm0
 	vmovdqa	%xmm0,%xmm1
-	vmovdqa	%xmm0,(%rdi)
+	vmovdqa	%xmm0,(%rdi)  // H
 	call	GFMUL
-	vmovdqa	%xmm0,16(%rdi)
+	vmovdqa	%xmm0,16(%rdi)  // H^2
 	call	GFMUL
-	vmovdqa	%xmm0,32(%rdi)
+	vmovdqa	%xmm0,32(%rdi)  // H^3
 	call	GFMUL
-	vmovdqa	%xmm0,48(%rdi)
+	vmovdqa	%xmm0,48(%rdi)  // H^4
 	call	GFMUL
-	vmovdqa	%xmm0,64(%rdi)
+	vmovdqa	%xmm0,64(%rdi)  // H^5
 	call	GFMUL
-	vmovdqa	%xmm0,80(%rdi)
+	vmovdqa	%xmm0,80(%rdi)  // H^6
 	call	GFMUL
-	vmovdqa	%xmm0,96(%rdi)
+	vmovdqa	%xmm0,96(%rdi)  // H^7
 	call	GFMUL
-	vmovdqa	%xmm0,112(%rdi)
+	vmovdqa	%xmm0,112(%rdi)  // H^8
 	ret
 
 
@@ -97,22 +112,23 @@ _CET_ENDBR
 .private_extern _aesgcmsiv_htable6_init
 
 .p2align	4
+.alt_entry _aesgcmsiv_htable6_init
 _aesgcmsiv_htable6_init:
 
 _CET_ENDBR
 	vmovdqa	(%rsi),%xmm0
 	vmovdqa	%xmm0,%xmm1
-	vmovdqa	%xmm0,(%rdi)
+	vmovdqa	%xmm0,(%rdi)  // H
 	call	GFMUL
-	vmovdqa	%xmm0,16(%rdi)
+	vmovdqa	%xmm0,16(%rdi)  // H^2
 	call	GFMUL
-	vmovdqa	%xmm0,32(%rdi)
+	vmovdqa	%xmm0,32(%rdi)  // H^3
 	call	GFMUL
-	vmovdqa	%xmm0,48(%rdi)
+	vmovdqa	%xmm0,48(%rdi)  // H^4
 	call	GFMUL
-	vmovdqa	%xmm0,64(%rdi)
+	vmovdqa	%xmm0,64(%rdi)  // H^5
 	call	GFMUL
-	vmovdqa	%xmm0,80(%rdi)
+	vmovdqa	%xmm0,80(%rdi)  // H^6
 	ret
 
 
@@ -120,6 +136,7 @@ _CET_ENDBR
 .private_extern _aesgcmsiv_htable_polyval
 
 .p2align	4
+.alt_entry _aesgcmsiv_htable_polyval
 _aesgcmsiv_htable_polyval:
 
 _CET_ENDBR
@@ -130,8 +147,8 @@ _CET_ENDBR
 L$htable_polyval_start:
 	vzeroall
 
-
-
+// We hash 8 blocks each iteration. If the total number of blocks is not a
+// multiple of 8, we first hash the leading n%8 blocks.
 	movq	%rdx,%r11
 	andq	$127,%r11
 
@@ -143,7 +160,7 @@ L$htable_polyval_start:
 
 	subq	$16,%r11
 
-
+// hash first prefix block
 	vmovdqu	(%rsi),%xmm0
 	vpxor	%xmm1,%xmm0,%xmm0
 
@@ -158,12 +175,12 @@ L$htable_polyval_start:
 	jnz	L$htable_polyval_prefix_loop
 	jmp	L$htable_polyval_prefix_complete
 
-
+// hash remaining prefix blocks (up to 7 total prefix blocks)
 .p2align	6
 L$htable_polyval_prefix_loop:
 	subq	$16,%r11
 
-	vmovdqu	(%rsi),%xmm0
+	vmovdqu	(%rsi),%xmm0  // next data block
 
 	vpclmulqdq	$0x00,(%rdi,%r11,1),%xmm0,%xmm6
 	vpxor	%xmm6,%xmm3,%xmm3
@@ -190,10 +207,10 @@ L$htable_polyval_prefix_complete:
 	jmp	L$htable_polyval_main_loop
 
 L$htable_polyval_no_prefix:
-
-
-
-
+// At this point we know the number of blocks is a multiple of 8. However,
+// the reduction in the main loop includes a multiplication by x^(-128). In
+// order to counter this, the existing tag needs to be multiplied by x^128.
+// In practice, this just means that it is loaded into %xmm9, not %xmm1.
 	vpxor	%xmm1,%xmm1,%xmm1
 	vmovdqa	(%rcx),%xmm9
 
@@ -202,7 +219,7 @@ L$htable_polyval_main_loop:
 	subq	$0x80,%rdx
 	jb	L$htable_polyval_out
 
-	vmovdqu	112(%rsi),%xmm0
+	vmovdqu	112(%rsi),%xmm0  // Ii
 
 	vpclmulqdq	$0x01,(%rdi),%xmm0,%xmm5
 	vpclmulqdq	$0x00,(%rdi),%xmm0,%xmm3
@@ -210,7 +227,7 @@ L$htable_polyval_main_loop:
 	vpclmulqdq	$0x10,(%rdi),%xmm0,%xmm6
 	vpxor	%xmm6,%xmm5,%xmm5
 
-
+// ########################################################
 	vmovdqu	96(%rsi),%xmm0
 	vpclmulqdq	$0x01,16(%rdi),%xmm0,%xmm6
 	vpxor	%xmm6,%xmm5,%xmm5
@@ -222,10 +239,10 @@ L$htable_polyval_main_loop:
 	vpxor	%xmm6,%xmm5,%xmm5
 
 
-
+// ########################################################
 	vmovdqu	80(%rsi),%xmm0
 
-	vpclmulqdq	$0x10,poly(%rip),%xmm1,%xmm7
+	vpclmulqdq	$0x10,poly(%rip),%xmm1,%xmm7  // reduction stage 1a
 	vpalignr	$8,%xmm1,%xmm1,%xmm1
 
 	vpclmulqdq	$0x01,32(%rdi),%xmm0,%xmm6
@@ -238,8 +255,8 @@ L$htable_polyval_main_loop:
 	vpxor	%xmm6,%xmm5,%xmm5
 
 
-	vpxor	%xmm7,%xmm1,%xmm1
-
+	vpxor	%xmm7,%xmm1,%xmm1  // reduction stage 1b
+// ########################################################
 	vmovdqu	64(%rsi),%xmm0
 
 	vpclmulqdq	$0x01,48(%rdi),%xmm0,%xmm6
@@ -251,10 +268,10 @@ L$htable_polyval_main_loop:
 	vpclmulqdq	$0x10,48(%rdi),%xmm0,%xmm6
 	vpxor	%xmm6,%xmm5,%xmm5
 
-
+// ########################################################
 	vmovdqu	48(%rsi),%xmm0
 
-	vpclmulqdq	$0x10,poly(%rip),%xmm1,%xmm7
+	vpclmulqdq	$0x10,poly(%rip),%xmm1,%xmm7  // reduction stage 2a
 	vpalignr	$8,%xmm1,%xmm1,%xmm1
 
 	vpclmulqdq	$0x01,64(%rdi),%xmm0,%xmm6
@@ -267,8 +284,8 @@ L$htable_polyval_main_loop:
 	vpxor	%xmm6,%xmm5,%xmm5
 
 
-	vpxor	%xmm7,%xmm1,%xmm1
-
+	vpxor	%xmm7,%xmm1,%xmm1  // reduction stage 2b
+// ########################################################
 	vmovdqu	32(%rsi),%xmm0
 
 	vpclmulqdq	$0x01,80(%rdi),%xmm0,%xmm6
@@ -281,8 +298,8 @@ L$htable_polyval_main_loop:
 	vpxor	%xmm6,%xmm5,%xmm5
 
 
-	vpxor	%xmm9,%xmm1,%xmm1
-
+	vpxor	%xmm9,%xmm1,%xmm1  // reduction finalize
+// ########################################################
 	vmovdqu	16(%rsi),%xmm0
 
 	vpclmulqdq	$0x01,96(%rdi),%xmm0,%xmm6
@@ -294,7 +311,7 @@ L$htable_polyval_main_loop:
 	vpclmulqdq	$0x10,96(%rdi),%xmm0,%xmm6
 	vpxor	%xmm6,%xmm5,%xmm5
 
-
+// ########################################################
 	vmovdqu	0(%rsi),%xmm0
 	vpxor	%xmm1,%xmm0,%xmm0
 
@@ -307,7 +324,7 @@ L$htable_polyval_main_loop:
 	vpclmulqdq	$0x10,112(%rdi),%xmm0,%xmm6
 	vpxor	%xmm6,%xmm5,%xmm5
 
-
+// ########################################################
 	vpsrldq	$8,%xmm5,%xmm6
 	vpslldq	$8,%xmm5,%xmm5
 
@@ -317,7 +334,7 @@ L$htable_polyval_main_loop:
 	leaq	128(%rsi),%rsi
 	jmp	L$htable_polyval_main_loop
 
-
+// ########################################################
 
 L$htable_polyval_out:
 	vpclmulqdq	$0x10,poly(%rip),%xmm1,%xmm6
@@ -338,6 +355,7 @@ L$htable_polyval_out:
 .private_extern _aesgcmsiv_polyval_horner
 
 .p2align	4
+.alt_entry _aesgcmsiv_polyval_horner
 _aesgcmsiv_polyval_horner:
 
 _CET_ENDBR
@@ -346,24 +364,24 @@ _CET_ENDBR
 	ret
 
 L$polyval_horner_start:
-
-
+// We will start with L GFMULS for POLYVAL(BIG_BUFFER)
+// RES = GFMUL(RES, H)
 
 	xorq	%r10,%r10
-	shlq	$4,%rcx
+	shlq	$4,%rcx  // L contains number of bytes to process
 
 	vmovdqa	(%rsi),%xmm1
 	vmovdqa	(%rdi),%xmm0
 
 L$polyval_horner_loop:
-	vpxor	(%rdx,%r10,1),%xmm0,%xmm0
-	call	GFMUL
+	vpxor	(%rdx,%r10,1),%xmm0,%xmm0  // RES = RES + Xi
+	call	GFMUL  // RES = RES * H
 
 	addq	$16,%r10
 	cmpq	%r10,%rcx
 	jne	L$polyval_horner_loop
 
-
+// calculation of T is complete. RES=T
 	vmovdqa	%xmm0,(%rdi)
 	ret
 
@@ -372,11 +390,12 @@ L$polyval_horner_loop:
 .private_extern _aes128gcmsiv_aes_ks
 
 .p2align	4
+.alt_entry _aes128gcmsiv_aes_ks
 _aes128gcmsiv_aes_ks:
 
 _CET_ENDBR
-	vmovdqu	(%rdi),%xmm1
-	vmovdqa	%xmm1,(%rsi)
+	vmovdqu	(%rdi),%xmm1  // xmm1 = user key
+	vmovdqa	%xmm1,(%rsi)  // rsi points to output
 
 	vmovdqa	con1(%rip),%xmm0
 	vmovdqa	mask(%rip),%xmm15
@@ -384,9 +403,9 @@ _CET_ENDBR
 	movq	$8,%rax
 
 L$ks128_loop:
-	addq	$16,%rsi
+	addq	$16,%rsi  // rsi points for next key
 	subq	$1,%rax
-	vpshufb	%xmm15,%xmm1,%xmm2
+	vpshufb	%xmm15,%xmm1,%xmm2  // xmm2 = shuffled user key
 	vaesenclast	%xmm0,%xmm2,%xmm2
 	vpslld	$1,%xmm0,%xmm0
 	vpslldq	$4,%xmm1,%xmm3
@@ -429,6 +448,7 @@ L$ks128_loop:
 .private_extern _aes256gcmsiv_aes_ks
 
 .p2align	4
+.alt_entry _aes256gcmsiv_aes_ks
 _aes256gcmsiv_aes_ks:
 
 _CET_ENDBR
@@ -477,22 +497,23 @@ L$ks256_loop:
 .private_extern _aes128gcmsiv_aes_ks_enc_x1
 
 .p2align	4
+.alt_entry _aes128gcmsiv_aes_ks_enc_x1
 _aes128gcmsiv_aes_ks_enc_x1:
 
 _CET_ENDBR
-	vmovdqa	(%rcx),%xmm1
+	vmovdqa	(%rcx),%xmm1  // xmm1 = first 16 bytes of random key
 	vmovdqa	0(%rdi),%xmm4
 
-	vmovdqa	%xmm1,(%rdx)
+	vmovdqa	%xmm1,(%rdx)  // KEY[0] = first 16 bytes of random key
 	vpxor	%xmm1,%xmm4,%xmm4
 
-	vmovdqa	con1(%rip),%xmm0
-	vmovdqa	mask(%rip),%xmm15
+	vmovdqa	con1(%rip),%xmm0  // xmm0  = 1,1,1,1
+	vmovdqa	mask(%rip),%xmm15  // xmm15 = mask
 
-	vpshufb	%xmm15,%xmm1,%xmm2
+	vpshufb	%xmm15,%xmm1,%xmm2  // 
 	vaesenclast	%xmm0,%xmm2,%xmm2
 	vpslld	$1,%xmm0,%xmm0
-	vpsllq	$32,%xmm1,%xmm3
+	vpsllq	$32,%xmm1,%xmm3  // 
 	vpxor	%xmm3,%xmm1,%xmm1
 	vpshufb	con3(%rip),%xmm1,%xmm3
 	vpxor	%xmm3,%xmm1,%xmm1
@@ -501,10 +522,10 @@ _CET_ENDBR
 	vaesenc	%xmm1,%xmm4,%xmm4
 	vmovdqa	%xmm1,16(%rdx)
 
-	vpshufb	%xmm15,%xmm1,%xmm2
+	vpshufb	%xmm15,%xmm1,%xmm2  // 
 	vaesenclast	%xmm0,%xmm2,%xmm2
 	vpslld	$1,%xmm0,%xmm0
-	vpsllq	$32,%xmm1,%xmm3
+	vpsllq	$32,%xmm1,%xmm3  // 
 	vpxor	%xmm3,%xmm1,%xmm1
 	vpshufb	con3(%rip),%xmm1,%xmm3
 	vpxor	%xmm3,%xmm1,%xmm1
@@ -513,10 +534,10 @@ _CET_ENDBR
 	vaesenc	%xmm1,%xmm4,%xmm4
 	vmovdqa	%xmm1,32(%rdx)
 
-	vpshufb	%xmm15,%xmm1,%xmm2
+	vpshufb	%xmm15,%xmm1,%xmm2  // 
 	vaesenclast	%xmm0,%xmm2,%xmm2
 	vpslld	$1,%xmm0,%xmm0
-	vpsllq	$32,%xmm1,%xmm3
+	vpsllq	$32,%xmm1,%xmm3  // 
 	vpxor	%xmm3,%xmm1,%xmm1
 	vpshufb	con3(%rip),%xmm1,%xmm3
 	vpxor	%xmm3,%xmm1,%xmm1
@@ -525,10 +546,10 @@ _CET_ENDBR
 	vaesenc	%xmm1,%xmm4,%xmm4
 	vmovdqa	%xmm1,48(%rdx)
 
-	vpshufb	%xmm15,%xmm1,%xmm2
+	vpshufb	%xmm15,%xmm1,%xmm2  // 
 	vaesenclast	%xmm0,%xmm2,%xmm2
 	vpslld	$1,%xmm0,%xmm0
-	vpsllq	$32,%xmm1,%xmm3
+	vpsllq	$32,%xmm1,%xmm3  // 
 	vpxor	%xmm3,%xmm1,%xmm1
 	vpshufb	con3(%rip),%xmm1,%xmm3
 	vpxor	%xmm3,%xmm1,%xmm1
@@ -537,10 +558,10 @@ _CET_ENDBR
 	vaesenc	%xmm1,%xmm4,%xmm4
 	vmovdqa	%xmm1,64(%rdx)
 
-	vpshufb	%xmm15,%xmm1,%xmm2
+	vpshufb	%xmm15,%xmm1,%xmm2  // 
 	vaesenclast	%xmm0,%xmm2,%xmm2
 	vpslld	$1,%xmm0,%xmm0
-	vpsllq	$32,%xmm1,%xmm3
+	vpsllq	$32,%xmm1,%xmm3  // 
 	vpxor	%xmm3,%xmm1,%xmm1
 	vpshufb	con3(%rip),%xmm1,%xmm3
 	vpxor	%xmm3,%xmm1,%xmm1
@@ -549,10 +570,10 @@ _CET_ENDBR
 	vaesenc	%xmm1,%xmm4,%xmm4
 	vmovdqa	%xmm1,80(%rdx)
 
-	vpshufb	%xmm15,%xmm1,%xmm2
+	vpshufb	%xmm15,%xmm1,%xmm2  // 
 	vaesenclast	%xmm0,%xmm2,%xmm2
 	vpslld	$1,%xmm0,%xmm0
-	vpsllq	$32,%xmm1,%xmm3
+	vpsllq	$32,%xmm1,%xmm3  // 
 	vpxor	%xmm3,%xmm1,%xmm1
 	vpshufb	con3(%rip),%xmm1,%xmm3
 	vpxor	%xmm3,%xmm1,%xmm1
@@ -561,10 +582,10 @@ _CET_ENDBR
 	vaesenc	%xmm1,%xmm4,%xmm4
 	vmovdqa	%xmm1,96(%rdx)
 
-	vpshufb	%xmm15,%xmm1,%xmm2
+	vpshufb	%xmm15,%xmm1,%xmm2  // 
 	vaesenclast	%xmm0,%xmm2,%xmm2
 	vpslld	$1,%xmm0,%xmm0
-	vpsllq	$32,%xmm1,%xmm3
+	vpsllq	$32,%xmm1,%xmm3  // 
 	vpxor	%xmm3,%xmm1,%xmm1
 	vpshufb	con3(%rip),%xmm1,%xmm3
 	vpxor	%xmm3,%xmm1,%xmm1
@@ -573,10 +594,10 @@ _CET_ENDBR
 	vaesenc	%xmm1,%xmm4,%xmm4
 	vmovdqa	%xmm1,112(%rdx)
 
-	vpshufb	%xmm15,%xmm1,%xmm2
+	vpshufb	%xmm15,%xmm1,%xmm2  // 
 	vaesenclast	%xmm0,%xmm2,%xmm2
 	vpslld	$1,%xmm0,%xmm0
-	vpsllq	$32,%xmm1,%xmm3
+	vpsllq	$32,%xmm1,%xmm3  // 
 	vpxor	%xmm3,%xmm1,%xmm1
 	vpshufb	con3(%rip),%xmm1,%xmm3
 	vpxor	%xmm3,%xmm1,%xmm1
@@ -588,10 +609,10 @@ _CET_ENDBR
 
 	vmovdqa	con2(%rip),%xmm0
 
-	vpshufb	%xmm15,%xmm1,%xmm2
+	vpshufb	%xmm15,%xmm1,%xmm2  // 
 	vaesenclast	%xmm0,%xmm2,%xmm2
 	vpslld	$1,%xmm0,%xmm0
-	vpsllq	$32,%xmm1,%xmm3
+	vpsllq	$32,%xmm1,%xmm3  // 
 	vpxor	%xmm3,%xmm1,%xmm1
 	vpshufb	con3(%rip),%xmm1,%xmm3
 	vpxor	%xmm3,%xmm1,%xmm1
@@ -600,9 +621,9 @@ _CET_ENDBR
 	vaesenc	%xmm1,%xmm4,%xmm4
 	vmovdqa	%xmm1,144(%rdx)
 
-	vpshufb	%xmm15,%xmm1,%xmm2
+	vpshufb	%xmm15,%xmm1,%xmm2  // 
 	vaesenclast	%xmm0,%xmm2,%xmm2
-	vpsllq	$32,%xmm1,%xmm3
+	vpsllq	$32,%xmm1,%xmm3  // 
 	vpxor	%xmm3,%xmm1,%xmm1
 	vpshufb	con3(%rip),%xmm1,%xmm3
 	vpxor	%xmm3,%xmm1,%xmm1
@@ -620,14 +641,15 @@ _CET_ENDBR
 .private_extern _aes128gcmsiv_kdf
 
 .p2align	4
+.alt_entry _aes128gcmsiv_kdf
 _aes128gcmsiv_kdf:
 
 _CET_ENDBR
+// parameter 1: %rdi                         Pointer to NONCE
+// parameter 2: %rsi                         Pointer to CT
+// parameter 4: %rdx                         Pointer to keys
 
-
-
-
-	vmovdqa	(%rdx),%xmm1
+	vmovdqa	(%rdx),%xmm1  // xmm1 = first 16 bytes of random key
 	vmovdqa	0(%rdi),%xmm9
 	vmovdqa	and_mask(%rip),%xmm12
 	vmovdqa	one(%rip),%xmm13
@@ -714,6 +736,7 @@ _CET_ENDBR
 .private_extern _aes128gcmsiv_enc_msg_x4
 
 .p2align	4
+.alt_entry _aes128gcmsiv_enc_msg_x4
 _aes128gcmsiv_enc_msg_x4:
 
 _CET_ENDBR
@@ -727,20 +750,20 @@ L$128_enc_msg_x4_start:
 	pushq	%r13
 
 
-	shrq	$4,%r8
+	shrq	$4,%r8  // LEN = num of blocks
 	movq	%r8,%r10
 	shlq	$62,%r10
 	shrq	$62,%r10
 
-
+// make IV from TAG
 	vmovdqa	(%rdx),%xmm15
-	vpor	OR_MASK(%rip),%xmm15,%xmm15
+	vpor	OR_MASK(%rip),%xmm15,%xmm15  // IV = [1]TAG[126...32][00..00]
 
-	vmovdqu	four(%rip),%xmm4
-	vmovdqa	%xmm15,%xmm0
-	vpaddd	one(%rip),%xmm15,%xmm1
-	vpaddd	two(%rip),%xmm15,%xmm2
-	vpaddd	three(%rip),%xmm15,%xmm3
+	vmovdqu	four(%rip),%xmm4  // Register to increment counters
+	vmovdqa	%xmm15,%xmm0  // CTR1 = TAG[1][127...32][00..00]
+	vpaddd	one(%rip),%xmm15,%xmm1  // CTR2 = TAG[1][127...32][00..01]
+	vpaddd	two(%rip),%xmm15,%xmm2  // CTR3 = TAG[1][127...32][00..02]
+	vpaddd	three(%rip),%xmm15,%xmm3  // CTR4 = TAG[1][127...32][00..03]
 
 	shrq	$2,%r8
 	je	L$128_enc_msg_x4_check_remainder
@@ -828,7 +851,7 @@ L$128_enc_msg_x4_loop1:
 	vaesenclast	%xmm12,%xmm8,%xmm8
 
 
-
+// XOR with Plaintext
 	vpxor	0(%rdi),%xmm5,%xmm5
 	vpxor	16(%rdi),%xmm6,%xmm6
 	vpxor	32(%rdi),%xmm7,%xmm7
@@ -851,10 +874,10 @@ L$128_enc_msg_x4_check_remainder:
 	je	L$128_enc_msg_x4_out
 
 L$128_enc_msg_x4_loop2:
-
-
+// enc each block separately
+// CTR1 is the highest counter (even if no LOOP done)
 	vmovdqa	%xmm0,%xmm5
-	vpaddd	one(%rip),%xmm0,%xmm0
+	vpaddd	one(%rip),%xmm0,%xmm0  // inc counter
 
 	vpxor	(%rcx),%xmm5,%xmm5
 	vaesenc	16(%rcx),%xmm5,%xmm5
@@ -868,7 +891,7 @@ L$128_enc_msg_x4_loop2:
 	vaesenc	144(%rcx),%xmm5,%xmm5
 	vaesenclast	160(%rcx),%xmm5,%xmm5
 
-
+// XOR with plaintext
 	vpxor	(%rdi),%xmm5,%xmm5
 	vmovdqu	%xmm5,(%rsi)
 
@@ -890,6 +913,7 @@ L$128_enc_msg_x4_out:
 .private_extern _aes128gcmsiv_enc_msg_x8
 
 .p2align	4
+.alt_entry _aes128gcmsiv_enc_msg_x8
 _aes128gcmsiv_enc_msg_x8:
 
 _CET_ENDBR
@@ -907,29 +931,29 @@ L$128_enc_msg_x8_start:
 	movq	%rsp,%rbp
 
 
-
+// Place in stack
 	subq	$128,%rsp
 	andq	$-64,%rsp
 
-	shrq	$4,%r8
+	shrq	$4,%r8  // LEN = num of blocks
 	movq	%r8,%r10
 	shlq	$61,%r10
 	shrq	$61,%r10
 
-
+// make IV from TAG
 	vmovdqu	(%rdx),%xmm1
-	vpor	OR_MASK(%rip),%xmm1,%xmm1
+	vpor	OR_MASK(%rip),%xmm1,%xmm1  // TMP1= IV = [1]TAG[126...32][00..00]
 
-
+// store counter8 in the stack
 	vpaddd	seven(%rip),%xmm1,%xmm0
-	vmovdqu	%xmm0,(%rsp)
-	vpaddd	one(%rip),%xmm1,%xmm9
-	vpaddd	two(%rip),%xmm1,%xmm10
-	vpaddd	three(%rip),%xmm1,%xmm11
-	vpaddd	four(%rip),%xmm1,%xmm12
-	vpaddd	five(%rip),%xmm1,%xmm13
-	vpaddd	six(%rip),%xmm1,%xmm14
-	vmovdqa	%xmm1,%xmm0
+	vmovdqu	%xmm0,(%rsp)  // CTR8 = TAG[127...32][00..07]
+	vpaddd	one(%rip),%xmm1,%xmm9  // CTR2 = TAG[127...32][00..01]
+	vpaddd	two(%rip),%xmm1,%xmm10  // CTR3 = TAG[127...32][00..02]
+	vpaddd	three(%rip),%xmm1,%xmm11  // CTR4 = TAG[127...32][00..03]
+	vpaddd	four(%rip),%xmm1,%xmm12  // CTR5 = TAG[127...32][00..04]
+	vpaddd	five(%rip),%xmm1,%xmm13  // CTR6 = TAG[127...32][00..05]
+	vpaddd	six(%rip),%xmm1,%xmm14  // CTR7 = TAG[127...32][00..06]
+	vmovdqa	%xmm1,%xmm0  // CTR1 = TAG[127...32][00..00]
 
 	shrq	$3,%r8
 	je	L$128_enc_msg_x8_check_remainder
@@ -948,7 +972,7 @@ L$128_enc_msg_x8_loop1:
 	vmovdqa	%xmm12,%xmm5
 	vmovdqa	%xmm13,%xmm6
 	vmovdqa	%xmm14,%xmm7
-
+// move from stack
 	vmovdqu	(%rsp),%xmm8
 
 	vpxor	(%rcx),%xmm1,%xmm1
@@ -970,7 +994,7 @@ L$128_enc_msg_x8_loop1:
 	vaesenc	%xmm15,%xmm7,%xmm7
 	vaesenc	%xmm15,%xmm8,%xmm8
 
-	vmovdqu	(%rsp),%xmm14
+	vmovdqu	(%rsp),%xmm14  // deal with CTR8
 	vpaddd	eight(%rip),%xmm14,%xmm14
 	vmovdqu	%xmm14,(%rsp)
 	vmovdqu	32(%rcx),%xmm15
@@ -1071,7 +1095,7 @@ L$128_enc_msg_x8_loop1:
 	vaesenclast	%xmm15,%xmm8,%xmm8
 
 
-
+// XOR with Plaintext
 	vpxor	0(%rdi),%xmm1,%xmm1
 	vpxor	16(%rdi),%xmm2,%xmm2
 	vpxor	32(%rdi),%xmm3,%xmm3
@@ -1102,10 +1126,10 @@ L$128_enc_msg_x8_check_remainder:
 	je	L$128_enc_msg_x8_out
 
 L$128_enc_msg_x8_loop2:
-
-
+// enc each block separately
+// CTR1 is the highest counter (even if no LOOP done)
 	vmovdqa	%xmm0,%xmm1
-	vpaddd	one(%rip),%xmm0,%xmm0
+	vpaddd	one(%rip),%xmm0,%xmm0  // inc counter
 
 	vpxor	(%rcx),%xmm1,%xmm1
 	vaesenc	16(%rcx),%xmm1,%xmm1
@@ -1119,7 +1143,7 @@ L$128_enc_msg_x8_loop2:
 	vaesenc	144(%rcx),%xmm1,%xmm1
 	vaesenclast	160(%rcx),%xmm1,%xmm1
 
-
+// XOR with Plaintext
 	vpxor	(%rdi),%xmm1,%xmm1
 
 	vmovdqu	%xmm1,(%rsi)
@@ -1146,6 +1170,7 @@ L$128_enc_msg_x8_out:
 .private_extern _aes128gcmsiv_dec
 
 .p2align	4
+.alt_entry _aes128gcmsiv_dec
 _aes128gcmsiv_dec:
 
 _CET_ENDBR
@@ -1156,10 +1181,10 @@ _CET_ENDBR
 L$128_dec_start:
 	vzeroupper
 	vmovdqa	(%rdx),%xmm0
-
-
+// The claimed tag is provided after the current calculated tag value.
+// CTRBLKs is made from it.
 	vmovdqu	16(%rdx),%xmm15
-	vpor	OR_MASK(%rip),%xmm15,%xmm15
+	vpor	OR_MASK(%rip),%xmm15,%xmm15  // CTR = [1]TAG[126...32][00..00]
 	movq	%rdx,%rax
 
 	leaq	32(%rax),%rax
@@ -1167,11 +1192,11 @@ L$128_dec_start:
 
 	andq	$~15,%r9
 
-
+// If less then 6 blocks, make singles
 	cmpq	$96,%r9
 	jb	L$128_dec_loop2
 
-
+// Decrypt the first six blocks
 	subq	$96,%r9
 	vmovdqa	%xmm15,%xmm7
 	vpaddd	one(%rip),%xmm7,%xmm8
@@ -1268,7 +1293,7 @@ L$128_dec_start:
 	vaesenclast	%xmm4,%xmm11,%xmm11
 	vaesenclast	%xmm4,%xmm12,%xmm12
 
-
+// XOR with CT
 	vpxor	0(%rdi),%xmm7,%xmm7
 	vpxor	16(%rdi),%xmm8,%xmm8
 	vpxor	32(%rdi),%xmm9,%xmm9
@@ -1287,7 +1312,7 @@ L$128_dec_start:
 	addq	$96,%rsi
 	jmp	L$128_dec_loop1
 
-
+// Decrypt 6 blocks each time while hashing previous 6 blocks
 .p2align	6
 L$128_dec_loop1:
 	cmpq	$96,%r9
@@ -1599,9 +1624,9 @@ L$128_dec_finish_96:
 	vpxor	%xmm5,%xmm0,%xmm0
 
 L$128_dec_loop2:
+// Here we encrypt any remaining whole block
 
-
-
+// if there are no whole blocks
 	cmpq	$16,%r9
 	jb	L$128_dec_out
 	subq	$16,%r9
@@ -1640,6 +1665,7 @@ L$128_dec_out:
 .private_extern _aes128gcmsiv_ecb_enc_block
 
 .p2align	4
+.alt_entry _aes128gcmsiv_ecb_enc_block
 _aes128gcmsiv_ecb_enc_block:
 
 _CET_ENDBR
@@ -1655,7 +1681,7 @@ _CET_ENDBR
 	vaesenc	112(%rdx),%xmm1,%xmm1
 	vaesenc	128(%rdx),%xmm1,%xmm1
 	vaesenc	144(%rdx),%xmm1,%xmm1
-	vaesenclast	160(%rdx),%xmm1,%xmm1
+	vaesenclast	160(%rdx),%xmm1,%xmm1  // STATE_1 == IV
 
 	vmovdqa	%xmm1,(%rsi)
 
@@ -1666,17 +1692,18 @@ _CET_ENDBR
 .private_extern _aes256gcmsiv_aes_ks_enc_x1
 
 .p2align	4
+.alt_entry _aes256gcmsiv_aes_ks_enc_x1
 _aes256gcmsiv_aes_ks_enc_x1:
 
 _CET_ENDBR
-	vmovdqa	con1(%rip),%xmm0
-	vmovdqa	mask(%rip),%xmm15
+	vmovdqa	con1(%rip),%xmm0  // CON_MASK  = 1,1,1,1
+	vmovdqa	mask(%rip),%xmm15  // MASK_256
 	vmovdqa	(%rdi),%xmm8
-	vmovdqa	(%rcx),%xmm1
+	vmovdqa	(%rcx),%xmm1  // KEY_1 || KEY_2 [0..7] = user key
 	vmovdqa	16(%rcx),%xmm3
 	vpxor	%xmm1,%xmm8,%xmm8
 	vaesenc	%xmm3,%xmm8,%xmm8
-	vmovdqu	%xmm1,(%rdx)
+	vmovdqu	%xmm1,(%rdx)  // First round key
 	vmovdqu	%xmm3,16(%rdx)
 	vpxor	%xmm14,%xmm14,%xmm14
 
@@ -1850,6 +1877,7 @@ _CET_ENDBR
 .private_extern _aes256gcmsiv_ecb_enc_block
 
 .p2align	4
+.alt_entry _aes256gcmsiv_ecb_enc_block
 _aes256gcmsiv_ecb_enc_block:
 
 _CET_ENDBR
@@ -1868,7 +1896,7 @@ _CET_ENDBR
 	vaesenc	176(%rdx),%xmm1,%xmm1
 	vaesenc	192(%rdx),%xmm1,%xmm1
 	vaesenc	208(%rdx),%xmm1,%xmm1
-	vaesenclast	224(%rdx),%xmm1,%xmm1
+	vaesenclast	224(%rdx),%xmm1,%xmm1  // %xmm1 == IV
 	vmovdqa	%xmm1,(%rsi)
 	ret
 
@@ -1877,6 +1905,7 @@ _CET_ENDBR
 .private_extern _aes256gcmsiv_enc_msg_x4
 
 .p2align	4
+.alt_entry _aes256gcmsiv_enc_msg_x4
 _aes256gcmsiv_enc_msg_x4:
 
 _CET_ENDBR
@@ -1886,7 +1915,7 @@ _CET_ENDBR
 
 L$256_enc_msg_x4_start:
 	movq	%r8,%r10
-	shrq	$4,%r8
+	shrq	$4,%r8  // LEN = num of blocks
 	shlq	$60,%r10
 	jz	L$256_enc_msg_x4_start2
 	addq	$1,%r8
@@ -1896,15 +1925,15 @@ L$256_enc_msg_x4_start2:
 	shlq	$62,%r10
 	shrq	$62,%r10
 
-
+// make IV from TAG
 	vmovdqa	(%rdx),%xmm15
-	vpor	OR_MASK(%rip),%xmm15,%xmm15
+	vpor	OR_MASK(%rip),%xmm15,%xmm15  // IV = [1]TAG[126...32][00..00]
 
-	vmovdqa	four(%rip),%xmm4
-	vmovdqa	%xmm15,%xmm0
-	vpaddd	one(%rip),%xmm15,%xmm1
-	vpaddd	two(%rip),%xmm15,%xmm2
-	vpaddd	three(%rip),%xmm15,%xmm3
+	vmovdqa	four(%rip),%xmm4  // Register to increment counters
+	vmovdqa	%xmm15,%xmm0  // CTR1 = TAG[1][127...32][00..00]
+	vpaddd	one(%rip),%xmm15,%xmm1  // CTR2 = TAG[1][127...32][00..01]
+	vpaddd	two(%rip),%xmm15,%xmm2  // CTR3 = TAG[1][127...32][00..02]
+	vpaddd	three(%rip),%xmm15,%xmm3  // CTR4 = TAG[1][127...32][00..03]
 
 	shrq	$2,%r8
 	je	L$256_enc_msg_x4_check_remainder
@@ -2016,7 +2045,7 @@ L$256_enc_msg_x4_loop1:
 	vaesenclast	%xmm12,%xmm8,%xmm8
 
 
-
+// XOR with Plaintext
 	vpxor	0(%rdi),%xmm5,%xmm5
 	vpxor	16(%rdi),%xmm6,%xmm6
 	vpxor	32(%rdi),%xmm7,%xmm7
@@ -2039,11 +2068,11 @@ L$256_enc_msg_x4_check_remainder:
 	je	L$256_enc_msg_x4_out
 
 L$256_enc_msg_x4_loop2:
-
-
+// encrypt each block separately
+// CTR1 is the highest counter (even if no LOOP done)
 
 	vmovdqa	%xmm0,%xmm5
-	vpaddd	one(%rip),%xmm0,%xmm0
+	vpaddd	one(%rip),%xmm0,%xmm0  // inc counter
 	vpxor	(%rcx),%xmm5,%xmm5
 	vaesenc	16(%rcx),%xmm5,%xmm5
 	vaesenc	32(%rcx),%xmm5,%xmm5
@@ -2060,7 +2089,7 @@ L$256_enc_msg_x4_loop2:
 	vaesenc	208(%rcx),%xmm5,%xmm5
 	vaesenclast	224(%rcx),%xmm5,%xmm5
 
-
+// XOR with Plaintext
 	vpxor	(%rdi),%xmm5,%xmm5
 
 	vmovdqu	%xmm5,(%rsi)
@@ -2079,6 +2108,7 @@ L$256_enc_msg_x4_out:
 .private_extern _aes256gcmsiv_enc_msg_x8
 
 .p2align	4
+.alt_entry _aes256gcmsiv_enc_msg_x8
 _aes256gcmsiv_enc_msg_x8:
 
 _CET_ENDBR
@@ -2087,13 +2117,13 @@ _CET_ENDBR
 	ret
 
 L$256_enc_msg_x8_start:
-
+// Place in stack
 	movq	%rsp,%r11
 	subq	$16,%r11
 	andq	$-64,%r11
 
 	movq	%r8,%r10
-	shrq	$4,%r8
+	shrq	$4,%r8  // LEN = num of blocks
 	shlq	$60,%r10
 	jz	L$256_enc_msg_x8_start2
 	addq	$1,%r8
@@ -2103,20 +2133,20 @@ L$256_enc_msg_x8_start2:
 	shlq	$61,%r10
 	shrq	$61,%r10
 
-
+// Make IV from TAG
 	vmovdqa	(%rdx),%xmm1
-	vpor	OR_MASK(%rip),%xmm1,%xmm1
+	vpor	OR_MASK(%rip),%xmm1,%xmm1  // TMP1= IV = [1]TAG[126...32][00..00]
 
-
+// store counter8 on the stack
 	vpaddd	seven(%rip),%xmm1,%xmm0
-	vmovdqa	%xmm0,(%r11)
-	vpaddd	one(%rip),%xmm1,%xmm9
-	vpaddd	two(%rip),%xmm1,%xmm10
-	vpaddd	three(%rip),%xmm1,%xmm11
-	vpaddd	four(%rip),%xmm1,%xmm12
-	vpaddd	five(%rip),%xmm1,%xmm13
-	vpaddd	six(%rip),%xmm1,%xmm14
-	vmovdqa	%xmm1,%xmm0
+	vmovdqa	%xmm0,(%r11)  // CTR8 = TAG[127...32][00..07]
+	vpaddd	one(%rip),%xmm1,%xmm9  // CTR2 = TAG[127...32][00..01]
+	vpaddd	two(%rip),%xmm1,%xmm10  // CTR3 = TAG[127...32][00..02]
+	vpaddd	three(%rip),%xmm1,%xmm11  // CTR4 = TAG[127...32][00..03]
+	vpaddd	four(%rip),%xmm1,%xmm12  // CTR5 = TAG[127...32][00..04]
+	vpaddd	five(%rip),%xmm1,%xmm13  // CTR6 = TAG[127...32][00..05]
+	vpaddd	six(%rip),%xmm1,%xmm14  // CTR7 = TAG[127...32][00..06]
+	vmovdqa	%xmm1,%xmm0  // CTR1 = TAG[127...32][00..00]
 
 	shrq	$3,%r8
 	jz	L$256_enc_msg_x8_check_remainder
@@ -2135,7 +2165,7 @@ L$256_enc_msg_x8_loop1:
 	vmovdqa	%xmm12,%xmm5
 	vmovdqa	%xmm13,%xmm6
 	vmovdqa	%xmm14,%xmm7
-
+// move from stack
 	vmovdqa	(%r11),%xmm8
 
 	vpxor	(%rcx),%xmm1,%xmm1
@@ -2157,7 +2187,7 @@ L$256_enc_msg_x8_loop1:
 	vaesenc	%xmm15,%xmm7,%xmm7
 	vaesenc	%xmm15,%xmm8,%xmm8
 
-	vmovdqa	(%r11),%xmm14
+	vmovdqa	(%r11),%xmm14  // deal with CTR8
 	vpaddd	eight(%rip),%xmm14,%xmm14
 	vmovdqa	%xmm14,(%r11)
 	vmovdqu	32(%rcx),%xmm15
@@ -2298,7 +2328,7 @@ L$256_enc_msg_x8_loop1:
 	vaesenclast	%xmm15,%xmm8,%xmm8
 
 
-
+// XOR with Plaintext
 	vpxor	0(%rdi),%xmm1,%xmm1
 	vpxor	16(%rdi),%xmm2,%xmm2
 	vpxor	32(%rdi),%xmm3,%xmm3
@@ -2329,8 +2359,8 @@ L$256_enc_msg_x8_check_remainder:
 	je	L$256_enc_msg_x8_out
 
 L$256_enc_msg_x8_loop2:
-
-
+// encrypt each block separately
+// CTR1 is the highest counter (even if no LOOP done)
 	vmovdqa	%xmm0,%xmm1
 	vpaddd	one(%rip),%xmm0,%xmm0
 
@@ -2350,7 +2380,7 @@ L$256_enc_msg_x8_loop2:
 	vaesenc	208(%rcx),%xmm1,%xmm1
 	vaesenclast	224(%rcx),%xmm1,%xmm1
 
-
+// XOR with Plaintext
 	vpxor	(%rdi),%xmm1,%xmm1
 
 	vmovdqu	%xmm1,(%rsi)
@@ -2369,6 +2399,7 @@ L$256_enc_msg_x8_out:
 .private_extern _aes256gcmsiv_dec
 
 .p2align	4
+.alt_entry _aes256gcmsiv_dec
 _aes256gcmsiv_dec:
 
 _CET_ENDBR
@@ -2379,10 +2410,10 @@ _CET_ENDBR
 L$256_dec_start:
 	vzeroupper
 	vmovdqa	(%rdx),%xmm0
-
-
+// The claimed tag is provided after the current calculated tag value.
+// CTRBLKs is made from it.
 	vmovdqu	16(%rdx),%xmm15
-	vpor	OR_MASK(%rip),%xmm15,%xmm15
+	vpor	OR_MASK(%rip),%xmm15,%xmm15  // CTR = [1]TAG[126...32][00..00]
 	movq	%rdx,%rax
 
 	leaq	32(%rax),%rax
@@ -2390,11 +2421,11 @@ L$256_dec_start:
 
 	andq	$~15,%r9
 
-
+// If less then 6 blocks, make singles
 	cmpq	$96,%r9
 	jb	L$256_dec_loop2
 
-
+// Decrypt the first six blocks
 	subq	$96,%r9
 	vmovdqa	%xmm15,%xmm7
 	vpaddd	one(%rip),%xmm7,%xmm8
@@ -2523,7 +2554,7 @@ L$256_dec_start:
 	vaesenclast	%xmm4,%xmm11,%xmm11
 	vaesenclast	%xmm4,%xmm12,%xmm12
 
-
+// XOR with CT
 	vpxor	0(%rdi),%xmm7,%xmm7
 	vpxor	16(%rdi),%xmm8,%xmm8
 	vpxor	32(%rdi),%xmm9,%xmm9
@@ -2542,7 +2573,7 @@ L$256_dec_start:
 	addq	$96,%rsi
 	jmp	L$256_dec_loop1
 
-
+// Decrypt 6 blocks each time while hashing previous 6 blocks
 .p2align	6
 L$256_dec_loop1:
 	cmpq	$96,%r9
@@ -2886,9 +2917,9 @@ L$256_dec_finish_96:
 	vpxor	%xmm5,%xmm0,%xmm0
 
 L$256_dec_loop2:
+// Here we encrypt any remaining whole block
 
-
-
+// if there are no whole blocks
 	cmpq	$16,%r9
 	jb	L$256_dec_out
 	subq	$16,%r9
@@ -2931,14 +2962,15 @@ L$256_dec_out:
 .private_extern _aes256gcmsiv_kdf
 
 .p2align	4
+.alt_entry _aes256gcmsiv_kdf
 _aes256gcmsiv_kdf:
 
 _CET_ENDBR
+// parameter 1: %rdi                         Pointer to NONCE
+// parameter 2: %rsi                         Pointer to CT
+// parameter 4: %rdx                         Pointer to keys
 
-
-
-
-	vmovdqa	(%rdx),%xmm1
+	vmovdqa	(%rdx),%xmm1  // xmm1 = first 16 bytes of random key
 	vmovdqa	0(%rdi),%xmm4
 	vmovdqa	and_mask(%rip),%xmm11
 	vmovdqa	one(%rip),%xmm8

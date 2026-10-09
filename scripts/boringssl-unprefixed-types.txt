@@ -1,0 +1,55 @@
+# BoringSSL types that may be stored *by value* inside unprefixed std::
+# template instantiations.
+#
+# Such instantiations mangle identically in every BoringSSL copy regardless of
+# prefix, because the mangling encodes only the struct tag name and BoringSSL's
+# C types live in the global namespace. Two statically linked copies therefore
+# coalesce onto one definition.
+#
+# The check only reports by-value uses, because those are the dangerous ones:
+# size, alignment and member offsets become part of the generated code while
+# the symbol name stays the same, so two copies with different layouts would
+# silently share one definition. Uses behind a pointer or reference are not
+# reported at all -- the pointee is incomplete to the instantiation, which only
+# moves pointer-sized values, so the emitted code is byte-identical whatever
+# the struct looks like. That is why this file is so short: almost everything
+# BoringSSL puts in a std:: container it puts there by pointer, including the
+# std::variant of callbacks in `struct CertCb` (ssl/internal.h) and
+# libstdc++'s std::tuple internals over x509_st * and friends.
+#
+# Before adding a type here, confirm the layout genuinely cannot differ between
+# copies -- for example because every BoringSSL revision we support defines it
+# identically, or because the instantiation never touches its members. If you
+# cannot show that, the fix is to stop putting it in a std:: container rather
+# than to list it here.
+#
+# Format: one bare type tag per line, e.g. `ssl_st`.
+#
+# Reviewed entries.
+#
+# cbs_st          -- crypto/bytestring/cbb.cc sorts a container of CBS by value
+#                    (`std::sort(children.begin(), children.end(), [](CBS a,
+#                    CBS b) ...)`), so libstdc++'s __copy_move::__assign_one
+#                    instantiates over it. Layout is
+#                    `{ const uint8_t *data; size_t len; }` -- two pointers'
+#                    worth of ABI-determined POD, with no extra data members,
+#                    so every revision we support lays it out identically.
+#                    Linux only: libc++ hides the equivalent internals.
+# crypto_iovec_st -- same mechanism. Layout is
+#                    `{ uint8_t *out; const uint8_t *in; size_t len; }`,
+#                    likewise ABI-determined POD. Linux only.
+# ssl_cipher_st   -- `std::size<ssl_cipher_st, 25>(ssl_cipher_st const (&)[25])`.
+#                    By-value in the *type*, but not in the *body*: std::size on
+#                    an array returns the compile-time extent, so this compiles
+#                    to `return 25` regardless of the struct's layout. A
+#                    fail-closed false positive of the kind the rule documents,
+#                    not a real hazard.
+#
+# Note cbs_st and crypto_iovec_st are the only genuinely layout-dependent cases,
+# so they are the ones to re-check on a BoringSSL bump: if upstream adds a field
+# to either struct, two copies at different revisions would share one definition
+# of these instantiations while disagreeing about the layout, and nothing would
+# warn.
+cbs_st
+crypto_iovec_st
+ssl_cipher_st

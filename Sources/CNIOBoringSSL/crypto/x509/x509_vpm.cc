@@ -1,13 +1,20 @@
-/*
- * Copyright 2004-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 2004-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <string.h>
+
+#include <type_traits>
 
 #include <CNIOBoringSSL_mem.h>
 #include <CNIOBoringSSL_obj.h>
@@ -15,8 +22,11 @@
 #include <CNIOBoringSSL_x509.h>
 
 #include "../internal.h"
+#include "../mem_internal.h"
 #include "internal.h"
 
+
+using namespace bssl;
 
 // X509_VERIFY_PARAM functions
 
@@ -29,7 +39,7 @@ static int int_x509_param_set_hosts(X509_VERIFY_PARAM *param, int mode,
                                     const char *name, size_t namelen) {
   char *copy;
 
-  if (name == NULL || namelen == 0) {
+  if (name == nullptr || namelen == 0) {
     // Unlike OpenSSL, we reject trying to set or add an empty name.
     return 0;
   }
@@ -42,16 +52,16 @@ static int int_x509_param_set_hosts(X509_VERIFY_PARAM *param, int mode,
 
   if (mode == SET_HOST && param->hosts) {
     sk_OPENSSL_STRING_pop_free(param->hosts, str_free);
-    param->hosts = NULL;
+    param->hosts = nullptr;
   }
 
   copy = OPENSSL_strndup(name, namelen);
-  if (copy == NULL) {
+  if (copy == nullptr) {
     return 0;
   }
 
-  if (param->hosts == NULL &&
-      (param->hosts = sk_OPENSSL_STRING_new_null()) == NULL) {
+  if (param->hosts == nullptr &&
+      (param->hosts = sk_OPENSSL_STRING_new_null()) == nullptr) {
     OPENSSL_free(copy);
     return 0;
   }
@@ -60,7 +70,7 @@ static int int_x509_param_set_hosts(X509_VERIFY_PARAM *param, int mode,
     OPENSSL_free(copy);
     if (sk_OPENSSL_STRING_num(param->hosts) == 0) {
       sk_OPENSSL_STRING_free(param->hosts);
-      param->hosts = NULL;
+      param->hosts = nullptr;
     }
     return 0;
   }
@@ -68,28 +78,27 @@ static int int_x509_param_set_hosts(X509_VERIFY_PARAM *param, int mode,
   return 1;
 }
 
-X509_VERIFY_PARAM *X509_VERIFY_PARAM_new(void) {
-  X509_VERIFY_PARAM *param = reinterpret_cast<X509_VERIFY_PARAM *>(
-      OPENSSL_zalloc(sizeof(X509_VERIFY_PARAM)));
+X509_VERIFY_PARAM *X509_VERIFY_PARAM_new() {
+  X509_VERIFY_PARAM *param = New<X509_VERIFY_PARAM>();
   if (!param) {
-    return NULL;
+    return nullptr;
   }
   param->depth = -1;
   return param;
 }
 
 void X509_VERIFY_PARAM_free(X509_VERIFY_PARAM *param) {
-  if (param == NULL) {
+  if (param == nullptr) {
     return;
   }
   sk_ASN1_OBJECT_pop_free(param->policies, ASN1_OBJECT_free);
   sk_OPENSSL_STRING_pop_free(param->hosts, str_free);
   OPENSSL_free(param->email);
   OPENSSL_free(param->ip);
-  OPENSSL_free(param);
+  Delete(param);
 }
 
-static int should_copy(int dest_is_set, int src_is_set, int prefer_src) {
+static bool should_copy(bool dest_is_set, bool src_is_set, bool prefer_src) {
   if (prefer_src) {
     // We prefer the source, so as long as there is a value to copy, copy it.
     return src_is_set;
@@ -99,94 +108,99 @@ static int should_copy(int dest_is_set, int src_is_set, int prefer_src) {
   return src_is_set && !dest_is_set;
 }
 
-static void copy_int_param(int *dest, const int *src, int default_val,
-                           int prefer_src) {
+template <typename T>
+static void copy_int_param(T *dest, const T *src, T default_val,
+                           bool prefer_src) {
+  static_assert(std::is_integral_v<T>);
   if (should_copy(*dest != default_val, *src != default_val, prefer_src)) {
     *dest = *src;
   }
 }
 
-// x509_verify_param_copy copies fields from |src| to |dest|. If both |src| and
-// |dest| have some field set, |prefer_src| determines whether |src| or |dest|'s
+// x509_verify_param_merge merges fields from `src` to `dest`. If both `src` and
+// `dest` have some field set, `prefer_src` determines whether `src` or `dest`'s
 // version is used.
-static int x509_verify_param_copy(X509_VERIFY_PARAM *dest,
-                                  const X509_VERIFY_PARAM *src,
-                                  int prefer_src) {
-  if (src == NULL) {
+static int x509_verify_param_merge(X509_VERIFY_PARAM *dest,
+                                   const X509_VERIFY_PARAM *src,
+                                   bool prefer_src) {
+  if (src == nullptr) {
     return 1;
+  }
+
+  if (src->poison || dest->poison) {
+    OPENSSL_PUT_ERROR(X509, ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED);
+    return 0;
   }
 
   copy_int_param(&dest->purpose, &src->purpose, /*default_val=*/0, prefer_src);
   copy_int_param(&dest->trust, &src->trust, /*default_val=*/0, prefer_src);
   copy_int_param(&dest->depth, &src->depth, /*default_val=*/-1, prefer_src);
 
-  // |check_time|, unlike all other parameters, does not honor |prefer_src|.
-  // This means |X509_VERIFY_PARAM_set1| will not overwrite it. This behavior
+  // `check_time`, unlike all other parameters, does not honor `prefer_src`.
+  // This means `X509_VERIFY_PARAM_set1` will not overwrite it. This behavior
   // comes from OpenSSL but may have been a bug.
   if (!(dest->flags & X509_V_FLAG_USE_CHECK_TIME)) {
     dest->check_time = src->check_time;
-    // The source |X509_V_FLAG_USE_CHECK_TIME| flag, if set, is copied below.
+    // The source `X509_V_FLAG_USE_CHECK_TIME` flag, if set, is copied below.
   }
 
   dest->flags |= src->flags;
 
-  if (should_copy(dest->policies != NULL, src->policies != NULL, prefer_src)) {
+  if (should_copy(dest->policies != nullptr, src->policies != nullptr,
+                  prefer_src)) {
     if (!X509_VERIFY_PARAM_set1_policies(dest, src->policies)) {
       return 0;
     }
   }
 
-  if (should_copy(dest->hosts != NULL, src->hosts != NULL, prefer_src)) {
+  if (should_copy(dest->hosts != nullptr, src->hosts != nullptr, prefer_src)) {
     sk_OPENSSL_STRING_pop_free(dest->hosts, str_free);
-    dest->hosts = NULL;
+    dest->hosts = nullptr;
     if (src->hosts) {
       dest->hosts =
           sk_OPENSSL_STRING_deep_copy(src->hosts, OPENSSL_strdup, str_free);
-      if (dest->hosts == NULL) {
+      if (dest->hosts == nullptr) {
         return 0;
       }
-      // Copy the host flags if and only if we're copying the host list. Note
-      // this means mechanisms like |X509_STORE_CTX_set_default| cannot be used
-      // to set host flags. E.g. we cannot change the defaults using
-      // |kDefaultParam| below.
-      dest->hostflags = src->hostflags;
     }
   }
 
-  if (should_copy(dest->email != NULL, src->email != NULL, prefer_src)) {
+  copy_int_param(&dest->hostflags, &src->hostflags, /*default_val=*/unsigned{0},
+                 prefer_src);
+
+  if (should_copy(dest->email != nullptr, src->email != nullptr, prefer_src)) {
     if (!X509_VERIFY_PARAM_set1_email(dest, src->email, src->emaillen)) {
       return 0;
     }
   }
 
-  if (should_copy(dest->ip != NULL, src->ip != NULL, prefer_src)) {
+  if (should_copy(dest->ip != nullptr, src->ip != nullptr, prefer_src)) {
     if (!X509_VERIFY_PARAM_set1_ip(dest, src->ip, src->iplen)) {
       return 0;
     }
   }
 
-  dest->poison = src->poison;
   return 1;
 }
 
 int X509_VERIFY_PARAM_inherit(X509_VERIFY_PARAM *dest,
                               const X509_VERIFY_PARAM *src) {
   // Prefer the destination. That is, this function only changes unset
-  // parameters in |dest|.
-  return x509_verify_param_copy(dest, src, /*prefer_src=*/0);
+  // parameters in `dest`.
+  return x509_verify_param_merge(dest, src, /*prefer_src=*/false);
 }
 
 int X509_VERIFY_PARAM_set1(X509_VERIFY_PARAM *to,
                            const X509_VERIFY_PARAM *from) {
-  // Prefer the source. That is, values in |to| are only preserved if they were
-  // unset in |from|.
-  return x509_verify_param_copy(to, from, /*prefer_src=*/1);
+  // Prefer the source. That is, values in `to` are only preserved if they were
+  // unset in `from`.
+  return x509_verify_param_merge(to, from, /*prefer_src=*/true);
 }
 
 static int int_x509_param_set1(char **pdest, size_t *pdestlen, const char *src,
                                size_t srclen) {
   void *tmp;
-  if (src == NULL || srclen == 0) {
+  if (src == nullptr || srclen == 0) {
     // Unlike OpenSSL, we do not allow an empty string to disable previously
     // configured checks.
     return 0;
@@ -223,7 +237,7 @@ unsigned long X509_VERIFY_PARAM_get_flags(const X509_VERIFY_PARAM *param) {
 }
 
 int X509_VERIFY_PARAM_set_purpose(X509_VERIFY_PARAM *param, int purpose) {
-  if (X509_PURPOSE_get0(purpose) == NULL) {
+  if (X509_PURPOSE_get0(purpose) == nullptr) {
     OPENSSL_PUT_ERROR(X509V3, X509V3_R_INVALID_PURPOSE);
     return 0;
   }
@@ -276,7 +290,7 @@ int X509_VERIFY_PARAM_set1_policies(X509_VERIFY_PARAM *param,
 
   sk_ASN1_OBJECT_pop_free(param->policies, ASN1_OBJECT_free);
   if (!policies) {
-    param->policies = NULL;
+    param->policies = nullptr;
     return 1;
   }
 
@@ -314,7 +328,7 @@ void X509_VERIFY_PARAM_set_hostflags(X509_VERIFY_PARAM *param,
 
 int X509_VERIFY_PARAM_set1_email(X509_VERIFY_PARAM *param, const char *email,
                                  size_t emaillen) {
-  if (OPENSSL_memchr(email, '\0', emaillen) != NULL ||
+  if (OPENSSL_memchr(email, '\0', emaillen) != nullptr ||
       !int_x509_param_set1(&param->email, &param->emaillen, email, emaillen)) {
     param->poison = 1;
     return 0;
@@ -352,7 +366,7 @@ int X509_VERIFY_PARAM_get_depth(const X509_VERIFY_PARAM *param) {
 
 static const X509_VERIFY_PARAM kDefaultParam = {
     /*check_time=*/0,
-    /*flags=*/X509_V_FLAG_TRUSTED_FIRST,
+    /*flags=*/0,
     /*purpose=*/0,
     /*trust=*/0,
     /*depth=*/100,
@@ -414,7 +428,7 @@ static const X509_VERIFY_PARAM kSSLServerParam = {
     /*poison=*/0,
 };
 
-const X509_VERIFY_PARAM *X509_VERIFY_PARAM_lookup(const char *name) {
+const X509_VERIFY_PARAM *bssl::X509_VERIFY_PARAM_lookup(const char *name) {
   if (strcmp(name, "default") == 0) {
     return &kDefaultParam;
   }
@@ -431,5 +445,5 @@ const X509_VERIFY_PARAM *X509_VERIFY_PARAM_lookup(const char *name) {
   if (strcmp(name, "ssl_server") == 0) {
     return &kSSLServerParam;
   }
-  return NULL;
+  return nullptr;
 }

@@ -132,8 +132,8 @@ public struct NIOTLSCipher: RawRepresentable, Hashable, Sendable {
     public static let TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 = NIOTLSCipher(rawValue: 0xCCA9)
 
     var standardName: String {
-        let boringSSLCipher = CNIOBoringSSL_SSL_get_cipher_by_value(self.rawValue)
-        return String(cString: CNIOBoringSSL_SSL_CIPHER_standard_name(boringSSLCipher))
+        let boringSSLCipher = SSL_get_cipher_by_value(self.rawValue)
+        return String(cString: SSL_CIPHER_standard_name(boringSSLCipher))
     }
 }
 

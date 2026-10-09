@@ -44,9 +44,9 @@ enum UnsafeKeyAndChainTarget {
         let result = path.withCString { (pointer) -> CInt in
             switch self {
             case .sslContext(let context):
-                CNIOBoringSSL_SSL_CTX_use_certificate_chain_file(context, pointer)
+                SSL_CTX_use_certificate_chain_file(context, pointer)
             case .ssl(let ssl):
-                CNIOBoringSSL_SSL_CTX_use_certificate_chain_file(ssl, pointer)
+                SSL_CTX_use_certificate_chain_file(ssl, pointer)
             }
         }
 
@@ -57,9 +57,9 @@ enum UnsafeKeyAndChainTarget {
         let rc = cert.withUnsafeMutableX509Pointer { ref in
             switch self {
             case .sslContext(let context):
-                CNIOBoringSSL_SSL_CTX_use_certificate(context, ref)
+                SSL_CTX_use_certificate(context, ref)
             case .ssl(let ssl):
-                CNIOBoringSSL_SSL_use_certificate(ssl, ref)
+                SSL_use_certificate(ssl, ref)
             }
         }
         guard rc == 1 else {
@@ -70,9 +70,9 @@ enum UnsafeKeyAndChainTarget {
     func clearAdditionalChainCertificates() {
         switch self {
         case .sslContext(let context):
-            CNIOBoringSSL_SSL_CTX_clear_chain_certs(context)
+            SSL_CTX_clear_chain_certs(context)
         case .ssl(let ssl):
-            CNIOBoringSSL_SSL_clear_chain_certs(ssl)
+            SSL_clear_chain_certs(ssl)
         }
     }
 
@@ -80,9 +80,9 @@ enum UnsafeKeyAndChainTarget {
         let rc = cert.withUnsafeMutableX509Pointer { ref in
             switch self {
             case .sslContext(let context):
-                CNIOBoringSSL_SSL_CTX_add1_chain_cert(context, ref)
+                SSL_CTX_add1_chain_cert(context, ref)
             case .ssl(let ssl):
-                CNIOBoringSSL_SSL_add1_chain_cert(ssl, ref)
+                SSL_add1_chain_cert(ssl, ref)
             }
         }
         guard rc == 1 else {
@@ -105,9 +105,9 @@ enum UnsafeKeyAndChainTarget {
             let rc = key.withUnsafeMutableEVPPKEYPointer { ref in
                 switch self {
                 case .sslContext(let context):
-                    CNIOBoringSSL_SSL_CTX_use_PrivateKey(context, ref)
+                    SSL_CTX_use_PrivateKey(context, ref)
                 case .ssl(let ssl):
-                    CNIOBoringSSL_SSL_use_PrivateKey(ssl, ref)
+                    SSL_use_PrivateKey(ssl, ref)
                 }
             }
             guard 1 == rc else {
@@ -116,9 +116,9 @@ enum UnsafeKeyAndChainTarget {
         case .custom:
             switch self {
             case .sslContext(let context):
-                CNIOBoringSSL_SSL_CTX_set_private_key_method(context, customPrivateKeyMethod)
+                SSL_CTX_set_private_key_method(context, customPrivateKeyMethod)
             case .ssl(let ssl):
-                CNIOBoringSSL_SSL_set_private_key_method(ssl, customPrivateKeyMethod)
+                SSL_set_private_key_method(ssl, customPrivateKeyMethod)
             }
         }
     }
@@ -139,9 +139,9 @@ enum UnsafeKeyAndChainTarget {
         let result = path.withCString { (pointer) -> CInt in
             switch self {
             case .sslContext(let context):
-                CNIOBoringSSL_SSL_CTX_use_PrivateKey_file(context, pointer, fileType)
+                SSL_CTX_use_PrivateKey_file(context, pointer, fileType)
             case .ssl(let ssl):
-                CNIOBoringSSL_SSL_use_PrivateKey_file(ssl, pointer, fileType)
+                SSL_use_PrivateKey_file(ssl, pointer, fileType)
             }
         }
 

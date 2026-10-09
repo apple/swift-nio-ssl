@@ -1,20 +1,27 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <stdio.h>
 
 #include <CNIOBoringSSL_asn1t.h>
-#include <CNIOBoringSSL_thread.h>
 #include <CNIOBoringSSL_x509.h>
 
+#include "../asn1/internal.h"
 #include "internal.h"
 
+
+using namespace bssl;
 
 // X509_REQ_INFO is handled in an unusual way to get round invalid encodings.
 // Some broken certificate requests don't encode the attributes field if it
@@ -25,7 +32,7 @@
 
 static int rinf_cb(int operation, ASN1_VALUE **pval, const ASN1_ITEM *it,
                    void *exarg) {
-  X509_REQ_INFO *rinf = (X509_REQ_INFO *)*pval;
+  X509_REQ_INFO *rinf = asn1_load_ptr_as<X509_REQ_INFO>(pval);
 
   if (operation == ASN1_OP_NEW_POST) {
     rinf->attributes = sk_X509_ATTRIBUTE_new_null();
@@ -48,6 +55,8 @@ static int rinf_cb(int operation, ASN1_VALUE **pval, const ASN1_ITEM *it,
   return 1;
 }
 
+BSSL_NAMESPACE_BEGIN
+
 ASN1_SEQUENCE_enc(X509_REQ_INFO, enc, rinf_cb) = {
     ASN1_SIMPLE(X509_REQ_INFO, version, ASN1_INTEGER),
     ASN1_SIMPLE(X509_REQ_INFO, subject, X509_NAME),
@@ -56,14 +65,16 @@ ASN1_SEQUENCE_enc(X509_REQ_INFO, enc, rinf_cb) = {
     ASN1_IMP_SET_OF_OPT(X509_REQ_INFO, attributes, X509_ATTRIBUTE, 0),
 } ASN1_SEQUENCE_END_enc(X509_REQ_INFO, X509_REQ_INFO)
 
-IMPLEMENT_ASN1_FUNCTIONS(X509_REQ_INFO)
+IMPLEMENT_ASN1_FUNCTIONS_const(X509_REQ_INFO)
 
 ASN1_SEQUENCE(X509_REQ) = {
-    ASN1_SIMPLE(X509_REQ, req_info, X509_REQ_INFO),
+    ASN1_SIMPLE(X509_REQ, req_info, bssl::X509_REQ_INFO),
     ASN1_SIMPLE(X509_REQ, sig_alg, X509_ALGOR),
     ASN1_SIMPLE(X509_REQ, signature, ASN1_BIT_STRING),
 } ASN1_SEQUENCE_END(X509_REQ)
 
-IMPLEMENT_ASN1_FUNCTIONS(X509_REQ)
+BSSL_NAMESPACE_END
 
-IMPLEMENT_ASN1_DUP_FUNCTION(X509_REQ)
+IMPLEMENT_ASN1_FUNCTIONS_const(X509_REQ)
+
+IMPLEMENT_ASN1_DUP_FUNCTION_const(X509_REQ)

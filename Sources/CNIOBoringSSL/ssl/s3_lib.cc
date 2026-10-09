@@ -1,13 +1,18 @@
-/*
- * Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
- * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2005 Nokia. All rights reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 1995-2016 The OpenSSL Project Authors. All Rights Reserved.
+// Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved.
+// Copyright 2005 Nokia. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <CNIOBoringSSL_ssl.h>
 
@@ -40,11 +45,11 @@ SSL3_STATE::SSL3_STATE()
       alert_dispatch(false),
       renegotiate_pending(false),
       used_hello_retry_request(false),
-      was_key_usage_invalid(false) {}
+      server_sent_requested_padding(false) {}
 
 SSL3_STATE::~SSL3_STATE() {}
 
-bool tls_new(SSL *ssl) {
+bool tls_new(SSLImpl *ssl) {
   UniquePtr<SSL3_STATE> s3 = MakeUnique<SSL3_STATE>();
   if (!s3) {
     return false;
@@ -71,13 +76,13 @@ bool tls_new(SSL *ssl) {
   return true;
 }
 
-void tls_free(SSL *ssl) {
-  if (ssl->s3 == NULL) {
+void tls_free(SSLImpl *ssl) {
+  if (ssl->s3 == nullptr) {
     return;
   }
 
   Delete(ssl->s3);
-  ssl->s3 = NULL;
+  ssl->s3 = nullptr;
 }
 
 BSSL_NAMESPACE_END

@@ -1,11 +1,16 @@
-/*
- * Copyright 2008-2016 The OpenSSL Project Authors. All Rights Reserved.
- *
- * Licensed under the OpenSSL license (the "License").  You may not use
- * this file except in compliance with the License.  You can obtain a copy
- * in the file LICENSE in the source distribution or at
- * https://www.openssl.org/source/license.html
- */
+// Copyright 2008-2016 The OpenSSL Project Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <assert.h>
 #include <string.h>
@@ -13,6 +18,8 @@
 #include "internal.h"
 #include "../../internal.h"
 
+
+using namespace bssl;
 
 static_assert(16 % sizeof(crypto_word_t) == 0,
               "block cannot be divided into crypto_word_t");
@@ -29,10 +36,10 @@ static void ctr96_inc(uint8_t *counter) {
   } while (n);
 }
 
-void CRYPTO_ctr128_encrypt_ctr32(const uint8_t *in, uint8_t *out, size_t len,
-                                 const AES_KEY *key, uint8_t ivec[16],
-                                 uint8_t ecount_buf[16], unsigned int *num,
-                                 ctr128_f func) {
+void bssl::CRYPTO_ctr128_encrypt_ctr32(const uint8_t *in, uint8_t *out,
+                                       size_t len, const AES_KEY *key,
+                                       uint8_t ivec[16], uint8_t ecount_buf[16],
+                                       unsigned int *num, ctr128_f func) {
   unsigned int n, ctr32;
 
   assert(key && ecount_buf && num);
@@ -68,7 +75,7 @@ void CRYPTO_ctr128_encrypt_ctr32(const uint8_t *in, uint8_t *out, size_t len,
     (*func)(in, out, blocks, key, ivec);
     // (*func) does not update ivec, caller does:
     CRYPTO_store_u32_be(ivec + 12, ctr32);
-    // ... overflow was detected, propogate carry.
+    // ... overflow was detected, propagate carry.
     if (ctr32 == 0) {
       ctr96_inc(ivec);
     }

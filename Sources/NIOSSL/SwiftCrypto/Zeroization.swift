@@ -21,6 +21,6 @@ typealias errno_t = CInt
 func memset_s(_ s: UnsafeMutableRawPointer!, _ smax: Int, _ byte: CInt, _ n: Int) -> errno_t {
     assert(smax == n, "memset_s invariant not met")
     assert(byte == 0, "memset_s used to not zero anything")
-    CNIOBoringSSL_OPENSSL_cleanse(s, smax)
+    OPENSSL_cleanse(s, smax)
     return 0
 }
