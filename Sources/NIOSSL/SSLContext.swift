@@ -540,16 +540,19 @@ public final class NIOSSLContext {
         switch self.configuration.trustRoots {
         case .some(.default), .none:
             conn.setCustomVerificationCallback(
-                CustomVerifyManager(callback: {
-                    do {
-                        conn.performSecurityFrameworkValidation(
-                            promise: $0,
-                            peerCertificates: try conn.getPeerCertificatesAsSecCertificate()
-                        )
-                    } catch {
-                        $0.fail(error)
-                    }
-                })
+                CustomVerifyManager(
+                    callback: {
+                        do {
+                            conn.performSecurityFrameworkValidation(
+                                promise: $0,
+                                peerCertificates: try conn.getPeerCertificatesAsSecCertificate()
+                            )
+                        } catch {
+                            $0.fail(error)
+                        }
+                    },
+                    failureAlert: CNIOBoringSSLShims_SSL_AD_BAD_CERTIFICATE()
+                )
             )
         case .some(.certificates), .some(.file):
             break
