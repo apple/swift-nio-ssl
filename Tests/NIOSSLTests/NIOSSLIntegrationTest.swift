@@ -3884,4 +3884,73 @@ class NIOSSLIntegrationTest: XCTestCase {
             XCTAssertEqual(error as? ChannelError, .ioOnClosedChannel)
         }
     }
+
+    func testFlushFromErrorCaughtAfterHandshakeEOFDoesNotSpin() throws {
+        try self.assertFlushAfterHandshakeEOFDoesNotSpin(halfClosure: false)
+    }
+
+    func testFlushFromErrorCaughtAfterHandshakeHalfClosureDoesNotSpin() throws {
+        try self.assertFlushAfterHandshakeEOFDoesNotSpin(halfClosure: true)
+    }
+
+    func testFlushBeforeCloseAfterHandshakeEOFDoesNotSpin() throws {
+        try self.assertFlushAfterHandshakeEOFDoesNotSpin(halfClosure: false, closeAfterFlush: true)
+    }
+
+    private func assertFlushAfterHandshakeEOFDoesNotSpin(
+        halfClosure: Bool,
+        closeAfterFlush: Bool = false
+    ) throws {
+        final class FlushOnError: ChannelInboundHandler {
+            typealias InboundIn = ByteBuffer
+            typealias OutboundOut = ByteBuffer
+
+            private let writePromise: EventLoopPromise<Void>
+            private let closeAfterFlush: Bool
+
+            init(writePromise: EventLoopPromise<Void>, closeAfterFlush: Bool) {
+                self.writePromise = writePromise
+                self.closeAfterFlush = closeAfterFlush
+            }
+
+            func channelActive(context: ChannelHandlerContext) {
+                context.writeAndFlush(
+                    self.wrapOutboundOut(context.channel.allocator.buffer(string: "pending write")),
+                    promise: self.writePromise
+                )
+                context.fireChannelActive()
+            }
+
+            func errorCaught(context: ChannelHandlerContext, error: Error) {
+                context.flush()
+                if self.closeAfterFlush {
+                    context.close(promise: nil)
+                }
+                context.fireErrorCaught(error)
+            }
+        }
+
+        let eventLoop = EmbeddedEventLoop()
+        let writePromise = eventLoop.makePromise(of: Void.self)
+        let channel = EmbeddedChannel(
+            handlers: [
+                NIOSSLServerHandler(context: try self.configuredSSLContext()),
+                FlushOnError(writePromise: writePromise, closeAfterFlush: closeAfterFlush),
+            ],
+            loop: eventLoop
+        )
+        try channel.connect(to: .init(ipAddress: "127.0.0.1", port: 443)).wait()
+
+        if halfClosure {
+            channel.pipeline.fireUserInboundEventTriggered(ChannelEvent.inputClosed)
+        } else {
+            channel.pipeline.fireChannelInactive()
+        }
+        eventLoop.run()
+
+        XCTAssertThrowsError(try writePromise.futureResult.wait()) { error in
+            XCTAssertEqual(error as? ChannelError, .ioOnClosedChannel)
+        }
+        XCTAssertNil(try channel.readOutbound(as: ByteBuffer.self))
+    }
 }
