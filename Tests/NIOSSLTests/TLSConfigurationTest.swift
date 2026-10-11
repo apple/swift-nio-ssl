@@ -509,6 +509,59 @@ class TLSConfigurationTest: XCTestCase {
         )
     }
 
+    #if os(Linux) || os(FreeBSD)
+    func testPlatformDefaultTrustStoreFallsBackToBoringSSLDefaults() throws {
+        // The fallback to BoringSSL's default verify paths only runs when
+        // none of the hardcoded FHS trust store locations exist. On systems
+        // with a standard layout the heuristic load succeeds first, so there
+        // is no way to exercise the fallback through the public API.
+        try XCTSkipUnless(
+            rootCAFilePath == nil && rootCADirectoryPath == nil,
+            "platform trust store found at standard FHS paths, fallback will not run"
+        )
+
+        // Simulate a system with a non-standard trust store location: point
+        // BoringSSL's defaults (via SSL_CERT_FILE) at a bundle containing
+        // only the test CA certificate.
+        let derBytes = try TLSConfigurationTest.cert1.toDERBytes()
+        let base64 = Data(derBytes).base64EncodedString()
+        var pemLines = ["-----BEGIN CERTIFICATE-----"]
+        var index = base64.startIndex
+        while index < base64.endIndex {
+            let end = base64.index(index, offsetBy: 64, limitedBy: base64.endIndex) ?? base64.endIndex
+            pemLines.append(String(base64[index..<end]))
+            index = end
+        }
+        pemLines.append("-----END CERTIFICATE-----")
+
+        let bundlePath = NSTemporaryDirectory() + "/nio-ssl-test-ca-bundle-\(UUID().uuidString).pem"
+        try (pemLines.joined(separator: "\n") + "\n").write(toFile: bundlePath, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(atPath: bundlePath) }
+
+        setenv("SSL_CERT_FILE", bundlePath, 1)
+        // Point SSL_CERT_DIR at a path that does not exist, to ensure that
+        // only the bundle above provides trust roots.
+        setenv("SSL_CERT_DIR", bundlePath + ".dir", 1)
+        defer {
+            unsetenv("SSL_CERT_FILE")
+            unsetenv("SSL_CERT_DIR")
+        }
+
+        // The client uses the platform default trust store, which must pick
+        // up the bundle above for the handshake to succeed. Hostname
+        // verification is disabled: the in-memory handshake uses no server
+        // hostname, and only chain verification is under test here.
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .noHostnameVerification
+        let serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+
+        try assertHandshakeSucceededInMemory(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+    #endif
+
     func testServerCannotValidateClientPreTLS13() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.maximumTLSVersion = .tlsv12
