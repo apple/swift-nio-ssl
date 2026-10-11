@@ -280,7 +280,9 @@ public class NIOSSLHandler: ChannelInboundHandler, ChannelOutboundHandler, Remov
         case .idle, .handshaking, .additionalVerification:
             // we should not flush immediately as we have not completed the handshake and instead buffer the flush
             self.bufferFlush()
-        case .active, .unwrapping, .closing, .unwrapped, .inputClosed, .outputClosed, .closed:
+        case .closed:
+            self.discardBufferedActions(reason: ChannelError.ioOnClosedChannel)
+        case .active, .unwrapping, .closing, .unwrapped, .inputClosed, .outputClosed:
             self.bufferFlush()
             self.doUnbufferActions(context: context)
         }
