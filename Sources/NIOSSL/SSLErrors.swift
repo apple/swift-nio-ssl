@@ -52,6 +52,18 @@ public struct BoringSSLInternalError: Equatable, CustomStringConvertible, Sendab
         "Error: \(errorCode) \(errorMessage ?? "")"
     }
 
+    /// The packed BoringSSL error code (the `ERR_get_error` value), for
+    /// reason-code classification with `ERR_GET_LIB` / `ERR_GET_REASON`;
+    /// nil for synthetic errors.
+    internal var packedError: UInt32? {
+        switch self.backing {
+        case .boringSSLErrorInfo(let code, _, _):
+            return code
+        case .synthetic:
+            return nil
+        }
+    }
+
     init(errorCode: UInt32, filename: String, line: UInt) {
         self.backing = .boringSSLErrorInfo(errorCode, filename, line)
     }
