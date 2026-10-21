@@ -82,6 +82,16 @@ final class WaitForHandshakeHandler: ChannelInboundHandler, Sendable {
 }
 
 class TLSConfigurationTest: XCTestCase {
+    // Default trust uses Security.framework on Darwin, whose verifier sends a fixed bad-certificate alert.
+    // Other platforms use BoringSSL's trust-store verification and retain its existing alerts.
+    private static let defaultTrustFailureAlerts: [String] = {
+        #if canImport(Darwin)
+        return ["SSLV3_ALERT_BAD_CERTIFICATE"]
+        #else
+        return ["ALERT_UNKNOWN_CA", "ALERT_CERTIFICATE_UNKNOWN"]
+        #endif
+    }()
+
     static let _certAndKey1 = generateSelfSignedCert()
     static let cert1 = TLSConfigurationTest._certAndKey1.0
     static let key1 = TLSConfigurationTest._certAndKey1.1
@@ -526,7 +536,7 @@ class TLSConfigurationTest: XCTestCase {
         try assertHandshakeError(
             withClientConfig: clientConfig,
             andServerConfig: serverConfig,
-            errorTextContainsAnyOf: ["ALERT_UNKNOWN_CA", "ALERT_CERTIFICATE_UNKNOWN"]
+            errorTextContainsAnyOf: Self.defaultTrustFailureAlerts
         )
     }
 
@@ -548,7 +558,7 @@ class TLSConfigurationTest: XCTestCase {
         try assertPostHandshakeError(
             withClientConfig: clientConfig,
             andServerConfig: serverConfig,
-            errorTextContainsAnyOf: ["ALERT_UNKNOWN_CA", "ALERT_CERTIFICATE_UNKNOWN"]
+            errorTextContainsAnyOf: Self.defaultTrustFailureAlerts
         )
     }
 
@@ -591,7 +601,7 @@ class TLSConfigurationTest: XCTestCase {
         try assertPostHandshakeError(
             withClientConfig: clientConfig,
             andServerConfig: serverConfig,
-            errorTextContainsAnyOf: ["SSLV3_ALERT_CERTIFICATE_UNKNOWN", "TLSV1_ALERT_UNKNOWN_CA"]
+            errorTextContainsAnyOf: Self.defaultTrustFailureAlerts
         )
     }
 
