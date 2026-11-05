@@ -351,6 +351,10 @@ public struct TLSConfiguration {
     }
 
     /// Allowed algorithms to verify signatures. Passing `nil` means that a built-in set of algorithms will be used.
+    ///
+    /// The built-in set is BoringSSL's default list plus ``SignatureAlgorithm/mldsa44``,
+    /// ``SignatureAlgorithm/mldsa65`` and ``SignatureAlgorithm/mldsa87``. To stop accepting
+    /// ML-DSA signatures, set this to a list without them.
     public var verifySignatureAlgorithms: [SignatureAlgorithm]?
 
     /// Allowed algorithms to sign signatures. Passing `nil` means that a built-in set of algorithms will be used.

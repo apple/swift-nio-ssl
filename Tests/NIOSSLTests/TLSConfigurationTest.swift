@@ -756,7 +756,7 @@ class TLSConfigurationTest: XCTestCase {
         )
     }
 
-    func testDefaultVerifySignatureAlgorithmsExcludeMLDSA() throws {
+    func testDefaultVerifySignatureAlgorithmsIncludeMLDSA() throws {
         var clientConfig = TLSConfiguration.makeClientConfiguration()
         clientConfig.certificateVerification = .noHostnameVerification
         clientConfig.trustRoots = .certificates([TLSConfigurationTest.mldsaCert])
@@ -767,11 +767,7 @@ class TLSConfigurationTest: XCTestCase {
         )
         serverConfig.certificateVerification = .none
 
-        try assertHandshakeError(
-            withClientConfig: clientConfig,
-            andServerConfig: serverConfig,
-            errorTextContains: "ALERT_HANDSHAKE_FAILURE"
-        )
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
     }
 
     func testMutualValidationSuccessNoAdditionalTrustRoots() throws {
