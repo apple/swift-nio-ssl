@@ -536,7 +536,7 @@ public final class NIOSSLContext {
         let conn = SSLConnection(ownedSSL: ssl, parentContext: self)
 
         // If we need to turn on the validation on Apple platforms, do it here.
-        #if canImport(Darwin)
+        #if canImport(Security)
         switch self.configuration.trustRoots {
         case .some(.default), .none:
             conn.setCustomVerificationCallback(
