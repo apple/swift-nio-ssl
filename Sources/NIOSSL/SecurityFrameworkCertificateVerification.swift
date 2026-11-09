@@ -15,7 +15,7 @@
 import NIOCore
 
 // We can only use Security.framework to validate TLS certificates on Apple platforms.
-#if canImport(Darwin)
+#if canImport(Security)
 import Dispatch
 import Foundation
 @preconcurrency import Security
