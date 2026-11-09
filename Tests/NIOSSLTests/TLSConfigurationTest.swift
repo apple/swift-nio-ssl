@@ -90,6 +90,14 @@ class TLSConfigurationTest: XCTestCase {
     static let cert2 = TLSConfigurationTest._certAndKey2.0
     static let key2 = TLSConfigurationTest._certAndKey2.1
 
+    // ML-DSA signs the message directly, so there is no digest.
+    static let _mldsaCertAndKey = generateSelfSignedCert(
+        keygenFunction: { EVP_PKEY_generate_from_alg(EVP_pkey_ml_dsa_65())! },
+        digest: nil
+    )
+    static let mldsaCert = TLSConfigurationTest._mldsaCertAndKey.0
+    static let mldsaKey = TLSConfigurationTest._mldsaCertAndKey.1
+
     func assertHandshakeError(
         withClientConfig clientConfig: TLSConfiguration,
         andServerConfig serverConfig: TLSConfiguration,
@@ -709,6 +717,54 @@ class TLSConfigurationTest: XCTestCase {
         )
         serverConfig.signingSignatureAlgorithms = [.rsaPssRsaeSha256]
         serverConfig.minimumTLSVersion = .tlsv13
+        serverConfig.certificateVerification = .none
+
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    func testMLDSACompatibleSignatures() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.verifySignatureAlgorithms = [.mldsa65]
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.mldsaCert])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.mldsaCert)],
+            privateKey: .privateKey(TLSConfigurationTest.mldsaKey)
+        )
+        serverConfig.certificateVerification = .none
+
+        try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)
+    }
+
+    func testMLDSAExcludedFromVerifySignatureAlgorithms() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.verifySignatureAlgorithms = [.ecdsaSecp256R1Sha256, .rsaPssRsaeSha256]
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.mldsaCert])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.mldsaCert)],
+            privateKey: .privateKey(TLSConfigurationTest.mldsaKey)
+        )
+        serverConfig.certificateVerification = .none
+
+        try assertHandshakeError(
+            withClientConfig: clientConfig,
+            andServerConfig: serverConfig,
+            errorTextContains: "ALERT_HANDSHAKE_FAILURE"
+        )
+    }
+
+    func testDefaultVerifySignatureAlgorithmsIncludeMLDSA() throws {
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.mldsaCert])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.mldsaCert)],
+            privateKey: .privateKey(TLSConfigurationTest.mldsaKey)
+        )
         serverConfig.certificateVerification = .none
 
         try assertHandshakeSucceeded(withClientConfig: clientConfig, andServerConfig: serverConfig)

@@ -52,6 +52,33 @@ private func resolveGroupIDs(for curves: [NIOTLSCurve]?) -> [UInt16] {
     curves?.map { $0.rawValue } ?? defaultGroups
 }
 
+/// Default signature algorithms to verify when the user has not expressed a preference.
+///
+/// This is BoringSSL's default verify list with ML-DSA appended. BoringSSL signs with
+/// ML-DSA by default but does not verify it unless asked to.
+private let defaultVerifySignatureAlgorithms: [UInt16] = [
+    SignatureAlgorithm.ecdsaSecp256R1Sha256.rawValue,
+    SignatureAlgorithm.rsaPssRsaeSha256.rawValue,
+    SignatureAlgorithm.rsaPkcs1Sha256.rawValue,
+    SignatureAlgorithm.ecdsaSecp384R1Sha384.rawValue,
+    SignatureAlgorithm.rsaPssRsaeSha384.rawValue,
+    SignatureAlgorithm.rsaPkcs1Sha384.rawValue,
+    SignatureAlgorithm.rsaPssRsaeSha512.rawValue,
+    SignatureAlgorithm.rsaPkcs1Sha512.rawValue,
+    SignatureAlgorithm.rsaPkcs1Sha1.rawValue,
+    SignatureAlgorithm.mldsa44.rawValue,
+    SignatureAlgorithm.mldsa65.rawValue,
+    SignatureAlgorithm.mldsa87.rawValue,
+]
+
+/// Returns the signature algorithm IDs to verify for the given preference.
+///
+/// When the user has expressed a preference (a non-nil array), it is honoured exactly.
+/// Otherwise, the default list is used.
+private func resolveVerifySignatureAlgorithms(for algorithms: [SignatureAlgorithm]?) -> [UInt16] {
+    algorithms?.map { $0.rawValue } ?? defaultVerifySignatureAlgorithms
+}
+
 internal enum FileSystemObject {
     case directory
     case file
@@ -421,17 +448,14 @@ public final class NIOSSLContext {
         )
 
         // Configure verification algorithms
-        if let verifySignatureAlgorithms = configuration.verifySignatureAlgorithms {
-            returnCode =
-                verifySignatureAlgorithms
-                .map { $0.rawValue }
-                .withUnsafeBufferPointer { algo in
-                    SSL_CTX_set_verify_algorithm_prefs(context, algo.baseAddress, algo.count)
-                }
-            if returnCode != 1 {
-                let errorStack = BoringSSLError.buildErrorStack()
-                throw BoringSSLError.unknownError(errorStack)
+        returnCode =
+            resolveVerifySignatureAlgorithms(for: configuration.verifySignatureAlgorithms)
+            .withUnsafeBufferPointer { algo in
+                SSL_CTX_set_verify_algorithm_prefs(context, algo.baseAddress, algo.count)
             }
+        if returnCode != 1 {
+            let errorStack = BoringSSLError.buildErrorStack()
+            throw BoringSSLError.unknownError(errorStack)
         }
 
         // Configure signing algorithms

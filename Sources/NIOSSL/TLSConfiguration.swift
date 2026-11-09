@@ -266,6 +266,12 @@ public struct SignatureAlgorithm: RawRepresentable, Hashable, Sendable {
     public static let rsaPssRsaeSha384 = SignatureAlgorithm(rawValue: 0x0805)
     public static let rsaPssRsaeSha512 = SignatureAlgorithm(rawValue: 0x0806)
     public static let ed25519 = SignatureAlgorithm(rawValue: 0x0807)
+    /// ML-DSA-44, as defined in FIPS 204. Only usable with TLS 1.3.
+    public static let mldsa44 = SignatureAlgorithm(rawValue: 0x0904)
+    /// ML-DSA-65, as defined in FIPS 204. Only usable with TLS 1.3.
+    public static let mldsa65 = SignatureAlgorithm(rawValue: 0x0905)
+    /// ML-DSA-87, as defined in FIPS 204. Only usable with TLS 1.3.
+    public static let mldsa87 = SignatureAlgorithm(rawValue: 0x0906)
 }
 
 /// A secure default configuration of cipher suites for TLS 1.2 and earlier.
@@ -345,6 +351,10 @@ public struct TLSConfiguration {
     }
 
     /// Allowed algorithms to verify signatures. Passing `nil` means that a built-in set of algorithms will be used.
+    ///
+    /// The built-in set is BoringSSL's default list plus ``SignatureAlgorithm/mldsa44``,
+    /// ``SignatureAlgorithm/mldsa65`` and ``SignatureAlgorithm/mldsa87``. To stop accepting
+    /// ML-DSA signatures, set this to a list without them.
     public var verifySignatureAlgorithms: [SignatureAlgorithm]?
 
     /// Allowed algorithms to sign signatures. Passing `nil` means that a built-in set of algorithms will be used.
