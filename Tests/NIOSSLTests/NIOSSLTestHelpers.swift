@@ -567,7 +567,8 @@ func addExtension(x509: OpaquePointer, nid: CInt, value: String) {
 }
 
 func generateSelfSignedCert(
-    keygenFunction: () -> OpaquePointer = generateRSAPrivateKey
+    keygenFunction: () -> OpaquePointer = generateRSAPrivateKey,
+    digest: OpaquePointer? = EVP_sha256()
 ) -> (NIOSSLCertificate, NIOSSLPrivateKey) {
     let pkey = keygenFunction()
     let x = X509_new()!
@@ -615,7 +616,7 @@ func generateSelfSignedCert(
     addExtension(x509: x, nid: NID_subject_alt_name, value: "DNS:localhost")
     addExtension(x509: x, nid: NID_ext_key_usage, value: "critical,serverAuth,clientAuth")
 
-    X509_sign(x, pkey, EVP_sha256())
+    X509_sign(x, pkey, digest)
 
     return (
         NIOSSLCertificate.fromUnsafePointer(takingOwnership: x),
