@@ -51,6 +51,10 @@ int CNIOBoringSSLShims_ERR_GET_REASON(uint32_t err) {
   return ERR_GET_REASON(err);
 }
 
+uint8_t CNIOBoringSSLShims_SSL_AD_BAD_CERTIFICATE(void) {
+  return SSL_AD_BAD_CERTIFICATE;
+}
+
 size_t CNIOBoringSSLShims_sk_X509_num(const STACK_OF(X509) *sk) {
     return sk_X509_num(sk);
 }
