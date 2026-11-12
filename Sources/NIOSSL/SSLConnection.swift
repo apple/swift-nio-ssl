@@ -455,6 +455,21 @@ internal final class SSLConnection {
             return nil
         }
     }
+
+    func getNegotiatedCipherSuite() -> NIOTLSCipher? {
+        guard let cipher = SSL_get_current_cipher(self.ssl) else {
+            return nil
+        }
+        return NIOTLSCipher(rawValue: SSL_CIPHER_get_protocol_id(cipher))
+    }
+
+    func getNegotiatedGroup() -> NIOTLSCurve? {
+        let groupID = SSL_get_group_id(self.ssl)
+        guard groupID != 0 else {
+            return nil
+        }
+        return NIOTLSCurve(rawValue: groupID)
+    }
 }
 
 /// MARK: ConnectionRole
