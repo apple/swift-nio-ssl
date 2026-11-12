@@ -82,10 +82,10 @@ final class WaitForHandshakeHandler: ChannelInboundHandler, Sendable {
 }
 
 class TLSConfigurationTest: XCTestCase {
-    // Default trust uses Security.framework on Darwin, whose verifier sends a fixed bad-certificate alert.
+    // The Security.framework verifier sends a fixed bad-certificate alert for default trust.
     // Other platforms use BoringSSL's trust-store verification and retain its existing alerts.
     private static let defaultTrustFailureAlerts: [String] = {
-        #if canImport(Darwin)
+        #if canImport(Security)
         return ["SSLV3_ALERT_BAD_CERTIFICATE"]
         #else
         return ["ALERT_UNKNOWN_CA", "ALERT_CERTIFICATE_UNKNOWN"]

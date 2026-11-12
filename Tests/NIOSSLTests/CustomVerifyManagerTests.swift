@@ -127,8 +127,8 @@ final class CustomVerifyManagerTests: XCTestCase {
         XCTAssertEqual(result.alert, self.unchangedAlert)
     }
 
-    func testDarwinDefaultTrustManagerUsesBadCertificateAlert() throws {
-        #if canImport(Darwin)
+    func testSecurityFrameworkDefaultTrustManagerUsesBadCertificateAlert() throws {
+        #if canImport(Security)
         let context = try NIOSSLContext(configuration: .makeClientConfiguration())
         let connection = context.createConnection()!
 
