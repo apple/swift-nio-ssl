@@ -121,28 +121,28 @@ final class NIOSSLSecureBytesTests: XCTestCase {
 
     func testResizingByMakingLarger() {
         var base = NIOSSLSecureBytes(count: 12)
-        XCTAssertGreaterThanOrEqual(base.backing.capacity, 16)
+        XCTAssertGreaterThanOrEqual(base.backing.allocatedCapacity, 16)
         XCTAssertEqual(base.count, 12)
 
         base.append(contentsOf: 0..<16)
-        XCTAssertGreaterThanOrEqual(base.backing.capacity, 32)
+        XCTAssertGreaterThanOrEqual(base.backing.allocatedCapacity, 32)
         XCTAssertEqual(base.count, 28)
 
         base.append(contentsOf: 0..<4)
-        XCTAssertGreaterThanOrEqual(base.backing.capacity, 32)
+        XCTAssertGreaterThanOrEqual(base.backing.allocatedCapacity, 32)
         XCTAssertEqual(base.count, 32)
     }
 
     func testCountInitializerGeneratesSomewhatRandomData() {
         let base = NIOSSLSecureBytes(count: 16)
-        XCTAssertGreaterThanOrEqual(base.backing.capacity, 16)
+        XCTAssertGreaterThanOrEqual(base.backing.allocatedCapacity, 16)
         XCTAssertEqual(base.count, 16)
         XCTAssertNotEqual(Array(repeating: UInt8(0), count: 16), Array(base))
     }
 
     func testBackingBytesAreAppropriatelySized() {
         let base = NIOSSLSecureBytes(repeating: 0, count: 10)
-        XCTAssertGreaterThanOrEqual(base.backing.capacity, 16)
+        XCTAssertGreaterThanOrEqual(base.backing.allocatedCapacity, 16)
 
         base.withUnsafeBytes { XCTAssertEqual($0.count, 10) }
         base.backing.withUnsafeMutableBytes { XCTAssertEqual($0.count, 10) }
@@ -156,7 +156,7 @@ final class NIOSSLSecureBytesTests: XCTestCase {
             initializedCapacity = 4
         }
 
-        XCTAssertGreaterThanOrEqual(base.backing.capacity, 8)
+        XCTAssertGreaterThanOrEqual(base.backing.allocatedCapacity, 8)
         XCTAssertEqual(Array(base), [1, 2, 3, 4])
 
         let testThrowingInitialization: () throws -> Void = {
