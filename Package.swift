@@ -78,6 +78,7 @@ let package = Package(
     targets: [
         .target(
             name: "CNIOBoringSSL",
+            exclude: ["CMakeLists.txt"],
             cSettings: [
                 .define("_GNU_SOURCE"),
                 .define("_POSIX_C_SOURCE", to: "200112L"),
@@ -101,6 +102,7 @@ let package = Package(
             dependencies: [
                 "CNIOBoringSSL"
             ],
+            exclude: ["CMakeLists.txt"],
             cSettings: [
                 .define("_GNU_SOURCE")
             ]
@@ -115,7 +117,7 @@ let package = Package(
                 .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
                 .product(name: "NIOTLS", package: "swift-nio"),
             ],
-            exclude: includePrivacyManifest ? [] : ["PrivacyInfo.xcprivacy"],
+            exclude: includePrivacyManifest ? ["CMakeLists.txt"] : ["CMakeLists.txt", "PrivacyInfo.xcprivacy"],
             resources: includePrivacyManifest ? [.copy("PrivacyInfo.xcprivacy")] : [],
             swiftSettings: strictConcurrencySettings
         ),
