@@ -1,0 +1,4 @@
+module CNIOBoringSSLShims {
+    umbrella header "CNIOBoringSSLShims.h"
+    export *
+}

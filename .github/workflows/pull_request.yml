@@ -61,6 +61,28 @@ jobs:
         name: Cxx interop
         uses: apple/swift-nio/.github/workflows/cxx_interop.yml@main
 
+    cmake-lists:
+        name: Check cmake lists
+        strategy:
+            fail-fast: false
+            matrix:
+                swift_version: ["6.2", "6.3", "6.4"]
+        uses: apple/swift-nio/.github/workflows/cmake_tests.yml@main
+        with:
+            image: "swift:${{ matrix.swift_version }}-noble"
+            cmake_version: "3.29.6"
+            c_compiler: "clang"
+            cxx_compiler: "clang++"
+            update_cmake_lists_config: >-
+                {
+                  "targets": [
+                    { "name": "CNIOBoringSSL", "type": "source", "exceptions": [] },
+                    { "name": "CNIOBoringSSLShims", "type": "source", "exceptions": [] },
+                    { "name": "NIOSSL", "type": "source", "exceptions": [] },
+                    { "name": "CNIOBoringSSL", "type": "assembly", "exceptions": [] }
+                  ]
+                }
+
     macos-tests:
         name: macOS tests
         uses: apple/swift-nio/.github/workflows/macos_tests.yml@main
