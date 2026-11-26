@@ -68,7 +68,9 @@ where Bytes.Element == UInt8 {
             try self.userCallback { passphraseBytes in
                 // If we don't have enough space for the passphrase plus NUL, bail out.
                 guard passphraseBytes.count < buffer.count else { return }
-                _ = buffer.initialize(from: passphraseBytes.lazy.map { CChar($0) })
+                // CChar is signed on some platforms, so a value-preserving conversion traps on bytes >= 0x80.
+                // Copy the bit pattern instead.
+                _ = buffer.initialize(from: passphraseBytes.lazy.map { CChar(truncatingIfNeeded: $0) })
                 count = CInt(passphraseBytes.count)
 
                 // We need to add a NUL terminator, in case the user did not.
