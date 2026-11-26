@@ -189,7 +189,11 @@ internal final class SSLConnection {
             let connection = SSLConnection.loadConnectionFromSSL(unwrappedSSL)
 
             // We force unwrap the custom verification manager because for it to not be set is a programmer error.
-            return connection.customVerificationManager!.process(on: connection)
+            let (result, alert) = connection.customVerificationManager!.process(on: connection)
+            if let alert {
+                outAlert?.pointee = alert
+            }
+            return result
         }
     }
 

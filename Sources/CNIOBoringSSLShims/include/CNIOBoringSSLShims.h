@@ -39,6 +39,8 @@ int CNIOBoringSSLShims_SSL_CTX_set_app_data(SSL_CTX *ctx, void *data);
 int CNIOBoringSSLShims_ERR_GET_LIB(uint32_t err);
 int CNIOBoringSSLShims_ERR_GET_REASON(uint32_t err);
 
+uint8_t CNIOBoringSSLShims_SSL_AD_BAD_CERTIFICATE(void);
+
 size_t CNIOBoringSSLShims_sk_X509_num(const STACK_OF(X509) *sk);
 X509 *CNIOBoringSSLShims_sk_X509_value(const STACK_OF(X509) *sk, size_t i);
 STACK_OF(X509) *CNIOBoringSSLShims_sk_X509_new_null(void);
