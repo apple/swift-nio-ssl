@@ -344,4 +344,107 @@ class SSLPrivateKeyTest: XCTestCase {
         let derBytes = try key.derBytes
         XCTAssertEqual(Data(derBytes), pemToDer(samplePemKey))
     }
+
+    func testLoadingNonASCIIPassphraseEncryptedKeyFromMemory() throws {
+        let expected = try NIOSSLPrivateKey(bytes: .init(sampleECPemNonASCIIPassphraseKey.utf8), format: .pem)
+        let key = try NIOSSLPrivateKey(bytes: .init(sampleECPKCS8PemNonASCIIPassphraseKey.utf8), format: .pem) {
+            closure in closure("He\u{DF}".utf8)
+        }
+
+        XCTAssertEqual(key, expected)
+        XCTAssertEqual(key.hashValue, expected.hashValue)
+    }
+
+    func testLoadingNonASCIIPassphraseEncryptedKeyFromFile() throws {
+        let path = try dumpToFile(text: sampleECPKCS8PemNonASCIIPassphraseKey, fileExtension: ".pem")
+        defer {
+            unlink(path)
+        }
+
+        let expected = try NIOSSLPrivateKey(bytes: .init(sampleECPemNonASCIIPassphraseKey.utf8), format: .pem)
+        let key = try NIOSSLPrivateKey(file: path, format: .pem) { closure in
+            closure([0x48, 0x65, 0xC3, 0x9F])
+        }
+
+        XCTAssertEqual(key, expected)
+        XCTAssertEqual(key.hashValue, expected.hashValue)
+    }
+
+    func testWrongNonASCIIPassphraseFails() {
+        XCTAssertThrowsError(
+            try NIOSSLPrivateKey(bytes: .init(sampleECPKCS8PemNonASCIIPassphraseKey.utf8), format: .pem) {
+                closure in closure("He\u{DF}\u{DF}".utf8)
+            }
+        ) { error in
+            XCTAssertEqual(.failedToLoadPrivateKey, error as? NIOSSLError)
+        }
+    }
+
+    func testPassphraseCallbackPreservesAllByteValues() {
+        let passphrase = Array(UInt8(1)...UInt8(255))
+        let manager = BoringSSLPassphraseCallbackManager { setter in setter(passphrase) }
+        let buffer = UnsafeMutableBufferPointer<CChar>.allocate(capacity: 256)
+        defer {
+            buffer.deallocate()
+        }
+        buffer.initialize(repeating: CChar(truncatingIfNeeded: 0x55))
+
+        let count = manager.invoke(buffer: buffer)
+
+        XCTAssertEqual(count, 255)
+        XCTAssertEqual(buffer[0..<255].map { UInt8(truncatingIfNeeded: $0) }, passphrase)
+        XCTAssertEqual(buffer[255], 0)
+    }
+
+    func testPassphraseCallbackNonASCIIPassphraseAtBufferLimit() {
+        let buffer = UnsafeMutableBufferPointer<CChar>.allocate(capacity: 8)
+        defer {
+            buffer.deallocate()
+        }
+
+        // Exactly buffer.count - 1 bytes: all bytes are copied and the last slot gets a NUL.
+        let fits: [UInt8] = [0x48, 0x65, 0xC3, 0x9F, 0xE2, 0x82, 0xAC]
+        buffer.initialize(repeating: CChar(truncatingIfNeeded: 0x55))
+        let fitsManager = BoringSSLPassphraseCallbackManager { setter in setter(fits) }
+        XCTAssertEqual(fitsManager.invoke(buffer: buffer), CInt(fits.count))
+        XCTAssertEqual(buffer[0..<fits.count].map { UInt8(truncatingIfNeeded: $0) }, fits)
+        XCTAssertEqual(buffer[fits.count], 0)
+
+        // Exactly buffer.count bytes: there is no room for the NUL, so nothing is copied.
+        let tooLong: [UInt8] = fits + [0xFF]
+        buffer.initialize(repeating: CChar(truncatingIfNeeded: 0x55))
+        let tooLongManager = BoringSSLPassphraseCallbackManager { setter in setter(tooLong) }
+        XCTAssertEqual(tooLongManager.invoke(buffer: buffer), 0)
+        XCTAssertEqual(UInt8(truncatingIfNeeded: buffer[0]), 0x55)
+    }
+
+    func testRoundTripNonASCIIPassphrase() throws {
+        let passphrase = "He\u{DF}\u{20AC}\u{1F600}"
+        let original = SSLPrivateKeyTest.dynamicallyGeneratedKey
+        let path = try NIOSSLIntegrationTest.keyInFile(key: original, passphrase: passphrase)
+        defer {
+            unlink(path)
+        }
+
+        let key = try NIOSSLPrivateKey(file: path, format: .pem) { closure in
+            closure(passphrase.utf8)
+        }
+
+        XCTAssertEqual(key, original)
+    }
+
+    func testRoundTripSingleHighBytePassphrase() throws {
+        let original = SSLPrivateKeyTest.dynamicallyGeneratedKey
+
+        for byte: UInt8 in [0x80, 0xFF] {
+            let passphrase = [byte]
+            let pem = encryptedPEM(key: original, passphrase: passphrase)
+
+            let key = try NIOSSLPrivateKey(bytes: pem, format: .pem) { closure in
+                closure(passphrase)
+            }
+
+            XCTAssertEqual(key, original, "passphrase byte \(byte)")
+        }
+    }
 }

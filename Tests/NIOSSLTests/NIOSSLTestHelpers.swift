@@ -212,6 +212,29 @@ let samplePKCS8PemPrivateKey = """
     -----END ENCRYPTED PRIVATE KEY-----
     """
 
+/// An EC key in encrypted PKCS#8 form, made with the OpenSSL CLI
+/// (`openssl pkcs8 -topk8 -v2 aes-256-cbc -v2prf hmacWithSHA256`).
+/// The passphrase is "Heß", which is the UTF-8 bytes `48 65 C3 9F`.
+let sampleECPKCS8PemNonASCIIPassphraseKey = """
+    -----BEGIN ENCRYPTED PRIVATE KEY-----
+    MIH0MF8GCSqGSIb3DQEFDTBSMDEGCSqGSIb3DQEFDDAkBBAwd6dB+lZpAcmIMfKM
+    92nvAgIIADAMBggqhkiG9w0CCQUAMB0GCWCGSAFlAwQBKgQQgBpmKn5q+8RZcc+F
+    YCYSBgSBkDOTrWMkuTwulSX7gZPjR+1XzRbWR/wrJLf1oMpEi2hwrMJElSSkuS2J
+    zDQ2iKmA8m+/TMGBRybskXSCPMtT/Wo7LTFp+z+l7MspFyjavEVIsxfhQgIZWMd7
+    Q3NUie3xJX+zHoiooRUAU+lSURtWUro/010V0kG1jtKndTYjv4y1aCMnQ8RbTe3f
+    abOsX5+z0Q==
+    -----END ENCRYPTED PRIVATE KEY-----
+    """
+
+/// The unencrypted form of ``sampleECPKCS8PemNonASCIIPassphraseKey``.
+let sampleECPemNonASCIIPassphraseKey = """
+    -----BEGIN EC PRIVATE KEY-----
+    MHcCAQEEIJ2AjSVmyf0GRoX6EZFcnWWBTTzIW+l1/uQxYr47J5ukoAoGCCqGSM49
+    AwEHoUQDQgAEUiMmeKmNLkz9pepcf37VJVdl1WOaLSNLmYyCbGGJM+E5/Wzu6ohq
+    nNFW2TfvE2ylN/u8rzT8U4cjcDEIvGKNqg==
+    -----END EC PRIVATE KEY-----
+    """
+
 /// A CA that expired a while ago.
 let sampleExpiredCA = """
     -----BEGIN CERTIFICATE-----
@@ -671,4 +694,35 @@ final class BackToBackEmbeddedChannel {
             }
         }
     }
+}
+
+/// Writes `key` as an AES-256-CBC encrypted PEM into memory, passing `passphrase` through the
+/// passphrase callback as raw bytes.
+func encryptedPEM(key: NIOSSLPrivateKey, passphrase: [UInt8]) -> [UInt8] {
+    let bio = BIO_new(BIO_s_mem())!
+    defer {
+        BIO_free(bio)
+    }
+
+    let manager = BoringSSLPassphraseCallbackManager { closure in closure(passphrase) }
+    let rc = withExtendedLifetime(manager) { manager -> CInt in
+        let userData = Unmanaged.passUnretained(manager).toOpaque()
+        return key.withUnsafeMutableEVPPKEYPointer { ref in
+            PEM_write_bio_PrivateKey(
+                bio,
+                ref,
+                EVP_aes_256_cbc(),
+                nil,
+                0,
+                globalBoringSSLPassphraseCallback,
+                userData
+            )
+        }
+    }
+    precondition(rc == 1)
+
+    var contents: UnsafePointer<UInt8>? = nil
+    var length = 0
+    precondition(BIO_mem_contents(bio, &contents, &length) == 1)
+    return Array(UnsafeBufferPointer(start: contents, count: length))
 }
