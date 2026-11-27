@@ -413,4 +413,44 @@ class IdentityVerificationTest: XCTestCase {
         )
         XCTAssertFalse(matched)
     }
+
+    func testSubjectAlternativeNamesCoverHostnameMatchesDNSNames() throws {
+        let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
+        XCTAssertTrue(try cert.subjectAlternativeNamesCoverHostname("localhost"))
+        XCTAssertTrue(try cert.subjectAlternativeNamesCoverHostname("example.com"))
+        XCTAssertFalse(try cert.subjectAlternativeNamesCoverHostname("example.org"))
+    }
+
+    func testSubjectAlternativeNamesCoverHostnameIgnoresCaseAndTrailingPeriod() throws {
+        let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
+        XCTAssertTrue(try cert.subjectAlternativeNamesCoverHostname("EXAMPLE.COM."))
+    }
+
+    func testSubjectAlternativeNamesCoverHostnameHandlesWildcards() throws {
+        let cert = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
+        XCTAssertTrue(try cert.subjectAlternativeNamesCoverHostname("anything.wildcard.example.com"))
+        XCTAssertTrue(try cert.subjectAlternativeNamesCoverHostname("foo.example.com"))
+        XCTAssertFalse(try cert.subjectAlternativeNamesCoverHostname("weirdwildcard.nope.example.com"))
+        XCTAssertFalse(try cert.subjectAlternativeNamesCoverHostname("a.b.double.example.com"))
+    }
+
+    func testSubjectAlternativeNamesCoverHostnameIgnoresIPAddressNames() throws {
+        let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
+        XCTAssertFalse(try cert.subjectAlternativeNamesCoverHostname("192.168.0.1"))
+    }
+
+    func testSubjectAlternativeNamesCoverHostnameDoesNotFallBackToCommonName() throws {
+        let certWithoutSans = try NIOSSLCertificate(bytes: .init(multiCNCert.utf8), format: .pem)
+        XCTAssertFalse(try certWithoutSans.subjectAlternativeNamesCoverHostname("localhost"))
+
+        let certWithSans = try NIOSSLCertificate(bytes: .init(weirdoPEMCert.utf8), format: .pem)
+        XCTAssertFalse(try certWithSans.subjectAlternativeNamesCoverHostname("httpbin.org"))
+    }
+
+    func testSubjectAlternativeNamesCoverHostnameRejectsNonDNSHostname() throws {
+        let cert = try NIOSSLCertificate(bytes: .init(multiSanCert.utf8), format: .pem)
+        XCTAssertThrowsError(try cert.subjectAlternativeNamesCoverHostname("straße.example.com")) { error in
+            XCTAssertEqual(error as? NIOSSLExtraError, .serverHostnameImpossibleToMatch)
+        }
+    }
 }

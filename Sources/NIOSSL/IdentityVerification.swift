@@ -125,6 +125,47 @@ internal func validIdentityForService(
     }
 }
 
+extension NIOSSLCertificate {
+    /// Returns whether the subject alternative names in this certificate cover the given hostname.
+    ///
+    /// This performs the DNS name matching that NIOSSL clients use when they verify the identity
+    /// of a server, as specified in RFC 6125 Section 6, including wildcard labels. It only consults
+    /// DNS subject alternative names: IP address names are skipped, and the deprecated fallback to
+    /// the common name is never performed.
+    ///
+    /// Use this to confirm that a certificate you intend to serve will be accepted by clients
+    /// connecting to `hostname`. Nothing else about the certificate is checked: not its expiry,
+    /// its chain, nor its key usage.
+    ///
+    /// - parameters:
+    ///     - hostname: The hostname to check. Matching is case-insensitive and ignores a trailing period.
+    /// - returns: `true` if a DNS subject alternative name matches `hostname`, `false` otherwise.
+    /// - throws: `NIOSSLExtraError.serverHostnameImpossibleToMatch` if `hostname` contains characters
+    ///     that cannot appear in a DNS name.
+    public func subjectAlternativeNamesCoverHostname(_ hostname: String) throws -> Bool {
+        try hostname.withLowercaseASCIIBuffer { hostnameBytes in
+            var hostnameSlice = hostnameBytes[...]
+
+            // Strip trailing period
+            if hostnameSlice.last == .some(asciiPeriod) {
+                hostnameSlice = hostnameSlice.dropLast()
+            }
+            let firstPeriodIndex = hostnameSlice.firstIndex(of: asciiPeriod)
+
+            for name in self._subjectAlternativeNames() where name.nameType == .dnsName {
+                if matchHostname(
+                    ourHostname: hostnameSlice,
+                    firstPeriodIndex: firstPeriodIndex,
+                    dnsName: Array(name.contents)
+                ) {
+                    return true
+                }
+            }
+            return false
+        }
+    }
+}
+
 private func validIdentityForService(
     serverHostname: [UInt8]?,
     socketAddress: SocketAddress,
