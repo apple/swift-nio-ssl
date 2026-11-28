@@ -849,6 +849,25 @@ extension NIOSSLHandler {
         self.connection.getTLSVersionForConnection()
     }
 
+    /// Variable that can be queried during the connection lifecycle to grab the ``NIOTLSCipher`` negotiated on this
+    /// connection. `nil` before the handshake has selected one.
+    ///
+    /// This variable **is not thread-safe**: you **must** call it from the correct event
+    /// loop thread.
+    public var negotiatedCipherSuite: NIOTLSCipher? {
+        self.connection.getNegotiatedCipherSuite()
+    }
+
+    /// Variable that can be queried during the connection lifecycle to grab the key exchange group (``NIOTLSCurve``)
+    /// negotiated on this connection, such as ``NIOTLSCurve/x25519`` or ``NIOTLSCurve/x25519_MLKEM768``. `nil` before
+    /// the handshake has selected one, or when the key exchange used no group.
+    ///
+    /// This variable **is not thread-safe**: you **must** call it from the correct event
+    /// loop thread.
+    public var negotiatedGroup: NIOTLSCurve? {
+        self.connection.getNegotiatedGroup()
+    }
+
     /// Return a NIOSSLCertificate from the verified peer after handshake has completed.
     ///
     /// Similar to getTlsVersionForConnection this **is not thread safe**.
@@ -885,6 +904,20 @@ extension Channel {
         }
     }
 
+    /// API to extract the negotiated ``NIOTLSCipher`` from off the `Channel`.
+    public func nioSSL_negotiatedCipherSuite() -> EventLoopFuture<NIOTLSCipher?> {
+        self.pipeline.handler(type: NIOSSLHandler.self).map {
+            $0.negotiatedCipherSuite
+        }
+    }
+
+    /// API to extract the negotiated key exchange group from off the `Channel`.
+    public func nioSSL_negotiatedGroup() -> EventLoopFuture<NIOTLSCurve?> {
+        self.pipeline.handler(type: NIOSSLHandler.self).map {
+            $0.negotiatedGroup
+        }
+    }
+
     /// API to retrieve the verified NIOSSLCertificate of the peer off the 'Channel'
     public func nioSSL_peerCertificate() -> EventLoopFuture<NIOSSLCertificate?> {
         self.pipeline.handler(type: NIOSSLHandler.self).map {
@@ -905,6 +938,18 @@ extension ChannelPipeline.SynchronousOperations {
     public func nioSSL_tlsVersion() throws -> TLSVersion? {
         let handler = try self.handler(type: NIOSSLHandler.self)
         return handler.tlsVersion
+    }
+
+    /// API to query the negotiated ``NIOTLSCipher`` directly from the `ChannelPipeline`.
+    public func nioSSL_negotiatedCipherSuite() throws -> NIOTLSCipher? {
+        let handler = try self.handler(type: NIOSSLHandler.self)
+        return handler.negotiatedCipherSuite
+    }
+
+    /// API to query the negotiated key exchange group directly from the `ChannelPipeline`.
+    public func nioSSL_negotiatedGroup() throws -> NIOTLSCurve? {
+        let handler = try self.handler(type: NIOSSLHandler.self)
+        return handler.negotiatedGroup
     }
 
     /// API to retrieve the verified NIOSSLCertificate of the peer directly from the 'ChannelPipeline'

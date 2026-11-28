@@ -1908,6 +1908,98 @@ class TLSConfigurationTest: XCTestCase {
         XCTAssertEqual(channelTLSVersion!, .tlsv11)
     }
 
+    private func handshakeOverTLS13(
+        clientCurves: [NIOTLSCurve],
+        serverCurves: [NIOTLSCurve]
+    ) throws -> BackToBackEmbeddedChannel {
+        let b2b = BackToBackEmbeddedChannel()
+
+        var clientConfig = TLSConfiguration.makeClientConfiguration()
+        clientConfig.minimumTLSVersion = .tlsv13
+        clientConfig.curves = clientCurves
+        clientConfig.certificateVerification = .noHostnameVerification
+        clientConfig.trustRoots = .certificates([TLSConfigurationTest.cert1])
+
+        var serverConfig = TLSConfiguration.makeServerConfiguration(
+            certificateChain: [.certificate(TLSConfigurationTest.cert1)],
+            privateKey: .privateKey(TLSConfigurationTest.key1)
+        )
+        serverConfig.minimumTLSVersion = .tlsv13
+        serverConfig.curves = serverCurves
+        serverConfig.certificateVerification = .none
+
+        let clientContext = try assertNoThrowWithValue(NIOSSLContext(configuration: clientConfig))
+        let serverContext = try assertNoThrowWithValue(NIOSSLContext(configuration: serverConfig))
+        XCTAssertNoThrow(
+            try b2b.client.pipeline.syncOperations.addHandlers(
+                [
+                    try NIOSSLClientHandler(context: clientContext, serverHostname: "localhost"),
+                    HandshakeCompletedHandler(),
+                ]
+            )
+        )
+        XCTAssertNoThrow(
+            try b2b.server.pipeline.syncOperations.addHandlers(
+                [NIOSSLServerHandler(context: serverContext), HandshakeCompletedHandler()]
+            )
+        )
+        return b2b
+    }
+
+    func testObtainingNegotiatedCipherSuiteAndGroup() throws {
+        let b2b = try self.handshakeOverTLS13(clientCurves: [.x25519], serverCurves: [.x25519])
+
+        // Nothing is negotiated before the handshake.
+        XCTAssertNil(try b2b.client.pipeline.syncOperations.nioSSL_negotiatedCipherSuite())
+        XCTAssertNil(try b2b.client.pipeline.syncOperations.nioSSL_negotiatedGroup())
+
+        XCTAssertNoThrow(try b2b.connectInMemory())
+        XCTAssertTrue(b2b.client.handshakeSucceeded)
+        XCTAssertTrue(b2b.server.handshakeSucceeded)
+
+        let tls13Suites: Set<NIOTLSCipher> = [
+            .TLS_AES_128_GCM_SHA256, .TLS_AES_256_GCM_SHA384, .TLS_CHACHA20_POLY1305_SHA256,
+        ]
+        for channel in [b2b.client, b2b.server] {
+            let suite = try channel.pipeline.syncOperations.nioSSL_negotiatedCipherSuite()
+            XCTAssertTrue(
+                suite.map(tls13Suites.contains) ?? false,
+                "unexpected cipher suite \(String(describing: suite))"
+            )
+            XCTAssertEqual(try channel.pipeline.syncOperations.nioSSL_negotiatedGroup(), .x25519)
+        }
+
+        // Both ends agree, and the Channel API answers the same.
+        XCTAssertEqual(
+            try b2b.client.nioSSL_negotiatedCipherSuite().wait(),
+            try b2b.server.nioSSL_negotiatedCipherSuite().wait()
+        )
+        XCTAssertEqual(try b2b.client.nioSSL_negotiatedGroup().wait(), .x25519)
+    }
+
+    func testObtainingNegotiatedPostQuantumGroup() throws {
+        let b2b = try self.handshakeOverTLS13(
+            clientCurves: [.x25519_MLKEM768, .x25519],
+            serverCurves: [.x25519_MLKEM768, .x25519]
+        )
+        XCTAssertNoThrow(try b2b.connectInMemory())
+        XCTAssertTrue(b2b.client.handshakeSucceeded)
+        XCTAssertEqual(try b2b.client.pipeline.syncOperations.nioSSL_negotiatedGroup(), .x25519_MLKEM768)
+        XCTAssertEqual(try b2b.server.pipeline.syncOperations.nioSSL_negotiatedGroup(), .x25519_MLKEM768)
+    }
+
+    func testNegotiatedGroupFollowsTheServersChoice() throws {
+        // The client offers two groups; the server only accepts the second.
+        let b2b = try self.handshakeOverTLS13(
+            clientCurves: [.x25519, .secp256r1],
+            serverCurves: [.secp256r1]
+        )
+        XCTAssertNoThrow(try b2b.connectInMemory())
+        XCTAssertTrue(b2b.client.handshakeSucceeded)
+        XCTAssertEqual(try b2b.client.pipeline.syncOperations.nioSSL_negotiatedGroup(), .secp256r1)
+        XCTAssertEqual(try b2b.server.pipeline.syncOperations.nioSSL_negotiatedGroup(), .secp256r1)
+    }
+
     @available(
         *,
         deprecated,
